@@ -5,7 +5,8 @@ from furl import furl
 from urllib3 import Retry  # type: ignore
 from requests.adapters import HTTPAdapter, BaseAdapter
 import requests
-from requests import Response
+from requests import Response, Session
+import base64
 
 from helix_fhir_client_sdk.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.fhir_request_response import FhirRequestResponse
@@ -28,7 +29,8 @@ class FhirClient:
         self._sort_fields: Optional[List[str]] = None
         self._auth_server_url: Optional[str] = None
         self._auth_scopes: Optional[List[str]] = None
-        self._token: Optional[str] = None
+        self._login_token: Optional[str] = None
+        self._access_token: Optional[str] = None
         self._logger: Optional[FhirLogger] = None
         self._adapter: Optional[BaseAdapter] = None
 
@@ -145,11 +147,17 @@ class FhirClient:
         self._auth_scopes = auth_scopes
         return self
 
-    def token(self, token: str) -> "FhirClient":
+    def login_token(self, login_token: str) -> "FhirClient":
         """
-        :param token: auth token to use
+        :param login_token: login token to use
         """
-        self._token = token
+        self._login_token = login_token
+        return self
+
+    def client_credentials(self, client_id: str, client_secret: str) -> "FhirClient":
+        self._login_token = self.create_login_token(
+            client_id=client_id, client_secret=client_secret
+        )
         return self
 
     def logger(self, logger: FhirLogger) -> "FhirClient":
@@ -164,6 +172,7 @@ class FhirClient:
         retries: int = 2
         while retries >= 0:
             retries = retries - 1
+            # create url and query to request from FHIR server
             resources: List[str] = []
             full_uri: furl = furl(self._url)
             full_uri /= self._resource
@@ -196,6 +205,7 @@ class FhirClient:
                 # noinspection SpellCheckingInspection
                 full_uri.args["_getpagesoffset"] = self._page_number
 
+            # add any sort fields
             if self._sort_fields is not None:
                 full_uri.args["_sort"] = self._sort_fields
 
@@ -208,7 +218,7 @@ class FhirClient:
                     full_url += "?"
                 full_url += "&".join(self._additional_parameters)
 
-            # have to done here since this arg can be used twice
+            # have to be done here since this arg can be used twice
             if self._last_updated_before:
                 if len(full_uri.args) > 0:
                     full_url += "&"
@@ -222,12 +232,7 @@ class FhirClient:
                     full_url += "?"
                 full_url += f"_lastUpdated=ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
 
-            payload: Dict[str, str] = {}
-            headers = {"Accept": "application/fhir+json,application/json+fhir"}
-            if self._token:
-                headers["Authorization"] = f"Bearer {self._token}"
-
-            # print(f"Calling: {full_url}")
+            # setup retry
             retry_strategy = Retry(
                 total=5,
                 status_forcelist=[429, 500, 502, 503, 504],
@@ -242,6 +247,7 @@ class FhirClient:
                 ],
                 backoff_factor=5,
             )
+            # create http session
             adapter = HTTPAdapter(max_retries=retry_strategy)
             http = requests.Session()
             http.mount("https://", adapter)
@@ -251,7 +257,28 @@ class FhirClient:
             else:
                 http.mount("http://", adapter)
 
+            # set up headers
+            payload: Dict[str, str] = {}
+            headers = {"Accept": "application/fhir+json,application/json+fhir"}
+
+            # if we have an auth server url but no access token then get an access token
+            if self._auth_server_url and not self._access_token:
+                assert (
+                    self._login_token
+                ), "login token must be present if auth_server_url is set"
+                self._access_token = self.authenticate(
+                    http=http,
+                    auth_server_url=self._auth_server_url,
+                    auth_scopes=self._auth_scopes,
+                    login_token=self._login_token,
+                )
+            # set access token in request if present
+            if self._access_token:
+                headers["Authorization"] = f"Bearer {self._access_token}"
+
+            # actually make the request
             response: Response = http.get(full_url, headers=headers, data=payload)
+            # if request is ok (200) then return the data
             if response.ok:
                 if self._logger:
                     self._logger.info(f"Successfully retrieved: {full_url}")
@@ -279,23 +306,39 @@ class FhirClient:
                 return FhirRequestResponse(
                     url=full_url, responses=resources, error=None
                 )
-            elif response.status_code == 404:
+            elif response.status_code == 404:  # not found
                 if self._logger:
                     self._logger.error(f"resource not found! GET {full_uri}")
                 return FhirRequestResponse(
                     url=full_url, responses=resources, error=f"{response.status_code}"
                 )
-            elif response.status_code == 403:
-                # TODO: call get_auth_token() again to get a fresh token
+            elif (
+                response.status_code == 403 or response.status_code == 401
+            ):  # forbidden or unauthorized
                 if retries >= 0:
+                    assert (
+                        self._auth_server_url
+                    ), f"{response.status_code} received from server but no auth_server_url was specified to use"
+                    assert (
+                        self._login_token
+                    ), f"{response.status_code} received from server but no login_token was specified to use"
+                    self._access_token = self.authenticate(
+                        http=http,
+                        auth_server_url=self._auth_server_url,
+                        auth_scopes=self._auth_scopes,
+                        login_token=self._login_token,
+                    )
+                    # try again
                     continue
                 else:
+                    # out of retries so just fail now
                     return FhirRequestResponse(
                         url=full_url,
                         responses=resources,
                         error=f"{response.status_code}",
                     )
             else:
+                # some unexpected error
                 if self._logger:
                     self._logger.error(
                         f"Fhir Receive failed [{response.status_code}]: {full_url} "
@@ -311,7 +354,33 @@ class FhirClient:
         raise Exception("Could not talk to FHIR server after multiple tries")
 
     @staticmethod
-    def get_auth_token(auth_server_url: str, auth_scopes: Optional[List[str]]) -> str:
+    def create_login_token(client_id: str, client_secret: str) -> str:
+        """
+        Creates a login token given client_id and client_secret
+        :return: login token
+        :rtype: str
+        """
+        token: str = base64.b64encode(
+            f"{client_id}:{client_secret}".encode("ascii")
+        ).decode("ascii")
+        return token
+
+    @staticmethod
+    def authenticate(
+        http: Session,
+        auth_server_url: str,
+        auth_scopes: Optional[List[str]],
+        login_token: str,
+    ) -> Optional[str]:
+        """
+        Authenticates with an OAuth Provider
+        :param http: http session
+        :param auth_server_url: url to auth server /token endpoint
+        :param auth_scopes: list of scopes to request
+        :param login_token: login token to use for authenticating
+        :return: access token
+        :rtype: str
+        """
         assert auth_server_url
         payload: str = (
             "grant_type=client_credentials&scope=" + "%20".join(auth_scopes)
@@ -321,17 +390,19 @@ class FhirClient:
         # noinspection SpellCheckingInspection
         headers: Dict[str, str] = {
             "Accept": "application/json",
-            "Authorization": "Basic " "temp",
+            "Authorization": "Basic " + login_token,
             "Content-Type": "application/x-www-form-urlencoded",
         }
 
-        response: Response = requests.request(
+        response: Response = http.request(
             "POST", auth_server_url, headers=headers, data=payload
         )
 
         # token = response.text.encode('utf8')
         token_text: str = response.text
+        if not token_text:
+            return None
         token_json: Dict[str, Any] = json.loads(token_text)
 
-        token: str = token_json["access_token"]
-        return token
+        access_token: str = token_json["access_token"]
+        return access_token
