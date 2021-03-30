@@ -10,7 +10,7 @@ def test_fhir_client_patient_list() -> None:
     adapter = requests_mock.Adapter()
     url = "http://foo"
     response_text = {"resourceType": "Patient", "id": "12355"}
-    adapter.register_uri("GET", f"{url}/Patient", text=json.dumps(response_text))
+    adapter.register_uri("GET", f"{url}/Patient", json=response_text)
 
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(url).resource("Patient")

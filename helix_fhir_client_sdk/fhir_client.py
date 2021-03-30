@@ -161,7 +161,9 @@ class FhirClient:
         return self
 
     def send_request(self) -> FhirRequestResponse:
-        while True:
+        retries: int = 2
+        while retries >= 0:
+            retries = retries - 1
             resources: List[str] = []
             full_uri: furl = furl(self._url)
             full_uri /= self._resource
@@ -285,7 +287,14 @@ class FhirClient:
                 )
             elif response.status_code == 403:
                 # TODO: call get_auth_token() again to get a fresh token
-                pass
+                if retries >= 0:
+                    continue
+                else:
+                    return FhirRequestResponse(
+                        url=full_url,
+                        responses=resources,
+                        error=f"{response.status_code}",
+                    )
             else:
                 if self._logger:
                     self._logger.error(
@@ -299,6 +308,7 @@ class FhirClient:
                     responses=[],
                     error=f"{response.status_code} {error_text}",
                 )
+        raise Exception("Could not talk to FHIR server after multiple tries")
 
     @staticmethod
     def get_auth_token(auth_server_url: str, auth_scopes: Optional[List[str]]) -> str:
