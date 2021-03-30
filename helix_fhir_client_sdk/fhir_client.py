@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Dict, Optional, List, Union, Any
 from furl import furl
 from urllib3 import Retry  # type: ignore
-from requests.adapters import HTTPAdapter
+from requests.adapters import HTTPAdapter, BaseAdapter
 import requests
 from requests import Response
 
@@ -13,7 +13,7 @@ from helix_fhir_client_sdk.fhir_request_response import FhirRequestResponse
 
 class FhirClient:
     def __init__(self) -> None:
-        self._action: str = "GET"
+        self._action: Optional[str] = None
         self._resource: Optional[str] = None
         self._id: Optional[Union[List[str], str]] = None
         self._url: Optional[str] = None
@@ -30,6 +30,7 @@ class FhirClient:
         self._auth_scopes: Optional[List[str]] = None
         self._token: Optional[str] = None
         self._logger: Optional[FhirLogger] = None
+        self._adapter: Optional[BaseAdapter] = None
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -155,6 +156,10 @@ class FhirClient:
         self._logger = logger
         return self
 
+    def adapter(self, adapter: BaseAdapter) -> "FhirClient":
+        self._adapter = adapter
+        return self
+
     def send_request(self) -> FhirRequestResponse:
         while True:
             resources: List[str] = []
@@ -239,6 +244,10 @@ class FhirClient:
             http = requests.Session()
             http.mount("https://", adapter)
             http.mount("http://", adapter)
+            if self._adapter:
+                http.mount("http://", self._adapter)
+            else:
+                http.mount("http://", adapter)
 
             response: Response = http.get(full_url, headers=headers, data=payload)
             if response.ok:

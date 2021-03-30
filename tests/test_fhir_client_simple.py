@@ -1,15 +1,18 @@
-import requests
 import requests_mock
+
+from helix_fhir_client_sdk.fhir_client import FhirClient
+from helix_fhir_client_sdk.fhir_request_response import FhirRequestResponse
 
 
 def test_fhir_client_simple() -> None:
-    http = requests.Session()
     adapter = requests_mock.Adapter()
-    adapter.register_uri("GET", "http://foo", text="data")
+    url = "http://foo"
+    adapter.register_uri("GET", f"{url}/Patient", text="{}")
 
-    http.mount("https://", adapter)
-    http.mount("http://", adapter)
-    response = http.get("http://foo")
+    fhir_client = FhirClient()
+    fhir_client = fhir_client.url(url).resource("Patient")
+    fhir_client = fhir_client.adapter(adapter)
+    response: FhirRequestResponse = fhir_client.send_request()
 
-    print(response.content)
-    assert response.content == b"data"
+    print(response.responses)
+    assert response.responses == ["{}"]
