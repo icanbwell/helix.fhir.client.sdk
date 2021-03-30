@@ -12,154 +12,284 @@ from helix_fhir_client_sdk.fhir_request_response import FhirRequestResponse
 
 
 class FhirClient:
-    @staticmethod
-    def send_request(
-        logger: FhirLogger,
-        action: Optional[str],
-        additional_parameters: Optional[List[str]],
-        filter_by_resource: Optional[str],
-        filter_parameter: Optional[str],
-        resource_name: str,
-        resource_id: Optional[Union[List[str], str]],
-        server_url: str,
-        token: Optional[str],
-        include_only_properties: Optional[List[str]],
-        page_number: Optional[int] = None,
-        page_size: Optional[int] = None,
-        last_updated_after: Optional[datetime] = None,
-        last_updated_before: Optional[datetime] = None,
-        sort_fields: Optional[List[str]] = None,
-    ) -> FhirRequestResponse:
-        resources: List[str] = []
-        full_uri: furl = furl(server_url)
-        full_uri /= resource_name
-        if resource_id:
-            if filter_by_resource:
-                if filter_parameter:
-                    # ?subject:Patient=27384972
-                    full_uri.args[
-                        f"{filter_parameter}:{filter_by_resource}"
-                    ] = resource_id
+    def __init__(self) -> None:
+        self._action: str = "GET"
+        self._resource: Optional[str] = None
+        self._id: Optional[Union[List[str], str]] = None
+        self._url: Optional[str] = None
+        self._additional_parameters: Optional[List[str]] = None
+        self._filter_by_resource: Optional[str] = None
+        self._filter_parameter: Optional[str] = None
+        self._include_only_properties: Optional[List[str]] = None
+        self._page_number: Optional[int] = None
+        self._page_size: Optional[int] = None
+        self._last_updated_after: Optional[datetime] = None
+        self._last_updated_before: Optional[datetime] = None
+        self._sort_fields: Optional[List[str]] = None
+        self._auth_server_url: Optional[str] = None
+        self._auth_scopes: Optional[List[str]] = None
+        self._token: Optional[str] = None
+        self._logger: Optional[FhirLogger] = None
+
+    def action(self, action: str) -> "FhirClient":
+        """
+        :param action: (Optional) do an action e.g., $everything
+        """
+        self._action = action
+        return self
+
+    def resource(self, resource: str) -> "FhirClient":
+        """
+        :param resource: what FHIR resource to retrieve
+        """
+        self._resource = resource
+        return self
+
+    def id_(self, id_: Optional[Union[List[str], str]]) -> "FhirClient":
+        self._id = id_
+        return self
+
+    def url(self, url: str) -> "FhirClient":
+        """
+        :param url: server to call for FHIR
+        """
+        self._url = url
+        return self
+
+    def additional_parameters(
+        self, additional_parameters: Optional[List[str]]
+    ) -> "FhirClient":
+        """
+        :param additional_parameters: Any additional parameters to send with request
+        """
+        self._additional_parameters = additional_parameters
+        return self
+
+    def filter_by_resource(self, filter_by_resource: Optional[str]) -> "FhirClient":
+        """
+        :param filter_by_resource: filter the resource by this. e.g., /Condition?Patient=1
+                (resource=Condition, filter_by_resource=Patient)
+        """
+        self._filter_by_resource = filter_by_resource
+        return self
+
+    def filter_parameter(self, filter_parameter: Optional[str]) -> "FhirClient":
+        """
+        :param filter_parameter: Instead of requesting ?patient=1,
+                do ?subject:Patient=1 (if filter_parameter is subject)
+        """
+        self._filter_parameter = filter_parameter
+        return self
+
+    def include_only_properties(
+        self, include_only_properties: Optional[List[str]]
+    ) -> "FhirClient":
+        """
+        :param include_only_properties: includes only these properties
+        """
+        self._include_only_properties = include_only_properties
+        return self
+
+    def page_number(self, page_number: Optional[int]) -> "FhirClient":
+        """
+        :param page_number: page number to load
+        """
+        self._page_number = page_number
+        return self
+
+    def page_size(self, page_size: Optional[int]) -> "FhirClient":
+        """
+        :param page_size: (Optional) use paging and get this many items in each page
+        """
+
+        self._page_size = page_size
+        return self
+
+    def last_updated_after(
+        self, last_updated_after: Optional[datetime]
+    ) -> "FhirClient":
+        """
+        :param last_updated_after: (Optional) Only get records newer than this
+        """
+        self._last_updated_after = last_updated_after
+        return self
+
+    def last_updated_before(
+        self, last_updated_before: Optional[datetime]
+    ) -> "FhirClient":
+        """
+        :param last_updated_before: (Optional) Only get records older than this
+        """
+        self._last_updated_before = last_updated_before
+        return self
+
+    def sort_fields(self, sort_fields: Optional[List[str]]) -> "FhirClient":
+        """
+        :param sort_fields: sort by fields in the resource
+        """
+        self._sort_fields = sort_fields
+        return self
+
+    def auth_server_url(self, auth_server_url: str) -> "FhirClient":
+        """
+        :param auth_server_url: server url to call to get the authentication token
+        """
+        self._auth_server_url = auth_server_url
+        return self
+
+    def auth_scopes(self, auth_scopes: Optional[List[str]]) -> "FhirClient":
+        """
+        :param auth_scopes: list of scopes to request permission for e.g., system/AllergyIntolerance.read
+        """
+        self._auth_scopes = auth_scopes
+        return self
+
+    def token(self, token: str) -> "FhirClient":
+        """
+        :param token: auth token to use
+        """
+        self._token = token
+        return self
+
+    def logger(self, logger: FhirLogger) -> "FhirClient":
+        self._logger = logger
+        return self
+
+    def send_request(self) -> FhirRequestResponse:
+        while True:
+            resources: List[str] = []
+            full_uri: furl = furl(self._url)
+            full_uri /= self._resource
+            if self._id:
+                if self._filter_by_resource:
+                    if self._filter_parameter:
+                        # ?subject:Patient=27384972
+                        full_uri.args[
+                            f"{self._filter_parameter}:{self._filter_by_resource}"
+                        ] = self._id
+                    else:
+                        # ?patient=27384972
+                        full_uri.args[self._filter_by_resource.lower()] = self._id
+                elif isinstance(self._id, list):
+                    if len(self._id) == 1:
+                        full_uri /= self._id
+                    else:
+                        full_uri.args["id"] = ",".join(self._id)
                 else:
-                    # ?patient=27384972
-                    full_uri.args[filter_by_resource.lower()] = resource_id
-            elif isinstance(resource_id, list):
-                if len(resource_id) == 1:
-                    full_uri /= resource_id
+                    full_uri /= self._id
+            # add action to url
+            if self._action:
+                full_uri /= self._action
+            # add a query for just desired properties
+            if self._include_only_properties:
+                full_uri.args["_elements"] = ",".join(self._include_only_properties)
+            if self._page_size and self._page_number is not None:
+                # noinspection SpellCheckingInspection
+                full_uri.args["_count"] = self._page_size
+                # noinspection SpellCheckingInspection
+                full_uri.args["_getpagesoffset"] = self._page_number
+
+            if self._sort_fields is not None:
+                full_uri.args["_sort"] = self._sort_fields
+
+            # create full url by adding on any query parameters
+            full_url: str = full_uri.url
+            if self._additional_parameters:
+                if len(full_uri.args) > 0:
+                    full_url += "&"
                 else:
-                    full_uri.args["id"] = ",".join(resource_id)
-            else:
-                full_uri /= resource_id
-        # add action to url
-        if action:
-            full_uri /= action
-        # add a query for just desired properties
-        if include_only_properties:
-            full_uri.args["_elements"] = ",".join(include_only_properties)
-        if page_size and page_number is not None:
-            # noinspection SpellCheckingInspection
-            full_uri.args["_count"] = page_size
-            # noinspection SpellCheckingInspection
-            full_uri.args["_getpagesoffset"] = page_number
+                    full_url += "?"
+                full_url += "&".join(self._additional_parameters)
 
-        if sort_fields is not None:
-            full_uri.args["_sort"] = sort_fields
-
-        # create full url by adding on any query parameters
-        full_url: str = full_uri.url
-        if additional_parameters:
-            if len(full_uri.args) > 0:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += "&".join(additional_parameters)
-
-        # have to done here since this arg can be used twice
-        if last_updated_before:
-            if len(full_uri.args) > 0:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += (
-                f"_lastUpdated=lt{last_updated_before.strftime('%Y-%m-%dT%H:%M:%SZ')}"
-            )
-        if last_updated_after:
-            if len(full_uri.args) > 0:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += (
-                f"_lastUpdated=ge{last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
-            )
-
-        payload: Dict[str, str] = {}
-        headers = {"Accept": "application/fhir+json,application/json+fhir"}
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
-
-        # print(f"Calling: {full_url}")
-        retry_strategy = Retry(
-            total=5,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=[
-                "HEAD",
-                "GET",
-                "PUT",
-                "DELETE",
-                "OPTIONS",
-                "TRACE",
-                "POST",
-            ],
-            backoff_factor=5,
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        http = requests.Session()
-        http.mount("https://", adapter)
-        http.mount("http://", adapter)
-
-        response: Response = http.get(full_url, headers=headers, data=payload)
-        if response.ok:
-            logger.info(f"Successfully retrieved: {full_url}")
-
-            text = response.text
-            if len(text) > 0:
-                response_json: Dict[str, Any] = json.loads(text)
-                # see if this is a Resource Bundle and un-bundle it
-                if (
-                    "resourceType" in response_json
-                    and response_json["resourceType"] == "Bundle"
-                ):
-                    # resources.append(text)
-                    if "entry" in response_json:
-                        # iterate through the entry list
-                        # have to split these here otherwise when Spark loads them it can't handle
-                        # that items in the entry array can have different types
-                        entries: List[Dict[str, Any]] = response_json["entry"]
-                        entry: Dict[str, Any]
-                        for entry in entries:
-                            if "resource" in entry:
-                                resources.append(json.dumps(entry["resource"]))
+            # have to done here since this arg can be used twice
+            if self._last_updated_before:
+                if len(full_uri.args) > 0:
+                    full_url += "&"
                 else:
-                    resources.append(text)
-        elif response.status_code == 404:
-            logger.error(f"resource not found! GET {full_uri}")
-            return FhirRequestResponse(
-                url=full_url, responses=resources, error=f"{response.status_code}"
+                    full_url += "?"
+                full_url += f"_lastUpdated=lt{self._last_updated_before.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+            if self._last_updated_after:
+                if len(full_uri.args) > 0:
+                    full_url += "&"
+                else:
+                    full_url += "?"
+                full_url += f"_lastUpdated=ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+
+            payload: Dict[str, str] = {}
+            headers = {"Accept": "application/fhir+json,application/json+fhir"}
+            if self._token:
+                headers["Authorization"] = f"Bearer {self._token}"
+
+            # print(f"Calling: {full_url}")
+            retry_strategy = Retry(
+                total=5,
+                status_forcelist=[429, 500, 502, 503, 504],
+                allowed_methods=[
+                    "HEAD",
+                    "GET",
+                    "PUT",
+                    "DELETE",
+                    "OPTIONS",
+                    "TRACE",
+                    "POST",
+                ],
+                backoff_factor=5,
             )
-        elif response.status_code == 403:
-            # TODO: call get_auth_token() again to get a fresh token
-            pass
-        else:
-            logger.error(f"Fhir Receive failed [{response.status_code}]: {full_url} ")
-            error_text: str = response.text
-            logger.error(error_text)
-            return FhirRequestResponse(
-                url=full_url,
-                responses=[],
-                error=f"{response.status_code} {error_text}",
-            )
-            # raise Exception(error_text) # swallow the error and continue processing
-        return FhirRequestResponse(url=full_url, responses=resources, error=None)
+            adapter = HTTPAdapter(max_retries=retry_strategy)
+            http = requests.Session()
+            http.mount("https://", adapter)
+            http.mount("http://", adapter)
+
+            response: Response = http.get(full_url, headers=headers, data=payload)
+            if response.ok:
+                if self._logger:
+                    self._logger.info(f"Successfully retrieved: {full_url}")
+
+                text = response.text
+                if len(text) > 0:
+                    response_json: Dict[str, Any] = json.loads(text)
+                    # see if this is a Resource Bundle and un-bundle it
+                    if (
+                        "resourceType" in response_json
+                        and response_json["resourceType"] == "Bundle"
+                    ):
+                        # resources.append(text)
+                        if "entry" in response_json:
+                            # iterate through the entry list
+                            # have to split these here otherwise when Spark loads them it can't handle
+                            # that items in the entry array can have different types
+                            entries: List[Dict[str, Any]] = response_json["entry"]
+                            entry: Dict[str, Any]
+                            for entry in entries:
+                                if "resource" in entry:
+                                    resources.append(json.dumps(entry["resource"]))
+                    else:
+                        resources.append(text)
+                return FhirRequestResponse(
+                    url=full_url, responses=resources, error=None
+                )
+            elif response.status_code == 404:
+                if self._logger:
+                    self._logger.error(f"resource not found! GET {full_uri}")
+                return FhirRequestResponse(
+                    url=full_url, responses=resources, error=f"{response.status_code}"
+                )
+            elif response.status_code == 403:
+                # TODO: call get_auth_token() again to get a fresh token
+                pass
+            else:
+                if self._logger:
+                    self._logger.error(
+                        f"Fhir Receive failed [{response.status_code}]: {full_url} "
+                    )
+                error_text: str = response.text
+                if self._logger:
+                    self._logger.error(error_text)
+                return FhirRequestResponse(
+                    url=full_url,
+                    responses=[],
+                    error=f"{response.status_code} {error_text}",
+                )
 
     @staticmethod
     def get_auth_token(auth_server_url: str, auth_scopes: Optional[List[str]]) -> str:
@@ -172,9 +302,7 @@ class FhirClient:
         # noinspection SpellCheckingInspection
         headers: Dict[str, str] = {
             "Accept": "application/json",
-            "Authorization": "Basic "
-            "YTBjZTc5NWQtYjQ0NC00NzkwLTlhMmMtNDllY2RjZWM2NGZlOkpoa"
-            "VdpUllCajlDZU5VVG1sUnQxaUJhOEM4czVvejZy",
+            "Authorization": "Basic " "temp",
             "Content-Type": "application/x-www-form-urlencoded",
         }
 
