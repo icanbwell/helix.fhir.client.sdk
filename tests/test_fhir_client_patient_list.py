@@ -14,7 +14,7 @@ def test_fhir_client_patient_list() -> None:
 
         fhir_client = FhirClient()
         fhir_client = fhir_client.url(url).resource("Patient")
-        response: FhirRequestResponse = fhir_client.send_request()
+        response: FhirRequestResponse = fhir_client.get()
 
         print(response.responses)
         assert response.responses == [json.dumps(response_text)]

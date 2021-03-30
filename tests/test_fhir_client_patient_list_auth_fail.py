@@ -14,7 +14,7 @@ def test_fhir_client_patient_list_auth_fail() -> None:
         fhir_client = fhir_client.url(url).resource("Patient")
 
         with pytest.raises(AssertionError):
-            response: FhirRequestResponse = fhir_client.send_request()
+            response: FhirRequestResponse = fhir_client.get()
 
             print(response.responses)
             assert response.error == "403"

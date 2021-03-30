@@ -33,6 +33,7 @@ class FhirClient:
         self._access_token: Optional[str] = None
         self._logger: Optional[FhirLogger] = None
         self._adapter: Optional[BaseAdapter] = None
+        self._limit: Optional[int] = None
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -162,7 +163,11 @@ class FhirClient:
         self._adapter = adapter
         return self
 
-    def send_request(self) -> FhirRequestResponse:
+    def limit(self, limit: int) -> "FhirClient":
+        self._limit = limit
+        return self
+
+    def get(self) -> FhirRequestResponse:
         retries: int = 2
         while retries >= 0:
             retries = retries - 1
@@ -346,6 +351,24 @@ class FhirClient:
                     error=f"{response.status_code} {error_text}",
                 )
         raise Exception("Could not talk to FHIR server after multiple tries")
+
+    def get_in_batches(self) -> FhirRequestResponse:
+        # if paging is requested then iterate through the pages until the response is empty
+        assert self._url
+        assert self._page_size
+        self._page_number = 0
+        resources: List[str] = []
+        while True:
+            result: FhirRequestResponse = self.get()
+            if len(result.responses) > 0:
+                resources = resources + result.responses
+                if self._limit and self._limit > 0:
+                    if (self._page_number * self._page_size) > self._limit:
+                        break
+                self._page_number += 1
+            else:
+                break
+        return FhirRequestResponse(self._url, responses=resources, error=result.error)
 
     @staticmethod
     def create_login_token(client_id: str, client_secret: str) -> str:

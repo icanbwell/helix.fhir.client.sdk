@@ -29,7 +29,7 @@ def test_fhir_client_patient_list_auth_fail_retry() -> None:
         fhir_client = fhir_client.auth_server_url("http://auth").auth_scopes(
             ["user/*.ready"]
         )
-        response: FhirRequestResponse = fhir_client.send_request()
+        response: FhirRequestResponse = fhir_client.get()
 
         print(response.responses)
         assert mock.call_count == 4, ",".join([r.url for r in mock.request_history])
