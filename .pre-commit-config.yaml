@@ -1,0 +1,35 @@
+exclude: (^.idea/)
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+      - id: end-of-file-fixer
+        types: [ python ]
+  - repo: local
+    hooks:
+      - id: autoflake
+        name: autoflake
+        language: system
+        types: [ python ]
+        entry: autoflake
+        require_serial: true
+        args: [ '--in-place', '--remove-all-unused-imports', '--ignore-init-module-imports']
+      - id: flake8
+        name: flake8
+        language: system
+        types: [python]
+        entry: flake8
+        require_serial: true
+      - id: black
+        name: black
+        language: system
+        types: [python]
+        require_serial: true
+        entry: black
+      - id: mypy
+        name: mypy
+        language: system
+        types: [ python ]
+        entry: mypy
+        require_serial: true
+        args: [ --strict, --python-version=3.7, --show-error-codes, --allow-untyped-decorators ]

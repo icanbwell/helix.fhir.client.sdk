@@ -1,0 +1,11 @@
+version: '3.5'
+services:
+  dev:
+    user: root
+    build:
+      dockerfile: Dockerfile
+      context: .
+    volumes:
+      - ./:/src/
+    container_name: spf_dev
+    working_dir: /src
