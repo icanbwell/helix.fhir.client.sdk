@@ -48,7 +48,7 @@ class FhirClient:
         self._resource = resource
         return self
 
-    def id_(self, id_: Optional[Union[List[str], str]]) -> "FhirClient":
+    def id_(self, id_: Union[List[str], str]) -> "FhirClient":
         self._id = id_
         return self
 
@@ -59,16 +59,14 @@ class FhirClient:
         self._url = url
         return self
 
-    def additional_parameters(
-        self, additional_parameters: Optional[List[str]]
-    ) -> "FhirClient":
+    def additional_parameters(self, additional_parameters: List[str]) -> "FhirClient":
         """
         :param additional_parameters: Any additional parameters to send with request
         """
         self._additional_parameters = additional_parameters
         return self
 
-    def filter_by_resource(self, filter_by_resource: Optional[str]) -> "FhirClient":
+    def filter_by_resource(self, filter_by_resource: str) -> "FhirClient":
         """
         :param filter_by_resource: filter the resource by this. e.g., /Condition?Patient=1
                 (resource=Condition, filter_by_resource=Patient)
@@ -76,7 +74,7 @@ class FhirClient:
         self._filter_by_resource = filter_by_resource
         return self
 
-    def filter_parameter(self, filter_parameter: Optional[str]) -> "FhirClient":
+    def filter_parameter(self, filter_parameter: str) -> "FhirClient":
         """
         :param filter_parameter: Instead of requesting ?patient=1,
                 do ?subject:Patient=1 (if filter_parameter is subject)
@@ -85,7 +83,7 @@ class FhirClient:
         return self
 
     def include_only_properties(
-        self, include_only_properties: Optional[List[str]]
+        self, include_only_properties: List[str]
     ) -> "FhirClient":
         """
         :param include_only_properties: includes only these properties
@@ -93,14 +91,14 @@ class FhirClient:
         self._include_only_properties = include_only_properties
         return self
 
-    def page_number(self, page_number: Optional[int]) -> "FhirClient":
+    def page_number(self, page_number: int) -> "FhirClient":
         """
         :param page_number: page number to load
         """
         self._page_number = page_number
         return self
 
-    def page_size(self, page_size: Optional[int]) -> "FhirClient":
+    def page_size(self, page_size: int) -> "FhirClient":
         """
         :param page_size: (Optional) use paging and get this many items in each page
         """
@@ -108,25 +106,21 @@ class FhirClient:
         self._page_size = page_size
         return self
 
-    def last_updated_after(
-        self, last_updated_after: Optional[datetime]
-    ) -> "FhirClient":
+    def last_updated_after(self, last_updated_after: datetime) -> "FhirClient":
         """
         :param last_updated_after: (Optional) Only get records newer than this
         """
         self._last_updated_after = last_updated_after
         return self
 
-    def last_updated_before(
-        self, last_updated_before: Optional[datetime]
-    ) -> "FhirClient":
+    def last_updated_before(self, last_updated_before: datetime) -> "FhirClient":
         """
         :param last_updated_before: (Optional) Only get records older than this
         """
         self._last_updated_before = last_updated_before
         return self
 
-    def sort_fields(self, sort_fields: Optional[List[str]]) -> "FhirClient":
+    def sort_fields(self, sort_fields: List[str]) -> "FhirClient":
         """
         :param sort_fields: sort by fields in the resource
         """
@@ -140,7 +134,7 @@ class FhirClient:
         self._auth_server_url = auth_server_url
         return self
 
-    def auth_scopes(self, auth_scopes: Optional[List[str]]) -> "FhirClient":
+    def auth_scopes(self, auth_scopes: List[str]) -> "FhirClient":
         """
         :param auth_scopes: list of scopes to request permission for e.g., system/AllergyIntolerance.read
         """
