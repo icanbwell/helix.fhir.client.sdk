@@ -160,3 +160,31 @@ class FhirClient:
             )
             # raise Exception(error_text) # swallow the error and continue processing
         return FhirRequestResponse(url=full_url, responses=resources, error=None)
+
+    @staticmethod
+    def get_auth_token(auth_server_url: str, auth_scopes: Optional[List[str]]) -> str:
+        assert auth_server_url
+        payload: str = (
+            "grant_type=client_credentials&scope=" + "%20".join(auth_scopes)
+            if auth_scopes
+            else ""
+        )
+        # noinspection SpellCheckingInspection
+        headers: Dict[str, str] = {
+            "Accept": "application/json",
+            "Authorization": "Basic "
+            "YTBjZTc5NWQtYjQ0NC00NzkwLTlhMmMtNDllY2RjZWM2NGZlOkpoa"
+            "VdpUllCajlDZU5VVG1sUnQxaUJhOEM4czVvejZy",
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+
+        response: Response = requests.request(
+            "POST", auth_server_url, headers=headers, data=payload
+        )
+
+        # token = response.text.encode('utf8')
+        token_text: str = response.text
+        token_json: Dict[str, Any] = json.loads(token_text)
+
+        token: str = token_json["access_token"]
+        return token
