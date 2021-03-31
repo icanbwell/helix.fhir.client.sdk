@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 furl=">=2.1.0"
 requests = ">=2.25.1"
+ensure = ">=1.0.0"
 
 [dev-packages]
 setuptools="*"

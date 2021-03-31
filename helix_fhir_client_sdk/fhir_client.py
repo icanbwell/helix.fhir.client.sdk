@@ -7,6 +7,7 @@ from requests.adapters import HTTPAdapter, BaseAdapter
 import requests
 from requests import Response, Session
 import base64
+from ensure import ensure_annotations
 
 from helix_fhir_client_sdk.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.fhir_request_response import FhirRequestResponse
@@ -35,6 +36,7 @@ class FhirClient:
         self._adapter: Optional[BaseAdapter] = None
         self._limit: Optional[int] = None
 
+    @ensure_annotations
     def action(self, action: str) -> "FhirClient":
         """
         :param action: (Optional) do an action e.g., $everything
@@ -42,6 +44,7 @@ class FhirClient:
         self._action = action
         return self
 
+    @ensure_annotations
     def resource(self, resource: str) -> "FhirClient":
         """
         :param resource: what FHIR resource to retrieve
@@ -49,10 +52,12 @@ class FhirClient:
         self._resource = resource
         return self
 
+    @ensure_annotations
     def id_(self, id_: Union[List[str], str]) -> "FhirClient":
         self._id = id_
         return self
 
+    @ensure_annotations
     def url(self, url: str) -> "FhirClient":
         """
         :param url: server to call for FHIR
@@ -60,6 +65,7 @@ class FhirClient:
         self._url = url
         return self
 
+    @ensure_annotations
     def additional_parameters(self, additional_parameters: List[str]) -> "FhirClient":
         """
         :param additional_parameters: Any additional parameters to send with request
@@ -67,6 +73,7 @@ class FhirClient:
         self._additional_parameters = additional_parameters
         return self
 
+    @ensure_annotations
     def filter_by_resource(self, filter_by_resource: str) -> "FhirClient":
         """
         :param filter_by_resource: filter the resource by this. e.g., /Condition?Patient=1
@@ -75,6 +82,7 @@ class FhirClient:
         self._filter_by_resource = filter_by_resource
         return self
 
+    @ensure_annotations
     def filter_parameter(self, filter_parameter: str) -> "FhirClient":
         """
         :param filter_parameter: Instead of requesting ?patient=1,
@@ -83,6 +91,7 @@ class FhirClient:
         self._filter_parameter = filter_parameter
         return self
 
+    @ensure_annotations
     def include_only_properties(
         self, include_only_properties: List[str]
     ) -> "FhirClient":
@@ -92,6 +101,7 @@ class FhirClient:
         self._include_only_properties = include_only_properties
         return self
 
+    @ensure_annotations
     def page_number(self, page_number: int) -> "FhirClient":
         """
         :param page_number: page number to load
@@ -99,6 +109,7 @@ class FhirClient:
         self._page_number = page_number
         return self
 
+    @ensure_annotations
     def page_size(self, page_size: int) -> "FhirClient":
         """
         :param page_size: (Optional) use paging and get this many items in each page
@@ -107,6 +118,7 @@ class FhirClient:
         self._page_size = page_size
         return self
 
+    @ensure_annotations
     def last_updated_after(self, last_updated_after: datetime) -> "FhirClient":
         """
         :param last_updated_after: (Optional) Only get records newer than this
@@ -114,6 +126,7 @@ class FhirClient:
         self._last_updated_after = last_updated_after
         return self
 
+    @ensure_annotations
     def last_updated_before(self, last_updated_before: datetime) -> "FhirClient":
         """
         :param last_updated_before: (Optional) Only get records older than this
@@ -121,6 +134,7 @@ class FhirClient:
         self._last_updated_before = last_updated_before
         return self
 
+    @ensure_annotations
     def sort_fields(self, sort_fields: List[str]) -> "FhirClient":
         """
         :param sort_fields: sort by fields in the resource
@@ -128,6 +142,7 @@ class FhirClient:
         self._sort_fields = sort_fields
         return self
 
+    @ensure_annotations
     def auth_server_url(self, auth_server_url: str) -> "FhirClient":
         """
         :param auth_server_url: server url to call to get the authentication token
@@ -135,6 +150,7 @@ class FhirClient:
         self._auth_server_url = auth_server_url
         return self
 
+    @ensure_annotations
     def auth_scopes(self, auth_scopes: List[str]) -> "FhirClient":
         """
         :param auth_scopes: list of scopes to request permission for e.g., system/AllergyIntolerance.read
@@ -142,6 +158,7 @@ class FhirClient:
         self._auth_scopes = auth_scopes
         return self
 
+    @ensure_annotations
     def login_token(self, login_token: str) -> "FhirClient":
         """
         :param login_token: login token to use
@@ -149,20 +166,24 @@ class FhirClient:
         self._login_token = login_token
         return self
 
+    @ensure_annotations
     def client_credentials(self, client_id: str, client_secret: str) -> "FhirClient":
         self._login_token = self.create_login_token(
             client_id=client_id, client_secret=client_secret
         )
         return self
 
+    @ensure_annotations
     def logger(self, logger: FhirLogger) -> "FhirClient":
         self._logger = logger
         return self
 
+    @ensure_annotations
     def adapter(self, adapter: BaseAdapter) -> "FhirClient":
         self._adapter = adapter
         return self
 
+    @ensure_annotations
     def limit(self, limit: int) -> "FhirClient":
         self._limit = limit
         return self
@@ -371,6 +392,7 @@ class FhirClient:
         return FhirRequestResponse(self._url, responses=resources, error=result.error)
 
     @staticmethod
+    @ensure_annotations
     def create_login_token(client_id: str, client_secret: str) -> str:
         """
         Creates a login token given client_id and client_secret
@@ -383,6 +405,7 @@ class FhirClient:
         return token
 
     @staticmethod
+    @ensure_annotations
     def authenticate(
         http: Session,
         auth_server_url: str,

@@ -13,7 +13,8 @@ def test_fhir_client_patient_by_id() -> None:
         mock.get(f"{url}/Patient/12355", json=response_text)
 
         fhir_client = FhirClient()
-        fhir_client = fhir_client.url(url).resource("Patient").id_("12355")
+        fhir_client = fhir_client.url(url).resource("Patient")
+        fhir_client = fhir_client.id_("12355")
         response: FhirRequestResponse = fhir_client.get()
 
         print(response.responses)
