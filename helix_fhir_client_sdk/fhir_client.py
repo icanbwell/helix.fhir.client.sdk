@@ -12,6 +12,7 @@ from urllib import parse
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
+from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
 from helix_fhir_client_sdk.validators.fhir_validator import FhirValidator
 
 
@@ -437,7 +438,7 @@ class FhirClient:
         access_token: str = token_json["access_token"]
         return access_token
 
-    def merge(self, json_data_list: List[str],) -> List[Dict[str, Any]]:
+    def merge(self, json_data_list: List[str],) -> FhirMergeResponse:
         """
 
         :param json_data_list:
@@ -563,6 +564,8 @@ class FhirClient:
                             f"Assertion: FHIR send failed: {str(e)} for resource: {json_data_list}"
                         )
                     )
-            return responses
+            return FhirMergeResponse(
+                url=self._url or "", responses=responses, error=None
+            )
 
         raise Exception("Could not talk to FHIR server after multiple tries")
