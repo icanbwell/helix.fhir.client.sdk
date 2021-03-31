@@ -7,9 +7,12 @@ from requests.adapters import HTTPAdapter, BaseAdapter
 import requests
 from requests import Response, Session
 import base64
+from urllib import parse
 
 from helix_fhir_client_sdk.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.fhir_request_response import FhirRequestResponse
+from helix_fhir_client_sdk.fhir_sender_exception import FhirSenderException
+from helix_fhir_client_sdk.fhir_validator import FhirValidator
 
 
 class FhirClient:
@@ -34,6 +37,7 @@ class FhirClient:
         self._logger: Optional[FhirLogger] = None
         self._adapter: Optional[BaseAdapter] = None
         self._limit: Optional[int] = None
+        self._validation_server_url: Optional[str] = None
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -58,6 +62,13 @@ class FhirClient:
         :param url: server to call for FHIR
         """
         self._url = url
+        return self
+
+    def validation_server_url(self, validation_server_url: str) -> "FhirClient":
+        """
+        :param validation_server_url: server to call for FHIR validation
+        """
+        self._validation_server_url = validation_server_url
         return self
 
     def additional_parameters(self, additional_parameters: List[str]) -> "FhirClient":
@@ -232,29 +243,7 @@ class FhirClient:
                 full_url += f"_lastUpdated=ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
 
             # setup retry
-            retry_strategy = Retry(
-                total=5,
-                status_forcelist=[429, 500, 502, 503, 504],
-                allowed_methods=[
-                    "HEAD",
-                    "GET",
-                    "PUT",
-                    "DELETE",
-                    "OPTIONS",
-                    "TRACE",
-                    "POST",
-                ],
-                backoff_factor=5,
-            )
-            # create http session
-            adapter = HTTPAdapter(max_retries=retry_strategy)
-            http = requests.Session()
-            http.mount("https://", adapter)
-            http.mount("http://", adapter)
-            if self._adapter:
-                http.mount("http://", self._adapter)
-            else:
-                http.mount("http://", adapter)
+            http: Session = self._create_http_session()
 
             # set up headers
             payload: Dict[str, str] = {}
@@ -352,6 +341,32 @@ class FhirClient:
                 )
         raise Exception("Could not talk to FHIR server after multiple tries")
 
+    def _create_http_session(self) -> Session:
+        retry_strategy = Retry(
+            total=5,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=[
+                "HEAD",
+                "GET",
+                "PUT",
+                "DELETE",
+                "OPTIONS",
+                "TRACE",
+                "POST",
+            ],
+            backoff_factor=5,
+        )
+        # create http session
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        http = requests.Session()
+        http.mount("https://", adapter)
+        http.mount("http://", adapter)
+        if self._adapter:
+            http.mount("http://", self._adapter)
+        else:
+            http.mount("http://", adapter)
+        return http
+
     def get_in_batches(self) -> FhirRequestResponse:
         # if paging is requested then iterate through the pages until the response is empty
         assert self._url
@@ -423,3 +438,85 @@ class FhirClient:
 
         access_token: str = token_json["access_token"]
         return access_token
+
+    def merge(self, json_data_list: List[str],) -> List[Dict[str, Any]]:
+        full_uri: furl = furl(self._url)
+        assert self._resource
+        full_uri /= self._resource
+        headers = {"Content-Type": "application/fhir+json"}
+        responses: List[Dict[str, Any]] = []
+        http: Session = self._create_http_session()
+        try:
+            resource_json_list: List[Dict[str, Any]] = [
+                json.loads(json_data) for json_data in json_data_list
+            ]
+            if self._validation_server_url:
+                resource_json: Dict[str, Any]
+                for resource_json in resource_json_list:
+                    FhirValidator.validate_fhir_resource(
+                        http=http,
+                        json_data=json.dumps(resource_json),
+                        resource_name=self._resource,
+                        validation_server_url=self._validation_server_url,
+                    )
+
+            json_payload: str = json.dumps(resource_json_list)
+            # json_payload_bytes: str = json_payload
+            json_payload_bytes: bytes = json_payload.encode("utf-8")
+            obj_id = 1  # TODO: remove this once the node fhir accepts merge without a parameter
+            assert obj_id
+            resource_uri = full_uri.copy()
+            resource_uri /= parse.quote(str(obj_id), safe="")
+            resource_uri /= "$merge"
+            response: Optional[Response] = None
+            try:
+                # should we check if it exists and do a POST then?
+                response = http.post(
+                    url=resource_uri.url, data=json_payload_bytes, headers=headers
+                )
+                if response and response.ok:
+                    # logging does not work in UDFs since they run on nodes
+                    # if progress_logger:
+                    #     progress_logger.write_to_log(
+                    #         f"Posted to {resource_uri.url}: {json_data}"
+                    #     )
+                    # check if response is json
+                    response_text = response.text
+                    if response_text:
+                        try:
+                            responses = json.loads(response_text)
+                        except ValueError as e:
+                            responses = [{"issue": str(e)}]
+                    else:
+                        responses = []
+                    # print(f"Posted to {resource_uri.url}: {json_payload}. responses={responses}")
+                else:
+                    print(f"response={response.text}")
+                    response.raise_for_status()
+            except requests.exceptions.HTTPError as e:
+                raise FhirSenderException(
+                    url=resource_uri.url,
+                    json_data=json_payload,
+                    response_text=response.text if response else "",
+                    response_status_code=response.status_code if response else None,
+                    exception=e,
+                    message=f"HttpError: {e}",
+                ) from e
+            except Exception as e:
+                raise FhirSenderException(
+                    url=resource_uri.url,
+                    json_data=json_payload,
+                    response_text=response.text if response else "",
+                    response_status_code=response.status_code if response else None,
+                    exception=e,
+                    message=f"Unknown Error: {e}",
+                ) from e
+
+        except AssertionError as e:
+            if self._logger:
+                self._logger.error(
+                    Exception(
+                        f"Assertion: FHIR send failed: {str(e)} for resource: {json_data_list}"
+                    )
+                )
+        return responses

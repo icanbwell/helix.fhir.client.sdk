@@ -1,6 +1,9 @@
+from typing import Any
+
+
 class FhirLogger:
-    def info(self, param: str) -> None:
+    def info(self, param: Any) -> None:
         pass
 
-    def error(self, param: str) -> None:
+    def error(self, param: Any) -> None:
         pass
