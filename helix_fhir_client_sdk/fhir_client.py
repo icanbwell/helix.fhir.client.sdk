@@ -440,83 +440,124 @@ class FhirClient:
         return access_token
 
     def merge(self, json_data_list: List[str],) -> List[Dict[str, Any]]:
-        full_uri: furl = furl(self._url)
-        assert self._resource
-        full_uri /= self._resource
-        headers = {"Content-Type": "application/fhir+json"}
-        responses: List[Dict[str, Any]] = []
-        http: Session = self._create_http_session()
-        try:
-            resource_json_list: List[Dict[str, Any]] = [
-                json.loads(json_data) for json_data in json_data_list
-            ]
-            if self._validation_server_url:
-                resource_json: Dict[str, Any]
-                for resource_json in resource_json_list:
-                    FhirValidator.validate_fhir_resource(
-                        http=http,
-                        json_data=json.dumps(resource_json),
-                        resource_name=self._resource,
-                        validation_server_url=self._validation_server_url,
-                    )
+        retries: int = 2
+        while retries >= 0:
+            retries = retries - 1
+            full_uri: furl = furl(self._url)
+            assert self._resource
+            full_uri /= self._resource
+            headers = {"Content-Type": "application/fhir+json"}
+            responses: List[Dict[str, Any]] = []
+            http: Session = self._create_http_session()
+            # if we have an auth server url but no access token then get an access token
+            if self._auth_server_url and not self._access_token:
+                assert (
+                    self._login_token
+                ), "login token must be present if auth_server_url is set"
+                self._access_token = self.authenticate(
+                    http=http,
+                    auth_server_url=self._auth_server_url,
+                    auth_scopes=self._auth_scopes,
+                    login_token=self._login_token,
+                )
+            # set access token in request if present
+            if self._access_token:
+                headers["Authorization"] = f"Bearer {self._access_token}"
 
-            json_payload: str = json.dumps(resource_json_list)
-            # json_payload_bytes: str = json_payload
-            json_payload_bytes: bytes = json_payload.encode("utf-8")
-            obj_id = 1  # TODO: remove this once the node fhir accepts merge without a parameter
-            assert obj_id
-            resource_uri = full_uri.copy()
-            resource_uri /= parse.quote(str(obj_id), safe="")
-            resource_uri /= "$merge"
-            response: Optional[Response] = None
             try:
-                # should we check if it exists and do a POST then?
-                response = http.post(
-                    url=resource_uri.url, data=json_payload_bytes, headers=headers
-                )
-                if response and response.ok:
-                    # logging does not work in UDFs since they run on nodes
-                    # if progress_logger:
-                    #     progress_logger.write_to_log(
-                    #         f"Posted to {resource_uri.url}: {json_data}"
-                    #     )
-                    # check if response is json
-                    response_text = response.text
-                    if response_text:
-                        try:
-                            responses = json.loads(response_text)
-                        except ValueError as e:
-                            responses = [{"issue": str(e)}]
-                    else:
-                        responses = []
-                    # print(f"Posted to {resource_uri.url}: {json_payload}. responses={responses}")
-                else:
-                    print(f"response={response.text}")
-                    response.raise_for_status()
-            except requests.exceptions.HTTPError as e:
-                raise FhirSenderException(
-                    url=resource_uri.url,
-                    json_data=json_payload,
-                    response_text=response.text if response else "",
-                    response_status_code=response.status_code if response else None,
-                    exception=e,
-                    message=f"HttpError: {e}",
-                ) from e
-            except Exception as e:
-                raise FhirSenderException(
-                    url=resource_uri.url,
-                    json_data=json_payload,
-                    response_text=response.text if response else "",
-                    response_status_code=response.status_code if response else None,
-                    exception=e,
-                    message=f"Unknown Error: {e}",
-                ) from e
+                resource_json_list: List[Dict[str, Any]] = [
+                    json.loads(json_data) for json_data in json_data_list
+                ]
+                if self._validation_server_url:
+                    resource_json: Dict[str, Any]
+                    for resource_json in resource_json_list:
+                        FhirValidator.validate_fhir_resource(
+                            http=http,
+                            json_data=json.dumps(resource_json),
+                            resource_name=self._resource,
+                            validation_server_url=self._validation_server_url,
+                        )
 
-        except AssertionError as e:
-            if self._logger:
-                self._logger.error(
-                    Exception(
-                        f"Assertion: FHIR send failed: {str(e)} for resource: {json_data_list}"
+                json_payload: str = json.dumps(resource_json_list)
+                # json_payload_bytes: str = json_payload
+                json_payload_bytes: bytes = json_payload.encode("utf-8")
+                obj_id = 1  # TODO: remove this once the node fhir accepts merge without a parameter
+                assert obj_id
+                resource_uri = full_uri.copy()
+                resource_uri /= parse.quote(str(obj_id), safe="")
+                resource_uri /= "$merge"
+                response: Optional[Response] = None
+                try:
+                    # should we check if it exists and do a POST then?
+                    response = http.post(
+                        url=resource_uri.url, data=json_payload_bytes, headers=headers
                     )
-                )
-        return responses
+                    if response and response.ok:
+                        # logging does not work in UDFs since they run on nodes
+                        # if progress_logger:
+                        #     progress_logger.write_to_log(
+                        #         f"Posted to {resource_uri.url}: {json_data}"
+                        #     )
+                        # check if response is json
+                        response_text = response.text
+                        if response_text:
+                            try:
+                                responses = json.loads(response_text)
+                            except ValueError as e:
+                                responses = [{"issue": str(e)}]
+                        else:
+                            responses = []
+                        # print(f"Posted to {resource_uri.url}: {json_payload}. responses={responses}")
+                    elif (
+                        response.status_code == 403 or response.status_code == 401
+                    ):  # forbidden or unauthorized
+                        if retries >= 0:
+                            assert (
+                                self._auth_server_url
+                            ), f"{response.status_code} received from server but no auth_server_url was specified to use"
+                            assert (
+                                self._login_token
+                            ), f"{response.status_code} received from server but no login_token was specified to use"
+                            self._access_token = self.authenticate(
+                                http=http,
+                                auth_server_url=self._auth_server_url,
+                                auth_scopes=self._auth_scopes,
+                                login_token=self._login_token,
+                            )
+                            # try again
+                            continue
+                        else:
+                            # out of retries so just fail now
+                            response.raise_for_status()
+                    else:
+                        print(f"response={response.text}")
+                        response.raise_for_status()
+                except requests.exceptions.HTTPError as e:
+                    raise FhirSenderException(
+                        url=resource_uri.url,
+                        json_data=json_payload,
+                        response_text=response.text if response else "",
+                        response_status_code=response.status_code if response else None,
+                        exception=e,
+                        message=f"HttpError: {e}",
+                    ) from e
+                except Exception as e:
+                    raise FhirSenderException(
+                        url=resource_uri.url,
+                        json_data=json_payload,
+                        response_text=response.text if response else "",
+                        response_status_code=response.status_code if response else None,
+                        exception=e,
+                        message=f"Unknown Error: {e}",
+                    ) from e
+
+            except AssertionError as e:
+                if self._logger:
+                    self._logger.error(
+                        Exception(
+                            f"Assertion: FHIR send failed: {str(e)} for resource: {json_data_list}"
+                        )
+                    )
+            return responses
+
+        raise Exception("Could not talk to FHIR server after multiple tries")
