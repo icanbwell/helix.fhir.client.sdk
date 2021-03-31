@@ -3,7 +3,7 @@ import json
 import requests_mock
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
-from helix_fhir_client_sdk.fhir_request_response import FhirRequestResponse
+from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 
 def test_fhir_client_patient_list_auth_fail_retry() -> None:
@@ -29,7 +29,7 @@ def test_fhir_client_patient_list_auth_fail_retry() -> None:
         fhir_client = fhir_client.auth_server_url("http://auth").auth_scopes(
             ["user/*.ready"]
         )
-        response: FhirRequestResponse = fhir_client.get()
+        response: FhirGetResponse = fhir_client.get()
 
         print(response.responses)
         assert mock.call_count == 4, ",".join([r.url for r in mock.request_history])

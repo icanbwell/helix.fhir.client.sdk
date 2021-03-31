@@ -9,10 +9,10 @@ from requests import Response, Session
 import base64
 from urllib import parse
 
-from helix_fhir_client_sdk.fhir_logger import FhirLogger
-from helix_fhir_client_sdk.fhir_request_response import FhirRequestResponse
-from helix_fhir_client_sdk.fhir_sender_exception import FhirSenderException
-from helix_fhir_client_sdk.fhir_validator import FhirValidator
+from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
+from helix_fhir_client_sdk.validators.fhir_validator import FhirValidator
 
 
 class FhirClient:
@@ -161,7 +161,7 @@ class FhirClient:
         return self
 
     def client_credentials(self, client_id: str, client_secret: str) -> "FhirClient":
-        self._login_token = self.create_login_token(
+        self._login_token = self._create_login_token(
             client_id=client_id, client_secret=client_secret
         )
         return self
@@ -178,7 +178,7 @@ class FhirClient:
         self._limit = limit
         return self
 
-    def get(self) -> FhirRequestResponse:
+    def get(self) -> FhirGetResponse:
         retries: int = 2
         while retries >= 0:
             retries = retries - 1
@@ -291,13 +291,11 @@ class FhirClient:
                                     resources.append(json.dumps(entry["resource"]))
                     else:
                         resources.append(text)
-                return FhirRequestResponse(
-                    url=full_url, responses=resources, error=None
-                )
+                return FhirGetResponse(url=full_url, responses=resources, error=None)
             elif response.status_code == 404:  # not found
                 if self._logger:
                     self._logger.error(f"resource not found! GET {full_uri}")
-                return FhirRequestResponse(
+                return FhirGetResponse(
                     url=full_url, responses=resources, error=f"{response.status_code}"
                 )
             elif (
@@ -320,7 +318,7 @@ class FhirClient:
                     continue
                 else:
                     # out of retries so just fail now
-                    return FhirRequestResponse(
+                    return FhirGetResponse(
                         url=full_url,
                         responses=resources,
                         error=f"{response.status_code}",
@@ -334,7 +332,7 @@ class FhirClient:
                 error_text: str = response.text
                 if self._logger:
                     self._logger.error(error_text)
-                return FhirRequestResponse(
+                return FhirGetResponse(
                     url=full_url,
                     responses=[],
                     error=f"{response.status_code} {error_text}",
@@ -367,14 +365,14 @@ class FhirClient:
             http.mount("http://", adapter)
         return http
 
-    def get_in_batches(self) -> FhirRequestResponse:
+    def get_in_batches(self) -> FhirGetResponse:
         # if paging is requested then iterate through the pages until the response is empty
         assert self._url
         assert self._page_size
         self._page_number = 0
         resources: List[str] = []
         while True:
-            result: FhirRequestResponse = self.get()
+            result: FhirGetResponse = self.get()
             if len(result.responses) > 0:
                 resources = resources + result.responses
                 if self._limit and self._limit > 0:
@@ -383,10 +381,10 @@ class FhirClient:
                 self._page_number += 1
             else:
                 break
-        return FhirRequestResponse(self._url, responses=resources, error=result.error)
+        return FhirGetResponse(self._url, responses=resources, error=result.error)
 
     @staticmethod
-    def create_login_token(client_id: str, client_secret: str) -> str:
+    def _create_login_token(client_id: str, client_secret: str) -> str:
         """
         Creates a login token given client_id and client_secret
         :return: login token
@@ -440,6 +438,13 @@ class FhirClient:
         return access_token
 
     def merge(self, json_data_list: List[str],) -> List[Dict[str, Any]]:
+        """
+
+        :param json_data_list:
+        :type json_data_list:
+        :return:
+        :rtype:
+        """
         retries: int = 2
         while retries >= 0:
             retries = retries - 1

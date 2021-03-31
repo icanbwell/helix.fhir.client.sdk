@@ -2,7 +2,7 @@ import pytest
 import requests_mock
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
-from helix_fhir_client_sdk.fhir_request_response import FhirRequestResponse
+from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 
 def test_fhir_client_patient_list_auth_fail() -> None:
@@ -14,7 +14,7 @@ def test_fhir_client_patient_list_auth_fail() -> None:
         fhir_client = fhir_client.url(url).resource("Patient")
 
         with pytest.raises(AssertionError):
-            response: FhirRequestResponse = fhir_client.get()
+            response: FhirGetResponse = fhir_client.get()
 
             print(response.responses)
             assert response.error == "403"

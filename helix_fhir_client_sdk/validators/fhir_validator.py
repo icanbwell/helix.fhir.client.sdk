@@ -4,7 +4,9 @@ import requests
 from furl import furl
 from requests import Response
 
-from helix_fhir_client_sdk.fhir_validation_exception import FhirValidationException
+from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
+    FhirValidationException,
+)
 
 
 class FhirValidator:
