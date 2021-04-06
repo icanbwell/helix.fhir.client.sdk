@@ -179,6 +179,52 @@ class FhirClient:
         self._limit = limit
         return self
 
+    @property
+    def access_token(self) -> Optional[str]:
+        # if we have an auth server url but no access token then get an access token
+        if self._auth_server_url and not self._access_token:
+            assert (
+                self._login_token
+            ), "login token must be present if auth_server_url is set"
+            http: Session = self._create_http_session()
+            self._access_token = self.authenticate(
+                http=http,
+                auth_server_url=self._auth_server_url,
+                auth_scopes=self._auth_scopes,
+                login_token=self._login_token,
+            )
+        return self._access_token
+
+    @access_token.setter
+    def access_token(self, value: str) -> None:
+        self._access_token = value
+
+    def delete(self) -> Response:
+        if not self._id:
+            raise ValueError("delete requires the ID of FHIR object to delete")
+        if not self._resource:
+            raise ValueError("delete requires a FHIR resource type")
+        full_uri: furl = furl(self._url)
+        full_uri /= self._resource
+        full_uri /= self._id
+        # setup retry
+        http: Session = self._create_http_session()
+
+        # set up headers
+        headers: Dict[str, str] = {}
+
+        # set access token in request if present
+        if self.access_token:
+            headers["Authorization"] = f"Bearer {self.access_token}"
+
+        # actually make the request
+        response: Response = http.delete(full_uri, headers=headers)
+        if response.ok:
+            if self._logger:
+                self._logger.info(f"Successfully deleted: {full_uri}")
+
+        return response
+
     def get(self) -> FhirGetResponse:
         retries: int = 2
         while retries >= 0:
@@ -250,20 +296,9 @@ class FhirClient:
             payload: Dict[str, str] = {}
             headers = {"Accept": "application/fhir+json,application/json+fhir"}
 
-            # if we have an auth server url but no access token then get an access token
-            if self._auth_server_url and not self._access_token:
-                assert (
-                    self._login_token
-                ), "login token must be present if auth_server_url is set"
-                self._access_token = self.authenticate(
-                    http=http,
-                    auth_server_url=self._auth_server_url,
-                    auth_scopes=self._auth_scopes,
-                    login_token=self._login_token,
-                )
             # set access token in request if present
-            if self._access_token:
-                headers["Authorization"] = f"Bearer {self._access_token}"
+            if self.access_token:
+                headers["Authorization"] = f"Bearer {self.access_token}"
 
             # actually make the request
             response: Response = http.get(full_url, headers=headers, data=payload)
@@ -309,7 +344,7 @@ class FhirClient:
                     assert (
                         self._login_token
                     ), f"{response.status_code} received from server but no login_token was specified to use"
-                    self._access_token = self.authenticate(
+                    self.access_token = self.authenticate(
                         http=http,
                         auth_server_url=self._auth_server_url,
                         auth_scopes=self._auth_scopes,
@@ -455,20 +490,8 @@ class FhirClient:
             headers = {"Content-Type": "application/fhir+json"}
             responses: List[Dict[str, Any]] = []
             http: Session = self._create_http_session()
-            # if we have an auth server url but no access token then get an access token
-            if self._auth_server_url and not self._access_token:
-                assert (
-                    self._login_token
-                ), "login token must be present if auth_server_url is set"
-                self._access_token = self.authenticate(
-                    http=http,
-                    auth_server_url=self._auth_server_url,
-                    auth_scopes=self._auth_scopes,
-                    login_token=self._login_token,
-                )
-            # set access token in request if present
-            if self._access_token:
-                headers["Authorization"] = f"Bearer {self._access_token}"
+            if self.access_token:
+                headers["Authorization"] = f"Bearer {self.access_token}"
 
             try:
                 resource_json_list: List[Dict[str, Any]] = [
@@ -524,7 +547,7 @@ class FhirClient:
                             assert (
                                 self._login_token
                             ), f"{response.status_code} received from server but no login_token was specified to use"
-                            self._access_token = self.authenticate(
+                            self.access_token = self.authenticate(
                                 http=http,
                                 auth_server_url=self._auth_server_url,
                                 auth_scopes=self._auth_scopes,
