@@ -4,3 +4,7 @@ This SDK encapsulates:
 1. OAuth authentication and authorization
 2. Retry logic
 3. Paging
+
+
+# Usage
+`pip install helix.fhir.client.sdk`
