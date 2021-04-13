@@ -4,8 +4,8 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-furl=">=2.1.0"
-requests = ">=2.25.1"
+furl="*"
+requests = "*"
 
 [dev-packages]
 setuptools="*"
