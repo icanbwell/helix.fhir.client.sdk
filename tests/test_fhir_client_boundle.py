@@ -155,7 +155,7 @@ def test_fhir_client_bundle() -> None:
         }
         mock.get(f"{url}/Patient", json=response_text)
 
-        fhir_client = FhirClient(auto_unbundle=False)
+        fhir_client = FhirClient().auto_unbundle(False)
         fhir_client = fhir_client.url(url).resource("Patient")
         response: FhirGetResponse = fhir_client.get()
 
