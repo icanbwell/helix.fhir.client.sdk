@@ -1,17 +1,18 @@
+import base64
 import json
 from datetime import datetime
 from typing import Dict, Optional, List, Union, Any
-from furl import furl
-from urllib3 import Retry  # type: ignore
-from requests.adapters import HTTPAdapter, BaseAdapter
-import requests
-from requests import Response, Session
-import base64
 from urllib import parse
 
+import requests
+from furl import furl
+from requests import Response, Session
+from requests.adapters import HTTPAdapter, BaseAdapter
+from urllib3 import Retry  # type: ignore
+
+from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
 from helix_fhir_client_sdk.validators.fhir_validator import FhirValidator
 
@@ -39,6 +40,7 @@ class FhirClient:
         self._adapter: Optional[BaseAdapter] = None
         self._limit: Optional[int] = None
         self._validation_server_url: Optional[str] = None
+        self._auto_unbundle: bool = True
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -225,6 +227,10 @@ class FhirClient:
 
         return response
 
+    def auto_unbundle(self, auto_unbundle: bool) -> "FhirClient":
+        self._auto_unbundle = auto_unbundle
+        return self
+
     def get(self) -> FhirGetResponse:
         retries: int = 2
         while retries >= 0:
@@ -312,7 +318,8 @@ class FhirClient:
                     response_json: Dict[str, Any] = json.loads(text)
                     # see if this is a Resource Bundle and un-bundle it
                     if (
-                        "resourceType" in response_json
+                        self._auto_unbundle
+                        and "resourceType" in response_json
                         and response_json["resourceType"] == "Bundle"
                     ):
                         # resources.append(text)
