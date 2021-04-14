@@ -17,7 +17,7 @@ from helix_fhir_client_sdk.validators.fhir_validator import FhirValidator
 
 
 class FhirClient:
-    def __init__(self) -> None:
+    def __init__(self, auto_unbundle: bool = True) -> None:
         self._action: Optional[str] = None
         self._resource: Optional[str] = None
         self._id: Optional[Union[List[str], str]] = None
@@ -39,6 +39,7 @@ class FhirClient:
         self._adapter: Optional[BaseAdapter] = None
         self._limit: Optional[int] = None
         self._validation_server_url: Optional[str] = None
+        self._auto_unbundle: bool = auto_unbundle
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -277,7 +278,8 @@ class FhirClient:
                     response_json: Dict[str, Any] = json.loads(text)
                     # see if this is a Resource Bundle and un-bundle it
                     if (
-                        "resourceType" in response_json
+                        self._auto_unbundle
+                        and "resourceType" in response_json
                         and response_json["resourceType"] == "Bundle"
                     ):
                         # resources.append(text)
