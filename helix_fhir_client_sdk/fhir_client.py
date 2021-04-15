@@ -40,7 +40,7 @@ class FhirClient:
         self._adapter: Optional[BaseAdapter] = None
         self._limit: Optional[int] = None
         self._validation_server_url: Optional[str] = None
-        self._auto_unbundle: bool = True
+        self._separate_bundle_resources: bool = False  # for each entry in bundle create a property for each resource
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -227,8 +227,10 @@ class FhirClient:
 
         return response
 
-    def auto_unbundle(self, auto_unbundle: bool) -> "FhirClient":
-        self._auto_unbundle = auto_unbundle
+    def separate_bundle_resources(
+        self, separate_bundle_resources: bool
+    ) -> "FhirClient":
+        self._separate_bundle_resources = separate_bundle_resources
         return self
 
     def get(self) -> FhirGetResponse:
@@ -318,20 +320,37 @@ class FhirClient:
                     response_json: Dict[str, Any] = json.loads(text)
                     # see if this is a Resource Bundle and un-bundle it
                     if (
-                        self._auto_unbundle
-                        and "resourceType" in response_json
+                        "resourceType" in response_json
                         and response_json["resourceType"] == "Bundle"
                     ):
                         # resources.append(text)
                         if "entry" in response_json:
-                            # iterate through the entry list
-                            # have to split these here otherwise when Spark loads them it can't handle
-                            # that items in the entry array can have different types
                             entries: List[Dict[str, Any]] = response_json["entry"]
                             entry: Dict[str, Any]
+                            resources_dict: Dict[str, Any] = {}
                             for entry in entries:
                                 if "resource" in entry:
-                                    resources.append(json.dumps(entry["resource"]))
+                                    if self._separate_bundle_resources:
+                                        # iterate through the entry list
+                                        # have to split these here otherwise when Spark loads them it can't handle
+                                        # that items in the entry array can have different types
+                                        resource_type: str = entry["resource"][
+                                            "resourceType"
+                                        ]
+                                        if (
+                                            resource_type.lower()
+                                            not in resources_dict.keys()
+                                        ):
+                                            resources_dict[resource_type.lower()] = []
+                                        # add to list
+                                        resources_dict[resource_type.lower()].append(
+                                            entry["resource"]
+                                        )
+                                    else:
+                                        resources.append(json.dumps(entry["resource"]))
+                            if self._separate_bundle_resources:
+                                resources.append(json.dumps(resources_dict))
+
                     else:
                         resources.append(text)
                 return FhirGetResponse(url=full_url, responses=resources, error=None)
