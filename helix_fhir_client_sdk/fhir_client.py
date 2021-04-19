@@ -1,17 +1,18 @@
+import base64
 import json
 from datetime import datetime
 from typing import Dict, Optional, List, Union, Any
-from furl import furl
-from urllib3 import Retry  # type: ignore
-from requests.adapters import HTTPAdapter, BaseAdapter
-import requests
-from requests import Response, Session
-import base64
 from urllib import parse
 
+import requests
+from furl import furl
+from requests import Response, Session
+from requests.adapters import HTTPAdapter, BaseAdapter
+from urllib3 import Retry  # type: ignore
+
+from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
 from helix_fhir_client_sdk.validators.fhir_validator import FhirValidator
 
@@ -39,6 +40,7 @@ class FhirClient:
         self._adapter: Optional[BaseAdapter] = None
         self._limit: Optional[int] = None
         self._validation_server_url: Optional[str] = None
+        self._separate_bundle_resources: bool = False  # for each entry in bundle create a property for each resource
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -179,6 +181,64 @@ class FhirClient:
         self._limit = limit
         return self
 
+    @property
+    def access_token(self) -> Optional[str]:
+        # if we have an auth server url but no access token then get an access token
+        if self._login_token and not self._auth_server_url:
+            http: Session = self._create_http_session()
+            # try to get auth_server_url from well known configuration
+            self._auth_server_url = self._get_auth_server_url_from_well_known_configuration(
+                http=http
+            )
+        if self._auth_server_url and not self._access_token:
+            assert (
+                self._login_token
+            ), "login token must be present if auth_server_url is set"
+            http = self._create_http_session()
+            self._access_token = self.authenticate(
+                http=http,
+                auth_server_url=self._auth_server_url,
+                auth_scopes=self._auth_scopes,
+                login_token=self._login_token,
+            )
+        return self._access_token
+
+    @access_token.setter
+    def access_token(self, value: str) -> None:
+        self._access_token = value
+
+    def delete(self) -> Response:
+        if not self._id:
+            raise ValueError("delete requires the ID of FHIR object to delete")
+        if not self._resource:
+            raise ValueError("delete requires a FHIR resource type")
+        full_uri: furl = furl(self._url)
+        full_uri /= self._resource
+        full_uri /= self._id
+        # setup retry
+        http: Session = self._create_http_session()
+
+        # set up headers
+        headers: Dict[str, str] = {}
+
+        # set access token in request if present
+        if self.access_token:
+            headers["Authorization"] = f"Bearer {self.access_token}"
+
+        # actually make the request
+        response: Response = http.delete(full_uri.tostr(), headers=headers)
+        if response.ok:
+            if self._logger:
+                self._logger.info(f"Successfully deleted: {full_uri}")
+
+        return response
+
+    def separate_bundle_resources(
+        self, separate_bundle_resources: bool
+    ) -> "FhirClient":
+        self._separate_bundle_resources = separate_bundle_resources
+        return self
+
     def get(self) -> FhirGetResponse:
         retries: int = 2
         while retries >= 0:
@@ -250,11 +310,9 @@ class FhirClient:
             payload: Dict[str, str] = {}
             headers = {"Accept": "application/fhir+json,application/json+fhir"}
 
-            self._get_access_token_if_needed(http=http)
-
             # set access token in request if present
-            if self._access_token:
-                headers["Authorization"] = f"Bearer {self._access_token}"
+            if self.access_token:
+                headers["Authorization"] = f"Bearer {self.access_token}"
 
             # actually make the request
             response: Response = http.get(full_url, headers=headers, data=payload)
@@ -273,14 +331,32 @@ class FhirClient:
                     ):
                         # resources.append(text)
                         if "entry" in response_json:
-                            # iterate through the entry list
-                            # have to split these here otherwise when Spark loads them it can't handle
-                            # that items in the entry array can have different types
                             entries: List[Dict[str, Any]] = response_json["entry"]
                             entry: Dict[str, Any]
+                            resources_dict: Dict[str, Any] = {}
                             for entry in entries:
                                 if "resource" in entry:
-                                    resources.append(json.dumps(entry["resource"]))
+                                    if self._separate_bundle_resources:
+                                        # iterate through the entry list
+                                        # have to split these here otherwise when Spark loads them it can't handle
+                                        # that items in the entry array can have different types
+                                        resource_type: str = entry["resource"][
+                                            "resourceType"
+                                        ]
+                                        if (
+                                            resource_type.lower()
+                                            not in resources_dict.keys()
+                                        ):
+                                            resources_dict[resource_type.lower()] = []
+                                        # add to list
+                                        resources_dict[resource_type.lower()].append(
+                                            entry["resource"]
+                                        )
+                                    else:
+                                        resources.append(json.dumps(entry["resource"]))
+                            if self._separate_bundle_resources:
+                                resources.append(json.dumps(resources_dict))
+
                     else:
                         resources.append(text)
                 return FhirGetResponse(url=full_url, responses=resources, error=None)
@@ -449,10 +525,9 @@ class FhirClient:
             headers = {"Content-Type": "application/fhir+json"}
             responses: List[Dict[str, Any]] = []
             http: Session = self._create_http_session()
-            self._get_access_token_if_needed(http=http)
             # set access token in request if present
-            if self._access_token:
-                headers["Authorization"] = f"Bearer {self._access_token}"
+            if self.access_token:
+                headers["Authorization"] = f"Bearer {self.access_token}"
 
             try:
                 resource_json_list: List[Dict[str, Any]] = [
@@ -553,24 +628,6 @@ class FhirClient:
             )
 
         raise Exception("Could not talk to FHIR server after multiple tries")
-
-    def _get_access_token_if_needed(self, http: Session) -> None:
-        # if we have an auth server url but no access token then get an access token
-        if self._auth_server_url and not self._access_token:
-            assert (
-                self._login_token
-            ), "login token must be present if auth_server_url is set"
-            self._access_token = self.authenticate(
-                http=http,
-                auth_server_url=self._auth_server_url,
-                auth_scopes=self._auth_scopes,
-                login_token=self._login_token,
-            )
-        if self._login_token and not self._auth_server_url:
-            # try to get auth_server_url from well known configuration
-            self._auth_server_url = self._get_auth_server_url_from_well_known_configuration(
-                http=http
-            )
 
     def _get_auth_server_url_from_well_known_configuration(
         self, http: Session
