@@ -250,17 +250,8 @@ class FhirClient:
             payload: Dict[str, str] = {}
             headers = {"Accept": "application/fhir+json,application/json+fhir"}
 
-            # if we have an auth server url but no access token then get an access token
-            if self._auth_server_url and not self._access_token:
-                assert (
-                    self._login_token
-                ), "login token must be present if auth_server_url is set"
-                self._access_token = self.authenticate(
-                    http=http,
-                    auth_server_url=self._auth_server_url,
-                    auth_scopes=self._auth_scopes,
-                    login_token=self._login_token,
-                )
+            self._get_access_token_if_needed(http=http)
+
             # set access token in request if present
             if self._access_token:
                 headers["Authorization"] = f"Bearer {self._access_token}"
@@ -413,6 +404,7 @@ class FhirClient:
         :rtype: str
         """
         assert auth_server_url
+        assert auth_scopes
         payload: str = (
             "grant_type=client_credentials&scope=" + "%20".join(auth_scopes)
             if auth_scopes
@@ -435,6 +427,8 @@ class FhirClient:
             return None
         token_json: Dict[str, Any] = json.loads(token_text)
 
+        if "access_token" not in token_json:
+            raise Exception(f"No access token found in {token_json}")
         access_token: str = token_json["access_token"]
         return access_token
 
@@ -455,17 +449,7 @@ class FhirClient:
             headers = {"Content-Type": "application/fhir+json"}
             responses: List[Dict[str, Any]] = []
             http: Session = self._create_http_session()
-            # if we have an auth server url but no access token then get an access token
-            if self._auth_server_url and not self._access_token:
-                assert (
-                    self._login_token
-                ), "login token must be present if auth_server_url is set"
-                self._access_token = self.authenticate(
-                    http=http,
-                    auth_server_url=self._auth_server_url,
-                    auth_scopes=self._auth_scopes,
-                    login_token=self._login_token,
-                )
+            self._get_access_token_if_needed(http=http)
             # set access token in request if present
             if self._access_token:
                 headers["Authorization"] = f"Bearer {self._access_token}"
@@ -569,3 +553,38 @@ class FhirClient:
             )
 
         raise Exception("Could not talk to FHIR server after multiple tries")
+
+    def _get_access_token_if_needed(self, http: Session) -> None:
+        # if we have an auth server url but no access token then get an access token
+        if self._auth_server_url and not self._access_token:
+            assert (
+                self._login_token
+            ), "login token must be present if auth_server_url is set"
+            self._access_token = self.authenticate(
+                http=http,
+                auth_server_url=self._auth_server_url,
+                auth_scopes=self._auth_scopes,
+                login_token=self._login_token,
+            )
+        if self._login_token and not self._auth_server_url:
+            # try to get auth_server_url from well known configuration
+            self._auth_server_url = self._get_auth_server_url_from_well_known_configuration(
+                http=http
+            )
+
+    def _get_auth_server_url_from_well_known_configuration(
+        self, http: Session
+    ) -> Optional[str]:
+        """
+        Finds the auth server url via the well known configuration if it exists
+        :param http: Http Session
+        :return: auth server url or None
+        """
+        full_uri: furl = furl(furl(self._url).origin)
+        full_uri /= ".well-known/smart-configuration"
+        response: Response = http.get(full_uri.tostr())
+        if response and response.ok and response.text:
+            content: Dict[str, Any] = json.loads(response.text)
+            return str(content["token_endpoint"])
+        else:
+            return None
