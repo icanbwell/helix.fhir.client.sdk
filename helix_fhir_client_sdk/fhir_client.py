@@ -411,7 +411,7 @@ class FhirClient:
         retry_strategy = Retry(
             total=5,
             status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=[
+            method_whitelist=[
                 "HEAD",
                 "GET",
                 "PUT",
