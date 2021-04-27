@@ -245,7 +245,7 @@ class FhirClient:
             retries = retries - 1
             # create url and query to request from FHIR server
             resources_list: List[str] = []
-            resources: str = ''
+            resources: str = ""
             full_uri: furl = furl(self._url)
             full_uri /= self._resource
             if self._id:
@@ -452,7 +452,9 @@ class FhirClient:
                 self._page_number += 1
             else:
                 break
-        return FhirGetResponse(self._url, responses=json.dumps(resources_list), error=result.error)
+        return FhirGetResponse(
+            self._url, responses=json.dumps(resources_list), error=result.error
+        )
 
     @staticmethod
     def _create_login_token(client_id: str, client_secret: str) -> str:
