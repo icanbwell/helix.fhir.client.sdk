@@ -445,7 +445,7 @@ class FhirClient:
         while True:
             result: FhirGetResponse = self.get()
             if not result.error and bool(result.responses):
-                resources_list.append(json.loads(result.responses))
+                resources_list.extend(json.loads(result.responses))
                 if self._limit and self._limit > 0:
                     if (self._page_number * self._page_size) > self._limit:
                         break
