@@ -298,4 +298,4 @@ def test_fhir_client_bundle() -> None:
         response: FhirGetResponse = fhir_client.get()
 
         print(response.responses)
-        assert response.responses == [json.dumps(expected_response)]
+        assert response.responses == json.dumps(expected_response)
