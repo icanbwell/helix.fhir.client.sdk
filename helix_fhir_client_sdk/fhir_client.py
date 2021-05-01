@@ -254,7 +254,7 @@ class FhirClient:
         while retries >= 0:
             retries = retries - 1
             # create url and query to request from FHIR server
-            resources: List[str] = []
+            resources: str = ""
             full_uri: furl = furl(self._url)
             full_uri /= self._resource
             if self._id:
@@ -341,11 +341,10 @@ class FhirClient:
                         "resourceType" in response_json
                         and response_json["resourceType"] == "Bundle"
                     ):
-                        # resources.append(text)
                         if "entry" in response_json:
                             entries: List[Dict[str, Any]] = response_json["entry"]
                             entry: Dict[str, Any]
-
+                            resources_list: List[str] = []
                             for entry in entries:
                                 if "resource" in entry:
                                     if self._separate_bundle_resources:
@@ -377,12 +376,18 @@ class FhirClient:
                                                 resources_dict[resource_type].append(
                                                     contained_entry
                                                 )
-                                        resources.append(json.dumps(resources_dict))
+                                        resources_list.append(
+                                            json.dumps(resources_dict)
+                                        )
 
                                     else:
-                                        resources.append(json.dumps(entry["resource"]))
+                                        resources_list.append(
+                                            json.dumps(entry["resource"])
+                                        )
+
+                            resources = json.dumps(resources_list)
                     else:
-                        resources.append(text)
+                        resources = text
                 return FhirGetResponse(url=full_url, responses=resources, error=None)
             elif response.status_code == 404:  # not found
                 if self._logger:
@@ -426,7 +431,7 @@ class FhirClient:
                     self._logger.error(error_text)
                 return FhirGetResponse(
                     url=full_url,
-                    responses=[],
+                    responses=resources,
                     error=f"{response.status_code} {error_text}",
                 )
         raise Exception("Could not talk to FHIR server after multiple tries")
@@ -475,18 +480,20 @@ class FhirClient:
         assert self._url
         assert self._page_size
         self._page_number = 0
-        resources: List[str] = []
+        resources_list: List[str] = []
         while True:
             result: FhirGetResponse = self.get()
-            if len(result.responses) > 0:
-                resources = resources + result.responses
+            if not result.error and bool(result.responses):
+                resources_list.extend(json.loads(result.responses))
                 if self._limit and self._limit > 0:
                     if (self._page_number * self._page_size) > self._limit:
                         break
                 self._page_number += 1
             else:
                 break
-        return FhirGetResponse(self._url, responses=resources, error=result.error)
+        return FhirGetResponse(
+            self._url, responses=json.dumps(resources_list), error=result.error
+        )
 
     @staticmethod
     def _create_login_token(client_id: str, client_secret: str) -> str:

@@ -33,4 +33,4 @@ def test_fhir_client_patient_list_auth_fail_retry() -> None:
 
         print(response.responses)
         assert mock.call_count == 4, ",".join([r.url for r in mock.request_history])
-        assert response.responses == [json.dumps(response_text)]
+        assert response.responses == json.dumps(response_text)

@@ -65,4 +65,6 @@ def test_fhir_client_bundle() -> None:
         fhir_client = fhir_client.url(url).resource("Patient")
         response: FhirGetResponse = fhir_client.get()
 
-        assert response.responses == [json.dumps(r) for r in expected_response]
+        assert response.responses == json.dumps(
+            [json.dumps(r) for r in expected_response]
+        )
