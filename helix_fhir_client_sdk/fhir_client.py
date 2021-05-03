@@ -443,10 +443,15 @@ class FhirClient:
         headers: Dict[str, str],
         payload: Dict[str, Any],
     ) -> Response:
-        if self._action in ["$graph"]:
+        if self._action == "$graph":
             if self._logger:
                 self._logger.info(f"sending a post: {full_url}")
-            return http.post(full_url, headers=headers, json=payload)
+            if payload:
+                return http.post(full_url, headers=headers, json=payload)
+            else:
+                raise Exception(
+                    "$graph needs a payload to define the returning response (use action_payload parameter)"
+                )
         else:
             if self._logger:
                 self._logger.info(f"sending a get: {full_url}")
