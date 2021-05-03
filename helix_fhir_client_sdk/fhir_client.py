@@ -314,9 +314,9 @@ class FhirClient:
                 full_url += f"_lastUpdated=ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
 
             # set up headers
-            payload: Dict[
-                str, str
-            ] = self._action_payload if self._action_payload else {}
+            payload: Dict[str, str] = (
+                self._action_payload if self._action_payload else {}
+            )
             headers = {"Accept": "application/fhir+json,application/json+fhir"}
 
             # set access token in request if present
@@ -344,13 +344,17 @@ class FhirClient:
                         if "entry" in response_json:
                             entries: List[Dict[str, Any]] = response_json["entry"]
                             entry: Dict[str, Any]
-                            resources_list: List[str] = []
+                            resources_list: List[Dict[str, Any]] = []
                             for entry in entries:
                                 if "resource" in entry:
                                     if self._separate_bundle_resources:
+                                        if self._action != "$graph":
+                                            raise Exception(
+                                                "only $graph action with _separate_bundle_resources=True is supported at this moment"
+                                            )
                                         resources_dict: Dict[
                                             str, List[Any]
-                                        ] = {}  # {resource id:{resource type: [data]}}
+                                        ] = {}  # {resource type: [data]}}
                                         # iterate through the entry list
                                         # have to split these here otherwise when Spark loads them it can't handle
                                         # that items in the entry array can have different types
@@ -376,14 +380,10 @@ class FhirClient:
                                                 resources_dict[resource_type].append(
                                                     contained_entry
                                                 )
-                                        resources_list.append(
-                                            json.dumps(resources_dict)
-                                        )
+                                        resources_list.append(resources_dict)
 
                                     else:
-                                        resources_list.append(
-                                            json.dumps(entry["resource"])
-                                        )
+                                        resources_list.append(entry["resource"])
 
                             resources = json.dumps(resources_list)
                     else:
@@ -391,7 +391,7 @@ class FhirClient:
                 return FhirGetResponse(url=full_url, responses=resources, error=None)
             elif response.status_code == 404:  # not found
                 if self._logger:
-                    self._logger.error(f"resource not found! GET {full_uri}")
+                    self._logger.error(f"resource not found! {full_url}")
                 return FhirGetResponse(
                     url=full_url, responses=resources, error=f"{response.status_code}"
                 )
@@ -443,10 +443,13 @@ class FhirClient:
         headers: Dict[str, str],
         payload: Dict[str, Any],
     ) -> Response:
-        # setup retry
         if self._action in ["$graph"]:
+            if self._logger:
+                self._logger.info(f"sending a post: {full_url}")
             return http.post(full_url, headers=headers, json=payload)
         else:
+            if self._logger:
+                self._logger.info(f"sending a get: {full_url}")
             return http.get(full_url, headers=headers, data=payload)
 
     def _create_http_session(self) -> Session:
