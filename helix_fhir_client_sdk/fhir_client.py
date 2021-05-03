@@ -20,6 +20,7 @@ from helix_fhir_client_sdk.validators.fhir_validator import FhirValidator
 class FhirClient:
     def __init__(self) -> None:
         self._action: Optional[str] = None
+        self._action_payload: Optional[Dict[str, Any]] = None
         self._resource: Optional[str] = None
         self._id: Optional[Union[List[str], str]] = None
         self._url: Optional[str] = None
@@ -40,13 +41,22 @@ class FhirClient:
         self._adapter: Optional[BaseAdapter] = None
         self._limit: Optional[int] = None
         self._validation_server_url: Optional[str] = None
-        self._separate_bundle_resources: bool = False  # for each entry in bundle create a property for each resource
+        self._separate_bundle_resources: bool = (
+            False  # for each entry in bundle create a property for each resource
+        )
 
     def action(self, action: str) -> "FhirClient":
         """
         :param action: (Optional) do an action e.g., $everything
         """
         self._action = action
+        return self
+
+    def action_payload(self, action_payload: Dict[str, Any]) -> "FhirClient":
+        """
+        :param action_payload: (Optional) if action such as $graph needs a http payload
+        """
+        self._action_payload = action_payload
         return self
 
     def resource(self, resource: str) -> "FhirClient":
@@ -244,7 +254,6 @@ class FhirClient:
         while retries >= 0:
             retries = retries - 1
             # create url and query to request from FHIR server
-            resources_list: List[str] = []
             resources: str = ""
             full_uri: furl = furl(self._url)
             full_uri /= self._resource
@@ -304,11 +313,10 @@ class FhirClient:
                     full_url += "?"
                 full_url += f"_lastUpdated=ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
 
-            # setup retry
-            http: Session = self._create_http_session()
-
             # set up headers
-            payload: Dict[str, str] = {}
+            payload: Dict[str, str] = (
+                self._action_payload if self._action_payload else {}
+            )
             headers = {"Accept": "application/fhir+json,application/json+fhir"}
 
             # set access token in request if present
@@ -316,7 +324,10 @@ class FhirClient:
                 headers["Authorization"] = f"Bearer {self.access_token}"
 
             # actually make the request
-            response: Response = http.get(full_url, headers=headers, data=payload)
+            http: Session = self._create_http_session()
+            response: Response = self._send_fhir_request(
+                http, full_url, headers, payload
+            )
             # if request is ok (200) then return the data
             if response.ok:
                 if self._logger:
@@ -330,42 +341,57 @@ class FhirClient:
                         "resourceType" in response_json
                         and response_json["resourceType"] == "Bundle"
                     ):
-                        # resources.append(text)
                         if "entry" in response_json:
                             entries: List[Dict[str, Any]] = response_json["entry"]
                             entry: Dict[str, Any]
-                            resources_dict: Dict[str, Any] = {}
+                            resources_list: List[Dict[str, Any]] = []
                             for entry in entries:
                                 if "resource" in entry:
                                     if self._separate_bundle_resources:
+                                        if self._action != "$graph":
+                                            raise Exception(
+                                                "only $graph action with _separate_bundle_resources=True is supported at this moment"
+                                            )
+                                        resources_dict: Dict[
+                                            str, List[Any]
+                                        ] = {}  # {resource type: [data]}}
                                         # iterate through the entry list
                                         # have to split these here otherwise when Spark loads them it can't handle
                                         # that items in the entry array can have different types
-                                        resource_type: str = entry["resource"][
-                                            "resourceType"
+                                        resource_type: str = str(
+                                            entry["resource"]["resourceType"]
+                                        ).lower()
+                                        parent_resource: Dict[str, Any] = entry[
+                                            "resource"
                                         ]
-                                        if (
-                                            resource_type.lower()
-                                            not in resources_dict.keys()
-                                        ):
-                                            resources_dict[resource_type.lower()] = []
-                                        # add to list
-                                        resources_dict[resource_type.lower()].append(
-                                            entry["resource"]
-                                        )
+                                        resources_dict[resource_type] = [
+                                            parent_resource
+                                        ]
+                                        # $graph returns "contained" if there is any related resources
+                                        if "contained" in entry["resource"]:
+                                            contained = parent_resource.pop("contained")
+                                            for contained_entry in contained:
+                                                resource_type = str(
+                                                    contained_entry["resourceType"]
+                                                ).lower()
+                                                if resource_type not in resources_dict:
+                                                    resources_dict[resource_type] = []
+
+                                                resources_dict[resource_type].append(
+                                                    contained_entry
+                                                )
+                                        resources_list.append(resources_dict)
+
                                     else:
                                         resources_list.append(entry["resource"])
-                            if self._separate_bundle_resources:
-                                resources = json.dumps(resources_dict)
-                            else:
-                                resources = json.dumps(resources_list)
 
+                            resources = json.dumps(resources_list)
                     else:
                         resources = text
                 return FhirGetResponse(url=full_url, responses=resources, error=None)
             elif response.status_code == 404:  # not found
                 if self._logger:
-                    self._logger.error(f"resource not found! GET {full_uri}")
+                    self._logger.error(f"resource not found! {full_url}")
                 return FhirGetResponse(
                     url=full_url, responses=resources, error=f"{response.status_code}"
                 )
@@ -409,6 +435,27 @@ class FhirClient:
                     error=f"{response.status_code} {error_text}",
                 )
         raise Exception("Could not talk to FHIR server after multiple tries")
+
+    def _send_fhir_request(
+        self,
+        http: Session,
+        full_url: str,
+        headers: Dict[str, str],
+        payload: Dict[str, Any],
+    ) -> Response:
+        if self._action == "$graph":
+            if self._logger:
+                self._logger.info(f"sending a post: {full_url}")
+            if payload:
+                return http.post(full_url, headers=headers, json=payload)
+            else:
+                raise Exception(
+                    "$graph needs a payload to define the returning response (use action_payload parameter)"
+                )
+        else:
+            if self._logger:
+                self._logger.info(f"sending a get: {full_url}")
+            return http.get(full_url, headers=headers, data=payload)
 
     def _create_http_session(self) -> Session:
         retry_strategy = Retry(

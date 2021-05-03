@@ -1,0 +1,810 @@
+{
+    "resourceType": "Bundle",
+    "id": "bundle-example",
+    "type": "collection",
+    "timestamp": "2021-04-30T10:31:52.5252Z",
+    "entry": [
+        {
+            "fullUrl": "https://fhir.staging.bwell.zone/4_0_0/Practitioner/1710949219",
+            "resource": {
+                "resourceType": "Practitioner",
+                "id": "1710949219",
+                "meta": {
+                    "versionId": "3",
+                    "lastUpdated": "2021-04-30T14:37:07+00:00",
+                    "source": "http://medstarhealth.org/insurance",
+                    "security": [
+                        {
+                            "system": "https://www.icanbwell.com/access",
+                            "code": "medstar"
+                        },
+                        {
+                            "system": "https://www.icanbwell.com/owner",
+                            "code": "medstar"
+                        }
+                    ]
+                },
+                "contained": [
+                    {
+                        "resourceType": "PractitionerRole",
+                        "id": "1710949219-UNITED-HEALTHCARE-M.D.-IPA--HMO-",
+                        "meta": {
+                            "versionId": "1",
+                            "lastUpdated": "2021-04-30T14:45:24+00:00",
+                            "source": "http://medstarhealth.org/insurance",
+                            "security": [
+                                {
+                                    "system": "https://www.icanbwell.com/access",
+                                    "code": "medstar"
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/owner",
+                                    "code": "medstar"
+                                }
+                            ]
+                        },
+                        "extension": [
+                            {
+                                "extension": [
+                                    {
+                                        "url": "plan",
+                                        "valueReference": {
+                                            "reference": "InsurancePlan/UNITED-HEALTHCARE-M.D.-IPA--HMO-"
+                                        }
+                                    }
+                                ],
+                                "url": "https://raw.githubusercontent.com/imranq2/SparkAutoMapper.FHIR/main/StructureDefinition/insurance_plan"
+                            }
+                        ],
+                        "practitioner": {
+                            "reference": "Practitioner/1710949219"
+                        }
+                    },
+                    {
+                        "resourceType": "PractitionerRole",
+                        "id": "1710949219-HG1-HPED",
+                        "meta": {
+                            "versionId": "1",
+                            "lastUpdated": "2021-04-29T19:18:35+00:00",
+                            "source": "http://medstarhealth.org/provider",
+                            "security": [
+                                {
+                                    "system": "https://www.icanbwell.com/access",
+                                    "code": "medstar"
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/owner",
+                                    "code": "medstar"
+                                }
+                            ]
+                        },
+                        "practitioner": {
+                            "reference": "Practitioner/1710949219"
+                        },
+                        "organization": {
+                            "reference": "Organization/Medstar-Alias-HG1-HPED"
+                        },
+                        "code": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/practitioner-role",
+                                        "code": "doctor",
+                                        "display": "Doctor"
+                                    }
+                                ],
+                                "text": "Doctor"
+                            }
+                        ],
+                        "specialty": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://nucc.org/provider-taxonomy",
+                                        "code": "261QP2300X",
+                                        "display": "Primary Care"
+                                    }
+                                ],
+                                "text": "Primary Care Flag"
+                            }
+                        ],
+                        "location": [
+                            {
+                                "reference": "Location/Medstar-Alias-HG1-HPED"
+                            }
+                        ]
+                    },
+                    {
+                        "resourceType": "Organization",
+                        "id": "Medstar-Alias-HG1-HPED",
+                        "meta": {
+                            "versionId": "1",
+                            "lastUpdated": "2021-04-29T19:04:27+00:00",
+                            "source": "http://medstarhealth.org/practice",
+                            "security": [
+                                {
+                                    "system": "https://www.icanbwell.com/access",
+                                    "code": "medstar"
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/owner",
+                                    "code": "medstar"
+                                }
+                            ]
+                        },
+                        "extension": [
+                            {
+                                "extension": [
+                                    {
+                                        "url": "https://raw.githubusercontent.com/imranq2/SparkAutoMapper.FHIR/main/StructureDefinition/longitude",
+                                        "valueDecimal": -76.61399
+                                    },
+                                    {
+                                        "url": "https://raw.githubusercontent.com/imranq2/SparkAutoMapper.FHIR/main/StructureDefinition/latitude",
+                                        "valueDecimal": 39.251884
+                                    }
+                                ],
+                                "url": "https://raw.githubusercontent.com/imranq2/SparkAutoMapper.FHIR/main/StructureDefinition/position"
+                            }
+                        ],
+                        "identifier": [
+                            {
+                                "use": "usual",
+                                "system": "http://medstarhealth.org",
+                                "value": "HG1-HPED"
+                            }
+                        ],
+                        "active": true,
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://terminology.hl7.org/CodeSystem/organization-type",
+                                        "code": "prov",
+                                        "display": "Healthcare Provider"
+                                    }
+                                ],
+                                "text": "Healthcare Organization"
+                            }
+                        ],
+                        "name": "MedStar Pediatrics at Harbor Hospital",
+                        "alias": [
+                            "MedStar Peds at MHH"
+                        ],
+                        "telecom": [
+                            {
+                                "system": "phone",
+                                "value": "(410) 350-2173"
+                            },
+                            {
+                                "system": "fax",
+                                "value": "(410) 350-2253"
+                            }
+                        ],
+                        "address": [
+                            {
+                                "line": [
+                                    "3001 S Hanover St Ste 108"
+                                ],
+                                "city": "Baltimore",
+                                "state": "MD",
+                                "postalCode": "21225-1233"
+                            }
+                        ],
+                        "partOf": {
+                            "reference": "Organization/Medstar-424353618",
+                            "display": "MedStar Pediatrics at Harbor Hospital"
+                        },
+                        "contact": [
+                            {
+                                "purpose": {
+                                    "coding": [
+                                        {
+                                            "system": "http://medstarhealth.org",
+                                            "code": "Central Scheduling"
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "resourceType": "Location",
+                        "id": "Medstar-Alias-HG1-HPED",
+                        "meta": {
+                            "versionId": "1",
+                            "lastUpdated": "2021-04-29T19:11:34+00:00",
+                            "source": "http://medstarhealth.org/practice",
+                            "security": [
+                                {
+                                    "system": "https://www.icanbwell.com/access",
+                                    "code": "medstar"
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/owner",
+                                    "code": "medstar"
+                                }
+                            ]
+                        },
+                        "identifier": [
+                            {
+                                "type": {
+                                    "coding": [
+                                        {
+                                            "system": "http://medstarhealth.org",
+                                            "code": "alias"
+                                        }
+                                    ],
+                                    "text": "Facility ID"
+                                },
+                                "system": "http://medstarhealth.org",
+                                "value": "HG1-HPED"
+                            },
+                            {
+                                "type": {
+                                    "coding": [
+                                        {
+                                            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                                            "code": "FI"
+                                        }
+                                    ],
+                                    "text": "Facility Identifier"
+                                },
+                                "system": "http://medstarhealth.org",
+                                "value": "HG1"
+                            },
+                            {
+                                "type": {
+                                    "coding": [
+                                        {
+                                            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                                            "code": "XX"
+                                        }
+                                    ],
+                                    "text": "Organization Identifier"
+                                },
+                                "system": "http://medstarhealth.org",
+                                "value": "2214"
+                            },
+                            {
+                                "type": {
+                                    "coding": [
+                                        {
+                                            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                                            "code": "DeptMnem"
+                                        }
+                                    ],
+                                    "text": "Scheduling Department Mnem"
+                                },
+                                "system": "http://medstarhealth.org",
+                                "value": "HPED"
+                            },
+                            {
+                                "type": {
+                                    "coding": [
+                                        {
+                                            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                                            "code": "DeptNo"
+                                        }
+                                    ],
+                                    "text": "Scheduling Department Number"
+                                },
+                                "system": "http://medstarhealth.org",
+                                "value": "3612"
+                            }
+                        ],
+                        "status": "active",
+                        "name": "MedStar Pediatrics at Harbor Hospital",
+                        "mode": "instance",
+                        "type": [
+                            {
+                                "coding": [
+                                    {
+                                        "system": "http://medstarhealth.org",
+                                        "code": "Pediatric",
+                                        "display": "Pediatric"
+                                    }
+                                ],
+                                "text": "practice speciality"
+                            }
+                        ],
+                        "telecom": [
+                            {
+                                "system": "phone",
+                                "value": "(410) 350-2173",
+                                "rank": 2
+                            },
+                            {
+                                "system": "fax",
+                                "value": "(410) 350-2253",
+                                "rank": 3
+                            }
+                        ],
+                        "address": {
+                            "line": [
+                                "3001 South Hanover Street Outpatient Center Floor 1"
+                            ],
+                            "city": "Baltimore",
+                            "state": "MD",
+                            "postalCode": "21225"
+                        },
+                        "physicalType": {
+                            "coding": [
+                                {
+                                    "system": "http://terminology.hl7.org/CodeSystem/location-physical-type",
+                                    "code": "bu"
+                                }
+                            ]
+                        },
+                        "position": {
+                            "longitude": -76.61399,
+                            "latitude": 39.251884
+                        },
+                        "managingOrganization": {
+                            "reference": "Organization/Medstar-Alias-HG1-HPED"
+                        },
+                        "hoursOfOperation": [
+                            {
+                                "daysOfWeek": [
+                                    "mon"
+                                ],
+                                "openingTime": "08:30:00",
+                                "closingTime": "16:30:00"
+                            },
+                            {
+                                "daysOfWeek": [
+                                    "tues"
+                                ],
+                                "openingTime": "08:30:00",
+                                "closingTime": "16:30:00"
+                            },
+                            {
+                                "daysOfWeek": [
+                                    "wed"
+                                ],
+                                "openingTime": "08:30:00",
+                                "closingTime": "16:30:00"
+                            },
+                            {
+                                "daysOfWeek": [
+                                    "thursday"
+                                ],
+                                "openingTime": "08:30:00",
+                                "closingTime": "16:30:00"
+                            },
+                            {
+                                "daysOfWeek": [
+                                    "fri"
+                                ],
+                                "openingTime": "08:30:00",
+                                "closingTime": "16:30:00"
+                            }
+                        ]
+                    }
+                ],
+                "identifier": [
+                    {
+                        "use": "usual",
+                        "type": {
+                            "coding": [
+                                {
+                                    "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                                    "code": "PRN"
+                                }
+                            ]
+                        },
+                        "system": "http://medstarhealth.org",
+                        "value": "364030"
+                    },
+                    {
+                        "use": "official",
+                        "type": {
+                            "coding": [
+                                {
+                                    "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                                    "code": "NPI"
+                                }
+                            ]
+                        },
+                        "system": "http://hl7.org/fhir/sid/us-npi",
+                        "value": "1710949219"
+                    },
+                    {
+                        "use": "official",
+                        "type": {
+                            "coding": [
+                                {
+                                    "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                                    "code": "TAX"
+                                }
+                            ]
+                        },
+                        "system": "http://hl7.org/fhir/sid/us-tin",
+                        "value": "46-4228016"
+                    }
+                ],
+                "active": true,
+                "name": [
+                    {
+                        "use": "usual",
+                        "text": "JOHN F IRWIN MD",
+                        "family": "Irwin",
+                        "given": [
+                            "JOHN F",
+                            "F"
+                        ]
+                    }
+                ],
+                "telecom": [
+                    {
+                        "system": "email",
+                        "value": "john.irwin@direct.medstar.net",
+                        "use": "work"
+                    }
+                ],
+                "gender": "male",
+                "photo": [
+                    {
+                        "contentType": "image/jpg",
+                        "url": "https://ct1.medstarhealth.org/content/uploads/2015/07/Dr-Irwin2.jpg",
+                        "title": "Practitioner headshot: John Irwin - 1710949219"
+                    }
+                ],
+                "qualification": [
+                    {
+                        "code": {
+                            "coding": [
+                                {
+                                    "system": "http://terminology.hl7.org/ValueSet/v2-2.7-030",
+                                    "code": "MD"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "code": {
+                            "coding": [
+                                {
+                                    "system": "http://terminology.hl7.org/ValueSet/v2-2.7-030",
+                                    "code": "MD"
+                                }
+                            ]
+                        },
+                        "period": {
+                            "start": "2000-01-01T00:00:00.000Z",
+                            "end": "2022-02-15T00:00:00.000Z"
+                        },
+                        "issuer": {
+                            "reference": "Organization/Rush-Presbyterian-St.-Lukes-Medical-Center",
+                            "display": "Rush-Presbyterian-St. Lukes Medical Center"
+                        }
+                    }
+                ],
+                "communication": [
+                    {
+                        "coding": [
+                            {
+                                "system": "urn:ietf:bcp:47",
+                                "code": "en",
+                                "display": "English"
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "fullUrl": "https://fhir.staging.bwell.zone/4_0_0/Practitioner/1053306548",
+            "resource": {
+                "resourceType": "Practitioner",
+                "id": "1053306548",
+                "meta": {
+                    "versionId": "1",
+                    "lastUpdated": "2021-04-29T19:23:16+00:00",
+                    "source": "http://medstarhealth.org/provider_headshots",
+                    "security": [
+                        {
+                            "system": "https://www.icanbwell.com/access",
+                            "code": "medstar"
+                        },
+                        {
+                            "system": "https://www.icanbwell.com/owner",
+                            "code": "medstar"
+                        }
+                    ]
+                },
+                "contained": [
+                    {
+                        "resourceType": "PractitionerRole",
+                        "id": "1053306548",
+                        "meta": {
+                            "versionId": "1",
+                            "lastUpdated": "2021-04-29T19:50:11+00:00",
+                            "source": "https://www.kyruus.com/specialty",
+                            "security": [
+                                {
+                                    "system": "https://www.icanbwell.com/access",
+                                    "code": "medstar"
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/owner",
+                                    "code": "medstar"
+                                }
+                            ]
+                        },
+                        "identifier": [
+                            {
+                                "type": {
+                                    "coding": [
+                                        {
+                                            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                                            "code": "NPI"
+                                        }
+                                    ]
+                                },
+                                "system": "http://hl7.org/fhir/sid/us-npi",
+                                "value": "1053306548"
+                            },
+                            {
+                                "type": {
+                                    "coding": [
+                                        {
+                                            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                                            "code": "DN"
+                                        }
+                                    ]
+                                },
+                                "system": "https://www.kyruus.com",
+                                "value": "713845"
+                            }
+                        ],
+                        "active": true,
+                        "practitioner": {
+                            "reference": "Practitioner/1053306548"
+                        },
+                        "specialty": [
+                            {
+                                "coding": [
+                                    {
+                                        "id": "E0000102",
+                                        "system": "https://www.kyruus.com/specialty",
+                                        "code": "E0000102",
+                                        "display": "Reproductive Endocrinology and Infertility"
+                                    }
+                                ],
+                                "text": "Reproductive Endocrinology and Infertility"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0006729",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0006729",
+                                        "display": "Fertility Doctor"
+                                    }
+                                ],
+                                "text": "Fertility Doctor"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0006744",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0006744",
+                                        "display": "Infertility Doctor"
+                                    }
+                                ],
+                                "text": "Infertility Doctor"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0006745",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0006745",
+                                        "display": "IVF Doctor"
+                                    }
+                                ],
+                                "text": "IVF Doctor"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0006774",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0006774",
+                                        "display": "Reproductive Doctor"
+                                    }
+                                ],
+                                "text": "Reproductive Doctor"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0006967",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0006967",
+                                        "display": "Fertility Expert"
+                                    }
+                                ],
+                                "text": "Fertility Expert"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0006968",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0006968",
+                                        "display": "Fertility Physician"
+                                    }
+                                ],
+                                "text": "Fertility Physician"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0006969",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0006969",
+                                        "display": "Fertility Provider"
+                                    }
+                                ],
+                                "text": "Fertility Provider"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0006970",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0006970",
+                                        "display": "Fertility Specialist"
+                                    }
+                                ],
+                                "text": "Fertility Specialist"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0007103",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0007103",
+                                        "display": "Infertility Expert"
+                                    }
+                                ],
+                                "text": "Infertility Expert"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0007104",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0007104",
+                                        "display": "Infertility Physician"
+                                    }
+                                ],
+                                "text": "Infertility Physician"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0007105",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0007105",
+                                        "display": "Infertility Provider"
+                                    }
+                                ],
+                                "text": "Infertility Provider"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0007106",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0007106",
+                                        "display": "Infertility Specialist"
+                                    }
+                                ],
+                                "text": "Infertility Specialist"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0007107",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0007107",
+                                        "display": "IVF Expert"
+                                    }
+                                ],
+                                "text": "IVF Expert"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0007108",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0007108",
+                                        "display": "IVF Physician"
+                                    }
+                                ],
+                                "text": "IVF Physician"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0007109",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0007109",
+                                        "display": "IVF Provider"
+                                    }
+                                ],
+                                "text": "IVF Provider"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0007110",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0007110",
+                                        "display": "IVF Specialist"
+                                    }
+                                ],
+                                "text": "IVF Specialist"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0007334",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0007334",
+                                        "display": "Reproductive Expert"
+                                    }
+                                ],
+                                "text": "Reproductive Expert"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0007335",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0007335",
+                                        "display": "Reproductive Physician"
+                                    }
+                                ],
+                                "text": "Reproductive Physician"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0007336",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0007336",
+                                        "display": "Reproductive Provider"
+                                    }
+                                ],
+                                "text": "Reproductive Provider"
+                            },
+                            {
+                                "coding": [
+                                    {
+                                        "id": "A0007337",
+                                        "system": "https://www.kyruus.com/alias",
+                                        "code": "A0007337",
+                                        "display": "Reproductive Specialist"
+                                    }
+                                ],
+                                "text": "Reproductive Specialist"
+                            }
+                        ]
+                    }
+                ],
+                "photo": [
+                    {
+                        "contentType": "image/jpg",
+                        "url": "null",
+                        "title": "Practitioner headshot: Paulette Browne - 1053306548"
+                    }
+                ]
+            }
+        }
+    ]
+}
