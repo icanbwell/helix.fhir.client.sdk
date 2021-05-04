@@ -317,7 +317,10 @@ class FhirClient:
             payload: Dict[str, str] = (
                 self._action_payload if self._action_payload else {}
             )
-            headers = {"Accept": "application/fhir+json,application/json+fhir"}
+            headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/fhir+json",
+            }
 
             # set access token in request if present
             if self.access_token:
