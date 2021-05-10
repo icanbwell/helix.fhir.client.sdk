@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 from datetime import datetime
 from typing import Dict, Optional, List, Union, Any
 from urllib import parse
@@ -15,6 +16,8 @@ from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
 from helix_fhir_client_sdk.validators.fhir_validator import FhirValidator
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 class FhirClient:
@@ -177,6 +180,7 @@ class FhirClient:
         self._login_token = self._create_login_token(
             client_id=client_id, client_secret=client_secret
         )
+        logging.info(f"Generated login token for client_id={client_id}")
         return self
 
     def logger(self, logger: FhirLogger) -> "FhirClient":
@@ -200,6 +204,10 @@ class FhirClient:
             self._auth_server_url = self._get_auth_server_url_from_well_known_configuration(
                 http=http
             )
+            if self._auth_server_url:
+                logging.info(
+                    f"Received {self._auth_server_url} from well_known configuration of server: {self._url}"
+                )
         if self._auth_server_url and not self._access_token:
             assert (
                 self._login_token
@@ -250,6 +258,7 @@ class FhirClient:
         return self
 
     def get(self) -> FhirGetResponse:
+        assert self._url, "No FHIR server url was set"
         retries: int = 2
         while retries >= 0:
             retries = retries - 1
@@ -449,6 +458,7 @@ class FhirClient:
         if self._action == "$graph":
             if self._logger:
                 self._logger.info(f"sending a post: {full_url}")
+            logging.info(f"sending a post: {full_url}")
             if payload:
                 return http.post(full_url, headers=headers, json=payload)
             else:
@@ -458,6 +468,7 @@ class FhirClient:
         else:
             if self._logger:
                 self._logger.info(f"sending a get: {full_url}")
+            logging.info(f"sending a get: {full_url}")
             return http.get(full_url, headers=headers, data=payload)
 
     def _create_http_session(self) -> Session:
@@ -565,12 +576,15 @@ class FhirClient:
 
     def merge(self, json_data_list: List[str],) -> FhirMergeResponse:
         """
-
+        Calls $merge function on FHIR server
         :param json_data_list:
         :type json_data_list:
         :return:
         :rtype:
         """
+        assert self._url, "No FHIR server url was set"
+        logging.info(f"Calling $merge on {self._url}")
+
         retries: int = 2
         while retries >= 0:
             retries = retries - 1
@@ -650,7 +664,9 @@ class FhirClient:
                             # out of retries so just fail now
                             response.raise_for_status()
                     else:
-                        print(f"response={response.text}")
+                        logging.info(
+                            f"response for {full_uri.tostr()}: {response.status_code}"
+                        )
                         response.raise_for_status()
                 except requests.exceptions.HTTPError as e:
                     raise FhirSenderException(
@@ -694,6 +710,7 @@ class FhirClient:
         """
         full_uri: furl = furl(furl(self._url).origin)
         full_uri /= ".well-known/smart-configuration"
+        logging.info(f"Calling {full_uri.tostr()}")
         response: Response = http.get(full_uri.tostr())
         if response and response.ok and response.text:
             content: Dict[str, Any] = json.loads(response.text)
