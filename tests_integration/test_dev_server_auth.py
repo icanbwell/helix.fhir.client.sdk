@@ -7,7 +7,7 @@ def test_dev_server_auth() -> None:
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(url).resource("Patient")
     fhir_client = fhir_client.client_credentials(
-        client_id="4opocimdhppokn1ks0hpbo9fkv", client_secret="{Put secret here}"
+        client_id="", client_secret="",
     ).auth_scopes(["user/*.read"])
     response: FhirGetResponse = fhir_client.get()
     print(response.responses)
