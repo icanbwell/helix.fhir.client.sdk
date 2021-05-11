@@ -219,7 +219,6 @@ class FhirClient:
     def access_token(self) -> Optional[str]:
         # if we have an auth server url but no access token then get an access token
         if self._login_token and not self._auth_server_url:
-            http: Session = self._create_http_session()
             # try to get auth_server_url from well known configuration
             self._auth_server_url = (
                 self._get_auth_server_url_from_well_known_configuration()
