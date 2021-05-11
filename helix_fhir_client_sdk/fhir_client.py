@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 from datetime import datetime
+from logging import Logger
 from threading import Lock
 from typing import Dict, Optional, List, Union, Any, NamedTuple
 from urllib import parse
@@ -17,8 +18,6 @@ from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
 from helix_fhir_client_sdk.validators.fhir_validator import FhirValidator
-
-logging.basicConfig(level=logging.DEBUG)
 
 
 # stores the tuple in the cache
@@ -67,6 +66,8 @@ class FhirClient:
         self._separate_bundle_resources: bool = (
             False  # for each entry in bundle create a property for each resource
         )
+        self._internal_logger: Logger = logging.getLogger("FhirClient")
+        self._internal_logger.setLevel(logging.INFO)
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -501,7 +502,7 @@ class FhirClient:
         else:
             if self._logger:
                 self._logger.info(f"sending a get: {full_url}")
-            logging.info(f"sending a get: {full_url}")
+            self._internal_logger.info(f"sending a get: {full_url}")
             return http.get(full_url, headers=headers, data=payload)
 
     def _create_http_session(self) -> Session:
@@ -619,7 +620,7 @@ class FhirClient:
         :rtype:
         """
         assert self._url, "No FHIR server url was set"
-        logging.info(f"Calling $merge on {self._url}")
+        self._internal_logger.info(f"Calling $merge on {self._url}")
 
         retries: int = 2
         while retries >= 0:
@@ -700,7 +701,7 @@ class FhirClient:
                             # out of retries so just fail now
                             response.raise_for_status()
                     else:
-                        logging.info(
+                        self._internal_logger.info(
                             f"response for {full_uri.tostr()}: {response.status_code}"
                         )
                         response.raise_for_status()
@@ -755,12 +756,12 @@ class FhirClient:
                 < self._time_to_live_in_secs_for_cache
             ):
                 cached_endpoint: Optional[str] = entry.auth_url
-                logging.info(
+                self._internal_logger.info(
                     f"Returning auth_url from cache for {host_name}: {cached_endpoint}"
                 )
                 return cached_endpoint
         full_uri /= ".well-known/smart-configuration"
-        logging.info(f"Calling {full_uri.tostr()}")
+        self._internal_logger.info(f"Calling {full_uri.tostr()}")
         http = self._create_http_session()
         response: Response = http.get(full_uri.tostr())
         if response and response.ok and response.text:
