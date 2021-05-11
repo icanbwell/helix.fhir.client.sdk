@@ -245,6 +245,10 @@ class FhirClient:
     def access_token(self, value: str) -> None:
         self._access_token = value
 
+    def set_access_token(self, value: str) -> "FhirClient":
+        self.access_token = value
+        return self
+
     def delete(self) -> Response:
         if not self._id:
             raise ValueError("delete requires the ID of FHIR object to delete")
