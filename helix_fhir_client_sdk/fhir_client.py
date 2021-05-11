@@ -2,7 +2,8 @@ import base64
 import json
 import logging
 from datetime import datetime
-from typing import Dict, Optional, List, Union, Any
+from threading import Lock
+from typing import Dict, Optional, List, Union, Any, NamedTuple
 from urllib import parse
 
 import requests
@@ -20,7 +21,26 @@ from helix_fhir_client_sdk.validators.fhir_validator import FhirValidator
 logging.basicConfig(level=logging.DEBUG)
 
 
+# stores the tuple in the cache
+class WellKnownConfigurationCacheEntry(NamedTuple):
+    auth_url: Optional[str]
+    last_updated_utc: datetime
+
+
 class FhirClient:
+    """
+    Class used to call FHIR server
+    """
+
+    _time_to_live_in_secs_for_cache: int = 10 * 60
+
+    # caches results from calls to well known configuration
+    #   key is host name of fhir server, value is  auth_server_url
+    _well_known_configuration_cache: Dict[str, WellKnownConfigurationCacheEntry] = {}
+
+    # used to lock access to above cache
+    _lock: Lock = Lock()
+
     def __init__(self) -> None:
         self._action: Optional[str] = None
         self._action_payload: Optional[Dict[str, Any]] = None
@@ -201,8 +221,8 @@ class FhirClient:
         if self._login_token and not self._auth_server_url:
             http: Session = self._create_http_session()
             # try to get auth_server_url from well known configuration
-            self._auth_server_url = self._get_auth_server_url_from_well_known_configuration(
-                http=http
+            self._auth_server_url = (
+                self._get_auth_server_url_from_well_known_configuration()
             )
             if self._auth_server_url:
                 logging.info(
@@ -224,6 +244,10 @@ class FhirClient:
     @access_token.setter
     def access_token(self, value: str) -> None:
         self._access_token = value
+
+    def set_access_token(self, value: str) -> "FhirClient":
+        self.access_token = value
+        return self
 
     def delete(self) -> Response:
         if not self._id:
@@ -400,12 +424,20 @@ class FhirClient:
                             resources = json.dumps(resources_list)
                     else:
                         resources = text
-                return FhirGetResponse(url=full_url, responses=resources, error=None)
+                return FhirGetResponse(
+                    url=full_url,
+                    responses=resources,
+                    error=None,
+                    access_token=self._access_token,
+                )
             elif response.status_code == 404:  # not found
                 if self._logger:
                     self._logger.error(f"resource not found! {full_url}")
                 return FhirGetResponse(
-                    url=full_url, responses=resources, error=f"{response.status_code}"
+                    url=full_url,
+                    responses=resources,
+                    error=f"{response.status_code}",
+                    access_token=self._access_token,
                 )
             elif (
                 response.status_code == 403 or response.status_code == 401
@@ -431,6 +463,7 @@ class FhirClient:
                         url=full_url,
                         responses=resources,
                         error=f"{response.status_code}",
+                        access_token=self._access_token,
                     )
             else:
                 # some unexpected error
@@ -444,6 +477,7 @@ class FhirClient:
                 return FhirGetResponse(
                     url=full_url,
                     responses=resources,
+                    access_token=self._access_token,
                     error=f"{response.status_code} {error_text}",
                 )
         raise Exception("Could not talk to FHIR server after multiple tries")
@@ -514,7 +548,10 @@ class FhirClient:
             else:
                 break
         return FhirGetResponse(
-            self._url, responses=json.dumps(resources_list), error=result.error
+            self._url,
+            responses=json.dumps(resources_list),
+            error=result.error,
+            access_token=self._access_token,
         )
 
     @staticmethod
@@ -695,25 +732,53 @@ class FhirClient:
                         )
                     )
             return FhirMergeResponse(
-                url=self._url or "", responses=responses, error=None
+                url=self._url or "",
+                responses=responses,
+                error=None,
+                access_token=self._access_token,
             )
 
         raise Exception("Could not talk to FHIR server after multiple tries")
 
-    def _get_auth_server_url_from_well_known_configuration(
-        self, http: Session
-    ) -> Optional[str]:
+    def _get_auth_server_url_from_well_known_configuration(self) -> Optional[str]:
         """
         Finds the auth server url via the well known configuration if it exists
-        :param http: Http Session
         :return: auth server url or None
         """
         full_uri: furl = furl(furl(self._url).origin)
+        host_name: str = full_uri.tostr()
+        if host_name in self._well_known_configuration_cache:
+            entry: Optional[
+                WellKnownConfigurationCacheEntry
+            ] = self._well_known_configuration_cache.get(host_name)
+            if entry and (
+                (datetime.utcnow() - entry.last_updated_utc).seconds
+                < self._time_to_live_in_secs_for_cache
+            ):
+                cached_endpoint: Optional[str] = entry.auth_url
+                logging.info(
+                    f"Returning auth_url from cache for {host_name}: {cached_endpoint}"
+                )
+                return cached_endpoint
         full_uri /= ".well-known/smart-configuration"
         logging.info(f"Calling {full_uri.tostr()}")
+        http = self._create_http_session()
         response: Response = http.get(full_uri.tostr())
         if response and response.ok and response.text:
             content: Dict[str, Any] = json.loads(response.text)
-            return str(content["token_endpoint"])
+            token_endpoint: Optional[str] = str(content["token_endpoint"])
+            with self._lock:
+                self._well_known_configuration_cache[
+                    host_name
+                ] = WellKnownConfigurationCacheEntry(
+                    auth_url=token_endpoint, last_updated_utc=datetime.utcnow()
+                )
+            return token_endpoint
         else:
+            with self._lock:
+                self._well_known_configuration_cache[
+                    host_name
+                ] = WellKnownConfigurationCacheEntry(
+                    auth_url=None, last_updated_utc=datetime.utcnow()
+                )
             return None
