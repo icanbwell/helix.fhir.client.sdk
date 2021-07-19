@@ -7,6 +7,7 @@ name = "pypi"
 furl="*"
 requests = "*"
 urllib3 = "*"
+chardet = "*"
 
 [dev-packages]
 setuptools="*"
@@ -17,12 +18,13 @@ autoflake=">=1.4"
 flake8 = ">=3.8.4"
 mypy = ">=0.812"
 pytest = ">=6.2.2"
-black = ">=19.10b0"
+black = "==19.10b0"
 pipenv-setup = ">=3.1.1"
 requests_mock = ">=1.8.0"
+types-requests = ">=2.25.0"
 
 [requires]
 python_version = "3.7"
 
 [pipenv]
-allow_prereleases = true
+allow_prereleases = false
