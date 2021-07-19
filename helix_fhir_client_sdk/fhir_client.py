@@ -58,6 +58,7 @@ class FhirClient:
         self._auth_server_url: Optional[str] = None
         self._auth_scopes: Optional[List[str]] = None
         self._login_token: Optional[str] = None
+        self._client_id: Optional[str] = None
         self._access_token: Optional[str] = None
         self._logger: Optional[FhirLogger] = None
         self._adapter: Optional[BaseAdapter] = None
@@ -198,6 +199,7 @@ class FhirClient:
         return self
 
     def client_credentials(self, client_id: str, client_secret: str) -> "FhirClient":
+        self._client_id = client_id
         self._login_token = self._create_login_token(
             client_id=client_id, client_secret=client_secret
         )
@@ -491,8 +493,12 @@ class FhirClient:
     ) -> Response:
         if self._action == "$graph":
             if self._logger:
-                self._logger.info(f"sending a post: {full_url}")
-            logging.info(f"sending a post: {full_url}")
+                self._logger.info(
+                    f"sending a post: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
+                )
+            logging.info(
+                f"sending a post: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
+            )
             if payload:
                 return http.post(full_url, headers=headers, json=payload)
             else:
@@ -501,8 +507,12 @@ class FhirClient:
                 )
         else:
             if self._logger:
-                self._logger.info(f"sending a get: {full_url}")
-            self._internal_logger.info(f"sending a get: {full_url}")
+                self._logger.info(
+                    f"sending a get: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
+                )
+            self._internal_logger.info(
+                f"sending a get: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
+            )
             return http.get(full_url, headers=headers, data=payload)
 
     def _create_http_session(self) -> Session:
@@ -566,8 +576,8 @@ class FhirClient:
         ).decode("ascii")
         return token
 
-    @staticmethod
     def authenticate(
+        self,
         http: Session,
         auth_server_url: str,
         auth_scopes: Optional[List[str]],
@@ -596,6 +606,10 @@ class FhirClient:
             "Content-Type": "application/x-www-form-urlencoded",
         }
 
+        self._internal_logger.info(
+            f"Authenticating with {auth_server_url} with client_id={self._client_id} for scopes={auth_scopes}"
+        )
+
         response: Response = http.request(
             "POST", auth_server_url, headers=headers, data=payload
         )
@@ -620,7 +634,9 @@ class FhirClient:
         :rtype:
         """
         assert self._url, "No FHIR server url was set"
-        self._internal_logger.info(f"Calling $merge on {self._url}")
+        self._internal_logger.info(
+            f"Calling $merge on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
+        )
 
         retries: int = 2
         while retries >= 0:
