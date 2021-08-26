@@ -128,3 +128,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 /.idea/
+
+# Sphinx
+docs/_build/doc
+src/_build/
