@@ -1,0 +1,16 @@
+:py:mod:`helix_fhir_client_sdk.responses`
+=========================================
+
+.. py:module:: helix_fhir_client_sdk.responses
+
+
+Submodules
+----------
+.. toctree::
+   :titlesonly:
+   :maxdepth: 1
+
+   fhir_get_response/index.rst
+   fhir_merge_response/index.rst
+
+

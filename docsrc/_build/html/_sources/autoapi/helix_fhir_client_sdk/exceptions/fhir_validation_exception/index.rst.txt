@@ -1,0 +1,24 @@
+:py:mod:`helix_fhir_client_sdk.exceptions.fhir_validation_exception`
+====================================================================
+
+.. py:module:: helix_fhir_client_sdk.exceptions.fhir_validation_exception
+
+
+Module Contents
+---------------
+
+.. py:exception:: FhirValidationException(url, json_data, response_text, response_status_code, message)
+
+   Bases: :py:obj:`Exception`
+
+   Common base class for all non-exit exceptions.
+
+   Validation Failure
+
+   :param url: url that was being accessed
+   :param json_data: data that was being sent
+   :param response_text: response from the FHIR server
+   :param response_status_code: status code returned by FHIR server
+   :param message: error message        
+
+

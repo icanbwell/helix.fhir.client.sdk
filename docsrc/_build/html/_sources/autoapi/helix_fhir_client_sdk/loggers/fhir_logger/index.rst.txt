@@ -1,0 +1,34 @@
+:py:mod:`helix_fhir_client_sdk.loggers.fhir_logger`
+===================================================
+
+.. py:module:: helix_fhir_client_sdk.loggers.fhir_logger
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   helix_fhir_client_sdk.loggers.fhir_logger.FhirLogger
+
+
+
+
+.. py:class:: FhirLogger
+
+   Dummy Logger
+
+   .. py:method:: info(self, param)
+
+      Handle messages at INFO level
+
+
+   .. py:method:: error(self, param)
+
+      Handle messages at error level
+
+
+
