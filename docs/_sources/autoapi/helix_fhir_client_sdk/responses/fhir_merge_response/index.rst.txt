@@ -1,0 +1,30 @@
+:py:mod:`helix_fhir_client_sdk.responses.fhir_merge_response`
+=============================================================
+
+.. py:module:: helix_fhir_client_sdk.responses.fhir_merge_response
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   helix_fhir_client_sdk.responses.fhir_merge_response.FhirMergeResponse
+
+
+
+
+.. py:class:: FhirMergeResponse(url, responses, error, access_token)
+
+   
+   Class that encapsulates a response to e $merge call to FHIR server
+
+   :param url: url that was being accessed
+   :param responses: list of responses
+   :param error: Any error returned by FHIR server
+   :param access_token: access token that was used
+
+

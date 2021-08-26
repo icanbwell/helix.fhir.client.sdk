@@ -67,8 +67,8 @@ help: ## Show this help.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: sphinx-html
-sphinx-html:
-	docker-compose run --rm --name sam_fhir dev make -C docsrc html
+sphinx-html: ## build documentation
+	docker-compose run --rm --name helix.fhir.client.sdk dev make -C docsrc html
 	@echo "copy html to docs... why? https://github.com/sphinx-doc/sphinx/issues/3382#issuecomment-470772316"
 	@rm -rf docs
 	@mkdir docs

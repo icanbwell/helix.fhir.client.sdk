@@ -199,6 +199,14 @@ class FhirClient:
         return self
 
     def client_credentials(self, client_id: str, client_secret: str) -> "FhirClient":
+        """
+        Sets client credentials to use when calling the FHIR server
+
+
+        :param client_id: client_id
+        :param client_secret: client_secret
+        :return: self
+        """
         self._client_id = client_id
         self._login_token = self._create_login_token(
             client_id=client_id, client_secret=client_secret
@@ -207,19 +215,43 @@ class FhirClient:
         return self
 
     def logger(self, logger: FhirLogger) -> "FhirClient":
+        """
+        Logger to use for logging calls to the FHIR server
+
+
+        :param logger: logger
+        """
         self._logger = logger
         return self
 
     def adapter(self, adapter: BaseAdapter) -> "FhirClient":
+        """
+        Http Adapter to use for calling the FHIR server
+
+
+        :param adapter: adapter
+        """
         self._adapter = adapter
         return self
 
     def limit(self, limit: int) -> "FhirClient":
+        """
+        Limit the results
+
+
+        :param limit: Limit results to this count
+        """
         self._limit = limit
         return self
 
     @property
     def access_token(self) -> Optional[str]:
+        """
+        Gets current access token
+
+
+        :return: access token if any
+        """
         # if we have an auth server url but no access token then get an access token
         if self._login_token and not self._auth_server_url:
             # try to get auth_server_url from well known configuration
@@ -245,13 +277,28 @@ class FhirClient:
 
     @access_token.setter
     def access_token(self, value: str) -> None:
+        """
+        Sets access token
+
+
+        :param value: value to set access token to
+        """
         self._access_token = value
 
     def set_access_token(self, value: str) -> "FhirClient":
+        """
+        Sets access token
+
+
+        :param value: access token
+        """
         self.access_token = value
         return self
 
     def delete(self) -> Response:
+        """
+        Delete the resources
+        """
         if not self._id:
             raise ValueError("delete requires the ID of FHIR object to delete")
         if not self._resource:
@@ -280,10 +327,19 @@ class FhirClient:
     def separate_bundle_resources(
         self, separate_bundle_resources: bool
     ) -> "FhirClient":
+        """
+        Set flag to separate bundle resources
+
+
+        :param separate_bundle_resources:
+        """
         self._separate_bundle_resources = separate_bundle_resources
         return self
 
     def get(self) -> FhirGetResponse:
+        """
+        Issues a GET call
+        """
         assert self._url, "No FHIR server url was set"
         retries: int = 2
         while retries >= 0:
@@ -491,6 +547,15 @@ class FhirClient:
         headers: Dict[str, str],
         payload: Dict[str, Any],
     ) -> Response:
+        """
+        Sends a request to the server
+
+
+        :param http: session to use
+        :param full_url:
+        :param headers:
+        :param payload:
+        """
         if self._action == "$graph":
             if self._logger:
                 self._logger.info(
@@ -516,6 +581,9 @@ class FhirClient:
             return http.get(full_url, headers=headers, data=payload)
 
     def _create_http_session(self) -> Session:
+        """
+        Creates an HTTP Session
+        """
         retry_strategy = Retry(
             total=5,
             status_forcelist=[429, 500, 502, 503, 504],
@@ -542,6 +610,9 @@ class FhirClient:
         return http
 
     def get_in_batches(self) -> FhirGetResponse:
+        """
+        Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
+        """
         # if paging is requested then iterate through the pages until the response is empty
         assert self._url
         assert self._page_size
@@ -568,8 +639,9 @@ class FhirClient:
     def _create_login_token(client_id: str, client_secret: str) -> str:
         """
         Creates a login token given client_id and client_secret
+
+
         :return: login token
-        :rtype: str
         """
         token: str = base64.b64encode(
             f"{client_id}:{client_secret}".encode("ascii")
@@ -585,12 +657,13 @@ class FhirClient:
     ) -> Optional[str]:
         """
         Authenticates with an OAuth Provider
+
+
         :param http: http session
         :param auth_server_url: url to auth server /token endpoint
         :param auth_scopes: list of scopes to request
         :param login_token: login token to use for authenticating
         :return: access token
-        :rtype: str
         """
         assert auth_server_url
         assert auth_scopes
@@ -628,10 +701,9 @@ class FhirClient:
     def merge(self, json_data_list: List[str],) -> FhirMergeResponse:
         """
         Calls $merge function on FHIR server
-        :param json_data_list:
-        :type json_data_list:
-        :return:
-        :rtype:
+
+
+        :param json_data_list: list of resources to send
         """
         assert self._url, "No FHIR server url was set"
         self._internal_logger.info(
@@ -759,6 +831,8 @@ class FhirClient:
     def _get_auth_server_url_from_well_known_configuration(self) -> Optional[str]:
         """
         Finds the auth server url via the well known configuration if it exists
+
+
         :return: auth server url or None
         """
         full_uri: furl = furl(furl(self._url).origin)

@@ -2,6 +2,8 @@ FROM python:3.7-slim
 # https://github.com/imranq2/docker.spark_python
 USER root
 
+RUN apt-get update && apt-get install make
+
 COPY Pipfile* /src/
 WORKDIR /src
 
