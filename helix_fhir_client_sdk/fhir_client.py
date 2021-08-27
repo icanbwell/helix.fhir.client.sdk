@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from logging import Logger
 from threading import Lock
-from typing import Dict, Optional, List, Union, Any, NamedTuple
+from typing import Dict, Optional, List, Union, Any, NamedTuple, Callable
 from urllib import parse
 
 import requests
@@ -14,6 +14,7 @@ from requests.adapters import HTTPAdapter, BaseAdapter
 from urllib3 import Retry  # type: ignore
 
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
+from helix_fhir_client_sdk.graph.graph_definition import GraphDefinition
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
@@ -69,6 +70,7 @@ class FhirClient:
         )
         self._internal_logger: Logger = logging.getLogger("FhirClient")
         self._internal_logger.setLevel(logging.INFO)
+        self._obj_id: Optional[str] = None
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -350,6 +352,8 @@ class FhirClient:
             resources: str = ""
             full_uri: furl = furl(self._url)
             full_uri /= self._resource
+            if self._obj_id:
+                full_uri /= parse.quote(str(self._obj_id), safe="")
             if self._id:
                 if self._filter_by_resource:
                     if self._filter_parameter:
@@ -361,7 +365,7 @@ class FhirClient:
                         # ?patient=27384972
                         full_uri.args[self._filter_by_resource.lower()] = self._id
                 elif isinstance(self._id, list):
-                    if len(self._id) == 1:
+                    if len(self._id) == 1 and not self._obj_id:
                         full_uri /= self._id
                     else:
                         full_uri.args["id"] = ",".join(self._id)
@@ -611,19 +615,32 @@ class FhirClient:
             http.mount("http://", adapter)
         return http
 
-    def get_in_batches(self) -> FhirGetResponse:
+    def get_in_batches(
+        self, fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], None]]
+    ) -> FhirGetResponse:
         """
         Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
+
+        :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
+                                    resource is a dictionary. If this is specified then we don't return
+                                    the resources anymore
+        :return response containing all the resources received
         """
         # if paging is requested then iterate through the pages until the response is empty
         assert self._url
         assert self._page_size
         self._page_number = 0
-        resources_list: List[str] = []
+        resources_list: List[Dict[str, Any]] = []
         while True:
             result: FhirGetResponse = self.get()
             if not result.error and bool(result.responses):
-                resources_list.extend(json.loads(result.responses))
+                result_list: List[Dict[str, Any]] = json.loads(result.responses)
+                if len(result_list) == 0:
+                    break
+                if fn_handle_batch:
+                    fn_handle_batch(result_list)
+                else:
+                    resources_list.extend(result_list)
                 if self._limit and self._limit > 0:
                     if (self._page_number * self._page_size) > self._limit:
                         break
@@ -874,3 +891,66 @@ class FhirClient:
                     auth_url=None, last_updated_utc=datetime.utcnow()
                 )
             return None
+
+    def filter_by_access_tag(self, client_id: str) -> "FhirClient":
+        """
+        Restrict results to only records that have an access tag for this client_id
+
+
+        :param client_id: client id
+        """
+        assert client_id
+        if not self._additional_parameters:
+            self._additional_parameters = []
+        self._additional_parameters.append(
+            f"_security=https://www.icanbwell.com/access|{client_id}"
+        )
+        return self
+
+    def filter_by_source(self, source: str) -> "FhirClient":
+        """
+        Restrict results to records with this source
+
+        :param source: source url
+        """
+        assert source
+        if not self._additional_parameters:
+            self._additional_parameters = []
+        self._additional_parameters.append(f"source={source}")
+        return self
+
+    def graph(
+        self,
+        *,
+        graph_definition: GraphDefinition,
+        contained: bool,
+        process_in_batches: Optional[bool] = None,
+        fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], None]] = None,
+    ) -> FhirGetResponse:
+        """
+        Executes the $graph query on the FHIR server
+
+
+        :param graph_definition: definition of a graph to execute
+        :param contained: whether we should return the related resources as top level list or nest them inside their
+                            parent resources in a contained property
+        :param process_in_batches: whether to process in batches of size page_size
+        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                                return the resources in the response anymore
+        """
+        assert graph_definition
+        assert isinstance(graph_definition, GraphDefinition)
+        assert graph_definition.start
+        if contained:
+            if not self._additional_parameters:
+                self._additional_parameters = []
+            self._additional_parameters.append("contained=true")
+        self.action_payload(graph_definition.to_dict())
+        self.resource(graph_definition.start)
+        self.action("$graph")
+        self._obj_id = "1"  # this is needed because the $graph endpoint requires an id
+        return (
+            self.get()
+            if not process_in_batches
+            else self.get_in_batches(fn_handle_batch=fn_handle_batch)
+        )
