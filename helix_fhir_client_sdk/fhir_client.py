@@ -920,8 +920,24 @@ class FhirClient:
         return self
 
     def graph(
-        self, graph_definition: GraphDefinition, contained: bool
+        self,
+        *,
+        graph_definition: GraphDefinition,
+        contained: bool,
+        process_in_batches: Optional[bool] = None,
+        fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], None]] = None,
     ) -> FhirGetResponse:
+        """
+        Executes the $graph query on the FHIR server
+
+
+        :param graph_definition: definition of a graph to execute
+        :param contained: whether we should return the related resources as top level list or nest them inside their
+                            parent resources in a contained property
+        :param process_in_batches: whether to process in batches of size page_size
+        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                                return the resources in the response anymore
+        """
         assert graph_definition
         assert isinstance(graph_definition, GraphDefinition)
         assert graph_definition.start
@@ -933,4 +949,8 @@ class FhirClient:
         self.resource(graph_definition.start)
         self.action("$graph")
         self._obj_id = "1"  # this is needed because the $graph endpoint requires an id
-        return self.get()
+        return (
+            self.get()
+            if not process_in_batches
+            else self.get_in_batches(fn_handle_batch=fn_handle_batch)
+        )
