@@ -21,35 +21,33 @@ Example
 
 .. code-block:: python
 
+   server_url = "https://fhir.icanbwell.com/4_0_0"
+   auth_client_id = "{put client_id here}"
+   auth_client_secret = "{put client_secret here}"
+   auth_scopes = ["user/*.read", "access/*.*"]
    fhir_client: FhirClient = FhirClient()
    fhir_client = fhir_client.url(server_url)
-   if auth_server_url:
-       fhir_client = fhir_client.auth_server_url(auth_server_url)
-   if auth_client_id and auth_client_secret:
-       fhir_client = fhir_client.client_credentials(auth_client_id, auth_client_secret)
-   if auth_login_token:
-       fhir_client = fhir_client.login_token(auth_login_token)
-   if auth_scopes:
-       fhir_client = fhir_client.auth_scopes(auth_scopes)
-   if include_only_properties:
-       fhir_client = fhir_client.include_only_properties(
-           include_only_properties=include_only_properties
-       )
-   if page_size and page_number is not None:
-       fhir_client = fhir_client.page_size(page_size).page_number(page_number)
-   if sort_fields is not None:
-       fhir_client = fhir_client.sort_fields(sort_fields)
-   if additional_parameters:
-       fhir_client = fhir_client.additional_parameters(additional_parameters)
+   fhir_client = fhir_client.resource("Patient")
+   fhir_client = fhir_client.client_credentials(auth_client_id, auth_client_secret)
+   fhir_client = fhir_client.auth_scopes(auth_scopes)
 
-   # have to done here since this arg can be used twice
-   if last_updated_before:
-       fhir_client = fhir_client.last_updated_before(last_updated_before)
-   if last_updated_after:
-       fhir_client = fhir_client.last_updated_after(last_updated_after)
+   # Optional
+   fhir_client = fhir_client.page_size(page_size).page_number(page_number)
+
+   fhir_client = fhir_client.sort_fields(sort_fields)
+
+   fhir_client = fhir_client.additional_parameters(additional_parameters)
+
+   fhir_client = fhir_client.last_updated_before(last_updated_before)
+
+   fhir_client = fhir_client.last_updated_after(last_updated_after)
 
    result = fhir_client.get()
 
+   import json
+   resource_list = json.loads(result.responses)
+   for resource in resource_list:
+      print(resource.id)
 
 Contents:
 ==================

@@ -188,6 +188,7 @@ class FhirClient:
         """
         :param auth_scopes: list of scopes to request permission for e.g., system/AllergyIntolerance.read
         """
+        assert isinstance(auth_scopes, list), f"{type(auth_scopes)} is not a list"
         self._auth_scopes = auth_scopes
         return self
 
@@ -341,6 +342,7 @@ class FhirClient:
         Issues a GET call
         """
         assert self._url, "No FHIR server url was set"
+        assert self._resource, "No Resource was set"
         retries: int = 2
         while retries >= 0:
             retries = retries - 1
