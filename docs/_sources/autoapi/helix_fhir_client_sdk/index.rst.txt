@@ -11,6 +11,7 @@ Subpackages
    :maxdepth: 3
 
    exceptions/index.rst
+   graph/index.rst
    loggers/index.rst
    responses/index.rst
    validators/index.rst

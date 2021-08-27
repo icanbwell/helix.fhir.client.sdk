@@ -1,0 +1,64 @@
+:py:mod:`helix_fhir_client_sdk.graph.graph_definition`
+======================================================
+
+.. py:module:: helix_fhir_client_sdk.graph.graph_definition
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   helix_fhir_client_sdk.graph.graph_definition.GraphDefinitionTarget
+   helix_fhir_client_sdk.graph.graph_definition.GraphDefinitionLink
+   helix_fhir_client_sdk.graph.graph_definition.GraphDefinition
+
+
+
+
+.. py:class:: GraphDefinitionTarget(*, type_, params = None, link = None)
+
+   
+   Create a target for a link
+   :param type_: Type of child resource
+   :param params: Used for a reverse link where the child resource has a property that is a reference
+                   back to the parent
+   :param link: Nested for additional links to children of this child resource
+
+   .. py:method:: to_dict(self)
+
+
+
+.. py:class:: GraphDefinitionLink(*, path = None, target)
+
+   
+   Create a link to another resource
+
+   :param path: Optional path for forward links i.e., the parent resource has a property that is a reference
+                   to this related resource
+   :param target: list of targeted resources.
+
+   .. py:method:: to_dict(self)
+
+      Returns this object as a dictionary
+
+
+
+.. py:class:: GraphDefinition(*, id_, name, start, link)
+
+   
+   Creates a GraphDefinition object to use in a $graph call
+
+   :param id_: id for this GraphDefinition resource
+   :param start: Fhir Resource to start from
+   :param link: list of links
+
+   .. py:method:: to_dict(self)
+
+      Returns this object as a dictionary
+
+
+
