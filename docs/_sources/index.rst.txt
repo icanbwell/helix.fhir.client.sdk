@@ -21,6 +21,7 @@ Example
 
 .. code-block:: python
 
+   from helix_fhir_client_sdk.fhir_client import FhirClient
    server_url = "https://fhir.icanbwell.com/4_0_0"
    auth_client_id = "{put client_id here}"
    auth_client_secret = "{put client_secret here}"
@@ -31,23 +32,12 @@ Example
    fhir_client = fhir_client.client_credentials(auth_client_id, auth_client_secret)
    fhir_client = fhir_client.auth_scopes(auth_scopes)
 
-   # Optional
-   fhir_client = fhir_client.page_size(page_size).page_number(page_number)
-
-   fhir_client = fhir_client.sort_fields(sort_fields)
-
-   fhir_client = fhir_client.additional_parameters(additional_parameters)
-
-   fhir_client = fhir_client.last_updated_before(last_updated_before)
-
-   fhir_client = fhir_client.last_updated_after(last_updated_after)
-
    result = fhir_client.get()
 
    import json
    resource_list = json.loads(result.responses)
    for resource in resource_list:
-      print(resource.id)
+      print(resource['id'])
 
 Contents:
 ==================
