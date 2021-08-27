@@ -14,6 +14,7 @@ from requests.adapters import HTTPAdapter, BaseAdapter
 from urllib3 import Retry  # type: ignore
 
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
+from helix_fhir_client_sdk.graph.graph_definition import GraphDefinition
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
@@ -69,6 +70,7 @@ class FhirClient:
         )
         self._internal_logger: Logger = logging.getLogger("FhirClient")
         self._internal_logger.setLevel(logging.INFO)
+        self._obj_id: Optional[str] = None
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -350,6 +352,8 @@ class FhirClient:
             resources: str = ""
             full_uri: furl = furl(self._url)
             full_uri /= self._resource
+            if self._obj_id:
+                full_uri /= parse.quote(str(self._obj_id), safe="")
             if self._id:
                 if self._filter_by_resource:
                     if self._filter_parameter:
@@ -361,7 +365,7 @@ class FhirClient:
                         # ?patient=27384972
                         full_uri.args[self._filter_by_resource.lower()] = self._id
                 elif isinstance(self._id, list):
-                    if len(self._id) == 1:
+                    if len(self._id) == 1 and not self._obj_id:
                         full_uri /= self._id
                     else:
                         full_uri.args["id"] = ",".join(self._id)
@@ -914,3 +918,19 @@ class FhirClient:
             self._additional_parameters = []
         self._additional_parameters.append(f"source={source}")
         return self
+
+    def graph(
+        self, graph_definition: GraphDefinition, contained: bool
+    ) -> FhirGetResponse:
+        assert graph_definition
+        assert isinstance(graph_definition, GraphDefinition)
+        assert graph_definition.start
+        if contained:
+            if not self._additional_parameters:
+                self._additional_parameters = []
+            self._additional_parameters.append("contained=true")
+        self.action_payload(graph_definition.to_dict())
+        self.resource(graph_definition.start)
+        self.action("$graph")
+        self._obj_id = "1"  # this is needed because the $graph endpoint requires an id
+        return self.get()
