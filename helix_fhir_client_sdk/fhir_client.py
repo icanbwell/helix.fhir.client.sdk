@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from logging import Logger
 from threading import Lock
-from typing import Dict, Optional, List, Union, Any, NamedTuple
+from typing import Dict, Optional, List, Union, Any, NamedTuple, Callable
 from urllib import parse
 
 import requests
@@ -611,9 +611,13 @@ class FhirClient:
             http.mount("http://", adapter)
         return http
 
-    def get_in_batches(self) -> FhirGetResponse:
+    def get_in_batches(
+        self, fn_handle_batch: Optional[Callable[[str], None]]
+    ) -> FhirGetResponse:
         """
         Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
+
+        :param fn_handle_batch:
         """
         # if paging is requested then iterate through the pages until the response is empty
         assert self._url
@@ -624,6 +628,8 @@ class FhirClient:
             result: FhirGetResponse = self.get()
             if not result.error and bool(result.responses):
                 resources_list.extend(json.loads(result.responses))
+                if fn_handle_batch:
+                    fn_handle_batch(result.responses)
                 if self._limit and self._limit > 0:
                     if (self._page_number * self._page_size) > self._limit:
                         break
@@ -874,3 +880,28 @@ class FhirClient:
                     auth_url=None, last_updated_utc=datetime.utcnow()
                 )
             return None
+
+    def filter_by_access_tag(self, client_id: str) -> "FhirClient":
+        """
+        Restrict results to only records that have an access tag for this client_id
+
+
+        :param client_id: client id
+        """
+        if not self._additional_parameters:
+            self._additional_parameters = []
+        self._additional_parameters.append(
+            f"_security=https://www.icanbwell.com/access|{client_id}"
+        )
+        return self
+
+    def filter_by_source(self, source: str) -> "FhirClient":
+        """
+        Restrict results to records with this source
+
+        :param source: source url
+        """
+        if not self._additional_parameters:
+            self._additional_parameters = []
+        self._additional_parameters.append(f"source={source}")
+        return self

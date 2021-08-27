@@ -583,11 +583,14 @@ do ?subject:Patient=1 (if filter_parameter is subject)</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.get_in_batches">
-<span class="sig-name descname"><span class="pre">get_in_batches</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.get_in_batches" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_in_batches</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_batch</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.get_in_batches" title="Permalink to this definition">¶</a></dt>
 <dd><p>Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference internal" href="../responses/fhir_get_response/index.html#helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse" title="helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse">helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse</a></p>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>Callable</em><em>[</em><em>[</em><em>str</em><em>]</em><em>, </em><em>None</em><em>]</em><em>]</em>) – </p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="../responses/fhir_get_response/index.html#helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse" title="helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse">helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -624,6 +627,34 @@ do ?subject:Patient=1 (if filter_parameter is subject)</p>
 </dd>
 <dt class="field-even">Return type</dt>
 <dd class="field-even"><p><a class="reference internal" href="../responses/fhir_merge_response/index.html#helix_fhir_client_sdk.responses.fhir_merge_response.FhirMergeResponse" title="helix_fhir_client_sdk.responses.fhir_merge_response.FhirMergeResponse">helix_fhir_client_sdk.responses.fhir_merge_response.FhirMergeResponse</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_access_tag">
+<span class="sig-name descname"><span class="pre">filter_by_access_tag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">client_id</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_access_tag" title="Permalink to this definition">¶</a></dt>
+<dd><p>Restrict results to only records that have an access tag for this client_id</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>client_id</strong> (<em>str</em>) – client id</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#helix_fhir_client_sdk.fhir_client.FhirClient" title="helix_fhir_client_sdk.fhir_client.FhirClient">FhirClient</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_source">
+<span class="sig-name descname"><span class="pre">filter_by_source</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_source" title="Permalink to this definition">¶</a></dt>
+<dd><p>Restrict results to records with this source</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>source</strong> (<em>str</em>) – source url</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#helix_fhir_client_sdk.fhir_client.FhirClient" title="helix_fhir_client_sdk.fhir_client.FhirClient">FhirClient</a></p>
 </dd>
 </dl>
 </dd></dl>
