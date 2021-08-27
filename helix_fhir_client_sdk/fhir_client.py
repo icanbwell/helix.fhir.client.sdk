@@ -612,24 +612,31 @@ class FhirClient:
         return http
 
     def get_in_batches(
-        self, fn_handle_batch: Optional[Callable[[str], None]]
+        self, fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], None]]
     ) -> FhirGetResponse:
         """
         Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
 
-        :param fn_handle_batch:
+        :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
+                                    resource is a dictionary. If this is specified then we don't return
+                                    the resources anymore
+        :return response containing all the resources received
         """
         # if paging is requested then iterate through the pages until the response is empty
         assert self._url
         assert self._page_size
         self._page_number = 0
-        resources_list: List[str] = []
+        resources_list: List[Dict[str, Any]] = []
         while True:
             result: FhirGetResponse = self.get()
             if not result.error and bool(result.responses):
-                resources_list.extend(json.loads(result.responses))
+                result_list: List[Dict[str, Any]] = json.loads(result.responses)
+                if len(result_list) == 0:
+                    break
                 if fn_handle_batch:
-                    fn_handle_batch(result.responses)
+                    fn_handle_batch(result_list)
+                else:
+                    resources_list.extend(result_list)
                 if self._limit and self._limit > 0:
                     if (self._page_number * self._page_size) > self._limit:
                         break
@@ -888,6 +895,7 @@ class FhirClient:
 
         :param client_id: client id
         """
+        assert client_id
         if not self._additional_parameters:
             self._additional_parameters = []
         self._additional_parameters.append(
@@ -901,6 +909,7 @@ class FhirClient:
 
         :param source: source url
         """
+        assert source
         if not self._additional_parameters:
             self._additional_parameters = []
         self._additional_parameters.append(f"source={source}")
