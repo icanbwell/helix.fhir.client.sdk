@@ -12,50 +12,9 @@ Classes
 
 .. autoapisummary::
 
-   helix_fhir_client_sdk.fhir_client.WellKnownConfigurationCacheEntry
    helix_fhir_client_sdk.fhir_client.FhirClient
 
 
-
-
-.. py:class:: WellKnownConfigurationCacheEntry
-
-   Bases: :py:obj:`NamedTuple`
-
-   Typed version of namedtuple.
-
-   Usage in Python versions >= 3.6::
-
-       class Employee(NamedTuple):
-           name: str
-           id: int
-
-   This is equivalent to::
-
-       Employee = collections.namedtuple('Employee', ['name', 'id'])
-
-   The resulting class has extra __annotations__ and _field_types
-   attributes, giving an ordered dict mapping field names to types.
-   __annotations__ should be preferred, while _field_types
-   is kept to maintain pre PEP 526 compatibility. (The field names
-   are in the _fields attribute, which is part of the namedtuple
-   API.) Alternative equivalent keyword syntax is also accepted::
-
-       Employee = NamedTuple('Employee', name=str, id=int)
-
-   In Python versions <= 3.5 use::
-
-       Employee = NamedTuple('Employee', [('name', str), ('id', int)])
-
-   .. py:attribute:: auth_url
-      :annotation: :Optional[str]
-
-      
-
-   .. py:attribute:: last_updated_utc
-      :annotation: :datetime.datetime
-
-      
 
 
 .. py:class:: FhirClient
@@ -227,7 +186,8 @@ Classes
 
       :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
                                   resource is a dictionary. If this is specified then we don't return
-                                  the resources anymore
+                                  the resources anymore.  If this function returns False then we stop
+                                  processing batches.
       :return response containing all the resources received
 
 
@@ -259,6 +219,14 @@ Classes
       :param client_id: client id
 
 
+   .. py:method:: filter_by_owner_tag(self, client_id)
+
+      Restrict results to only records that have an owner tag for this client_id
+
+
+      :param client_id: client id
+
+
    .. py:method:: filter_by_source(self, source)
 
       Restrict results to records with this source
@@ -276,7 +244,58 @@ Classes
                           parent resources in a contained property
       :param process_in_batches: whether to process in batches of size page_size
       :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
-                              return the resources in the response anymore
+                              return the resources in the response anymore.  If this function returns false then we
+                              stop processing any further batches.
+
+
+   .. py:method:: include_total(self, include_total)
+
+      Whether to ask the server to include the total count in the result
+
+      :param include_total: whether to include total count
+
+
+   .. py:method:: filter_by_identifier(self, system, value)
+
+      Restrict results to only records that have an identifier with this system and value
+      Example: system= http://hl7.org/fhir/sid/us-npi, value= 1487831681
+
+
+      :param system: system of identifier.  Note that this is the assigning system NOT the coding system
+      :param value: value of identifier.  This matches the value of the identifier NOT the code
+
+
+   .. py:method:: filter_by_property(self, property_, value)
+
+      Filters the data where the specified property equals the specified value
+
+
+      :param property_: property name
+      :param value: value to match to
+
+
+   .. py:method:: filter_by_missing_property(self, property_, missing)
+
+      Filter to find records where the specified property is missing or not missing
+
+      :param property_: name of property
+      :param missing: whether we're checking if it is missing or whether we're checking if it is not missing
+
+
+   .. py:method:: filter(self, filter_)
+
+      Allows adding in a custom filter that derives from BaseFilter
+
+
+      :param filter_: custom filter instance that derives from BaseFilter
+
+
+   .. py:method:: filter_by_version(self, version)
+
+      Returns specific version of the resources
+
+
+      :param version: which version to return
 
 
 

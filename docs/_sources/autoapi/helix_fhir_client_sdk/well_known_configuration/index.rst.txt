@@ -1,0 +1,36 @@
+:py:mod:`helix_fhir_client_sdk.well_known_configuration`
+========================================================
+
+.. py:module:: helix_fhir_client_sdk.well_known_configuration
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   helix_fhir_client_sdk.well_known_configuration.WellKnownConfigurationCacheEntry
+
+
+
+
+.. py:class:: WellKnownConfigurationCacheEntry
+
+   Bases: :py:obj:`NamedTuple`
+
+   stores the tuple in the cache
+
+   .. py:attribute:: auth_url
+      :annotation: :Optional[str]
+
+      
+
+   .. py:attribute:: last_updated_utc
+      :annotation: :datetime.datetime
+
+      
+
+

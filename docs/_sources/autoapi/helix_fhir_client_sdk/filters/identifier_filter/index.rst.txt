@@ -1,0 +1,36 @@
+:py:mod:`helix_fhir_client_sdk.filters.identifier_filter`
+=========================================================
+
+.. py:module:: helix_fhir_client_sdk.filters.identifier_filter
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   helix_fhir_client_sdk.filters.identifier_filter.IdentifierFilter
+
+
+
+
+.. py:class:: IdentifierFilter(system, value)
+
+   Bases: :py:obj:`helix_fhir_client_sdk.filters.base_filter.BaseFilter`
+
+   
+   Filter for finding records where there is an identifier with sytem and value
+
+
+   :param system: system of identifier.  Note that this is the assigning system NOT the coding system
+   :param value: value of identifier.  This matches the value of the identifier NOT the code
+
+   .. py:method:: __str__(self)
+
+      Return str(self).
+
+
+

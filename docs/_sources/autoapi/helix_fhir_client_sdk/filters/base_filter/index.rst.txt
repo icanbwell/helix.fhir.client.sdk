@@ -1,0 +1,28 @@
+:py:mod:`helix_fhir_client_sdk.filters.base_filter`
+===================================================
+
+.. py:module:: helix_fhir_client_sdk.filters.base_filter
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   helix_fhir_client_sdk.filters.base_filter.BaseFilter
+
+
+
+
+.. py:class:: BaseFilter
+
+   .. py:method:: __str__(self)
+      :abstractmethod:
+
+      Return str(self).
+
+
+

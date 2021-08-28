@@ -1,0 +1,35 @@
+:py:mod:`helix_fhir_client_sdk.filters.security_owner_filter`
+=============================================================
+
+.. py:module:: helix_fhir_client_sdk.filters.security_owner_filter
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   helix_fhir_client_sdk.filters.security_owner_filter.SecurityOwnerFilter
+
+
+
+
+.. py:class:: SecurityOwnerFilter(value)
+
+   Bases: :py:obj:`helix_fhir_client_sdk.filters.base_filter.BaseFilter`
+
+   
+   Restrict results to only records that have an owner tag for this client_id
+
+
+   :param value: client id
+
+   .. py:method:: __str__(self)
+
+      Return str(self).
+
+
+
