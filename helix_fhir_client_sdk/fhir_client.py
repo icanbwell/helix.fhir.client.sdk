@@ -18,6 +18,7 @@ from helix_fhir_client_sdk.graph.graph_definition import GraphDefinition
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
+from helix_fhir_client_sdk.sort_field import SortField
 from helix_fhir_client_sdk.validators.fhir_validator import FhirValidator
 
 from helix_fhir_client_sdk.well_known_configuration import (
@@ -53,7 +54,7 @@ class FhirClient:
         self._page_size: Optional[int] = None
         self._last_updated_after: Optional[datetime] = None
         self._last_updated_before: Optional[datetime] = None
-        self._sort_fields: Optional[List[str]] = None
+        self._sort_fields: Optional[List[SortField]] = None
         self._auth_server_url: Optional[str] = None
         self._auth_scopes: Optional[List[str]] = None
         self._login_token: Optional[str] = None
@@ -171,7 +172,7 @@ class FhirClient:
         self._last_updated_before = last_updated_before
         return self
 
-    def sort_fields(self, sort_fields: List[str]) -> "FhirClient":
+    def sort_fields(self, sort_fields: List[SortField]) -> "FhirClient":
         """
         :param sort_fields: sort by fields in the resource
         """
@@ -384,9 +385,9 @@ class FhirClient:
 
             # add any sort fields
             if self._sort_fields is not None:
-                full_uri.args["_sort"] = self._sort_fields
+                full_uri.args["_sort"] = ",".join([str(s) for s in self._sort_fields])
 
-            # create full url by adding on any query parameters
+                # create full url by adding on any query parameters
             full_url: str = full_uri.url
             if self._additional_parameters:
                 if len(full_uri.args) > 0:
