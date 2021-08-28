@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from logging import Logger
 from threading import Lock
-from typing import Dict, Optional, List, Union, Any, NamedTuple, Callable
+from typing import Dict, Optional, List, Union, Any, Callable
 from urllib import parse
 
 import requests
@@ -20,11 +20,9 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
 from helix_fhir_client_sdk.validators.fhir_validator import FhirValidator
 
-
-# stores the tuple in the cache
-class WellKnownConfigurationCacheEntry(NamedTuple):
-    auth_url: Optional[str]
-    last_updated_utc: datetime
+from helix_fhir_client_sdk.well_known_configuration import (
+    WellKnownConfigurationCacheEntry,
+)
 
 
 class FhirClient:
@@ -71,6 +69,7 @@ class FhirClient:
         self._internal_logger: Logger = logging.getLogger("FhirClient")
         self._internal_logger.setLevel(logging.INFO)
         self._obj_id: Optional[str] = None
+        self._include_total: bool = False
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -396,6 +395,13 @@ class FhirClient:
                     full_url += "?"
                 full_url += "&".join(self._additional_parameters)
 
+            if self._include_total:
+                if len(full_uri.args) > 0:
+                    full_url += "&"
+                else:
+                    full_url += "?"
+                full_url += "_total=accurate"
+
             # have to be done here since this arg can be used twice
             if self._last_updated_before:
                 if len(full_uri.args) > 0:
@@ -433,6 +439,7 @@ class FhirClient:
                 if self._logger:
                     self._logger.info(f"Successfully retrieved: {full_url}")
 
+                total_count: int = 0
                 text = response.text
                 if len(text) > 0:
                     response_json: Dict[str, Any] = json.loads(text)
@@ -441,6 +448,8 @@ class FhirClient:
                         "resourceType" in response_json
                         and response_json["resourceType"] == "Bundle"
                     ):
+                        if "total" in response_json:
+                            total_count = int(response_json["total"])
                         if "entry" in response_json:
                             entries: List[Dict[str, Any]] = response_json["entry"]
                             entry: Dict[str, Any]
@@ -493,6 +502,7 @@ class FhirClient:
                     responses=resources,
                     error=None,
                     access_token=self._access_token,
+                    total_count=total_count,
                 )
             elif response.status_code == 404:  # not found
                 if self._logger:
@@ -502,6 +512,7 @@ class FhirClient:
                     responses=resources,
                     error=f"{response.status_code}",
                     access_token=self._access_token,
+                    total_count=0,
                 )
             elif (
                 response.status_code == 403 or response.status_code == 401
@@ -528,6 +539,7 @@ class FhirClient:
                         responses=resources,
                         error=f"{response.status_code}",
                         access_token=self._access_token,
+                        total_count=0,
                     )
             else:
                 # some unexpected error
@@ -543,6 +555,7 @@ class FhirClient:
                     responses=resources,
                     access_token=self._access_token,
                     error=f"{response.status_code} {error_text}",
+                    total_count=0,
                 )
         raise Exception("Could not talk to FHIR server after multiple tries")
 
@@ -616,14 +629,15 @@ class FhirClient:
         return http
 
     def get_in_batches(
-        self, fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], None]]
+        self, fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], bool]]
     ) -> FhirGetResponse:
         """
         Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
 
         :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
                                     resource is a dictionary. If this is specified then we don't return
-                                    the resources anymore
+                                    the resources anymore.  If this function returns False then we stop
+                                    processing batches.
         :return response containing all the resources received
         """
         # if paging is requested then iterate through the pages until the response is empty
@@ -638,7 +652,8 @@ class FhirClient:
                 if len(result_list) == 0:
                     break
                 if fn_handle_batch:
-                    fn_handle_batch(result_list)
+                    if fn_handle_batch(result_list) is False:
+                        break
                 else:
                     resources_list.extend(result_list)
                 if self._limit and self._limit > 0:
@@ -652,6 +667,7 @@ class FhirClient:
             responses=json.dumps(resources_list),
             error=result.error,
             access_token=self._access_token,
+            total_count=result.total_count,
         )
 
     @staticmethod
@@ -925,7 +941,7 @@ class FhirClient:
         graph_definition: GraphDefinition,
         contained: bool,
         process_in_batches: Optional[bool] = None,
-        fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], None]] = None,
+        fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], bool]] = None,
     ) -> FhirGetResponse:
         """
         Executes the $graph query on the FHIR server
@@ -936,7 +952,8 @@ class FhirClient:
                             parent resources in a contained property
         :param process_in_batches: whether to process in batches of size page_size
         :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
-                                return the resources in the response anymore
+                                return the resources in the response anymore.  If this function returns false then we
+                                stop processing any further batches.
         """
         assert graph_definition
         assert isinstance(graph_definition, GraphDefinition)
@@ -954,3 +971,12 @@ class FhirClient:
             if not process_in_batches
             else self.get_in_batches(fn_handle_batch=fn_handle_batch)
         )
+
+    def include_total(self, include_total: bool) -> "FhirClient":
+        """
+        Whether to ask the server to include the total count in the result
+
+        :param include_total: whether to include total count
+        """
+        self._include_total = include_total
+        return self
