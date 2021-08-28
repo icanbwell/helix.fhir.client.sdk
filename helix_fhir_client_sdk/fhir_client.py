@@ -1043,14 +1043,14 @@ class FhirClient:
         )
         return self
 
-    def filter(self, filter_: BaseFilter) -> "FhirClient":
+    def filter(self, filter_: List[BaseFilter]) -> "FhirClient":
         """
-        Allows adding in a custom filter that derives from BaseFilter
+        Allows adding in a custom filters that derives from BaseFilter
 
 
-        :param filter_: custom filter instance that derives from BaseFilter
+        :param filter_: list of custom filter instances that derives from BaseFilter.
         """
-        self._filters.append(filter_)
+        self._filters.extend(filter_)
         return self
 
     def filter_by_version(self, version: int) -> "FhirClient":

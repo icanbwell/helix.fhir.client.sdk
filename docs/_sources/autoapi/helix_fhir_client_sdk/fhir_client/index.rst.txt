@@ -284,10 +284,10 @@ Classes
 
    .. py:method:: filter(self, filter_)
 
-      Allows adding in a custom filter that derives from BaseFilter
+      Allows adding in a custom filters that derives from BaseFilter
 
 
-      :param filter_: custom filter instance that derives from BaseFilter
+      :param filter_: list of custom filter instances that derives from BaseFilter.
 
 
    .. py:method:: filter_by_version(self, version)
