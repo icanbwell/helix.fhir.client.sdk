@@ -8,6 +8,7 @@ class SourceFilter(BaseFilter):
 
         :param value: source url
         """
+        assert value
         self.value: str = value
 
     def __str__(self) -> str:

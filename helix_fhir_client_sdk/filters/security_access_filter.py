@@ -9,6 +9,7 @@ class SecurityAccessFilter(BaseFilter):
 
         :param value: client id
         """
+        assert value
         self.value: str = value
 
     def __str__(self) -> str:

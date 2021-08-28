@@ -9,6 +9,7 @@ class VersionFilter(BaseFilter):
 
         :param value: which version to return
         """
+        assert value
         self.value: int = value
 
     def __str__(self) -> str:

@@ -15,20 +15,12 @@ from urllib3 import Retry  # type: ignore
 
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
-from helix_fhir_client_sdk.filters.identifier_filter import IdentifierFilter
-from helix_fhir_client_sdk.filters.property_filter import PropertyFilter
-from helix_fhir_client_sdk.filters.property_missing_filter import PropertyMissingFilter
-from helix_fhir_client_sdk.filters.security_access_filter import SecurityAccessFilter
-from helix_fhir_client_sdk.filters.security_owner_filter import SecurityOwnerFilter
-from helix_fhir_client_sdk.filters.source_filter import SourceFilter
-from helix_fhir_client_sdk.filters.version_filter import VersionFilter
+from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.graph.graph_definition import GraphDefinition
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
-from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.validators.fhir_validator import FhirValidator
-
 from helix_fhir_client_sdk.well_known_configuration import (
     WellKnownConfigurationCacheEntry,
 )
@@ -476,7 +468,8 @@ class FhirClient:
                                     if self._separate_bundle_resources:
                                         if self._action != "$graph":
                                             raise Exception(
-                                                "only $graph action with _separate_bundle_resources=True is supported at this moment"
+                                                "only $graph action with _separate_bundle_resources=True"
+                                                " is supported at this moment"
                                             )
                                         resources_dict: Dict[
                                             str, List[Any]
@@ -823,9 +816,10 @@ class FhirClient:
                         response.status_code == 403 or response.status_code == 401
                     ):  # forbidden or unauthorized
                         if retries >= 0:
-                            assert (
-                                self._auth_server_url
-                            ), f"{response.status_code} received from server but no auth_server_url was specified to use"
+                            assert self._auth_server_url, (
+                                f"{response.status_code} received from server but no auth_server_url"
+                                " was specified to use"
+                            )
                             assert (
                                 self._login_token
                             ), f"{response.status_code} received from server but no login_token was specified to use"
@@ -925,38 +919,6 @@ class FhirClient:
                 )
             return None
 
-    def filter_by_access_tag(self, client_id: str) -> "FhirClient":
-        """
-        Restrict results to only records that have an access tag for this client_id
-
-
-        :param client_id: client id
-        """
-        assert client_id
-        self._filters.append(SecurityAccessFilter(value=client_id))
-        return self
-
-    def filter_by_owner_tag(self, client_id: str) -> "FhirClient":
-        """
-        Restrict results to only records that have an owner tag for this client_id
-
-
-        :param client_id: client id
-        """
-        assert client_id
-        self._filters.append(SecurityOwnerFilter(value=client_id))
-        return self
-
-    def filter_by_source(self, source: str) -> "FhirClient":
-        """
-        Restrict results to records with this source
-
-        :param source: source url
-        """
-        assert source
-        self._filters.append(SourceFilter(value=source))
-        return self
-
     def graph(
         self,
         *,
@@ -1003,46 +965,6 @@ class FhirClient:
         self._include_total = include_total
         return self
 
-    def filter_by_identifier(self, system: str, value: str) -> "FhirClient":
-        """
-        Restrict results to only records that have an identifier with this system and value
-        Example: system= http://hl7.org/fhir/sid/us-npi, value= 1487831681
-
-
-        :param system: system of identifier.  Note that this is the assigning system NOT the coding system
-        :param value: value of identifier.  This matches the value of the identifier NOT the code
-        """
-        assert system
-        assert value
-        self._filters.append(IdentifierFilter(system=system, value=value))
-        return self
-
-    def filter_by_property(self, property_: str, value: str) -> "FhirClient":
-        """
-        Filters the data where the specified property equals the specified value
-
-
-        :param property_: property name
-        :param value: value to match to
-        """
-        assert property_
-        assert value
-        self._filters.append(PropertyFilter(property_=property_, value=value))
-        return self
-
-    def filter_by_missing_property(self, property_: str, missing: bool) -> "FhirClient":
-        """
-        Filter to find records where the specified property is missing or not missing
-
-        :param property_: name of property
-        :param missing: whether we're checking if it is missing or whether we're checking if it is not missing
-        """
-        assert missing
-        self._filters.append(
-            PropertyMissingFilter(property_=property_, missing=missing)
-        )
-        return self
-
     def filter(self, filter_: List[BaseFilter]) -> "FhirClient":
         """
         Allows adding in a custom filters that derives from BaseFilter
@@ -1051,15 +973,4 @@ class FhirClient:
         :param filter_: list of custom filter instances that derives from BaseFilter.
         """
         self._filters.extend(filter_)
-        return self
-
-    def filter_by_version(self, version: int) -> "FhirClient":
-        """
-        Returns specific version of the resources
-
-
-        :param version: which version to return
-        """
-        assert version
-        self._filters.append(VersionFilter(value=version))
         return self

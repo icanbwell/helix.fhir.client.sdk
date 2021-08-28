@@ -11,6 +11,8 @@ class IdentifierFilter(BaseFilter):
         :param system: system of identifier.  Note that this is the assigning system NOT the coding system
         :param value: value of identifier.  This matches the value of the identifier NOT the code
         """
+        assert system
+        assert value
         self.system: str = system
         self.value: str = value
 
