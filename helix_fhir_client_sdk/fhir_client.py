@@ -16,9 +16,11 @@ from urllib3 import Retry  # type: ignore
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
 from helix_fhir_client_sdk.filters.identifier_filter import IdentifierFilter
+from helix_fhir_client_sdk.filters.property_filter import PropertyFilter
 from helix_fhir_client_sdk.filters.security_access_filter import SecurityAccessFilter
 from helix_fhir_client_sdk.filters.security_owner_filter import SecurityOwnerFilter
 from helix_fhir_client_sdk.filters.source_filter import SourceFilter
+from helix_fhir_client_sdk.filters.version_filter import VersionFilter
 from helix_fhir_client_sdk.graph.graph_definition import GraphDefinition
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -1003,12 +1005,47 @@ class FhirClient:
     def filter_by_identifier(self, system: str, value: str) -> "FhirClient":
         """
         Restrict results to only records that have an identifier with this system and value
+        Example: system= http://hl7.org/fhir/sid/us-npi, value= 1487831681
 
 
-        :param system: system of identifier
-        :param value: value of identifier
+        :param system: system of identifier.  Note that this is the assigning system NOT the coding system
+        :param value: value of identifier.  This matches the value of the identifier NOT the code
         """
         assert system
         assert value
         self._filters.append(IdentifierFilter(system=system, value=value))
+        return self
+
+    def filter_by_property(self, property_: str, value: str) -> "FhirClient":
+        """
+        Filters the data where the specified property equals the specified value
+
+
+        :param property_: property name
+        :param value: value to match to
+        """
+        assert property_
+        assert value
+        self._filters.append(PropertyFilter(property_=property_, value=value))
+        return self
+
+    def filter(self, filter_: BaseFilter) -> "FhirClient":
+        """
+        Allows adding in a custom filter that derives from BaseFilter
+
+
+        :param filter_: custom filter instance that derives from BaseFilter
+        """
+        self._filters.append(filter_)
+        return self
+
+    def filter_by_version(self, version: int) -> "FhirClient":
+        """
+        Returns specific version of the resources
+
+
+        :param version: which version to return
+        """
+        assert version
+        self._filters.append(VersionFilter(value=version))
         return self
