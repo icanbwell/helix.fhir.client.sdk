@@ -17,6 +17,7 @@ from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderExc
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
 from helix_fhir_client_sdk.filters.identifier_filter import IdentifierFilter
 from helix_fhir_client_sdk.filters.property_filter import PropertyFilter
+from helix_fhir_client_sdk.filters.property_missing_filter import PropertyMissingFilter
 from helix_fhir_client_sdk.filters.security_access_filter import SecurityAccessFilter
 from helix_fhir_client_sdk.filters.security_owner_filter import SecurityOwnerFilter
 from helix_fhir_client_sdk.filters.source_filter import SourceFilter
@@ -937,7 +938,7 @@ class FhirClient:
 
     def filter_by_owner_tag(self, client_id: str) -> "FhirClient":
         """
-        Restrict results to only records that have an access tag for this client_id
+        Restrict results to only records that have an owner tag for this client_id
 
 
         :param client_id: client id
@@ -1027,6 +1028,19 @@ class FhirClient:
         assert property_
         assert value
         self._filters.append(PropertyFilter(property_=property_, value=value))
+        return self
+
+    def filter_by_missing_property(self, property_: str, missing: bool) -> "FhirClient":
+        """
+        Filter to find records where the specified property is missing or not missing
+
+        :param property_: name of property
+        :param missing: whether we're checking if it is missing or whether we're checking if it is not missing
+        """
+        assert missing
+        self._filters.append(
+            PropertyMissingFilter(property_=property_, missing=missing)
+        )
         return self
 
     def filter(self, filter_: BaseFilter) -> "FhirClient":
