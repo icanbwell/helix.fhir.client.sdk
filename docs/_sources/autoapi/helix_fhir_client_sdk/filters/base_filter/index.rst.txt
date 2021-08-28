@@ -22,7 +22,7 @@ Classes
    .. py:method:: __str__(self)
       :abstractmethod:
 
-      Return str(self).
+      Returns the query parameter representation to send to the FHIR server
 
 
 
