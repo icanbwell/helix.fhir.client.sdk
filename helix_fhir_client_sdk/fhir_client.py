@@ -14,11 +14,16 @@ from requests.adapters import HTTPAdapter, BaseAdapter
 from urllib3 import Retry  # type: ignore
 
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
+from helix_fhir_client_sdk.filters.base_filter import BaseFilter
+from helix_fhir_client_sdk.filters.identifier_filter import IdentifierFilter
+from helix_fhir_client_sdk.filters.security_access_filter import SecurityAccessFilter
+from helix_fhir_client_sdk.filters.security_owner_filter import SecurityOwnerFilter
+from helix_fhir_client_sdk.filters.source_filter import SourceFilter
 from helix_fhir_client_sdk.graph.graph_definition import GraphDefinition
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
-from helix_fhir_client_sdk.sort_field import SortField
+from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.validators.fhir_validator import FhirValidator
 
 from helix_fhir_client_sdk.well_known_configuration import (
@@ -71,6 +76,7 @@ class FhirClient:
         self._internal_logger.setLevel(logging.INFO)
         self._obj_id: Optional[str] = None
         self._include_total: bool = False
+        self._filters: List[BaseFilter] = []
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -402,6 +408,13 @@ class FhirClient:
                 else:
                     full_url += "?"
                 full_url += "_total=accurate"
+
+            if self._filters and len(self._filters) > 0:
+                if len(full_uri.args) > 0:
+                    full_url += "&"
+                else:
+                    full_url += "?"
+                full_url += "&".join([str(f) for f in self._filters])
 
             # have to be done here since this arg can be used twice
             if self._last_updated_before:
@@ -917,11 +930,18 @@ class FhirClient:
         :param client_id: client id
         """
         assert client_id
-        if not self._additional_parameters:
-            self._additional_parameters = []
-        self._additional_parameters.append(
-            f"_security=https://www.icanbwell.com/access|{client_id}"
-        )
+        self._filters.append(SecurityAccessFilter(value=client_id))
+        return self
+
+    def filter_by_owner_tag(self, client_id: str) -> "FhirClient":
+        """
+        Restrict results to only records that have an access tag for this client_id
+
+
+        :param client_id: client id
+        """
+        assert client_id
+        self._filters.append(SecurityOwnerFilter(value=client_id))
         return self
 
     def filter_by_source(self, source: str) -> "FhirClient":
@@ -931,9 +951,7 @@ class FhirClient:
         :param source: source url
         """
         assert source
-        if not self._additional_parameters:
-            self._additional_parameters = []
-        self._additional_parameters.append(f"source={source}")
+        self._filters.append(SourceFilter(value=source))
         return self
 
     def graph(
@@ -980,4 +998,17 @@ class FhirClient:
         :param include_total: whether to include total count
         """
         self._include_total = include_total
+        return self
+
+    def filter_by_identifier(self, system: str, value: str) -> "FhirClient":
+        """
+        Restrict results to only records that have an identifier with this system and value
+
+
+        :param system: system of identifier
+        :param value: value of identifier
+        """
+        assert system
+        assert value
+        self._filters.append(IdentifierFilter(system=system, value=value))
         return self
