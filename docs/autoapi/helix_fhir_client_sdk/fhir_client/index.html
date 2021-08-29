@@ -593,48 +593,6 @@ processing batches.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_access_tag">
-<span class="sig-name descname"><span class="pre">filter_by_access_tag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">client_id</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_access_tag" title="Permalink to this definition">¶</a></dt>
-<dd><p>Restrict results to only records that have an access tag for this client_id</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>client_id</strong> (<em>str</em>) – client id</p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="#helix_fhir_client_sdk.fhir_client.FhirClient" title="helix_fhir_client_sdk.fhir_client.FhirClient">FhirClient</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_owner_tag">
-<span class="sig-name descname"><span class="pre">filter_by_owner_tag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">client_id</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_owner_tag" title="Permalink to this definition">¶</a></dt>
-<dd><p>Restrict results to only records that have an owner tag for this client_id</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>client_id</strong> (<em>str</em>) – client id</p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="#helix_fhir_client_sdk.fhir_client.FhirClient" title="helix_fhir_client_sdk.fhir_client.FhirClient">FhirClient</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_source">
-<span class="sig-name descname"><span class="pre">filter_by_source</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_source" title="Permalink to this definition">¶</a></dt>
-<dd><p>Restrict results to records with this source</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>source</strong> (<em>str</em>) – source url</p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="#helix_fhir_client_sdk.fhir_client.FhirClient" title="helix_fhir_client_sdk.fhir_client.FhirClient">FhirClient</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.graph">
 <span class="sig-name descname"><span class="pre">graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">graph_definition</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contained</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">process_in_batches</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_batch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.graph" title="Permalink to this definition">¶</a></dt>
 <dd><p>Executes the $graph query on the FHIR server</p>
@@ -671,60 +629,6 @@ stop processing any further batches.</p></li>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_identifier">
-<span class="sig-name descname"><span class="pre">filter_by_identifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">system</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_identifier" title="Permalink to this definition">¶</a></dt>
-<dd><p>Restrict results to only records that have an identifier with this system and value
-Example: system= <a class="reference external" href="http://hl7.org/fhir/sid/us-npi">http://hl7.org/fhir/sid/us-npi</a>, value= 1487831681</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>system</strong> (<em>str</em>) – system of identifier.  Note that this is the assigning system NOT the coding system</p></li>
-<li><p><strong>value</strong> (<em>str</em>) – value of identifier.  This matches the value of the identifier NOT the code</p></li>
-</ul>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="#helix_fhir_client_sdk.fhir_client.FhirClient" title="helix_fhir_client_sdk.fhir_client.FhirClient">FhirClient</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_property">
-<span class="sig-name descname"><span class="pre">filter_by_property</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">property_</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_property" title="Permalink to this definition">¶</a></dt>
-<dd><p>Filters the data where the specified property equals the specified value</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>property</strong> – property name</p></li>
-<li><p><strong>value</strong> (<em>str</em>) – value to match to</p></li>
-<li><p><strong>property_</strong> (<em>str</em>) – </p></li>
-</ul>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="#helix_fhir_client_sdk.fhir_client.FhirClient" title="helix_fhir_client_sdk.fhir_client.FhirClient">FhirClient</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_missing_property">
-<span class="sig-name descname"><span class="pre">filter_by_missing_property</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">property_</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">missing</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_missing_property" title="Permalink to this definition">¶</a></dt>
-<dd><p>Filter to find records where the specified property is missing or not missing</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>property</strong> – name of property</p></li>
-<li><p><strong>missing</strong> (<em>bool</em>) – whether we’re checking if it is missing or whether we’re checking if it is not missing</p></li>
-<li><p><strong>property_</strong> (<em>str</em>) – </p></li>
-</ul>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="#helix_fhir_client_sdk.fhir_client.FhirClient" title="helix_fhir_client_sdk.fhir_client.FhirClient">FhirClient</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.filter">
 <span class="sig-name descname"><span class="pre">filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.filter" title="Permalink to this definition">¶</a></dt>
 <dd><p>Allows adding in a custom filters that derives from BaseFilter</p>
@@ -734,20 +638,6 @@ Example: system= <a class="reference external" href="http://hl7.org/fhir/sid/us-
 <li><p><strong>filter</strong> – list of custom filter instances that derives from BaseFilter.</p></li>
 <li><p><strong>filter_</strong> (<em>List</em><em>[</em><a class="reference internal" href="../filters/base_filter/index.html#helix_fhir_client_sdk.filters.base_filter.BaseFilter" title="helix_fhir_client_sdk.filters.base_filter.BaseFilter"><em>helix_fhir_client_sdk.filters.base_filter.BaseFilter</em></a><em>]</em>) – </p></li>
 </ul>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="#helix_fhir_client_sdk.fhir_client.FhirClient" title="helix_fhir_client_sdk.fhir_client.FhirClient">FhirClient</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_version">
-<span class="sig-name descname"><span class="pre">filter_by_version</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_version" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns specific version of the resources</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>version</strong> (<em>int</em>) – which version to return</p>
 </dd>
 <dt class="field-even">Return type</dt>
 <dd class="field-even"><p><a class="reference internal" href="#helix_fhir_client_sdk.fhir_client.FhirClient" title="helix_fhir_client_sdk.fhir_client.FhirClient">FhirClient</a></p>
