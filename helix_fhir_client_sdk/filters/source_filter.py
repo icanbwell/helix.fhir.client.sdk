@@ -12,4 +12,4 @@ class SourceFilter(BaseFilter):
         self.value: str = value
 
     def __str__(self) -> str:
-        return f"_security=https://www.icanbwell.com/access|{self.value}"
+        return f"source={self.value}"
