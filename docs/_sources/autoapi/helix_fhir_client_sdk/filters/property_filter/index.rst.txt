@@ -1,0 +1,36 @@
+:py:mod:`helix_fhir_client_sdk.filters.property_filter`
+=======================================================
+
+.. py:module:: helix_fhir_client_sdk.filters.property_filter
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   helix_fhir_client_sdk.filters.property_filter.PropertyFilter
+
+
+
+
+.. py:class:: PropertyFilter(property_, value)
+
+   Bases: :py:obj:`helix_fhir_client_sdk.filters.base_filter.BaseFilter`
+
+   
+   Filters the data where the specified property equals the specified value
+
+
+   :param property_: property name
+   :param value: value to match to
+
+   .. py:method:: __str__(self)
+
+      Returns the query parameter representation to send to the FHIR server
+
+
+

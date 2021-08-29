@@ -17,7 +17,7 @@ Classes
 
 
 
-.. py:class:: FhirGetResponse(url, responses, error, access_token)
+.. py:class:: FhirGetResponse(url, responses, error, access_token, total_count)
 
    
    Class that encapsulates the response from FHIR server
@@ -26,5 +26,7 @@ Classes
    :param responses: response text
    :param error: Any error returned by FHIR server
    :param access_token: access token that was used
+   :param total_count: count of total records that match the provided query.
+                       Only set if include_total_count was set to avoid expensive operation by server.
 
 

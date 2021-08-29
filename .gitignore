@@ -132,3 +132,8 @@ dmypy.json
 # Sphinx
 docs/_build/doc
 docsrc/_build/
+
+# Explicitly include certain directories from .idea
+!.idea/
+.idea/*
+!.idea/fileTemplates/

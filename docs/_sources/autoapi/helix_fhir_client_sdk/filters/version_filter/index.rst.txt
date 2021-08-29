@@ -1,0 +1,35 @@
+:py:mod:`helix_fhir_client_sdk.filters.version_filter`
+======================================================
+
+.. py:module:: helix_fhir_client_sdk.filters.version_filter
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   helix_fhir_client_sdk.filters.version_filter.VersionFilter
+
+
+
+
+.. py:class:: VersionFilter(value)
+
+   Bases: :py:obj:`helix_fhir_client_sdk.filters.base_filter.BaseFilter`
+
+   
+   Returns specific version of the resources
+
+
+   :param value: which version to return
+
+   .. py:method:: __str__(self)
+
+      Returns the query parameter representation to send to the FHIR server
+
+
+

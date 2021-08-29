@@ -1,0 +1,35 @@
+:py:mod:`helix_fhir_client_sdk.filters.property_missing_filter`
+===============================================================
+
+.. py:module:: helix_fhir_client_sdk.filters.property_missing_filter
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   helix_fhir_client_sdk.filters.property_missing_filter.PropertyMissingFilter
+
+
+
+
+.. py:class:: PropertyMissingFilter(property_, missing)
+
+   Bases: :py:obj:`helix_fhir_client_sdk.filters.base_filter.BaseFilter`
+
+   
+   Filter to find records where the specified property is missing or not missing
+
+   :param property_: name of property
+   :param missing: whether we're checking if it is missing or whether we're checking if it is not missing
+
+   .. py:method:: __str__(self)
+
+      Returns the query parameter representation to send to the FHIR server
+
+
+

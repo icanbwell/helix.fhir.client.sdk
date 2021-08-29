@@ -1,0 +1,37 @@
+:py:mod:`helix_fhir_client_sdk.filters.identifier_filter`
+=========================================================
+
+.. py:module:: helix_fhir_client_sdk.filters.identifier_filter
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   helix_fhir_client_sdk.filters.identifier_filter.IdentifierFilter
+
+
+
+
+.. py:class:: IdentifierFilter(system, value)
+
+   Bases: :py:obj:`helix_fhir_client_sdk.filters.base_filter.BaseFilter`
+
+   
+   Restrict results to only records that have an identifier with this system and value
+   Example: system= http://hl7.org/fhir/sid/us-npi, value= 1487831681
+
+
+   :param system: system of identifier.  Note that this is the assigning system NOT the coding system
+   :param value: value of identifier.  This matches the value of the identifier NOT the code
+
+   .. py:method:: __str__(self)
+
+      Returns the query parameter representation to send to the FHIR server
+
+
+

@@ -12,50 +12,9 @@ Classes
 
 .. autoapisummary::
 
-   helix_fhir_client_sdk.fhir_client.WellKnownConfigurationCacheEntry
    helix_fhir_client_sdk.fhir_client.FhirClient
 
 
-
-
-.. py:class:: WellKnownConfigurationCacheEntry
-
-   Bases: :py:obj:`NamedTuple`
-
-   Typed version of namedtuple.
-
-   Usage in Python versions >= 3.6::
-
-       class Employee(NamedTuple):
-           name: str
-           id: int
-
-   This is equivalent to::
-
-       Employee = collections.namedtuple('Employee', ['name', 'id'])
-
-   The resulting class has extra __annotations__ and _field_types
-   attributes, giving an ordered dict mapping field names to types.
-   __annotations__ should be preferred, while _field_types
-   is kept to maintain pre PEP 526 compatibility. (The field names
-   are in the _fields attribute, which is part of the namedtuple
-   API.) Alternative equivalent keyword syntax is also accepted::
-
-       Employee = NamedTuple('Employee', name=str, id=int)
-
-   In Python versions <= 3.5 use::
-
-       Employee = NamedTuple('Employee', [('name', str), ('id', int)])
-
-   .. py:attribute:: auth_url
-      :annotation: :Optional[str]
-
-      
-
-   .. py:attribute:: last_updated_utc
-      :annotation: :datetime.datetime
-
-      
 
 
 .. py:class:: FhirClient
@@ -227,7 +186,8 @@ Classes
 
       :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
                                   resource is a dictionary. If this is specified then we don't return
-                                  the resources anymore
+                                  the resources anymore.  If this function returns False then we stop
+                                  processing batches.
       :return response containing all the resources received
 
 
@@ -251,21 +211,6 @@ Classes
       :param json_data_list: list of resources to send
 
 
-   .. py:method:: filter_by_access_tag(self, client_id)
-
-      Restrict results to only records that have an access tag for this client_id
-
-
-      :param client_id: client id
-
-
-   .. py:method:: filter_by_source(self, source)
-
-      Restrict results to records with this source
-
-      :param source: source url
-
-
    .. py:method:: graph(self, *, graph_definition, contained, process_in_batches = None, fn_handle_batch = None)
 
       Executes the $graph query on the FHIR server
@@ -276,7 +221,23 @@ Classes
                           parent resources in a contained property
       :param process_in_batches: whether to process in batches of size page_size
       :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
-                              return the resources in the response anymore
+                              return the resources in the response anymore.  If this function returns false then we
+                              stop processing any further batches.
+
+
+   .. py:method:: include_total(self, include_total)
+
+      Whether to ask the server to include the total count in the result
+
+      :param include_total: whether to include total count
+
+
+   .. py:method:: filter(self, filter_)
+
+      Allows adding in a custom filters that derives from BaseFilter
+
+
+      :param filter_: list of custom filter instances that derives from BaseFilter.
 
 
 

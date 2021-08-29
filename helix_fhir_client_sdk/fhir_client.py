@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from logging import Logger
 from threading import Lock
-from typing import Dict, Optional, List, Union, Any, NamedTuple, Callable
+from typing import Dict, Optional, List, Union, Any, Callable
 from urllib import parse
 
 import requests
@@ -14,17 +14,16 @@ from requests.adapters import HTTPAdapter, BaseAdapter
 from urllib3 import Retry  # type: ignore
 
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
+from helix_fhir_client_sdk.filters.base_filter import BaseFilter
+from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.graph.graph_definition import GraphDefinition
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
 from helix_fhir_client_sdk.validators.fhir_validator import FhirValidator
-
-
-# stores the tuple in the cache
-class WellKnownConfigurationCacheEntry(NamedTuple):
-    auth_url: Optional[str]
-    last_updated_utc: datetime
+from helix_fhir_client_sdk.well_known_configuration import (
+    WellKnownConfigurationCacheEntry,
+)
 
 
 class FhirClient:
@@ -55,7 +54,7 @@ class FhirClient:
         self._page_size: Optional[int] = None
         self._last_updated_after: Optional[datetime] = None
         self._last_updated_before: Optional[datetime] = None
-        self._sort_fields: Optional[List[str]] = None
+        self._sort_fields: Optional[List[SortField]] = None
         self._auth_server_url: Optional[str] = None
         self._auth_scopes: Optional[List[str]] = None
         self._login_token: Optional[str] = None
@@ -71,6 +70,8 @@ class FhirClient:
         self._internal_logger: Logger = logging.getLogger("FhirClient")
         self._internal_logger.setLevel(logging.INFO)
         self._obj_id: Optional[str] = None
+        self._include_total: bool = False
+        self._filters: List[BaseFilter] = []
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -172,7 +173,7 @@ class FhirClient:
         self._last_updated_before = last_updated_before
         return self
 
-    def sort_fields(self, sort_fields: List[str]) -> "FhirClient":
+    def sort_fields(self, sort_fields: List[SortField]) -> "FhirClient":
         """
         :param sort_fields: sort by fields in the resource
         """
@@ -385,9 +386,9 @@ class FhirClient:
 
             # add any sort fields
             if self._sort_fields is not None:
-                full_uri.args["_sort"] = self._sort_fields
+                full_uri.args["_sort"] = ",".join([str(s) for s in self._sort_fields])
 
-            # create full url by adding on any query parameters
+                # create full url by adding on any query parameters
             full_url: str = full_uri.url
             if self._additional_parameters:
                 if len(full_uri.args) > 0:
@@ -395,6 +396,20 @@ class FhirClient:
                 else:
                     full_url += "?"
                 full_url += "&".join(self._additional_parameters)
+
+            if self._include_total:
+                if len(full_uri.args) > 0:
+                    full_url += "&"
+                else:
+                    full_url += "?"
+                full_url += "_total=accurate"
+
+            if self._filters and len(self._filters) > 0:
+                if len(full_uri.args) > 0:
+                    full_url += "&"
+                else:
+                    full_url += "?"
+                full_url += "&".join([str(f) for f in self._filters])
 
             # have to be done here since this arg can be used twice
             if self._last_updated_before:
@@ -433,6 +448,7 @@ class FhirClient:
                 if self._logger:
                     self._logger.info(f"Successfully retrieved: {full_url}")
 
+                total_count: int = 0
                 text = response.text
                 if len(text) > 0:
                     response_json: Dict[str, Any] = json.loads(text)
@@ -441,6 +457,8 @@ class FhirClient:
                         "resourceType" in response_json
                         and response_json["resourceType"] == "Bundle"
                     ):
+                        if "total" in response_json:
+                            total_count = int(response_json["total"])
                         if "entry" in response_json:
                             entries: List[Dict[str, Any]] = response_json["entry"]
                             entry: Dict[str, Any]
@@ -450,7 +468,8 @@ class FhirClient:
                                     if self._separate_bundle_resources:
                                         if self._action != "$graph":
                                             raise Exception(
-                                                "only $graph action with _separate_bundle_resources=True is supported at this moment"
+                                                "only $graph action with _separate_bundle_resources=True"
+                                                " is supported at this moment"
                                             )
                                         resources_dict: Dict[
                                             str, List[Any]
@@ -493,6 +512,7 @@ class FhirClient:
                     responses=resources,
                     error=None,
                     access_token=self._access_token,
+                    total_count=total_count,
                 )
             elif response.status_code == 404:  # not found
                 if self._logger:
@@ -502,6 +522,7 @@ class FhirClient:
                     responses=resources,
                     error=f"{response.status_code}",
                     access_token=self._access_token,
+                    total_count=0,
                 )
             elif (
                 response.status_code == 403 or response.status_code == 401
@@ -528,6 +549,7 @@ class FhirClient:
                         responses=resources,
                         error=f"{response.status_code}",
                         access_token=self._access_token,
+                        total_count=0,
                     )
             else:
                 # some unexpected error
@@ -543,6 +565,7 @@ class FhirClient:
                     responses=resources,
                     access_token=self._access_token,
                     error=f"{response.status_code} {error_text}",
+                    total_count=0,
                 )
         raise Exception("Could not talk to FHIR server after multiple tries")
 
@@ -616,14 +639,15 @@ class FhirClient:
         return http
 
     def get_in_batches(
-        self, fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], None]]
+        self, fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], bool]]
     ) -> FhirGetResponse:
         """
         Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
 
         :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
                                     resource is a dictionary. If this is specified then we don't return
-                                    the resources anymore
+                                    the resources anymore.  If this function returns False then we stop
+                                    processing batches.
         :return response containing all the resources received
         """
         # if paging is requested then iterate through the pages until the response is empty
@@ -638,7 +662,8 @@ class FhirClient:
                 if len(result_list) == 0:
                     break
                 if fn_handle_batch:
-                    fn_handle_batch(result_list)
+                    if fn_handle_batch(result_list) is False:
+                        break
                 else:
                     resources_list.extend(result_list)
                 if self._limit and self._limit > 0:
@@ -652,6 +677,7 @@ class FhirClient:
             responses=json.dumps(resources_list),
             error=result.error,
             access_token=self._access_token,
+            total_count=result.total_count,
         )
 
     @staticmethod
@@ -790,9 +816,10 @@ class FhirClient:
                         response.status_code == 403 or response.status_code == 401
                     ):  # forbidden or unauthorized
                         if retries >= 0:
-                            assert (
-                                self._auth_server_url
-                            ), f"{response.status_code} received from server but no auth_server_url was specified to use"
+                            assert self._auth_server_url, (
+                                f"{response.status_code} received from server but no auth_server_url"
+                                " was specified to use"
+                            )
                             assert (
                                 self._login_token
                             ), f"{response.status_code} received from server but no login_token was specified to use"
@@ -892,40 +919,13 @@ class FhirClient:
                 )
             return None
 
-    def filter_by_access_tag(self, client_id: str) -> "FhirClient":
-        """
-        Restrict results to only records that have an access tag for this client_id
-
-
-        :param client_id: client id
-        """
-        assert client_id
-        if not self._additional_parameters:
-            self._additional_parameters = []
-        self._additional_parameters.append(
-            f"_security=https://www.icanbwell.com/access|{client_id}"
-        )
-        return self
-
-    def filter_by_source(self, source: str) -> "FhirClient":
-        """
-        Restrict results to records with this source
-
-        :param source: source url
-        """
-        assert source
-        if not self._additional_parameters:
-            self._additional_parameters = []
-        self._additional_parameters.append(f"source={source}")
-        return self
-
     def graph(
         self,
         *,
         graph_definition: GraphDefinition,
         contained: bool,
         process_in_batches: Optional[bool] = None,
-        fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], None]] = None,
+        fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], bool]] = None,
     ) -> FhirGetResponse:
         """
         Executes the $graph query on the FHIR server
@@ -936,7 +936,8 @@ class FhirClient:
                             parent resources in a contained property
         :param process_in_batches: whether to process in batches of size page_size
         :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
-                                return the resources in the response anymore
+                                return the resources in the response anymore.  If this function returns false then we
+                                stop processing any further batches.
         """
         assert graph_definition
         assert isinstance(graph_definition, GraphDefinition)
@@ -954,3 +955,22 @@ class FhirClient:
             if not process_in_batches
             else self.get_in_batches(fn_handle_batch=fn_handle_batch)
         )
+
+    def include_total(self, include_total: bool) -> "FhirClient":
+        """
+        Whether to ask the server to include the total count in the result
+
+        :param include_total: whether to include total count
+        """
+        self._include_total = include_total
+        return self
+
+    def filter(self, filter_: List[BaseFilter]) -> "FhirClient":
+        """
+        Allows adding in a custom filters that derives from BaseFilter
+
+
+        :param filter_: list of custom filter instances that derives from BaseFilter.
+        """
+        self._filters.extend(filter_)
+        return self
