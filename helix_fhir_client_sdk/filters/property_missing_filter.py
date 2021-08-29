@@ -15,4 +15,4 @@ class PropertyMissingFilter(BaseFilter):
         self.missing: bool = missing
 
     def __str__(self) -> str:
-        return f"{self.property_}:missing={self.missing}"
+        return f"{self.property_}:missing={'true' if self.missing else 'false'}"
