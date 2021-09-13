@@ -724,7 +724,7 @@ class FhirClient:
             "Content-Type": "application/x-www-form-urlencoded",
         }
 
-        self._internal_logger.info(
+        self._internal_logger.debug(
             f"Authenticating with {auth_server_url} with client_id={self._client_id} for scopes={auth_scopes}"
         )
 
@@ -751,7 +751,7 @@ class FhirClient:
         :param json_data_list: list of resources to send
         """
         assert self._url, "No FHIR server url was set"
-        self._internal_logger.info(
+        self._internal_logger.debug(
             f"Calling $merge on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
         )
 
