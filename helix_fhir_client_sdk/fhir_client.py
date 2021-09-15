@@ -409,7 +409,9 @@ class FhirClient:
                     full_url += "&"
                 else:
                     full_url += "?"
-                full_url += "&".join([str(f) for f in self._filters])
+                full_url += "&".join(
+                    set([str(f) for f in self._filters])
+                )  # remove any duplicates
 
             # have to be done here since this arg can be used twice
             if self._last_updated_before:
@@ -751,6 +753,8 @@ class FhirClient:
         :param json_data_list: list of resources to send
         """
         assert self._url, "No FHIR server url was set"
+        assert isinstance(json_data_list, list), "This function requires a list"
+
         self._internal_logger.debug(
             f"Calling $merge on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
         )
@@ -972,6 +976,7 @@ class FhirClient:
 
         :param filter_: list of custom filter instances that derives from BaseFilter.
         """
+        assert isinstance(filter_, list), "This function requires a list"
         self._filters.extend(filter_)
         return self
 
@@ -982,6 +987,8 @@ class FhirClient:
 
         :param json_data: data to update the resource with
         """
+        assert self._url, "No FHIR server url was set"
+        assert json_data, "Empty string was passed"
         if not self._id:
             raise ValueError("update requires the ID of FHIR object to update")
         if not isinstance(self._id, str):
