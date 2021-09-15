@@ -409,7 +409,9 @@ class FhirClient:
                     full_url += "&"
                 else:
                     full_url += "?"
-                full_url += "&".join([str(f) for f in self._filters])
+                full_url += "&".join(
+                    set([str(f) for f in self._filters])
+                )  # remove any duplicates
 
             # have to be done here since this arg can be used twice
             if self._last_updated_before:
@@ -751,6 +753,8 @@ class FhirClient:
         :param json_data_list: list of resources to send
         """
         assert self._url, "No FHIR server url was set"
+        assert isinstance(json_data_list, list), "This function requires a list"
+
         self._internal_logger.debug(
             f"Calling $merge on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
         )
@@ -972,5 +976,51 @@ class FhirClient:
 
         :param filter_: list of custom filter instances that derives from BaseFilter.
         """
+        assert isinstance(filter_, list), "This function requires a list"
         self._filters.extend(filter_)
         return self
+
+    def update(self, json_data: str) -> Response:
+        """
+        Update the resource.  This will completely overwrite the resource.  We recommend using merge()
+            instead since that does proper merging.
+
+        :param json_data: data to update the resource with
+        """
+        assert self._url, "No FHIR server url was set"
+        assert json_data, "Empty string was passed"
+        if not self._id:
+            raise ValueError("update requires the ID of FHIR object to update")
+        if not isinstance(self._id, str):
+            raise ValueError("update should have only one id")
+        if not self._resource:
+            raise ValueError("update requires a FHIR resource type")
+        full_uri: furl = furl(self._url)
+        full_uri /= self._resource
+        full_uri /= self._id
+        # setup retry
+        http: Session = self._create_http_session()
+
+        # set up headers
+        headers = {"Content-Type": "application/fhir+json"}
+
+        # set access token in request if present
+        if self.access_token:
+            headers["Authorization"] = f"Bearer {self.access_token}"
+
+        if self._validation_server_url:
+            FhirValidator.validate_fhir_resource(
+                http=http,
+                json_data=json_data,
+                resource_name=self._resource,
+                validation_server_url=self._validation_server_url,
+            )
+
+        json_payload_bytes: bytes = json_data.encode("utf-8")
+        # actually make the request
+        response = http.put(url=full_uri.url, data=json_payload_bytes, headers=headers)
+        if response.ok:
+            if self._logger:
+                self._logger.info(f"Successfully updated: {full_uri}")
+
+        return response
