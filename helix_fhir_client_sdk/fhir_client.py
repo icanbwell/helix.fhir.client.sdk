@@ -974,3 +974,46 @@ class FhirClient:
         """
         self._filters.extend(filter_)
         return self
+
+    def update(self, json_data: str) -> Response:
+        """
+        Update the resource.  This will completely overwrite the resource.  We recommend using merge()
+            instead since that does proper merging.
+
+        :param json_data: data to update the resource with
+        """
+        if not self._id:
+            raise ValueError("update requires the ID of FHIR object to update")
+        if not isinstance(self._id, str):
+            raise ValueError("update should have only one id")
+        if not self._resource:
+            raise ValueError("update requires a FHIR resource type")
+        full_uri: furl = furl(self._url)
+        full_uri /= self._resource
+        full_uri /= self._id
+        # setup retry
+        http: Session = self._create_http_session()
+
+        # set up headers
+        headers = {"Content-Type": "application/fhir+json"}
+
+        # set access token in request if present
+        if self.access_token:
+            headers["Authorization"] = f"Bearer {self.access_token}"
+
+        if self._validation_server_url:
+            FhirValidator.validate_fhir_resource(
+                http=http,
+                json_data=json_data,
+                resource_name=self._resource,
+                validation_server_url=self._validation_server_url,
+            )
+
+        json_payload_bytes: bytes = json_data.encode("utf-8")
+        # actually make the request
+        response = http.put(url=full_uri.url, data=json_payload_bytes, headers=headers)
+        if response.ok:
+            if self._logger:
+                self._logger.info(f"Successfully updated: {full_uri}")
+
+        return response
