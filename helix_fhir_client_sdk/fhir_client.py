@@ -562,11 +562,12 @@ class FhirClient:
                 error_text: str = response.text
                 if self._logger:
                     self._logger.error(error_text)
+                resources = error_text
                 return FhirGetResponse(
                     url=full_url,
                     responses=resources,
                     access_token=self._access_token,
-                    error=f"{response.status_code} {error_text}",
+                    error=f"{response.status_code}",
                     total_count=0,
                 )
         raise Exception("Could not talk to FHIR server after multiple tries")
