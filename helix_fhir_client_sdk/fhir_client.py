@@ -72,6 +72,7 @@ class FhirClient:
         self._obj_id: Optional[str] = None
         self._include_total: bool = False
         self._filters: List[BaseFilter] = []
+        self._expand_fhir_bundle: bool = True
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -340,6 +341,16 @@ class FhirClient:
         self._separate_bundle_resources = separate_bundle_resources
         return self
 
+    def expand_fhir_bundle(self, expand_fhir_bundle: bool) -> "FhirClient":
+        """
+        Set flag to expand the FHIR bundle into a list of resources. If false then we don't un bundle the response
+
+
+        :param expand_fhir_bundle: whether to just return the result as a FHIR bundle
+        """
+        self._expand_fhir_bundle = expand_fhir_bundle
+        return self
+
     def get(self) -> FhirGetResponse:
         """
         Issues a GET call
@@ -456,7 +467,8 @@ class FhirClient:
                     response_json: Dict[str, Any] = json.loads(text)
                     # see if this is a Resource Bundle and un-bundle it
                     if (
-                        "resourceType" in response_json
+                        self._expand_fhir_bundle
+                        and "resourceType" in response_json
                         and response_json["resourceType"] == "Bundle"
                     ):
                         if "total" in response_json:
