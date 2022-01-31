@@ -9,7 +9,17 @@ from datetime import datetime, timedelta
 from logging import Logger
 from queue import Empty
 from threading import Lock
-from typing import Dict, Optional, List, Union, Any, Callable, Generator, AsyncGenerator
+from typing import (
+    Dict,
+    Optional,
+    List,
+    Union,
+    Any,
+    Callable,
+    Generator,
+    AsyncGenerator,
+    Coroutine,
+)
 from urllib import parse
 
 import aiohttp
@@ -756,10 +766,10 @@ class AsyncFhirClient:
         fn_handle_batch: Optional[HandleBatchFunction],
         fn_handle_error: Optional[HandleErrorFunction],
         http: ClientSession,
-    ) -> AsyncGenerator[List[PagingResult], None]:
+    ) -> AsyncGenerator[Coroutine[Any, Any, List[PagingResult]], None]:
         for taskNumber in range(concurrent_requests):
             yield (
-                await self.get_page_by_query(
+                self.get_page_by_query(
                     session=http,
                     start_page=taskNumber,
                     increment=concurrent_requests,
@@ -798,9 +808,9 @@ class AsyncFhirClient:
 
         async with self.create_http_session() as http:
             first_completed: Future[List[PagingResult]]
-            for first_completed in asyncio.as_completed(  # type: ignore
+            for first_completed in asyncio.as_completed(
                 [
-                    task  # type: ignore
+                    task
                     async for task in self.get_tasks(
                         http=http,
                         output_queue=output_queue,
