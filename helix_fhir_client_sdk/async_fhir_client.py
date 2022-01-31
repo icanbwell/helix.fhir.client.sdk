@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 import base64
 import json
@@ -1387,3 +1388,45 @@ class AsyncFhirClient:
             fn_handle_error=self.handle_error,
         )
         return resources
+
+    async def get_in_batches(
+        self, fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], bool]]
+    ) -> FhirGetResponse:
+        """
+        Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
+
+        :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
+                                    resource is a dictionary. If this is specified then we don't return
+                                    the resources anymore.  If this function returns False then we stop
+                                    processing batches.
+        :return response containing all the resources received
+        """
+        # if paging is requested then iterate through the pages until the response is empty
+        assert self._url
+        assert self._page_size
+        self._page_number = 0
+        resources_list: List[Dict[str, Any]] = []
+        while True:
+            result: FhirGetResponse = await self.get()
+            if not result.error and bool(result.responses):
+                result_list: List[Dict[str, Any]] = json.loads(result.responses)
+                if len(result_list) == 0:
+                    break
+                if fn_handle_batch:
+                    if fn_handle_batch(result_list) is False:
+                        break
+                else:
+                    resources_list.extend(result_list)
+                if self._limit and self._limit > 0:
+                    if (self._page_number * self._page_size) > self._limit:
+                        break
+                self._page_number += 1
+            else:
+                break
+        return FhirGetResponse(
+            self._url,
+            responses=json.dumps(resources_list),
+            error=result.error,
+            access_token=self._access_token,
+            total_count=result.total_count,
+        )
