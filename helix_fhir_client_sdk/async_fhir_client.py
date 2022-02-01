@@ -24,7 +24,7 @@ from urllib import parse
 
 import aiohttp
 import requests
-from aiohttp import ClientSession, ClientResponse
+from aiohttp import ClientSession, ClientResponse, ClientPayloadError
 from furl import furl
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
@@ -513,7 +513,14 @@ class AsyncFhirClient:
                     self._logger.info(f"Successfully retrieved: {full_url}")
 
                 total_count: int = 0
-                text = await response.text()
+                # noinspection PyBroadException
+                try:
+                    text = await response.text()
+                except ClientPayloadError as e:
+                    # do a retry
+                    if self._logger:
+                        self._logger.error(f"{e}: {response.headers}")
+                    continue
                 if len(text) > 0:
                     response_json: Dict[str, Any] = json.loads(text)
                     # see if this is a Resource Bundle and un-bundle it
