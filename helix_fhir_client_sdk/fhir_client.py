@@ -11,7 +11,7 @@ import requests
 from furl import furl
 from requests import Response, Session
 from requests.adapters import HTTPAdapter, BaseAdapter
-from urllib3 import Retry  # type: ignore
+from urllib3 import Retry
 
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
