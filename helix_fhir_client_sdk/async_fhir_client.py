@@ -743,7 +743,9 @@ class AsyncFhirClient:
     ) -> List[PagingResult]:
         page_number: int = start_page
         result: List[PagingResult] = []
-        while not self._last_page or page_number < self._last_page:
+        while (
+            not self._last_page and not self._last_page == 0
+        ) or page_number < self._last_page:
             result_for_page: List[Dict[str, Any]] = await self.get_with_handler(
                 session=session,
                 page_number=page_number,
@@ -763,6 +765,7 @@ class AsyncFhirClient:
                         self._last_page = page_number
                         if self._logger:
                             self._logger.info(f"Setting last page to {self._last_page}")
+                break
             page_number = page_number + increment
         return result
 
@@ -1270,6 +1273,8 @@ class AsyncFhirClient:
     ) -> bool:
         if self._logger:
             self._logger.error(f"{error}: {response}")
+        if self._internal_logger:
+            self._internal_logger.error(f"{error}: {response}")
         return True
 
     async def get_resources_by_query_and_last_updated(
@@ -1279,13 +1284,28 @@ class AsyncFhirClient:
         concurrent_requests: int = 10,
         page_size_for_retrieving_resources: int = 100,
         page_size_for_retrieving_ids: int = 10000,
+        fn_handle_batch: Optional[HandleBatchFunction] = None,
+        fn_handle_error: Optional[HandleErrorFunction] = None,
     ) -> List[Dict[str, Any]]:
+        """
+        Gets results for a query by paging through one day at a time,
+            first downloading all the ids and then retrieving resources for each id in parallel
+        :param fn_handle_error: Optional function to call when there is an error
+        :param fn_handle_batch: Optional function to call when a batch is downloaded
+        :param last_updated_start_date: find resources updated after this datetime
+        :param last_updated_end_date: find resources updated before this datetime
+        :param concurrent_requests: number of concurrent requests to make to the server
+        :param page_size_for_retrieving_resources: number of resources to download in one batch
+        :param page_size_for_retrieving_ids:: number of ids to download in one batch
+        """
         return await self.get_resources_by_query(
             concurrent_requests=concurrent_requests,
             last_updated_end_date=last_updated_end_date,
             last_updated_start_date=last_updated_start_date,
             page_size_for_retrieving_ids=page_size_for_retrieving_ids,
             page_size_for_retrieving_resources=page_size_for_retrieving_resources,
+            fn_handle_error=fn_handle_error,
+            fn_handle_batch=fn_handle_batch,
         )
 
     async def get_resources_by_query(
@@ -1295,14 +1315,18 @@ class AsyncFhirClient:
         concurrent_requests: int = 10,
         page_size_for_retrieving_resources: int = 100,
         page_size_for_retrieving_ids: int = 10000,
+        fn_handle_batch: Optional[HandleBatchFunction] = None,
+        fn_handle_error: Optional[HandleErrorFunction] = None,
     ) -> List[Dict[str, Any]]:
         """
         Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel
-        :param last_updated_start_date:
-        :param last_updated_end_date:
-        :param concurrent_requests:
-        :param page_size_for_retrieving_resources:
-        :param page_size_for_retrieving_ids:
+        :param fn_handle_error: Optional function to call when there is an error
+        :param fn_handle_batch: Optional function to call when a batch is downloaded
+        :param last_updated_start_date: find resources updated after this datetime
+        :param last_updated_end_date: find resources updated before this datetime
+        :param concurrent_requests: number of concurrent requests to make to the server
+        :param page_size_for_retrieving_resources: number of resources to download in one batch
+        :param page_size_for_retrieving_ids:: number of ids to download in one batch
         """
         # get only ids first
         fhir_client = self.include_only_properties(["id"])
@@ -1329,6 +1353,7 @@ class AsyncFhirClient:
         await fhir_client.access_token
 
         if last_updated_start_date is not None and last_updated_end_date is not None:
+            assert last_updated_end_date >= last_updated_start_date
             greater_than = last_updated_start_date - timedelta(days=1)
             less_than = greater_than + timedelta(days=1)
             last_updated_filter = LastUpdatedFilter(
@@ -1401,8 +1426,8 @@ class AsyncFhirClient:
         await fhir_client.get_resources_by_id_in_parallel_batches(
             concurrent_requests=concurrent_requests,
             chunks=chunks,
-            fn_handle_batch=add_resources_to_list,
-            fn_handle_error=self.handle_error,
+            fn_handle_batch=fn_handle_batch or add_resources_to_list,
+            fn_handle_error=fn_handle_error or self.handle_error,
         )
         return resources
 
