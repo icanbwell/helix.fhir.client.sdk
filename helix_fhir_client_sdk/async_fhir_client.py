@@ -591,7 +591,7 @@ class AsyncFhirClient:
                     self._logger.error(f"resource not found! {full_url}")
                 return FhirGetResponse(
                     url=full_url,
-                    responses=resources,
+                    responses=await response.text(),
                     error=f"{response.status}",
                     access_token=self._access_token,
                     total_count=0,
@@ -621,7 +621,7 @@ class AsyncFhirClient:
                     # out of retries so just fail now
                     return FhirGetResponse(
                         url=full_url,
-                        responses=resources,
+                        responses=await response.text(),
                         error=f"{response.status}",
                         access_token=self._access_token,
                         total_count=0,
@@ -638,7 +638,7 @@ class AsyncFhirClient:
                 resources = error_text
                 return FhirGetResponse(
                     url=full_url,
-                    responses=resources,
+                    responses=await response.text(),
                     access_token=self._access_token,
                     error=f"{response.status}",
                     total_count=0,
