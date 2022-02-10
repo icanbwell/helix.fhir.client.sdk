@@ -533,14 +533,20 @@ class FhirClient:
                     self._logger.error(f"resource not found! {full_url}")
                 return FhirGetResponse(
                     url=full_url,
-                    responses=resources,
+                    responses=response.text,
                     error=f"{response.status_code}",
                     access_token=self._access_token,
                     total_count=0,
                 )
-            elif (
-                response.status_code == 403 or response.status_code == 401
-            ):  # forbidden or unauthorized
+            elif response.status_code == 403:  # forbidden
+                return FhirGetResponse(
+                    url=full_url,
+                    responses=response.text,
+                    error=f"{response.status_code}",
+                    access_token=self._access_token,
+                    total_count=0,
+                )
+            elif response.status_code == 401:  # unauthorized
                 if retries >= 0:
                     assert (
                         self._auth_server_url
@@ -560,7 +566,7 @@ class FhirClient:
                     # out of retries so just fail now
                     return FhirGetResponse(
                         url=full_url,
-                        responses=resources,
+                        responses=response.text,
                         error=f"{response.status_code}",
                         access_token=self._access_token,
                         total_count=0,

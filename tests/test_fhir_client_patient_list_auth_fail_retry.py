@@ -10,7 +10,7 @@ def test_fhir_client_patient_list_auth_fail_retry() -> None:
     with requests_mock.Mocker() as mock:
         url = "http://foo"
         response_text = {"resourceType": "Patient", "id": "12355"}
-        mock.get(f"{url}/Patient", [{"status_code": 403}, {"json": response_text}])
+        mock.get(f"{url}/Patient", [{"status_code": 401}, {"json": response_text}])
         auth_response = {
             "access_token": "my_access_token",
             "expires_in": 86400,

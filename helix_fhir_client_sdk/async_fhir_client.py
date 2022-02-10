@@ -257,6 +257,8 @@ class AsyncFhirClient:
         :param logger: logger
         """
         self._logger = logger
+        # disable internal logger
+        self._internal_logger.setLevel(logging.ERROR)
         return self
 
     def adapter(self, adapter: BaseAdapter) -> "AsyncFhirClient":
@@ -599,9 +601,15 @@ class AsyncFhirClient:
             elif response.status == 502 or response.status == 504:  # time out
                 if retries >= 0:
                     continue
-            elif (
-                response.status == 403 or response.status == 401
-            ):  # forbidden or unauthorized
+            elif response.status == 403:  # forbidden
+                return FhirGetResponse(
+                    url=full_url,
+                    responses=await response.text(),
+                    error=f"{response.status}",
+                    access_token=self._access_token,
+                    total_count=0,
+                )
+            elif response.status == 401:  # unauthorized
                 if retries >= 0:
                     assert (
                         self._auth_server_url
@@ -635,10 +643,9 @@ class AsyncFhirClient:
                 error_text: str = await response.text()
                 if self._logger:
                     self._logger.error(error_text)
-                resources = error_text
                 return FhirGetResponse(
                     url=full_url,
-                    responses=await response.text(),
+                    responses=error_text,
                     access_token=self._access_token,
                     error=f"{response.status}",
                     total_count=0,
