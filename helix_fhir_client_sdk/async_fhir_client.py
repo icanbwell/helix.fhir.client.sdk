@@ -282,7 +282,7 @@ class AsyncFhirClient:
         return self
 
     @property
-    async def access_token(self) -> Optional[str]:
+    async def access_token_async(self) -> Optional[str]:
         """
         Gets current access token
 
@@ -293,7 +293,7 @@ class AsyncFhirClient:
         if self._login_token and not self._auth_server_url:
             # try to get auth_server_url from well known configuration
             self._auth_server_url = (
-                await self._get_auth_server_url_from_well_known_configuration()
+                await self._get_auth_server_url_from_well_known_configuration_async()
             )
             if self._auth_server_url:
                 logging.info(
@@ -304,7 +304,7 @@ class AsyncFhirClient:
                 self._login_token
             ), "login token must be present if auth_server_url is set"
             async with self.create_http_session() as http:
-                self._access_token = await self.authenticate(
+                self._access_token = await self.authenticate_async(
                     http=http,
                     auth_server_url=self._auth_server_url,
                     auth_scopes=self._auth_scopes,
@@ -312,8 +312,8 @@ class AsyncFhirClient:
                 )
         return self._access_token
 
-    @access_token.setter
-    def access_token(self, value: str) -> None:
+    @access_token_async.setter
+    def access_token_async(self, value: str) -> None:
         """
         Sets access token
 
@@ -332,7 +332,7 @@ class AsyncFhirClient:
         self._access_token = value
         return self
 
-    async def delete(self) -> ClientResponse:
+    async def delete_async(self) -> ClientResponse:
         """
         Delete the resources
         """
@@ -349,8 +349,8 @@ class AsyncFhirClient:
             headers: Dict[str, str] = {}
 
             # set access token in request if present
-            if await self.access_token:
-                headers["Authorization"] = f"Bearer {await self.access_token}"
+            if await self.access_token_async:
+                headers["Authorization"] = f"Bearer {await self.access_token_async}"
 
             # actually make the request
             response: ClientResponse = await http.delete(
@@ -384,7 +384,7 @@ class AsyncFhirClient:
         self._expand_fhir_bundle = expand_fhir_bundle
         return self
 
-    async def get(self) -> FhirGetResponse:
+    async def get_async(self) -> FhirGetResponse:
         """
         Issues a GET call
         """
@@ -393,9 +393,9 @@ class AsyncFhirClient:
             ids = self._id if isinstance(self._id, list) else [self._id]
         # actually make the request
         async with self.create_http_session() as http:
-            return await self._get_with_session(session=http, ids=ids)
+            return await self._get_with_session_async(session=http, ids=ids)
 
-    async def _get_with_session(
+    async def _get_with_session_async(
         self,
         session: Optional[ClientSession],
         page_number: Optional[int] = None,
@@ -498,15 +498,15 @@ class AsyncFhirClient:
             }
 
             # set access token in request if present
-            if await self.access_token:
-                headers["Authorization"] = f"Bearer {await self.access_token}"
+            if await self.access_token_async:
+                headers["Authorization"] = f"Bearer {await self.access_token_async}"
 
             # actually make the request
             if session is None:
                 http = self.create_http_session()
             else:
                 http = session
-            response: ClientResponse = await self._send_fhir_request(
+            response: ClientResponse = await self._send_fhir_request_async(
                 http, full_url, headers, payload
             )
             # if request is ok (200) then return the data
@@ -617,7 +617,7 @@ class AsyncFhirClient:
                     assert (
                         self._login_token
                     ), f"{response.status} received from server but no login_token was specified to use"
-                    self._access_token = await self.authenticate(
+                    self._access_token = await self.authenticate_async(
                         http=http,
                         auth_server_url=self._auth_server_url,
                         auth_scopes=self._auth_scopes,
@@ -652,7 +652,7 @@ class AsyncFhirClient:
                 )
         raise Exception("Could not talk to FHIR server after multiple tries")
 
-    async def _send_fhir_request(
+    async def _send_fhir_request_async(
         self,
         http: ClientSession,
         full_url: str,
@@ -717,7 +717,7 @@ class AsyncFhirClient:
         )
         return session
 
-    async def get_with_handler(
+    async def get_with_handler_async(
         self,
         session: Optional[ClientSession],
         page_number: Optional[int],
@@ -725,7 +725,7 @@ class AsyncFhirClient:
         fn_handle_batch: Optional[HandleBatchFunction],
         fn_handle_error: Optional[HandleErrorFunction],
     ) -> List[Dict[str, Any]]:
-        result = await self._get_with_session(
+        result = await self._get_with_session_async(
             session=session, page_number=page_number, ids=ids
         )
         if result.error:
@@ -739,7 +739,7 @@ class AsyncFhirClient:
             return result_list
         return []
 
-    async def get_page_by_query(
+    async def get_page_by_query_async(
         self,
         session: Optional[ClientSession],
         start_page: int,
@@ -753,7 +753,7 @@ class AsyncFhirClient:
         while (
             not self._last_page and not self._last_page == 0
         ) or page_number < self._last_page:
-            result_for_page: List[Dict[str, Any]] = await self.get_with_handler(
+            result_for_page: List[Dict[str, Any]] = await self.get_with_handler_async(
                 session=session,
                 page_number=page_number,
                 ids=None,
@@ -776,7 +776,7 @@ class AsyncFhirClient:
             page_number = page_number + increment
         return result
 
-    async def get_tasks(
+    async def get_tasks_async(
         self,
         concurrent_requests: int,
         output_queue: asyncio.Queue[PagingResult],
@@ -786,7 +786,7 @@ class AsyncFhirClient:
     ) -> AsyncGenerator[Coroutine[Any, Any, List[PagingResult]], None]:
         for taskNumber in range(concurrent_requests):
             yield (
-                self.get_page_by_query(
+                self.get_page_by_query_async(
                     session=http,
                     start_page=taskNumber,
                     increment=concurrent_requests,
@@ -796,7 +796,7 @@ class AsyncFhirClient:
                 )
             )
 
-    async def get_by_query_in_pages(
+    async def get_by_query_in_pages_async(
         self,
         concurrent_requests: int,
         output_queue: asyncio.Queue[PagingResult],
@@ -828,7 +828,7 @@ class AsyncFhirClient:
             for first_completed in asyncio.as_completed(
                 [
                     task
-                    async for task in self.get_tasks(
+                    async for task in self.get_tasks_async(
                         http=http,
                         output_queue=output_queue,
                         concurrent_requests=concurrent_requests,
@@ -862,7 +862,7 @@ class AsyncFhirClient:
         ).decode("ascii")
         return token
 
-    async def authenticate(
+    async def authenticate_async(
         self,
         http: ClientSession,
         auth_server_url: str,
@@ -913,7 +913,7 @@ class AsyncFhirClient:
             access_token: str = token_json["access_token"]
             return access_token
 
-    async def merge(self, json_data_list: List[str],) -> FhirMergeResponse:
+    async def merge_async(self, json_data_list: List[str],) -> FhirMergeResponse:
         """
         Calls $merge function on FHIR server
 
@@ -937,8 +937,8 @@ class AsyncFhirClient:
             responses: List[Dict[str, Any]] = []
             async with self.create_http_session() as http:
                 # set access token in request if present
-                if await self.access_token:
-                    headers["Authorization"] = f"Bearer {await self.access_token}"
+                if await self.access_token_async:
+                    headers["Authorization"] = f"Bearer {await self.access_token_async}"
 
                 try:
                     resource_json_list: List[Dict[str, Any]] = [
@@ -996,7 +996,7 @@ class AsyncFhirClient:
                                 assert (
                                     self._login_token
                                 ), f"{response.status} received from server but no login_token was specified to use"
-                                self._access_token = await self.authenticate(
+                                self._access_token = await self.authenticate_async(
                                     http=http,
                                     auth_server_url=self._auth_server_url,
                                     auth_scopes=self._auth_scopes,
@@ -1047,7 +1047,9 @@ class AsyncFhirClient:
 
         raise Exception("Could not talk to FHIR server after multiple tries")
 
-    async def _get_auth_server_url_from_well_known_configuration(self) -> Optional[str]:
+    async def _get_auth_server_url_from_well_known_configuration_async(
+        self,
+    ) -> Optional[str]:
         """
         Finds the auth server url via the well known configuration if it exists
 
@@ -1093,7 +1095,7 @@ class AsyncFhirClient:
                     )
                 return None
 
-    async def graph(
+    async def graph_async(
         self,
         *,
         graph_definition: GraphDefinition,
@@ -1131,9 +1133,9 @@ class AsyncFhirClient:
         output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
         async with self.create_http_session() as http:
             return (
-                await self._get_with_session(session=http)
+                await self._get_with_session_async(session=http)
                 if not process_in_batches
-                else await self.get_by_query_in_pages(
+                else await self.get_by_query_in_pages_async(
                     concurrent_requests=concurrent_requests,
                     output_queue=output_queue,
                     fn_handle_error=fn_handle_error,
@@ -1161,7 +1163,7 @@ class AsyncFhirClient:
         self._filters.extend(filter_)
         return self
 
-    async def update(self, json_data: str) -> ClientResponse:
+    async def update_async(self, json_data: str) -> ClientResponse:
         """
         Update the resource.  This will completely overwrite the resource.  We recommend using merge()
             instead since that does proper merging.
@@ -1185,8 +1187,8 @@ class AsyncFhirClient:
             headers = {"Content-Type": "application/fhir+json"}
 
             # set access token in request if present
-            if await self.access_token:
-                headers["Authorization"] = f"Bearer {await self.access_token}"
+            if await self.access_token_async:
+                headers["Authorization"] = f"Bearer {await self.access_token_async}"
 
             if self._validation_server_url:
                 await AsyncFhirValidator.validate_fhir_resource(
@@ -1207,7 +1209,7 @@ class AsyncFhirClient:
 
             return response
 
-    async def get_resources_by_id_in_parallel_batches(
+    async def get_resources_by_id_in_parallel_batches_async(
         self,
         concurrent_requests: int,
         chunks: Generator[List[str], None, None],
@@ -1221,7 +1223,7 @@ class AsyncFhirClient:
 
         async with self.create_http_session() as http:
             tasks = [
-                self.get_resources_by_id(
+                self.get_resources_by_id_async(
                     session=http,
                     queue=queue,
                     task_number=taskNumber,
@@ -1235,7 +1237,7 @@ class AsyncFhirClient:
             await queue.join()
             return result_list
 
-    async def get_resources_by_id(
+    async def get_resources_by_id_async(
         self,
         session: ClientSession,
         queue: asyncio.Queue[List[str]],
@@ -1253,7 +1255,7 @@ class AsyncFhirClient:
                 if chunk is not None:
                     result_per_chunk: List[
                         Dict[str, Any]
-                    ] = await self.get_with_handler(
+                    ] = await self.get_with_handler_async(
                         session=session,
                         page_number=0,
                         ids=chunk,
@@ -1279,12 +1281,12 @@ class AsyncFhirClient:
         self, error: str, response: str, page_number: Optional[int]
     ) -> bool:
         if self._logger:
-            self._logger.error(f"{error}: {response}")
+            self._logger.error(f"page: {page_number} {error}: {response}")
         if self._internal_logger:
-            self._internal_logger.error(f"{error}: {response}")
+            self._internal_logger.error(f"page: {page_number} {error}: {response}")
         return True
 
-    async def get_resources_by_query_and_last_updated(
+    async def get_resources_by_query_and_last_updated_async(
         self,
         last_updated_start_date: datetime,
         last_updated_end_date: datetime,
@@ -1305,7 +1307,7 @@ class AsyncFhirClient:
         :param page_size_for_retrieving_resources: number of resources to download in one batch
         :param page_size_for_retrieving_ids:: number of ids to download in one batch
         """
-        return await self.get_resources_by_query(
+        return await self.get_resources_by_query_async(
             concurrent_requests=concurrent_requests,
             last_updated_end_date=last_updated_end_date,
             last_updated_start_date=last_updated_start_date,
@@ -1315,7 +1317,7 @@ class AsyncFhirClient:
             fn_handle_batch=fn_handle_batch,
         )
 
-    async def get_resources_by_query(
+    async def get_resources_by_query_async(
         self,
         last_updated_start_date: Optional[datetime] = None,
         last_updated_end_date: Optional[datetime] = None,
@@ -1357,7 +1359,7 @@ class AsyncFhirClient:
             return True
 
         # get token first
-        await fhir_client.access_token
+        await fhir_client.access_token_async
 
         if last_updated_start_date is not None and last_updated_end_date is not None:
             assert last_updated_end_date >= last_updated_start_date
@@ -1376,7 +1378,7 @@ class AsyncFhirClient:
                 last_updated_filter.greater_than = greater_than
                 start = time.time()
                 fhir_client._last_page = None  # clean any previous setting
-                await fhir_client.get_by_query_in_pages(
+                await fhir_client.get_by_query_in_pages_async(
                     concurrent_requests=concurrent_requests,
                     output_queue=output_queue,
                     fn_handle_batch=add_to_list,
@@ -1391,7 +1393,7 @@ class AsyncFhirClient:
         else:
             start = time.time()
             fhir_client._last_page = None  # clean any previous setting
-            await fhir_client.get_by_query_in_pages(
+            await fhir_client.get_by_query_in_pages_async(
                 concurrent_requests=concurrent_requests,
                 output_queue=output_queue,
                 fn_handle_batch=add_to_list,
@@ -1430,7 +1432,7 @@ class AsyncFhirClient:
         # create a new one to reset all the properties
         self._include_only_properties = None
         self._filters = []
-        await fhir_client.get_resources_by_id_in_parallel_batches(
+        await fhir_client.get_resources_by_id_in_parallel_batches_async(
             concurrent_requests=concurrent_requests,
             chunks=chunks,
             fn_handle_batch=fn_handle_batch or add_resources_to_list,
@@ -1438,7 +1440,7 @@ class AsyncFhirClient:
         )
         return resources
 
-    async def get_in_batches(
+    async def get_in_batches_async(
         self, fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], bool]]
     ) -> FhirGetResponse:
         """
@@ -1456,7 +1458,7 @@ class AsyncFhirClient:
         self._page_number = 0
         resources_list: List[Dict[str, Any]] = []
         while True:
-            result: FhirGetResponse = await self.get()
+            result: FhirGetResponse = await self.get_async()
             if not result.error and bool(result.responses):
                 result_list: List[Dict[str, Any]] = json.loads(result.responses)
                 if len(result_list) == 0:

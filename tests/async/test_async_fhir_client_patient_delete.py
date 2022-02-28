@@ -25,7 +25,7 @@ async def test_async_fhir_client_patient_delete() -> None:
         # Act
         fhir_client = AsyncFhirClient()
         fhir_client = fhir_client.url(url).resource("Patient").id_("12345")
-        response: ClientResponse = await fhir_client.delete()
+        response: ClientResponse = await fhir_client.delete_async()
 
         # Assert
         response.raise_for_status()

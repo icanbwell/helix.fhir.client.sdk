@@ -15,7 +15,7 @@ async def test_async_fhir_client_patient_list() -> None:
 
         fhir_client = AsyncFhirClient()
         fhir_client = fhir_client.url(url).resource("Patient")
-        response: FhirGetResponse = await fhir_client.get()
+        response: FhirGetResponse = await fhir_client.get_async()
 
         print(response.responses)
         assert response.responses == json.dumps(response_text)

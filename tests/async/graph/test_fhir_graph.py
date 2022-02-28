@@ -68,7 +68,7 @@ async def test_async_fhir_graph() -> None:
 
         fhir_client = AsyncFhirClient()
         fhir_client = fhir_client.url(url).resource("Patient")
-        response: FhirGetResponse = await fhir_client.graph(
+        response: FhirGetResponse = await fhir_client.graph_async(
             graph_definition=graph_definition, contained=False
         )
 

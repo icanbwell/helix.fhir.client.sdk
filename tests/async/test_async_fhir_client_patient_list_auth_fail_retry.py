@@ -40,7 +40,7 @@ async def test_async_fhir_client_patient_list_auth_fail_retry() -> None:
         fhir_client = fhir_client.auth_server_url("http://auth").auth_scopes(
             ["user/*.ready"]
         )
-        response: FhirGetResponse = await fhir_client.get()
+        response: FhirGetResponse = await fhir_client.get_async()
 
         print(response.responses)
         # assert mock.call_count == 4, ",".join([r.url for r in mock.request_history])

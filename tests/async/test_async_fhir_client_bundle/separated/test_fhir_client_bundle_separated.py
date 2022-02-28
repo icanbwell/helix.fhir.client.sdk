@@ -64,6 +64,6 @@ async def test_async_fhir_client_bundle_separated() -> None:
             .separate_bundle_resources(True)
         )
         fhir_client = fhir_client.url(url).resource("Patient")
-        response: FhirGetResponse = await fhir_client.get()
+        response: FhirGetResponse = await fhir_client.get_async()
 
         assert response.responses == json.dumps(expected_response)

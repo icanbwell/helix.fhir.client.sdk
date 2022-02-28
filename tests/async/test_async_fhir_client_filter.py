@@ -57,7 +57,7 @@ async def test_async_fhir_client_filter() -> None:
             return True
 
         resources_list: List[Dict[str, Any]] = []
-        response: FhirGetResponse = await fhir_client.get_in_batches(
+        response: FhirGetResponse = await fhir_client.get_in_batches_async(
             fn_handle_batch=handle_batch
         )
 
