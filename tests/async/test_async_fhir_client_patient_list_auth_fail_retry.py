@@ -18,16 +18,24 @@ async def test_async_fhir_client_patient_list_auth_fail_retry() -> None:
             "token_type": "Bearer",
         }
         mock.post(
-            "http://auth", status=200, payload=auth_response,
+            "http://auth",
+            status=200,
+            payload=auth_response,
         )
         mock.post(
-            "http://auth", status=200, payload=auth_response,
+            "http://auth",
+            status=200,
+            payload=auth_response,
         )
         mock.post(
-            "http://auth", status=200, payload=auth_response,
+            "http://auth",
+            status=200,
+            payload=auth_response,
         )
         mock.post(
-            "http://auth", status=200, payload=auth_response,
+            "http://auth",
+            status=200,
+            payload=auth_response,
         )
 
         mock.get(f"{url}/Patient", payload=response_text)

@@ -49,8 +49,8 @@ HandleErrorFunction = Callable[[str, str, Optional[int]], bool]
 
 class AsyncFhirClient:
     """
-        Class used to call FHIR server (uses async and parallel execution to speed up)
-        """
+    Class used to call FHIR server (uses async and parallel execution to speed up)
+    """
 
     _time_to_live_in_secs_for_cache: int = 10 * 60
 
@@ -950,7 +950,10 @@ class AsyncFhirClient:
             access_token: str = token_json["access_token"]
             return access_token
 
-    async def merge_async(self, json_data_list: List[str],) -> FhirMergeResponse:
+    async def merge_async(
+        self,
+        json_data_list: List[str],
+    ) -> FhirMergeResponse:
         """
         Calls $merge function on FHIR server
 
@@ -1518,3 +1521,23 @@ class AsyncFhirClient:
             access_token=self._access_token,
             total_count=result.total_count,
         )
+
+    def get_in_batches(
+        self, fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], bool]] = None
+    ) -> FhirGetResponse:
+        """
+        Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
+
+        :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
+                                    resource is a dictionary. If this is specified then we don't return
+                                    the resources anymore.  If this function returns False then we stop
+                                    processing batches.
+        :return response containing all the resources received
+        """
+        # if paging is requested then iterate through the pages until the response is empty
+        loop = asyncio.get_event_loop()
+        result = loop.run_until_complete(
+            self.get_in_batches_async(fn_handle_batch=fn_handle_batch)
+        )
+        loop.close()
+        return result

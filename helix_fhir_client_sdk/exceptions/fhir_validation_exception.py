@@ -17,7 +17,7 @@ class FhirValidationException(Exception):
         :param json_data: data that was being sent
         :param response_text: response from the FHIR server
         :param response_status_code: status code returned by FHIR server
-        :param message: error message        """
+        :param message: error message"""
         self.url: str = url
         self.data: str = json_data
         super().__init__(

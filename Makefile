@@ -35,10 +35,11 @@ run-pre-commit: setup-pre-commit
 .PHONY:update
 update: down Pipfile.lock setup-pre-commit  ## Updates all the packages using Pipfile
 	docker-compose run --rm --name helix.fhir.client.sdk dev pipenv sync && \
-	make devdocker
+	make devdocker && \
+	make pipenv-setup
 
 .PHONY:tests
-tests:
+tests: up
 	docker-compose run --rm --name helix.fhir.client.sdk dev pytest tests
 
 .PHONY:shell
@@ -78,3 +79,7 @@ sphinx-html: ## build documentation
 console_test:  ## runs the test via console to download resources from FHIR server
 	#source ~/.bash_profile
 	python ./console_test.py
+
+.PHONY:pipenv-setup
+pipenv-setup:devdocker ## Brings up the bash shell in dev docker
+	docker-compose run --rm --name helix.fhir.client.sdk dev pipenv-setup sync --pipfile

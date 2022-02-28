@@ -764,7 +764,10 @@ class FhirClient:
         access_token: str = token_json["access_token"]
         return access_token
 
-    def merge(self, json_data_list: List[str],) -> FhirMergeResponse:
+    def merge(
+        self,
+        json_data_list: List[str],
+    ) -> FhirMergeResponse:
         """
         Calls $merge function on FHIR server
 

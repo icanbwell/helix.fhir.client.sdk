@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 
 import requests_mock
 
-from helix_fhir_client_sdk.fhir_client import FhirClient
+from helix_fhir_client_sdk.async_fhir_client import AsyncFhirClient
 from helix_fhir_client_sdk.filters.identifier_filter import IdentifierFilter
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
@@ -38,7 +38,7 @@ def test_fhir_client_filter() -> None:
             json=response_text_3,
         )
 
-        fhir_client = FhirClient()
+        fhir_client = AsyncFhirClient()
         fhir_client = fhir_client.url(url).resource("Patient")
         fhir_client = fhir_client.page_size(10)
         fhir_client = fhir_client.include_total(True)

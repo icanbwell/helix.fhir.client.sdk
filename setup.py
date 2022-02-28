@@ -55,7 +55,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/icanbwell/helix.fhir.client.sdk",
     packages=find_packages(),
-    install_requires=[],
+    install_requires=["furl", "requests", "urllib3", "chardet", "aiohttp"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Programming Language :: Python :: 3",
