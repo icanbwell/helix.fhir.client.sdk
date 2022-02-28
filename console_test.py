@@ -44,7 +44,7 @@ class ResourceDownloader:
         ), "FHIR_CLIENT_SECRET environment variable must be set"
         self.auth_client_id = os.environ.get("FHIR_CLIENT_ID")
         self.auth_client_secret = os.environ.get("FHIR_CLIENT_SECRET")
-        self.resource = "Organization"
+        self.resource = "AuditEvent"
         assert os.environ.get(
             "FHIR_CLIENT_TAG"
         ), "FHIR_CLIENT_TAG environment variable must be set"
