@@ -400,6 +400,7 @@ class AsyncFhirClient:
         session: Optional[ClientSession],
         page_number: Optional[int] = None,
         ids: Optional[List[str]] = None,
+        id_above: Optional[str] = None,
     ) -> FhirGetResponse:
         """
         Issues a GET call
@@ -486,6 +487,13 @@ class AsyncFhirClient:
                 else:
                     full_url += "?"
                 full_url += f"_lastUpdated=ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+
+            if id_above is not None:
+                if len(full_uri.args) > 0:
+                    full_url += "&"
+                else:
+                    full_url += "?"
+                full_url += f"id:above={id_above}"
 
             # set up headers
             payload: Dict[str, str] = (
@@ -724,9 +732,10 @@ class AsyncFhirClient:
         ids: Optional[List[str]],
         fn_handle_batch: Optional[HandleBatchFunction],
         fn_handle_error: Optional[HandleErrorFunction],
+        id_above: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         result = await self._get_with_session_async(
-            session=session, page_number=page_number, ids=ids
+            session=session, page_number=page_number, ids=ids, id_above=id_above
         )
         if result.error:
             if fn_handle_error:
@@ -748,17 +757,30 @@ class AsyncFhirClient:
         fn_handle_batch: Optional[HandleBatchFunction],
         fn_handle_error: Optional[HandleErrorFunction],
     ) -> List[PagingResult]:
+        """
+        Gets the specified page for query
+        :param session:
+        :param start_page:
+        :param increment:
+        :param output_queue:
+        :param fn_handle_batch:
+        :param fn_handle_error:
+        :return: list of paging results
+        """
         page_number: int = start_page
+        server_page_number: int = page_number
         result: List[PagingResult] = []
+        id_above: Optional[str] = None
         while (
             not self._last_page and not self._last_page == 0
         ) or page_number < self._last_page:
             result_for_page: List[Dict[str, Any]] = await self.get_with_handler_async(
                 session=session,
-                page_number=page_number,
+                page_number=server_page_number,
                 ids=None,
                 fn_handle_batch=fn_handle_batch,
                 fn_handle_error=fn_handle_error,
+                id_above=id_above,
             )
             if result_for_page and len(result_for_page) > 0:
                 paging_result = PagingResult(
@@ -773,10 +795,16 @@ class AsyncFhirClient:
                         if self._logger:
                             self._logger.info(f"Setting last page to {self._last_page}")
                 break
+            # get id of last resource to use as minimum for next page
+            last_json_resource = result_for_page[-1]
+            if "id" in last_json_resource:
+                # use id:above to optimize the next query
+                id_above = last_json_resource["id"]
+            server_page_number = increment
             page_number = page_number + increment
         return result
 
-    async def get_tasks_async(
+    async def get_page_by_query_tasks_async(
         self,
         concurrent_requests: int,
         output_queue: asyncio.Queue[PagingResult],
@@ -784,6 +812,15 @@ class AsyncFhirClient:
         fn_handle_error: Optional[HandleErrorFunction],
         http: ClientSession,
     ) -> AsyncGenerator[Coroutine[Any, Any, List[PagingResult]], None]:
+        """
+        Returns tasks to get pages by query
+        :param concurrent_requests:
+        :param output_queue:
+        :param fn_handle_batch:
+        :param fn_handle_error:
+        :param http:
+        :return: task
+        """
         for taskNumber in range(concurrent_requests):
             yield (
                 self.get_page_by_query_async(
@@ -828,7 +865,7 @@ class AsyncFhirClient:
             for first_completed in asyncio.as_completed(
                 [
                     task
-                    async for task in self.get_tasks_async(
+                    async for task in self.get_page_by_query_tasks_async(
                         http=http,
                         output_queue=output_queue,
                         concurrent_requests=concurrent_requests,
