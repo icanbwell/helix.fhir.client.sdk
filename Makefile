@@ -74,3 +74,7 @@ sphinx-html: ## build documentation
 	@mkdir docs
 	@touch docs/.nojekyll
 	cp -a docsrc/_build/html/. docs
+
+console_test:  ## runs the test via console to download resources from FHIR server
+	#source ~/.bash_profile
+	python ./console_test.py
