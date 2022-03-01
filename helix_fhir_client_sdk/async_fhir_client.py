@@ -4,7 +4,7 @@ import base64
 import json
 import logging
 import time
-from asyncio import Future
+from asyncio import Future, AbstractEventLoop
 from datetime import datetime, timedelta
 from logging import Logger
 from queue import Empty
@@ -362,6 +362,15 @@ class AsyncFhirClient:
 
             return response
 
+    def delete(self) -> ClientResponse:
+        """
+        Delete the resources
+        """
+        loop: AbstractEventLoop = asyncio.new_event_loop()
+        result: ClientResponse = loop.run_until_complete(self.delete_async())
+        loop.close()
+        return result
+
     def separate_bundle_resources(
         self, separate_bundle_resources: bool
     ) -> "AsyncFhirClient":
@@ -396,8 +405,8 @@ class AsyncFhirClient:
             return await self._get_with_session_async(session=http, ids=ids)
 
     def get(self) -> FhirGetResponse:
-        loop = asyncio.get_event_loop()
-        result = loop.run_until_complete(self.get_async())
+        loop: AbstractEventLoop = asyncio.new_event_loop()
+        result: FhirGetResponse = loop.run_until_complete(self.get_async())
         loop.close()
         return result
 
@@ -1541,7 +1550,7 @@ class AsyncFhirClient:
         :return response containing all the resources received
         """
         # if paging is requested then iterate through the pages until the response is empty
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
         result = loop.run_until_complete(
             self.get_in_batches_async(fn_handle_batch=fn_handle_batch)
         )

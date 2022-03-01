@@ -1,12 +1,12 @@
+from aiohttp import ClientResponse
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
     mock_request,
     mock_response,
     times,
 )
-from requests import Response
 
-from helix_fhir_client_sdk.fhir_client import FhirClient
+from helix_fhir_client_sdk.async_fhir_client import AsyncFhirClient
 
 
 def test_fhir_client_patient_delete() -> None:
@@ -30,10 +30,10 @@ def test_fhir_client_patient_delete() -> None:
     )
 
     # Act
-    fhir_client = FhirClient()
+    fhir_client = AsyncFhirClient()
     fhir_client = fhir_client.url(absolute_url).resource("Patient").id_("12345")
-    response: Response = fhir_client.delete()
+    response: ClientResponse = fhir_client.delete()
 
     # Assert
     response.raise_for_status()
-    assert response.status_code == 204
+    assert response.status == 204
