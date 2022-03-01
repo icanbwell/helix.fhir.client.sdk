@@ -8,7 +8,7 @@ from mockserver_client.mockserver_client import (
     times,
 )
 
-from helix_fhir_client_sdk.fhir_client import FhirClient
+from helix_fhir_client_sdk.async_fhir_client import AsyncFhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 
@@ -73,7 +73,7 @@ def test_fhir_client_bundle_not_expanded() -> None:
     )
 
     fhir_client = (
-        FhirClient()
+        AsyncFhirClient()
         .action("$graph")
         .id_(["1710949219", "1053306548"])
         .additional_parameters(["&contained=true"])

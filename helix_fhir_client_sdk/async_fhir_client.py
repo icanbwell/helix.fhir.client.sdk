@@ -1207,6 +1207,23 @@ class AsyncFhirClient:
                 )
             )
 
+    def graph(
+        self,
+        *,
+        graph_definition: GraphDefinition,
+        contained: bool,
+        process_in_batches: Optional[bool] = None,
+        concurrent_requests: int = 1,
+    ) -> FhirGetResponse:
+        return asyncio.run(
+            self.graph_async(
+                graph_definition=graph_definition,
+                contained=contained,
+                process_in_batches=process_in_batches,
+                concurrent_requests=concurrent_requests,
+            )
+        )
+
     def include_total(self, include_total: bool) -> "AsyncFhirClient":
         """
         Whether to ask the server to include the total count in the result
