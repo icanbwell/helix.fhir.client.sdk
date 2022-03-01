@@ -1,16 +1,15 @@
 import json
 
-import requests
-
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
+from tests_integration.common import clean_fhir_server
 
 
 def test_dev_server_get_patients() -> None:
+    clean_fhir_server()
+
     url = "http://fhir:3000/4_0_0"
-    # clean the fhir server
-    requests.get("http://fhir:3000/clean")
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(url).resource("Patient")
     resource = {
