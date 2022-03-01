@@ -13,7 +13,7 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 
 def test_fhir_client_patient_list_in_batches() -> None:
-    test_name = "test_fhir_client_patient_list"
+    test_name = "test_fhir_client_patient_list_in_batches"
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
