@@ -10,7 +10,7 @@ from helix_fhir_client_sdk.fhir_client import FhirClient
 
 
 def test_fhir_client_patient_delete() -> None:
-    test_name = "test_fhir_client_patient_by_id"
+    test_name = "test_fhir_client_patient_delete"
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
