@@ -9,7 +9,7 @@ from mockserver_client.mockserver_client import (
     times,
 )
 
-from helix_fhir_client_sdk.async_fhir_client import AsyncFhirClient
+from helix_fhir_client_sdk.fhir_client import FhirClient
 
 
 async def test_fhir_client_patient_update_async() -> None:
@@ -39,7 +39,7 @@ async def test_fhir_client_patient_update_async() -> None:
         timing=times(1),
     )
 
-    fhir_client = AsyncFhirClient()
+    fhir_client = FhirClient()
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     fhir_client = fhir_client.id_(resource["id"])
     response: ClientResponse = await fhir_client.update_async(json.dumps(resource))

@@ -5,12 +5,12 @@ import os
 import time
 from datetime import datetime, timedelta
 
-# from async_fhir_client import AsyncFhirClient
-# from async_fhir_client_sdk import AsyncFhirClient
+# from async_fhir_client import FhirClient
+# from async_fhir_client_sdk import FhirClient
 from logging import Logger
 from typing import Any
 
-from helix_fhir_client_sdk.async_fhir_client import AsyncFhirClient
+from helix_fhir_client_sdk.fhir_client import FhirClient
 
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 
@@ -81,7 +81,7 @@ class ResourceDownloader:
         #     print(id_)
 
     async def create_fhir_client(self):
-        fhir_client: AsyncFhirClient = AsyncFhirClient()
+        fhir_client: FhirClient = FhirClient()
         fhir_client = fhir_client.url(self.server_url)
         fhir_client = fhir_client.client_credentials(
             self.auth_client_id, self.auth_client_secret
