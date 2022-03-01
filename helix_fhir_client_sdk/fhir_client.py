@@ -989,6 +989,7 @@ class FhirClient:
             f"Calling $merge on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
         )
 
+        response_status: Optional[int] = None
         retries: int = 2
         while retries >= 0:
             retries = retries - 1
@@ -1032,6 +1033,7 @@ class FhirClient:
                             data=json_payload_bytes,
                             headers=headers,
                         )
+                        response_status = response.status
                         if response and response.ok:
                             # logging does not work in UDFs since they run on nodes
                             # if progress_logger:
@@ -1103,9 +1105,9 @@ class FhirClient:
                 return FhirMergeResponse(
                     url=self._url or "",
                     responses=responses,
-                    error=None,
+                    error=json.dumps(responses) if response_status != 200 else None,
                     access_token=self._access_token,
-                    status=response.status if response else 500,
+                    status=response_status if response_status else 500,
                 )
 
         raise Exception("Could not talk to FHIR server after multiple tries")

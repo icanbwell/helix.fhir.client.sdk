@@ -41,7 +41,8 @@ update: down Pipfile.lock setup-pre-commit  ## Updates all the packages using Pi
 
 .PHONY:tests
 tests: up
-	docker-compose run --rm --name helix.fhir.client.sdk dev pytest tests
+	docker-compose run --rm --name helix.fhir.client.sdk dev pytest tests && \
+	docker-compose run --rm --name helix.fhir.client.sdk dev pytest tests_integration
 
 .PHONY:shell
 shell:devdocker ## Brings up the bash shell in dev docker
