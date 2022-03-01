@@ -1102,6 +1102,23 @@ class AsyncFhirClient:
 
         raise Exception("Could not talk to FHIR server after multiple tries")
 
+    def merge(
+        self,
+        json_data_list: List[str],
+    ) -> FhirMergeResponse:
+        """
+        Calls $merge function on FHIR server
+
+
+        :param json_data_list: list of resources to send
+        """
+        loop: AbstractEventLoop = asyncio.new_event_loop()
+        result: FhirMergeResponse = loop.run_until_complete(
+            self.merge_async(json_data_list)
+        )
+        loop.close()
+        return result
+
     async def _get_auth_server_url_from_well_known_configuration_async(
         self,
     ) -> Optional[str]:
@@ -1263,6 +1280,12 @@ class AsyncFhirClient:
                     self._logger.info(f"Successfully updated: {full_uri}")
 
             return response
+
+    def update(self, json_data: str) -> ClientResponse:
+        loop: AbstractEventLoop = asyncio.new_event_loop()
+        result: ClientResponse = loop.run_until_complete(self.update_async(json_data))
+        loop.close()
+        return result
 
     async def get_resources_by_id_in_parallel_batches_async(
         self,

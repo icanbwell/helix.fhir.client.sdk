@@ -1,15 +1,15 @@
 import json
 from typing import Dict, List
 
+from aiohttp import ClientResponse
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
     mock_request,
     mock_response,
     times,
 )
-from requests import Response
 
-from helix_fhir_client_sdk.fhir_client import FhirClient
+from helix_fhir_client_sdk.async_fhir_client import AsyncFhirClient
 
 
 def test_fhir_client_patient_update() -> None:
@@ -39,9 +39,9 @@ def test_fhir_client_patient_update() -> None:
         timing=times(1),
     )
 
-    fhir_client = FhirClient()
+    fhir_client = AsyncFhirClient()
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     fhir_client = fhir_client.id_(resource["id"])
-    response: Response = fhir_client.update(json.dumps(resource))
+    response: ClientResponse = fhir_client.update(json.dumps(resource))
 
     assert response.ok
