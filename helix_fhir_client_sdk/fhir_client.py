@@ -1423,6 +1423,39 @@ class FhirClient:
             fn_handle_batch=fn_handle_batch,
         )
 
+    def get_resources_by_query_and_last_updated(
+        self,
+        last_updated_start_date: datetime,
+        last_updated_end_date: datetime,
+        concurrent_requests: int = 10,
+        page_size_for_retrieving_resources: int = 100,
+        page_size_for_retrieving_ids: int = 10000,
+        fn_handle_batch: Optional[HandleBatchFunction] = None,
+        fn_handle_error: Optional[HandleErrorFunction] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Gets results for a query by paging through one day at a time,
+            first downloading all the ids and then retrieving resources for each id in parallel
+        :param fn_handle_error: Optional function to call when there is an error
+        :param fn_handle_batch: Optional function to call when a batch is downloaded
+        :param last_updated_start_date: find resources updated after this datetime
+        :param last_updated_end_date: find resources updated before this datetime
+        :param concurrent_requests: number of concurrent requests to make to the server
+        :param page_size_for_retrieving_resources: number of resources to download in one batch
+        :param page_size_for_retrieving_ids:: number of ids to download in one batch
+        """
+        return asyncio.run(
+            self.get_resources_by_query_and_last_updated_async(
+                last_updated_start_date=last_updated_start_date,
+                last_updated_end_date=last_updated_end_date,
+                concurrent_requests=concurrent_requests,
+                page_size_for_retrieving_resources=page_size_for_retrieving_resources,
+                page_size_for_retrieving_ids=page_size_for_retrieving_ids,
+                fn_handle_batch=fn_handle_batch,
+                fn_handle_error=fn_handle_error,
+            )
+        )
+
     async def get_resources_by_query_async(
         self,
         last_updated_start_date: Optional[datetime] = None,
@@ -1545,6 +1578,38 @@ class FhirClient:
             fn_handle_error=fn_handle_error or self.handle_error,
         )
         return resources
+
+    def get_resources_by_query(
+        self,
+        last_updated_start_date: Optional[datetime] = None,
+        last_updated_end_date: Optional[datetime] = None,
+        concurrent_requests: int = 10,
+        page_size_for_retrieving_resources: int = 100,
+        page_size_for_retrieving_ids: int = 10000,
+        fn_handle_batch: Optional[HandleBatchFunction] = None,
+        fn_handle_error: Optional[HandleErrorFunction] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel
+        :param fn_handle_error: Optional function to call when there is an error
+        :param fn_handle_batch: Optional function to call when a batch is downloaded
+        :param last_updated_start_date: find resources updated after this datetime
+        :param last_updated_end_date: find resources updated before this datetime
+        :param concurrent_requests: number of concurrent requests to make to the server
+        :param page_size_for_retrieving_resources: number of resources to download in one batch
+        :param page_size_for_retrieving_ids:: number of ids to download in one batch
+        """
+        return asyncio.run(
+            self.get_resources_by_query_async(
+                last_updated_start_date=last_updated_start_date,
+                last_updated_end_date=last_updated_end_date,
+                concurrent_requests=concurrent_requests,
+                page_size_for_retrieving_resources=page_size_for_retrieving_resources,
+                page_size_for_retrieving_ids=page_size_for_retrieving_ids,
+                fn_handle_batch=fn_handle_batch,
+                fn_handle_error=fn_handle_error,
+            )
+        )
 
     async def get_in_batches_async(
         self, fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], bool]]
