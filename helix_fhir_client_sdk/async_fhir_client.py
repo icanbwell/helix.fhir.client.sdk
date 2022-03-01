@@ -395,6 +395,12 @@ class AsyncFhirClient:
         async with self.create_http_session() as http:
             return await self._get_with_session_async(session=http, ids=ids)
 
+    def get(self) -> FhirGetResponse:
+        loop = asyncio.get_event_loop()
+        result = loop.run_until_complete(self.get_async())
+        loop.close()
+        return result
+
     async def _get_with_session_async(
         self,
         session: Optional[ClientSession],
