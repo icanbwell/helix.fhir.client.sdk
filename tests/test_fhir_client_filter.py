@@ -18,18 +18,20 @@ def test_fhir_client_filter() -> None:
     )
 
     relative_url: str = test_name
+    absolute_url: str = mock_server_url + "/" + test_name
 
     mock_client.clear(f"/{test_name}/*.*")
+    mock_client.reset()
 
     mock_client.expect(
         request(
-            path=f"{relative_url}/Patient",
+            path=f"/{relative_url}/Patient",
+            method="GET",
             querystring={
-                "method": "get",
                 "_count": "10",
                 "_getpagesoffset": "0",
                 "_total": "accurate",
-                # "identifier": "http://hl7.org/fhir/sid/us-npi|1487831681"
+                "identifier": "http://hl7.org/fhir/sid/us-npi|1487831681",
             },
         ),
         mock_response(
@@ -46,13 +48,13 @@ def test_fhir_client_filter() -> None:
 
     mock_client.expect(
         request(
-            path=f"{relative_url}/Patient",
+            path=f"/{relative_url}/Patient",
+            method="GET",
             querystring={
-                "method": "get",
-                "_count": 10,
-                "_getpagesoffset": 1,
+                "_count": "10",
+                "_getpagesoffset": "1",
                 "_total": "accurate",
-                # "identifier": "http://hl7.org/fhir/sid/us-npi|1487831681"
+                "identifier": "http://hl7.org/fhir/sid/us-npi|1487831681",
             },
         ),
         mock_response(
@@ -70,13 +72,13 @@ def test_fhir_client_filter() -> None:
     # mock running out of resources
     mock_client.expect(
         request(
-            path=f"{relative_url}/Patient",
+            path=f"/{relative_url}/Patient",
+            method="GET",
             querystring={
-                "method": "get",
-                "_count": 10,
-                "_getpagesoffset": 2,
+                "_count": "10",
+                "_getpagesoffset": "2",
                 "_total": "accurate",
-                # "identifier": "http://hl7.org/fhir/sid/us-npi|1487831681"
+                "identifier": "http://hl7.org/fhir/sid/us-npi|1487831681",
             },
         ),
         mock_response(
@@ -86,7 +88,7 @@ def test_fhir_client_filter() -> None:
     )
 
     fhir_client = AsyncFhirClient()
-    fhir_client = fhir_client.url(relative_url).resource("Patient")
+    fhir_client = fhir_client.url(absolute_url).resource("Patient")
     fhir_client = fhir_client.page_size(10)
     fhir_client = fhir_client.include_total(True)
     fhir_client = fhir_client.filter(
