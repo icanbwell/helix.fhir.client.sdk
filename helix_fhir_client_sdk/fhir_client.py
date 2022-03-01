@@ -32,8 +32,10 @@ from helix_fhir_client_sdk.filters.last_updated_filter import LastUpdatedFilter
 from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.graph.graph_definition import GraphDefinition
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from helix_fhir_client_sdk.responses.fhir_delete_response import FhirDeleteResponse
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
+from helix_fhir_client_sdk.responses.fhir_update_response import FhirUpdateResponse
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
 from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValidator
 from helix_fhir_client_sdk.well_known_configuration import (
@@ -328,7 +330,7 @@ class FhirClient:
         self._access_token = value
         return self
 
-    async def delete_async(self) -> ClientResponse:
+    async def delete_async(self) -> FhirDeleteResponse:
         """
         Delete the resources
         """
@@ -344,9 +346,10 @@ class FhirClient:
             # set up headers
             headers: Dict[str, str] = {}
 
+            access_token = await self.access_token_async
             # set access token in request if present
             if await self.access_token_async:
-                headers["Authorization"] = f"Bearer {await self.access_token_async}"
+                headers["Authorization"] = f"Bearer {access_token}"
 
             # actually make the request
             response: ClientResponse = await http.delete(
@@ -356,13 +359,19 @@ class FhirClient:
                 if self._logger:
                     self._logger.info(f"Successfully deleted: {full_uri}")
 
-            return response
+            return FhirDeleteResponse(
+                url=full_uri.tostr(),
+                responses=await response.text(),
+                error=f"{response.status}" if not response.ok else None,
+                access_token=access_token,
+                status=response.status,
+            )
 
-    def delete(self) -> ClientResponse:
+    def delete(self) -> FhirDeleteResponse:
         """
         Delete the resources
         """
-        result: ClientResponse = asyncio.run(self.delete_async())
+        result: FhirDeleteResponse = asyncio.run(self.delete_async())
         return result
 
     def separate_bundle_resources(
@@ -602,6 +611,7 @@ class FhirClient:
                     error=None,
                     access_token=self._access_token,
                     total_count=total_count,
+                    status=response.status,
                 )
             elif response.status == 404:  # not found
                 if self._logger:
@@ -612,6 +622,7 @@ class FhirClient:
                     error=f"{response.status}",
                     access_token=self._access_token,
                     total_count=0,
+                    status=response.status,
                 )
             elif response.status == 502 or response.status == 504:  # time out
                 if retries >= 0:
@@ -623,6 +634,7 @@ class FhirClient:
                     error=f"{response.status}",
                     access_token=self._access_token,
                     total_count=0,
+                    status=response.status,
                 )
             elif response.status == 401:  # unauthorized
                 if retries >= 0:
@@ -648,6 +660,7 @@ class FhirClient:
                         error=f"{response.status}",
                         access_token=self._access_token,
                         total_count=0,
+                        status=response.status,
                     )
             else:
                 # some unexpected error
@@ -664,6 +677,7 @@ class FhirClient:
                     access_token=self._access_token,
                     error=f"{response.status}",
                     total_count=0,
+                    status=response.status,
                 )
         raise Exception("Could not talk to FHIR server after multiple tries")
 
@@ -891,6 +905,7 @@ class FhirClient:
                 error="",
                 access_token=self._access_token,
                 total_count=len(resources_list),
+                status=200,
             )
 
     @staticmethod
@@ -1090,6 +1105,7 @@ class FhirClient:
                     responses=responses,
                     error=None,
                     access_token=self._access_token,
+                    status=response.status if response else 500,
                 )
 
         raise Exception("Could not talk to FHIR server after multiple tries")
@@ -1240,7 +1256,7 @@ class FhirClient:
         self._filters.extend(filter_)
         return self
 
-    async def update_async(self, json_data: str) -> ClientResponse:
+    async def update_async(self, json_data: str) -> FhirUpdateResponse:
         """
         Update the resource.  This will completely overwrite the resource.  We recommend using merge()
             instead since that does proper merging.
@@ -1263,9 +1279,10 @@ class FhirClient:
             # set up headers
             headers = {"Content-Type": "application/fhir+json"}
 
+            access_token = await self.access_token_async
             # set access token in request if present
             if await self.access_token_async:
-                headers["Authorization"] = f"Bearer {await self.access_token_async}"
+                headers["Authorization"] = f"Bearer {access_token}"
 
             if self._validation_server_url:
                 await AsyncFhirValidator.validate_fhir_resource(
@@ -1284,10 +1301,16 @@ class FhirClient:
                 if self._logger:
                     self._logger.info(f"Successfully updated: {full_uri}")
 
-            return response
+            return FhirUpdateResponse(
+                url=full_uri.tostr(),
+                responses=await response.text(),
+                error=f"{response.status}" if not response.ok else None,
+                access_token=access_token,
+                status=response.status,
+            )
 
-    def update(self, json_data: str) -> ClientResponse:
-        result: ClientResponse = asyncio.run(self.update_async(json_data))
+    def update(self, json_data: str) -> FhirUpdateResponse:
+        result: FhirUpdateResponse = asyncio.run(self.update_async(json_data))
         return result
 
     async def get_resources_by_id_in_parallel_batches_async(
@@ -1561,6 +1584,7 @@ class FhirClient:
             error=result.error,
             access_token=self._access_token,
             total_count=result.total_count,
+            status=200,
         )
 
     def get_in_batches(
