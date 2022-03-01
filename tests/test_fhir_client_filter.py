@@ -1,8 +1,12 @@
 import json
 from typing import Any, Dict, List, Optional
 
-from mockserver_client.mockserver_client import MockServerFriendlyClient, request, times
-from mockserver_client.mockserver_client import response as mock_response
+from mockserver_client.mockserver_client import (
+    MockServerFriendlyClient,
+    times,
+    mock_request,
+    mock_response,
+)
 
 from helix_fhir_client_sdk.async_fhir_client import AsyncFhirClient
 from helix_fhir_client_sdk.filters.identifier_filter import IdentifierFilter
@@ -24,7 +28,7 @@ def test_fhir_client_filter() -> None:
     mock_client.reset()
 
     mock_client.expect(
-        request(
+        mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={
@@ -47,7 +51,7 @@ def test_fhir_client_filter() -> None:
     )
 
     mock_client.expect(
-        request(
+        mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={
@@ -71,7 +75,7 @@ def test_fhir_client_filter() -> None:
 
     # mock running out of resources
     mock_client.expect(
-        request(
+        mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={
