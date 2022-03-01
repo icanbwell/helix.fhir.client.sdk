@@ -25,9 +25,10 @@ def test_fhir_client_patient_by_id() -> None:
     mock_client.clear(f"/{test_name}/*.*")
     mock_client.reset()
 
+    response_text: str = json.dumps({"resourceType": "Patient", "id": "12355"})
     mock_client.expect(
         mock_request(path=f"/{relative_url}/Patient/12355", method="GET"),
-        mock_response(body=json.dumps({"resourceType": "Patient", "id": "12355"})),
+        mock_response(body=response_text),
         timing=times(1),
     )
 
@@ -36,4 +37,4 @@ def test_fhir_client_patient_by_id() -> None:
     response: FhirGetResponse = fhir_client.get()
 
     print(response.responses)
-    # assert response.responses == json.dumps(response_text)
+    assert response.responses == response_text

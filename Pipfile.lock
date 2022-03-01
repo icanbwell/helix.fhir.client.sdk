@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "81b941a0ec8c2b90010e58036f49277c9293e4e630208344b2eeaea124863616"
+            "sha256": "8171c92be7b21446240e8a693715df6db2ecd13cf72d6ff2daecf972f25637f3"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -146,7 +146,7 @@
                 "sha256:2857e29ff0d34db842cd7ca3230549d1a697f96ee6d3fb071cfa6c7393832597",
                 "sha256:6881edbebdb17b39b4eaaa821b438bf6eddffb4468cf344f09f89def34a8b1df"
             ],
-            "markers": "python_full_version >= '3.5.0'",
+            "markers": "python_version >= '3'",
             "version": "==2.0.12"
         },
         "frozenlist": {
@@ -695,7 +695,7 @@
                 "sha256:2857e29ff0d34db842cd7ca3230549d1a697f96ee6d3fb071cfa6c7393832597",
                 "sha256:6881edbebdb17b39b4eaaa821b438bf6eddffb4468cf344f09f89def34a8b1df"
             ],
-            "markers": "python_full_version >= '3.5.0'",
+            "markers": "python_version >= '3'",
             "version": "==2.0.12"
         },
         "click": {
@@ -845,11 +845,11 @@
         },
         "helix-mockserver-client": {
             "hashes": [
-                "sha256:529e66105e907e838c49155079dd1b8101549fd7b29de74db9aace530a29dc82",
-                "sha256:654fbc9223a8a3802e11806e81420f804ccd2eeecd2ae8415884a8f65e326241"
+                "sha256:967a8e574bbad86d69529af601416278857adc88e40ae01c1b2256582ad0e4aa",
+                "sha256:a7225bee53c3c757fbc014dc8c112acbf8dc5fa132702cd6eb30c101010de9a1"
             ],
             "index": "pypi",
-            "version": "==0.0.5"
+            "version": "==0.0.6"
         },
         "identify": {
             "hashes": [
@@ -1529,7 +1529,7 @@
                 "sha256:cac4aeaff42f18fef6e07831c2c2689a51df76cf2ede07a6a4fa5fcb83558870",
                 "sha256:d99946c6aed3387c98b89d91fb9edff8f901bf9255901081266a84fb5604adcd"
             ],
-            "markers": "python_version >= '3.6' and python_version < '4'",
+            "markers": "python_version >= '3.6' and python_version < '4.0'",
             "version": "==0.10.0"
         },
         "tqdm": {
@@ -1575,7 +1575,7 @@
                 "sha256:f290617f74a610849bd8f5514e34ae3d09eafd521dceaa6cf68b3f4414266d4e",
                 "sha256:f30ddd110634c2d7534b2d4e0e22967e88366b0d356b24de87419cc4410c41b7"
             ],
-            "markers": "python_version < '3.8'",
+            "markers": "python_version < '3.8' and implementation_name == 'cpython'",
             "version": "==1.5.2"
         },
         "types-requests": {
