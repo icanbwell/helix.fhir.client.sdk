@@ -4,7 +4,7 @@ import base64
 import json
 import logging
 import time
-from asyncio import Future, AbstractEventLoop
+from asyncio import Future
 from datetime import datetime, timedelta
 from logging import Logger
 from queue import Empty
@@ -366,9 +366,7 @@ class AsyncFhirClient:
         """
         Delete the resources
         """
-        loop: AbstractEventLoop = asyncio.new_event_loop()
-        result: ClientResponse = loop.run_until_complete(self.delete_async())
-        loop.close()
+        result: ClientResponse = asyncio.run(self.delete_async())
         return result
 
     def separate_bundle_resources(
@@ -405,9 +403,7 @@ class AsyncFhirClient:
             return await self._get_with_session_async(session=http, ids=ids)
 
     def get(self) -> FhirGetResponse:
-        loop: AbstractEventLoop = asyncio.new_event_loop()
-        result: FhirGetResponse = loop.run_until_complete(self.get_async())
-        loop.close()
+        result: FhirGetResponse = asyncio.run(self.get_async())
         return result
 
     async def _get_with_session_async(
@@ -1112,11 +1108,7 @@ class AsyncFhirClient:
 
         :param json_data_list: list of resources to send
         """
-        loop: AbstractEventLoop = asyncio.new_event_loop()
-        result: FhirMergeResponse = loop.run_until_complete(
-            self.merge_async(json_data_list)
-        )
-        loop.close()
+        result: FhirMergeResponse = asyncio.run(self.merge_async(json_data_list))
         return result
 
     async def _get_auth_server_url_from_well_known_configuration_async(
@@ -1282,9 +1274,7 @@ class AsyncFhirClient:
             return response
 
     def update(self, json_data: str) -> ClientResponse:
-        loop: AbstractEventLoop = asyncio.new_event_loop()
-        result: ClientResponse = loop.run_until_complete(self.update_async(json_data))
-        loop.close()
+        result: ClientResponse = asyncio.run(self.update_async(json_data))
         return result
 
     async def get_resources_by_id_in_parallel_batches_async(
@@ -1573,9 +1563,5 @@ class AsyncFhirClient:
         :return response containing all the resources received
         """
         # if paging is requested then iterate through the pages until the response is empty
-        loop = asyncio.new_event_loop()
-        result = loop.run_until_complete(
-            self.get_in_batches_async(fn_handle_batch=fn_handle_batch)
-        )
-        loop.close()
+        result = asyncio.run(self.get_in_batches_async(fn_handle_batch=fn_handle_batch))
         return result
