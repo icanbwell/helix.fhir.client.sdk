@@ -1,42 +1,47 @@
 import json
-from builtins import bytes
-from typing import Dict, Optional
+from typing import Dict, List
 
 from aiohttp import ClientResponse
-from aioresponses import aioresponses, CallbackResult
-from yarl import URL
+from mockserver_client.mockserver_client import (
+    MockServerFriendlyClient,
+    mock_request,
+    mock_response,
+    times,
+)
 
 from helix_fhir_client_sdk.async_fhir_client import AsyncFhirClient
 
 
-async def test_async_fhir_client_patient_update() -> None:
-    mock: aioresponses
-    with aioresponses() as mock:  # type: ignore
-        url = "http://foo"
-        request_data = {"resourceType": "Patient", "id": "12355"}
-        response_json = [{"created": 1, "updated": 0}]
+async def test_fhir_client_patient_update_async() -> None:
+    test_name = "test_fhir_client_patient_merge_async"
 
-        def custom_matcher(
-            url_: URL, allow_redirects: bool, data: bytes, headers: Dict[str, str]
-        ) -> Optional[CallbackResult]:
-            if url_.path == "/Patient/12355" and data.decode("utf8") == json.dumps(
-                request_data
-            ):
-                resp: CallbackResult = CallbackResult(status=200)
-                return resp
-            return None
+    mock_server_url = "http://mock-server:1080"
+    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
+        base_url=mock_server_url
+    )
 
-        mock.put(
-            f"{url}/Patient/12355",
-            callback=custom_matcher,
-            payload=f"{json.dumps(response_json)}",
-        )
+    relative_url: str = test_name
+    absolute_url: str = mock_server_url + "/" + test_name
 
-        fhir_client = AsyncFhirClient()
-        fhir_client = fhir_client.url(url).resource("Patient")
-        fhir_client = fhir_client.id_(request_data["id"])
-        response: ClientResponse = await fhir_client.update_async(
-            json.dumps(request_data)
-        )
+    mock_client.clear(f"/{test_name}/*.*")
+    mock_client.reset()
 
-        assert response.ok
+    response_text_1: List[Dict[str, int]] = [{"created": 1, "updated": 0}]
+    resource = {"resourceType": "Patient", "id": "12355"}
+    # request_body = {"resourceType": "Bundle", "entry": [{"resource": resource}]}
+    mock_client.expect(
+        mock_request(
+            path=f"/{relative_url}/Patient/12355",
+            method="PUT",
+            body=json.dumps(resource),
+        ),
+        mock_response(body=json.dumps(response_text_1)),
+        timing=times(1),
+    )
+
+    fhir_client = AsyncFhirClient()
+    fhir_client = fhir_client.url(absolute_url).resource("Patient")
+    fhir_client = fhir_client.id_(resource["id"])
+    response: ClientResponse = await fhir_client.update_async(json.dumps(resource))
+
+    assert response.ok
