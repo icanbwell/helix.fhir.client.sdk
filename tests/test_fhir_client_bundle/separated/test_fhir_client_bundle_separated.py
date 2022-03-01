@@ -13,7 +13,7 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 
 def test_fhir_client_bundle_separated() -> None:
-    test_name = "test_fhir_client_bundle_not_separated"
+    test_name = "test_fhir_client_bundle_separated"
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
