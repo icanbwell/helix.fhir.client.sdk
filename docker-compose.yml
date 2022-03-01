@@ -7,7 +7,7 @@ services:
       context: .
     volumes:
       - ./:/src/
-    container_name: spf_dev
+    container_name: fhir_client_sdk_dev
     working_dir: /src
     env_file:
       - docker.env
