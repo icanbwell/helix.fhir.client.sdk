@@ -14,7 +14,7 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 
 def test_fhir_client_filter() -> None:
-    test_name = "test_mock_server"
+    test_name = "test_fhir_client_filter"
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
