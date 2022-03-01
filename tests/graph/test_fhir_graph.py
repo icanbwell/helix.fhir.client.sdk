@@ -1,7 +1,11 @@
 import json
-from typing import Any
 
-import requests_mock
+from mockserver_client.mockserver_client import (
+    MockServerFriendlyClient,
+    mock_request,
+    mock_response,
+    times,
+)
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.graph.graph_definition import (
@@ -13,58 +17,63 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 
 def test_fhir_graph() -> None:
-    print("")
-    with requests_mock.Mocker() as mock:
-        graph_definition = GraphDefinition(
-            id_="123",
-            name="my_everything",
-            start="Patient",
-            link=[
-                GraphDefinitionLink(
-                    target=[
-                        GraphDefinitionTarget(
-                            type_="Location", params="managingOrganization={ref}"
-                        )
-                    ]
-                ),
-                GraphDefinitionLink(
-                    target=[
-                        GraphDefinitionTarget(
-                            type_="HealthcareService",
-                            params="providedBy={ref}",
-                            link=[
-                                GraphDefinitionLink(
-                                    target=[
-                                        GraphDefinitionTarget(
-                                            type_="Schedule", params="actor={ref}"
-                                        )
-                                    ]
-                                )
-                            ],
-                        )
-                    ]
-                ),
-            ],
-        )
+    test_name = "test_fhir_graph"
 
-        url = "http://foo"
-        response_text = {"resourceType": "Patient", "id": "12355"}
+    mock_server_url = "http://mock-server:1080"
+    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
+        base_url=mock_server_url
+    )
 
-        def match_request_text(request: Any) -> bool:
-            ...  # request.text may be None, or '' prevents a TypeError.
-            return request.text == json.dumps(graph_definition.to_dict())  # type: ignore
+    relative_url: str = test_name
+    absolute_url: str = mock_server_url + "/" + test_name
 
-        mock.post(
-            f"{url}/Patient/1/$graph",
-            additional_matcher=match_request_text,
-            json=response_text,
-        )
+    mock_client.clear(f"/{test_name}/*.*")
+    mock_client.reset()
 
-        fhir_client = FhirClient()
-        fhir_client = fhir_client.url(url).resource("Patient")
-        response: FhirGetResponse = fhir_client.graph(
-            graph_definition=graph_definition, contained=False
-        )
+    response_text = {"resourceType": "Patient", "id": "12355"}
 
-        print(response.responses)
-        assert response.responses == json.dumps(response_text)
+    graph_definition = GraphDefinition(
+        id_="123",
+        name="my_everything",
+        start="Patient",
+        link=[
+            GraphDefinitionLink(
+                target=[
+                    GraphDefinitionTarget(
+                        type_="Location", params="managingOrganization={ref}"
+                    )
+                ]
+            ),
+            GraphDefinitionLink(
+                target=[
+                    GraphDefinitionTarget(
+                        type_="HealthcareService",
+                        params="providedBy={ref}",
+                        link=[
+                            GraphDefinitionLink(
+                                target=[
+                                    GraphDefinitionTarget(
+                                        type_="Schedule", params="actor={ref}"
+                                    )
+                                ]
+                            )
+                        ],
+                    )
+                ]
+            ),
+        ],
+    )
+
+    mock_client.expect(
+        mock_request(path=f"/{relative_url}/Patient/1/$graph", method="POST"),
+        mock_response(body=response_text),
+        timing=times(1),
+    )
+
+    fhir_client = FhirClient()
+
+    fhir_client = fhir_client.url(absolute_url).resource("Patient")
+    response: FhirGetResponse = fhir_client.graph(
+        graph_definition=graph_definition, contained=False
+    )
+    assert json.loads(response.responses) == response_text

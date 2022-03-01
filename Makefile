@@ -15,6 +15,7 @@ init: devdocker up setup-pre-commit  ## Initializes the local developer environm
 .PHONY: up
 up: Pipfile.lock
 	docker-compose up --build -d --remove-orphans
+	@echo MockServer dashboard: http://localhost:1080/mockserver/dashboard
 
 .PHONY: down
 down:
@@ -35,11 +36,13 @@ run-pre-commit: setup-pre-commit
 .PHONY:update
 update: down Pipfile.lock setup-pre-commit  ## Updates all the packages using Pipfile
 	docker-compose run --rm --name helix.fhir.client.sdk dev pipenv sync && \
-	make devdocker
+	make devdocker && \
+	make pipenv-setup
 
 .PHONY:tests
-tests:
-	docker-compose run --rm --name helix.fhir.client.sdk dev pytest tests
+tests: up
+	docker-compose run --rm --name helix.fhir.client.sdk dev pytest tests && \
+	docker-compose run --rm --name helix.fhir.client.sdk dev pytest tests_integration
 
 .PHONY:shell
 shell:devdocker ## Brings up the bash shell in dev docker
@@ -74,3 +77,11 @@ sphinx-html: ## build documentation
 	@mkdir docs
 	@touch docs/.nojekyll
 	cp -a docsrc/_build/html/. docs
+
+console_test:  ## runs the test via console to download resources from FHIR server
+	#source ~/.bash_profile
+	python ./console_test.py
+
+.PHONY:pipenv-setup
+pipenv-setup:devdocker ## Brings up the bash shell in dev docker
+	docker-compose run --rm --name helix.fhir.client.sdk dev pipenv-setup sync --pipfile

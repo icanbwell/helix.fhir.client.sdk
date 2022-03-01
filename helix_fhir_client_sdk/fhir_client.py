@@ -1,44 +1,67 @@
+from __future__ import annotations
+import asyncio
 import base64
 import json
 import logging
-from datetime import datetime
+import time
+from asyncio import Future
+from datetime import datetime, timedelta
 from logging import Logger
+from queue import Empty
 from threading import Lock
-from typing import Dict, Optional, List, Union, Any, Callable
+from typing import (
+    Dict,
+    Optional,
+    List,
+    Union,
+    Any,
+    Callable,
+    Generator,
+    AsyncGenerator,
+    Coroutine,
+)
 from urllib import parse
 
+import aiohttp
 import requests
+from aiohttp import ClientSession, ClientResponse, ClientPayloadError
 from furl import furl
-from requests import Response, Session
-from requests.adapters import HTTPAdapter, BaseAdapter
-from urllib3 import Retry
-
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
+from helix_fhir_client_sdk.filters.last_updated_filter import LastUpdatedFilter
 from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.graph.graph_definition import GraphDefinition
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from helix_fhir_client_sdk.responses.fhir_delete_response import FhirDeleteResponse
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
-from helix_fhir_client_sdk.validators.fhir_validator import FhirValidator
+from helix_fhir_client_sdk.responses.fhir_update_response import FhirUpdateResponse
+from helix_fhir_client_sdk.responses.paging_result import PagingResult
+from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValidator
 from helix_fhir_client_sdk.well_known_configuration import (
     WellKnownConfigurationCacheEntry,
 )
+from requests.adapters import BaseAdapter
+
+# from urllib3 import Retry  # type: ignore
+
+HandleBatchFunction = Callable[[List[Dict[str, Any]], Optional[int]], bool]
+HandleErrorFunction = Callable[[str, str, Optional[int]], bool]
 
 
 class FhirClient:
     """
-    Class used to call FHIR server
+    Class used to call FHIR server (uses async and parallel execution to speed up)
     """
 
     _time_to_live_in_secs_for_cache: int = 10 * 60
 
-    # caches results from calls to well known configuration
+    # caches result from calls to well known configuration
     #   key is host name of fhir server, value is  auth_server_url
     _well_known_configuration_cache: Dict[str, WellKnownConfigurationCacheEntry] = {}
 
     # used to lock access to above cache
-    _lock: Lock = Lock()
+    _well_known_configuration_cache_lock: Lock = Lock()
 
     def __init__(self) -> None:
         self._action: Optional[str] = None
@@ -73,6 +96,11 @@ class FhirClient:
         self._include_total: bool = False
         self._filters: List[BaseFilter] = []
         self._expand_fhir_bundle: bool = True
+
+        self._stop_processing: bool = False
+        self._authentication_token_lock: Lock = Lock()
+        self._last_page: Optional[int] = None
+        self._last_page_lock: Lock = Lock()
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -227,6 +255,8 @@ class FhirClient:
         :param logger: logger
         """
         self._logger = logger
+        # disable internal logger
+        self._internal_logger.setLevel(logging.ERROR)
         return self
 
     def adapter(self, adapter: BaseAdapter) -> "FhirClient":
@@ -250,18 +280,18 @@ class FhirClient:
         return self
 
     @property
-    def access_token(self) -> Optional[str]:
+    async def access_token_async(self) -> Optional[str]:
         """
         Gets current access token
 
 
         :return: access token if any
         """
-        # if we have an auth server url but no access token then get an access token
+        # if we have an auth server url but no access token then get access token
         if self._login_token and not self._auth_server_url:
             # try to get auth_server_url from well known configuration
             self._auth_server_url = (
-                self._get_auth_server_url_from_well_known_configuration()
+                await self._get_auth_server_url_from_well_known_configuration_async()
             )
             if self._auth_server_url:
                 logging.info(
@@ -271,17 +301,17 @@ class FhirClient:
             assert (
                 self._login_token
             ), "login token must be present if auth_server_url is set"
-            http = self._create_http_session()
-            self._access_token = self.authenticate(
-                http=http,
-                auth_server_url=self._auth_server_url,
-                auth_scopes=self._auth_scopes,
-                login_token=self._login_token,
-            )
+            async with self.create_http_session() as http:
+                self._access_token = await self.authenticate_async(
+                    http=http,
+                    auth_server_url=self._auth_server_url,
+                    auth_scopes=self._auth_scopes,
+                    login_token=self._login_token,
+                )
         return self._access_token
 
-    @access_token.setter
-    def access_token(self, value: str) -> None:
+    @access_token_async.setter
+    def access_token_async(self, value: str) -> None:
         """
         Sets access token
 
@@ -297,10 +327,10 @@ class FhirClient:
 
         :param value: access token
         """
-        self.access_token = value
+        self._access_token = value
         return self
 
-    def delete(self) -> Response:
+    async def delete_async(self) -> FhirDeleteResponse:
         """
         Delete the resources
         """
@@ -312,22 +342,37 @@ class FhirClient:
         full_uri /= self._resource
         full_uri /= self._id
         # setup retry
-        http: Session = self._create_http_session()
+        async with self.create_http_session() as http:
+            # set up headers
+            headers: Dict[str, str] = {}
 
-        # set up headers
-        headers: Dict[str, str] = {}
+            access_token = await self.access_token_async
+            # set access token in request if present
+            if await self.access_token_async:
+                headers["Authorization"] = f"Bearer {access_token}"
 
-        # set access token in request if present
-        if self.access_token:
-            headers["Authorization"] = f"Bearer {self.access_token}"
+            # actually make the request
+            response: ClientResponse = await http.delete(
+                full_uri.tostr(), headers=headers
+            )
+            if response.ok:
+                if self._logger:
+                    self._logger.info(f"Successfully deleted: {full_uri}")
 
-        # actually make the request
-        response: Response = http.delete(full_uri.tostr(), headers=headers)
-        if response.ok:
-            if self._logger:
-                self._logger.info(f"Successfully deleted: {full_uri}")
+            return FhirDeleteResponse(
+                url=full_uri.tostr(),
+                responses=await response.text(),
+                error=f"{response.status}" if not response.ok else None,
+                access_token=access_token,
+                status=response.status,
+            )
 
-        return response
+    def delete(self) -> FhirDeleteResponse:
+        """
+        Delete the resources
+        """
+        result: FhirDeleteResponse = asyncio.run(self.delete_async())
+        return result
 
     def separate_bundle_resources(
         self, separate_bundle_resources: bool
@@ -351,7 +396,28 @@ class FhirClient:
         self._expand_fhir_bundle = expand_fhir_bundle
         return self
 
+    async def get_async(self) -> FhirGetResponse:
+        """
+        Issues a GET call
+        """
+        ids: Optional[List[str]] = None
+        if self._id:
+            ids = self._id if isinstance(self._id, list) else [self._id]
+        # actually make the request
+        async with self.create_http_session() as http:
+            return await self._get_with_session_async(session=http, ids=ids)
+
     def get(self) -> FhirGetResponse:
+        result: FhirGetResponse = asyncio.run(self.get_async())
+        return result
+
+    async def _get_with_session_async(
+        self,
+        session: Optional[ClientSession],
+        page_number: Optional[int] = None,
+        ids: Optional[List[str]] = None,
+        id_above: Optional[str] = None,
+    ) -> FhirGetResponse:
         """
         Issues a GET call
         """
@@ -366,34 +432,34 @@ class FhirClient:
             full_uri /= self._resource
             if self._obj_id:
                 full_uri /= parse.quote(str(self._obj_id), safe="")
-            if self._id:
+            if ids is not None and len(ids) > 0:
                 if self._filter_by_resource:
                     if self._filter_parameter:
                         # ?subject:Patient=27384972
                         full_uri.args[
                             f"{self._filter_parameter}:{self._filter_by_resource}"
-                        ] = self._id
+                        ] = ids[0]
                     else:
                         # ?patient=27384972
-                        full_uri.args[self._filter_by_resource.lower()] = self._id
-                elif isinstance(self._id, list):
-                    if len(self._id) == 1 and not self._obj_id:
-                        full_uri /= self._id
-                    else:
-                        full_uri.args["id"] = ",".join(self._id)
+                        full_uri.args[self._filter_by_resource.lower()] = ids[0]
                 else:
-                    full_uri /= self._id
+                    if len(ids) == 1 and not self._obj_id:
+                        full_uri /= ids
+                    else:
+                        full_uri.args["id"] = ",".join(ids)
             # add action to url
             if self._action:
                 full_uri /= self._action
             # add a query for just desired properties
             if self._include_only_properties:
                 full_uri.args["_elements"] = ",".join(self._include_only_properties)
-            if self._page_size and self._page_number is not None:
+            if self._page_size and (
+                self._page_number is not None or page_number is not None
+            ):
                 # noinspection SpellCheckingInspection
                 full_uri.args["_count"] = self._page_size
                 # noinspection SpellCheckingInspection
-                full_uri.args["_getpagesoffset"] = self._page_number
+                full_uri.args["_getpagesoffset"] = page_number or self._page_number
 
             # add any sort fields
             if self._sort_fields is not None:
@@ -438,6 +504,13 @@ class FhirClient:
                     full_url += "?"
                 full_url += f"_lastUpdated=ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
 
+            if id_above is not None:
+                if len(full_uri.args) > 0:
+                    full_url += "&"
+                else:
+                    full_url += "?"
+                full_url += f"id:above={id_above}"
+
             # set up headers
             payload: Dict[str, str] = (
                 self._action_payload if self._action_payload else {}
@@ -445,15 +518,19 @@ class FhirClient:
             headers = {
                 "Accept": "application/json",
                 "Content-Type": "application/fhir+json",
+                "Accept-Encoding": "gzip,deflate",
             }
 
             # set access token in request if present
-            if self.access_token:
-                headers["Authorization"] = f"Bearer {self.access_token}"
+            if await self.access_token_async:
+                headers["Authorization"] = f"Bearer {await self.access_token_async}"
 
             # actually make the request
-            http: Session = self._create_http_session()
-            response: Response = self._send_fhir_request(
+            if session is None:
+                http = self.create_http_session()
+            else:
+                http = session
+            response: ClientResponse = await self._send_fhir_request_async(
                 http, full_url, headers, payload
             )
             # if request is ok (200) then return the data
@@ -462,7 +539,14 @@ class FhirClient:
                     self._logger.info(f"Successfully retrieved: {full_url}")
 
                 total_count: int = 0
-                text = response.text
+                # noinspection PyBroadException
+                try:
+                    text = await response.text()
+                except ClientPayloadError as e:
+                    # do a retry
+                    if self._logger:
+                        self._logger.error(f"{e}: {response.headers}")
+                    continue
                 if len(text) > 0:
                     response_json: Dict[str, Any] = json.loads(text)
                     # see if this is a Resource Bundle and un-bundle it
@@ -527,34 +611,40 @@ class FhirClient:
                     error=None,
                     access_token=self._access_token,
                     total_count=total_count,
+                    status=response.status,
                 )
-            elif response.status_code == 404:  # not found
+            elif response.status == 404:  # not found
                 if self._logger:
                     self._logger.error(f"resource not found! {full_url}")
                 return FhirGetResponse(
                     url=full_url,
-                    responses=response.text,
-                    error=f"{response.status_code}",
+                    responses=await response.text(),
+                    error=f"{response.status}",
                     access_token=self._access_token,
                     total_count=0,
+                    status=response.status,
                 )
-            elif response.status_code == 403:  # forbidden
+            elif response.status == 502 or response.status == 504:  # time out
+                if retries >= 0:
+                    continue
+            elif response.status == 403:  # forbidden
                 return FhirGetResponse(
                     url=full_url,
-                    responses=response.text,
-                    error=f"{response.status_code}",
+                    responses=await response.text(),
+                    error=f"{response.status}",
                     access_token=self._access_token,
                     total_count=0,
+                    status=response.status,
                 )
-            elif response.status_code == 401:  # unauthorized
+            elif response.status == 401:  # unauthorized
                 if retries >= 0:
                     assert (
                         self._auth_server_url
-                    ), f"{response.status_code} received from server but no auth_server_url was specified to use"
+                    ), f"{response.status} received from server but no auth_server_url was specified to use"
                     assert (
                         self._login_token
-                    ), f"{response.status_code} received from server but no login_token was specified to use"
-                    self._access_token = self.authenticate(
+                    ), f"{response.status} received from server but no login_token was specified to use"
+                    self._access_token = await self.authenticate_async(
                         http=http,
                         auth_server_url=self._auth_server_url,
                         auth_scopes=self._auth_scopes,
@@ -566,37 +656,38 @@ class FhirClient:
                     # out of retries so just fail now
                     return FhirGetResponse(
                         url=full_url,
-                        responses=response.text,
-                        error=f"{response.status_code}",
+                        responses=await response.text(),
+                        error=f"{response.status}",
                         access_token=self._access_token,
                         total_count=0,
+                        status=response.status,
                     )
             else:
                 # some unexpected error
                 if self._logger:
                     self._logger.error(
-                        f"Fhir Receive failed [{response.status_code}]: {full_url} "
+                        f"Fhir Receive failed [{response.status}]: {full_url} "
                     )
-                error_text: str = response.text
+                error_text: str = await response.text()
                 if self._logger:
                     self._logger.error(error_text)
-                resources = error_text
                 return FhirGetResponse(
                     url=full_url,
-                    responses=resources,
+                    responses=error_text,
                     access_token=self._access_token,
-                    error=f"{response.status_code}",
+                    error=f"{response.status}",
                     total_count=0,
+                    status=response.status,
                 )
         raise Exception("Could not talk to FHIR server after multiple tries")
 
-    def _send_fhir_request(
+    async def _send_fhir_request_async(
         self,
-        http: Session,
+        http: ClientSession,
         full_url: str,
         headers: Dict[str, str],
         payload: Dict[str, Any],
-    ) -> Response:
+    ) -> ClientResponse:
         """
         Sends a request to the server
 
@@ -615,7 +706,7 @@ class FhirClient:
                 f"sending a post: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
             )
             if payload:
-                return http.post(full_url, headers=headers, json=payload)
+                return await http.post(full_url, headers=headers, json=payload)
             else:
                 raise Exception(
                     "$graph needs a payload to define the returning response (use action_payload parameter)"
@@ -628,43 +719,155 @@ class FhirClient:
             self._internal_logger.info(
                 f"sending a get: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
             )
-            return http.get(full_url, headers=headers, data=payload)
+            return await http.get(full_url, headers=headers, data=payload)
 
-    def _create_http_session(self) -> Session:
+    @staticmethod
+    def create_http_session() -> ClientSession:
         """
         Creates an HTTP Session
         """
-        retry_strategy = Retry(
-            total=5,
-            status_forcelist=[429, 500, 502, 503, 504],
-            method_whitelist=[
-                "HEAD",
-                "GET",
-                "PUT",
-                "DELETE",
-                "OPTIONS",
-                "TRACE",
-                "POST",
-            ],
-            backoff_factor=5,
+        # retry_strategy = Retry(
+        #     total=5,
+        #     status_forcelist=[429, 500, 502, 503, 504],
+        #     method_whitelist=[
+        #         "HEAD",
+        #         "GET",
+        #         "PUT",
+        #         "DELETE",
+        #         "OPTIONS",
+        #         "TRACE",
+        #         "POST",
+        #     ],
+        #     backoff_factor=5,
+        # )
+        # session: ClientSession = aiohttp.ClientSession()
+        session: ClientSession = aiohttp.ClientSession(
+            headers={"Connection": "keep-alive"}
         )
-        # create http session
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        http = requests.Session()
-        http.mount("https://", adapter)
-        http.mount("http://", adapter)
-        if self._adapter:
-            http.mount("http://", self._adapter)
-        else:
-            http.mount("http://", adapter)
-        return http
+        return session
 
-    def get_in_batches(
-        self, fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], bool]]
+    async def get_with_handler_async(
+        self,
+        session: Optional[ClientSession],
+        page_number: Optional[int],
+        ids: Optional[List[str]],
+        fn_handle_batch: Optional[HandleBatchFunction],
+        fn_handle_error: Optional[HandleErrorFunction],
+        id_above: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        result = await self._get_with_session_async(
+            session=session, page_number=page_number, ids=ids, id_above=id_above
+        )
+        if result.error:
+            if fn_handle_error:
+                fn_handle_error(result.error, result.responses, page_number)
+        elif not result.error and bool(result.responses):
+            result_list: List[Dict[str, Any]] = json.loads(result.responses)
+            if fn_handle_batch:
+                if fn_handle_batch(result_list, page_number) is False:
+                    self._stop_processing = True
+            return result_list
+        return []
+
+    async def get_page_by_query_async(
+        self,
+        session: Optional[ClientSession],
+        start_page: int,
+        increment: int,
+        output_queue: asyncio.Queue[PagingResult],
+        fn_handle_batch: Optional[HandleBatchFunction],
+        fn_handle_error: Optional[HandleErrorFunction],
+    ) -> List[PagingResult]:
+        """
+        Gets the specified page for query
+        :param session:
+        :param start_page:
+        :param increment:
+        :param output_queue:
+        :param fn_handle_batch:
+        :param fn_handle_error:
+        :return: list of paging results
+        """
+        page_number: int = start_page
+        server_page_number: int = page_number
+        result: List[PagingResult] = []
+        id_above: Optional[str] = None
+        while (
+            not self._last_page and not self._last_page == 0
+        ) or page_number < self._last_page:
+            result_for_page: List[Dict[str, Any]] = await self.get_with_handler_async(
+                session=session,
+                page_number=server_page_number,
+                ids=None,
+                fn_handle_batch=fn_handle_batch,
+                fn_handle_error=fn_handle_error,
+                id_above=id_above,
+            )
+            if result_for_page and len(result_for_page) > 0:
+                paging_result = PagingResult(
+                    resources=result_for_page, page_number=page_number
+                )
+                await output_queue.put(paging_result)
+                result.append(paging_result)
+            else:
+                with self._last_page_lock:
+                    if not self._last_page or page_number < self._last_page:
+                        self._last_page = page_number
+                        if self._logger:
+                            self._logger.info(f"Setting last page to {self._last_page}")
+                break
+            # get id of last resource to use as minimum for next page
+            last_json_resource = result_for_page[-1]
+            if "id" in last_json_resource:
+                # use id:above to optimize the next query
+                id_above = last_json_resource["id"]
+            server_page_number = increment
+            page_number = page_number + increment
+        return result
+
+    async def get_page_by_query_tasks_async(
+        self,
+        concurrent_requests: int,
+        output_queue: asyncio.Queue[PagingResult],
+        fn_handle_batch: Optional[HandleBatchFunction],
+        fn_handle_error: Optional[HandleErrorFunction],
+        http: ClientSession,
+    ) -> AsyncGenerator[Coroutine[Any, Any, List[PagingResult]], None]:
+        """
+        Returns tasks to get pages by query
+        :param concurrent_requests:
+        :param output_queue:
+        :param fn_handle_batch:
+        :param fn_handle_error:
+        :param http:
+        :return: task
+        """
+        for taskNumber in range(concurrent_requests):
+            yield (
+                self.get_page_by_query_async(
+                    session=http,
+                    start_page=taskNumber,
+                    increment=concurrent_requests,
+                    output_queue=output_queue,
+                    fn_handle_batch=fn_handle_batch,
+                    fn_handle_error=fn_handle_error,
+                )
+            )
+
+    async def get_by_query_in_pages_async(
+        self,
+        concurrent_requests: int,
+        output_queue: asyncio.Queue[PagingResult],
+        fn_handle_batch: Optional[HandleBatchFunction],
+        fn_handle_error: Optional[HandleErrorFunction],
     ) -> FhirGetResponse:
         """
         Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
 
+        :param output_queue:
+        :type output_queue:
+        :param fn_handle_error:
+        :param concurrent_requests:
         :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
                                     resource is a dictionary. If this is specified then we don't return
                                     the resources anymore.  If this function returns False then we stop
@@ -675,31 +878,35 @@ class FhirClient:
         assert self._url
         assert self._page_size
         self._page_number = 0
+        self._stop_processing = False
         resources_list: List[Dict[str, Any]] = []
-        while True:
-            result: FhirGetResponse = self.get()
-            if not result.error and bool(result.responses):
-                result_list: List[Dict[str, Any]] = json.loads(result.responses)
-                if len(result_list) == 0:
-                    break
-                if fn_handle_batch:
-                    if fn_handle_batch(result_list) is False:
-                        break
-                else:
-                    resources_list.extend(result_list)
-                if self._limit and self._limit > 0:
-                    if (self._page_number * self._page_size) > self._limit:
-                        break
-                self._page_number += 1
-            else:
-                break
-        return FhirGetResponse(
-            self._url,
-            responses=json.dumps(resources_list),
-            error=result.error,
-            access_token=self._access_token,
-            total_count=result.total_count,
-        )
+
+        async with self.create_http_session() as http:
+            first_completed: Future[List[PagingResult]]
+            for first_completed in asyncio.as_completed(
+                [
+                    task
+                    async for task in self.get_page_by_query_tasks_async(
+                        http=http,
+                        output_queue=output_queue,
+                        concurrent_requests=concurrent_requests,
+                        fn_handle_batch=fn_handle_batch,
+                        fn_handle_error=fn_handle_error,
+                    )
+                ]
+            ):
+                result_list: List[PagingResult] = await first_completed
+                for resources in [r.resources for r in result_list]:
+                    resources_list.extend(resources)
+
+            return FhirGetResponse(
+                self._url,
+                responses=json.dumps(resources_list),
+                error="",
+                access_token=self._access_token,
+                total_count=len(resources_list),
+                status=200,
+            )
 
     @staticmethod
     def _create_login_token(client_id: str, client_secret: str) -> str:
@@ -714,9 +921,9 @@ class FhirClient:
         ).decode("ascii")
         return token
 
-    def authenticate(
+    async def authenticate_async(
         self,
-        http: Session,
+        http: ClientSession,
         auth_server_url: str,
         auth_scopes: Optional[List[str]],
         login_token: str,
@@ -733,38 +940,42 @@ class FhirClient:
         """
         assert auth_server_url
         assert auth_scopes
-        payload: str = (
-            "grant_type=client_credentials&scope=" + "%20".join(auth_scopes)
-            if auth_scopes
-            else ""
-        )
-        # noinspection SpellCheckingInspection
-        headers: Dict[str, str] = {
-            "Accept": "application/json",
-            "Authorization": "Basic " + login_token,
-            "Content-Type": "application/x-www-form-urlencoded",
-        }
+        with self._authentication_token_lock:
+            payload: str = (
+                "grant_type=client_credentials&scope=" + "%20".join(auth_scopes)
+                if auth_scopes
+                else ""
+            )
+            # noinspection SpellCheckingInspection
+            headers: Dict[str, str] = {
+                "Accept": "application/json",
+                "Authorization": "Basic " + login_token,
+                "Content-Type": "application/x-www-form-urlencoded",
+            }
 
-        self._internal_logger.debug(
-            f"Authenticating with {auth_server_url} with client_id={self._client_id} for scopes={auth_scopes}"
-        )
+            self._internal_logger.debug(
+                f"Authenticating with {auth_server_url} with client_id={self._client_id} for scopes={auth_scopes}"
+            )
 
-        response: Response = http.request(
-            "POST", auth_server_url, headers=headers, data=payload
-        )
+            response: ClientResponse = await http.request(
+                "POST", auth_server_url, headers=headers, data=payload
+            )
 
-        # token = response.text.encode('utf8')
-        token_text: str = response.text
-        if not token_text:
-            return None
-        token_json: Dict[str, Any] = json.loads(token_text)
+            # token = response.text.encode('utf8')
+            token_text: str = await response.text()
+            if not token_text:
+                return None
+            token_json: Dict[str, Any] = json.loads(token_text)
 
-        if "access_token" not in token_json:
-            raise Exception(f"No access token found in {token_json}")
-        access_token: str = token_json["access_token"]
-        return access_token
+            if "access_token" not in token_json:
+                raise Exception(f"No access token found in {token_json}")
+            access_token: str = token_json["access_token"]
+            return access_token
 
-    def merge(self, json_data_list: List[str],) -> FhirMergeResponse:
+    async def merge_async(
+        self,
+        json_data_list: List[str],
+    ) -> FhirMergeResponse:
         """
         Calls $merge function on FHIR server
 
@@ -778,6 +989,7 @@ class FhirClient:
             f"Calling $merge on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
         )
 
+        response_status: Optional[int] = None
         retries: int = 2
         while retries >= 0:
             retries = retries - 1
@@ -786,118 +998,136 @@ class FhirClient:
             full_uri /= self._resource
             headers = {"Content-Type": "application/fhir+json"}
             responses: List[Dict[str, Any]] = []
-            http: Session = self._create_http_session()
-            # set access token in request if present
-            if self.access_token:
-                headers["Authorization"] = f"Bearer {self.access_token}"
+            async with self.create_http_session() as http:
+                # set access token in request if present
+                if await self.access_token_async:
+                    headers["Authorization"] = f"Bearer {await self.access_token_async}"
 
-            try:
-                resource_json_list: List[Dict[str, Any]] = [
-                    json.loads(json_data) for json_data in json_data_list
-                ]
-                if self._validation_server_url:
-                    resource_json: Dict[str, Any]
-                    for resource_json in resource_json_list:
-                        FhirValidator.validate_fhir_resource(
-                            http=http,
-                            json_data=json.dumps(resource_json),
-                            resource_name=self._resource,
-                            validation_server_url=self._validation_server_url,
-                        )
-
-                json_payload: str = json.dumps(resource_json_list)
-                # json_payload_bytes: str = json_payload
-                json_payload_bytes: bytes = json_payload.encode("utf-8")
-                obj_id = 1  # TODO: remove this once the node fhir accepts merge without a parameter
-                assert obj_id
-                resource_uri = full_uri.copy()
-                resource_uri /= parse.quote(str(obj_id), safe="")
-                resource_uri /= "$merge"
-                response: Optional[Response] = None
                 try:
-                    # should we check if it exists and do a POST then?
-                    response = http.post(
-                        url=resource_uri.url, data=json_payload_bytes, headers=headers
-                    )
-                    if response and response.ok:
-                        # logging does not work in UDFs since they run on nodes
-                        # if progress_logger:
-                        #     progress_logger.write_to_log(
-                        #         f"Posted to {resource_uri.url}: {json_data}"
-                        #     )
-                        # check if response is json
-                        response_text = response.text
-                        if response_text:
-                            try:
-                                responses = json.loads(response_text)
-                            except ValueError as e:
-                                responses = [{"issue": str(e)}]
-                        else:
-                            responses = []
-                        # print(f"Posted to {resource_uri.url}: {json_payload}. responses={responses}")
-                    elif (
-                        response.status_code == 403 or response.status_code == 401
-                    ):  # forbidden or unauthorized
-                        if retries >= 0:
-                            assert self._auth_server_url, (
-                                f"{response.status_code} received from server but no auth_server_url"
-                                " was specified to use"
-                            )
-                            assert (
-                                self._login_token
-                            ), f"{response.status_code} received from server but no login_token was specified to use"
-                            self._access_token = self.authenticate(
+                    resource_json_list: List[Dict[str, Any]] = [
+                        json.loads(json_data) for json_data in json_data_list
+                    ]
+                    if self._validation_server_url:
+                        resource_json: Dict[str, Any]
+                        for resource_json in resource_json_list:
+                            await AsyncFhirValidator.validate_fhir_resource(
                                 http=http,
-                                auth_server_url=self._auth_server_url,
-                                auth_scopes=self._auth_scopes,
-                                login_token=self._login_token,
+                                json_data=json.dumps(resource_json),
+                                resource_name=self._resource,
+                                validation_server_url=self._validation_server_url,
                             )
-                            # try again
-                            continue
-                        else:
-                            # out of retries so just fail now
-                            response.raise_for_status()
-                    else:
-                        self._internal_logger.info(
-                            f"response for {full_uri.tostr()}: {response.status_code}"
-                        )
-                        response.raise_for_status()
-                except requests.exceptions.HTTPError as e:
-                    raise FhirSenderException(
-                        url=resource_uri.url,
-                        json_data=json_payload,
-                        response_text=response.text if response else "",
-                        response_status_code=response.status_code if response else None,
-                        exception=e,
-                        message=f"HttpError: {e}",
-                    ) from e
-                except Exception as e:
-                    raise FhirSenderException(
-                        url=resource_uri.url,
-                        json_data=json_payload,
-                        response_text=response.text if response else "",
-                        response_status_code=response.status_code if response else None,
-                        exception=e,
-                        message=f"Unknown Error: {e}",
-                    ) from e
 
-            except AssertionError as e:
-                if self._logger:
-                    self._logger.error(
-                        Exception(
-                            f"Assertion: FHIR send failed: {str(e)} for resource: {json_data_list}"
+                    json_payload: str = json.dumps(resource_json_list)
+                    # json_payload_bytes: str = json_payload
+                    json_payload_bytes: bytes = json_payload.encode("utf-8")
+                    obj_id = 1  # TODO: remove this once the node fhir accepts merge without a parameter
+                    assert obj_id
+                    resource_uri = full_uri.copy()
+                    resource_uri /= parse.quote(str(obj_id), safe="")
+                    resource_uri /= "$merge"
+                    response: Optional[ClientResponse] = None
+                    try:
+                        # should we check if it exists and do a POST then?
+                        response = await http.post(
+                            url=resource_uri.url,
+                            data=json_payload_bytes,
+                            headers=headers,
                         )
-                    )
-            return FhirMergeResponse(
-                url=self._url or "",
-                responses=responses,
-                error=None,
-                access_token=self._access_token,
-            )
+                        response_status = response.status
+                        if response and response.ok:
+                            # logging does not work in UDFs since they run on nodes
+                            # if progress_logger:
+                            #     progress_logger.write_to_log(
+                            #         f"Posted to {resource_uri.url}: {json_data}"
+                            #     )
+                            # check if response is json
+                            response_text = await response.text()
+                            if response_text:
+                                try:
+                                    responses = json.loads(response_text)
+                                except ValueError as e:
+                                    responses = [{"issue": str(e)}]
+                            else:
+                                responses = []
+                        elif (
+                            response.status == 403 or response.status == 401
+                        ):  # forbidden or unauthorized
+                            if retries >= 0:
+                                assert self._auth_server_url, (
+                                    f"{response.status} received from server but no auth_server_url"
+                                    " was specified to use"
+                                )
+                                assert (
+                                    self._login_token
+                                ), f"{response.status} received from server but no login_token was specified to use"
+                                self._access_token = await self.authenticate_async(
+                                    http=http,
+                                    auth_server_url=self._auth_server_url,
+                                    auth_scopes=self._auth_scopes,
+                                    login_token=self._login_token,
+                                )
+                                # try again
+                                continue
+                            else:
+                                # out of retries so just fail now
+                                response.raise_for_status()
+                        else:
+                            self._internal_logger.info(
+                                f"response for {full_uri.tostr()}: {response.status}"
+                            )
+                            response.raise_for_status()
+                    except requests.exceptions.HTTPError as e:
+                        raise FhirSenderException(
+                            url=resource_uri.url,
+                            json_data=json_payload,
+                            response_text=await response.text() if response else "",
+                            response_status_code=response.status if response else None,
+                            exception=e,
+                            message=f"HttpError: {e}",
+                        ) from e
+                    except Exception as e:
+                        raise FhirSenderException(
+                            url=resource_uri.url,
+                            json_data=json_payload,
+                            response_text=await response.text() if response else "",
+                            response_status_code=response.status if response else None,
+                            exception=e,
+                            message=f"Unknown Error: {e}",
+                        ) from e
+
+                except AssertionError as e:
+                    if self._logger:
+                        self._logger.error(
+                            Exception(
+                                f"Assertion: FHIR send failed: {str(e)} for resource: {json_data_list}"
+                            )
+                        )
+                return FhirMergeResponse(
+                    url=self._url or "",
+                    responses=responses,
+                    error=json.dumps(responses) if response_status != 200 else None,
+                    access_token=self._access_token,
+                    status=response_status if response_status else 500,
+                )
 
         raise Exception("Could not talk to FHIR server after multiple tries")
 
-    def _get_auth_server_url_from_well_known_configuration(self) -> Optional[str]:
+    def merge(
+        self,
+        json_data_list: List[str],
+    ) -> FhirMergeResponse:
+        """
+        Calls $merge function on FHIR server
+
+
+        :param json_data_list: list of resources to send
+        """
+        result: FhirMergeResponse = asyncio.run(self.merge_async(json_data_list))
+        return result
+
+    async def _get_auth_server_url_from_well_known_configuration_async(
+        self,
+    ) -> Optional[str]:
         """
         Finds the auth server url via the well known configuration if it exists
 
@@ -915,45 +1145,50 @@ class FhirClient:
                 < self._time_to_live_in_secs_for_cache
             ):
                 cached_endpoint: Optional[str] = entry.auth_url
-                self._internal_logger.info(
-                    f"Returning auth_url from cache for {host_name}: {cached_endpoint}"
-                )
+                # self._internal_logger.info(
+                #     f"Returning auth_url from cache for {host_name}: {cached_endpoint}"
+                # )
                 return cached_endpoint
         full_uri /= ".well-known/smart-configuration"
         self._internal_logger.info(f"Calling {full_uri.tostr()}")
-        http = self._create_http_session()
-        response: Response = http.get(full_uri.tostr())
-        if response and response.ok and response.text:
-            content: Dict[str, Any] = json.loads(response.text)
-            token_endpoint: Optional[str] = str(content["token_endpoint"])
-            with self._lock:
-                self._well_known_configuration_cache[
-                    host_name
-                ] = WellKnownConfigurationCacheEntry(
-                    auth_url=token_endpoint, last_updated_utc=datetime.utcnow()
-                )
-            return token_endpoint
-        else:
-            with self._lock:
-                self._well_known_configuration_cache[
-                    host_name
-                ] = WellKnownConfigurationCacheEntry(
-                    auth_url=None, last_updated_utc=datetime.utcnow()
-                )
-            return None
+        async with self.create_http_session() as http:
+            response: ClientResponse = await http.get(full_uri.tostr())
+            text_ = await response.text()
+            if response and response.ok and text_:
+                content: Dict[str, Any] = json.loads(text_)
+                token_endpoint: Optional[str] = str(content["token_endpoint"])
+                with self._well_known_configuration_cache_lock:
+                    self._well_known_configuration_cache[
+                        host_name
+                    ] = WellKnownConfigurationCacheEntry(
+                        auth_url=token_endpoint, last_updated_utc=datetime.utcnow()
+                    )
+                return token_endpoint
+            else:
+                with self._well_known_configuration_cache_lock:
+                    self._well_known_configuration_cache[
+                        host_name
+                    ] = WellKnownConfigurationCacheEntry(
+                        auth_url=None, last_updated_utc=datetime.utcnow()
+                    )
+                return None
 
-    def graph(
+    async def graph_async(
         self,
         *,
         graph_definition: GraphDefinition,
         contained: bool,
         process_in_batches: Optional[bool] = None,
-        fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], bool]] = None,
+        fn_handle_batch: Optional[HandleBatchFunction] = None,
+        fn_handle_error: Optional[HandleErrorFunction] = None,
+        concurrent_requests: int = 1,
     ) -> FhirGetResponse:
         """
         Executes the $graph query on the FHIR server
 
 
+        :param fn_handle_error:
+        :param concurrent_requests:
         :param graph_definition: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
                             parent resources in a contained property
@@ -973,10 +1208,34 @@ class FhirClient:
         self.resource(graph_definition.start)
         self.action("$graph")
         self._obj_id = "1"  # this is needed because the $graph endpoint requires an id
-        return (
-            self.get()
-            if not process_in_batches
-            else self.get_in_batches(fn_handle_batch=fn_handle_batch)
+        output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
+        async with self.create_http_session() as http:
+            return (
+                await self._get_with_session_async(session=http)
+                if not process_in_batches
+                else await self.get_by_query_in_pages_async(
+                    concurrent_requests=concurrent_requests,
+                    output_queue=output_queue,
+                    fn_handle_error=fn_handle_error,
+                    fn_handle_batch=fn_handle_batch,
+                )
+            )
+
+    def graph(
+        self,
+        *,
+        graph_definition: GraphDefinition,
+        contained: bool,
+        process_in_batches: Optional[bool] = None,
+        concurrent_requests: int = 1,
+    ) -> FhirGetResponse:
+        return asyncio.run(
+            self.graph_async(
+                graph_definition=graph_definition,
+                contained=contained,
+                process_in_batches=process_in_batches,
+                concurrent_requests=concurrent_requests,
+            )
         )
 
     def include_total(self, include_total: bool) -> "FhirClient":
@@ -999,7 +1258,7 @@ class FhirClient:
         self._filters.extend(filter_)
         return self
 
-    def update(self, json_data: str) -> Response:
+    async def update_async(self, json_data: str) -> FhirUpdateResponse:
         """
         Update the resource.  This will completely overwrite the resource.  We recommend using merge()
             instead since that does proper merging.
@@ -1018,28 +1277,330 @@ class FhirClient:
         full_uri /= self._resource
         full_uri /= self._id
         # setup retry
-        http: Session = self._create_http_session()
+        async with self.create_http_session() as http:
+            # set up headers
+            headers = {"Content-Type": "application/fhir+json"}
 
-        # set up headers
-        headers = {"Content-Type": "application/fhir+json"}
+            access_token = await self.access_token_async
+            # set access token in request if present
+            if await self.access_token_async:
+                headers["Authorization"] = f"Bearer {access_token}"
 
-        # set access token in request if present
-        if self.access_token:
-            headers["Authorization"] = f"Bearer {self.access_token}"
+            if self._validation_server_url:
+                await AsyncFhirValidator.validate_fhir_resource(
+                    http=http,
+                    json_data=json_data,
+                    resource_name=self._resource,
+                    validation_server_url=self._validation_server_url,
+                )
 
-        if self._validation_server_url:
-            FhirValidator.validate_fhir_resource(
-                http=http,
-                json_data=json_data,
-                resource_name=self._resource,
-                validation_server_url=self._validation_server_url,
+            json_payload_bytes: bytes = json_data.encode("utf-8")
+            # actually make the request
+            response = await http.put(
+                url=full_uri.url, data=json_payload_bytes, headers=headers
+            )
+            if response.ok:
+                if self._logger:
+                    self._logger.info(f"Successfully updated: {full_uri}")
+
+            return FhirUpdateResponse(
+                url=full_uri.tostr(),
+                responses=await response.text(),
+                error=f"{response.status}" if not response.ok else None,
+                access_token=access_token,
+                status=response.status,
             )
 
-        json_payload_bytes: bytes = json_data.encode("utf-8")
-        # actually make the request
-        response = http.put(url=full_uri.url, data=json_payload_bytes, headers=headers)
-        if response.ok:
-            if self._logger:
-                self._logger.info(f"Successfully updated: {full_uri}")
+    def update(self, json_data: str) -> FhirUpdateResponse:
+        result: FhirUpdateResponse = asyncio.run(self.update_async(json_data))
+        return result
 
-        return response
+    async def get_resources_by_id_in_parallel_batches_async(
+        self,
+        concurrent_requests: int,
+        chunks: Generator[List[str], None, None],
+        fn_handle_batch: Optional[HandleBatchFunction],
+        fn_handle_error: Optional[HandleErrorFunction],
+    ) -> List[Dict[str, Any]]:
+        queue: asyncio.Queue[List[str]] = asyncio.Queue()
+        chunk: List[str]
+        for chunk in chunks:
+            await queue.put(chunk)
+
+        async with self.create_http_session() as http:
+            tasks = [
+                self.get_resources_by_id_async(
+                    session=http,
+                    queue=queue,
+                    task_number=taskNumber,
+                    fn_handle_batch=fn_handle_batch,
+                    fn_handle_error=fn_handle_error,
+                )
+                for taskNumber in range(concurrent_requests)
+            ]
+            for first_completed in asyncio.as_completed(tasks):
+                result_list: List[Dict[str, Any]] = await first_completed
+            await queue.join()
+            return result_list
+
+    async def get_resources_by_id_async(
+        self,
+        session: ClientSession,
+        queue: asyncio.Queue[List[str]],
+        task_number: int,
+        fn_handle_batch: Optional[HandleBatchFunction],
+        fn_handle_error: Optional[HandleErrorFunction],
+    ) -> List[Dict[str, Any]]:
+
+        result: List[Dict[str, Any]] = []
+        while not queue.empty():
+            try:
+                chunk = queue.get_nowait()
+                # Notify the queue that the "work item" has been processed.
+                queue.task_done()
+                if chunk is not None:
+                    result_per_chunk: List[
+                        Dict[str, Any]
+                    ] = await self.get_with_handler_async(
+                        session=session,
+                        page_number=0,
+                        ids=chunk,
+                        fn_handle_batch=fn_handle_batch,
+                        fn_handle_error=fn_handle_error,
+                    )
+                    if result_per_chunk:
+                        result.extend(result_per_chunk)
+            except Empty:
+                break
+        return result
+
+    # Yield successive n-sized chunks from l.
+    @staticmethod
+    def divide_into_chunks(
+        array: List[Any], chunk_size: int
+    ) -> Generator[List[str], None, None]:
+        # looping till length l
+        for i in range(0, len(array), chunk_size):
+            yield array[i : i + chunk_size]
+
+    def handle_error(
+        self, error: str, response: str, page_number: Optional[int]
+    ) -> bool:
+        if self._logger:
+            self._logger.error(f"page: {page_number} {error}: {response}")
+        if self._internal_logger:
+            self._internal_logger.error(f"page: {page_number} {error}: {response}")
+        return True
+
+    async def get_resources_by_query_and_last_updated_async(
+        self,
+        last_updated_start_date: datetime,
+        last_updated_end_date: datetime,
+        concurrent_requests: int = 10,
+        page_size_for_retrieving_resources: int = 100,
+        page_size_for_retrieving_ids: int = 10000,
+        fn_handle_batch: Optional[HandleBatchFunction] = None,
+        fn_handle_error: Optional[HandleErrorFunction] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Gets results for a query by paging through one day at a time,
+            first downloading all the ids and then retrieving resources for each id in parallel
+        :param fn_handle_error: Optional function to call when there is an error
+        :param fn_handle_batch: Optional function to call when a batch is downloaded
+        :param last_updated_start_date: find resources updated after this datetime
+        :param last_updated_end_date: find resources updated before this datetime
+        :param concurrent_requests: number of concurrent requests to make to the server
+        :param page_size_for_retrieving_resources: number of resources to download in one batch
+        :param page_size_for_retrieving_ids:: number of ids to download in one batch
+        """
+        return await self.get_resources_by_query_async(
+            concurrent_requests=concurrent_requests,
+            last_updated_end_date=last_updated_end_date,
+            last_updated_start_date=last_updated_start_date,
+            page_size_for_retrieving_ids=page_size_for_retrieving_ids,
+            page_size_for_retrieving_resources=page_size_for_retrieving_resources,
+            fn_handle_error=fn_handle_error,
+            fn_handle_batch=fn_handle_batch,
+        )
+
+    async def get_resources_by_query_async(
+        self,
+        last_updated_start_date: Optional[datetime] = None,
+        last_updated_end_date: Optional[datetime] = None,
+        concurrent_requests: int = 10,
+        page_size_for_retrieving_resources: int = 100,
+        page_size_for_retrieving_ids: int = 10000,
+        fn_handle_batch: Optional[HandleBatchFunction] = None,
+        fn_handle_error: Optional[HandleErrorFunction] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel
+        :param fn_handle_error: Optional function to call when there is an error
+        :param fn_handle_batch: Optional function to call when a batch is downloaded
+        :param last_updated_start_date: find resources updated after this datetime
+        :param last_updated_end_date: find resources updated before this datetime
+        :param concurrent_requests: number of concurrent requests to make to the server
+        :param page_size_for_retrieving_resources: number of resources to download in one batch
+        :param page_size_for_retrieving_ids:: number of ids to download in one batch
+        """
+        # get only ids first
+        fhir_client = self.include_only_properties(["id"])
+        fhir_client = fhir_client.page_size(page_size_for_retrieving_ids)
+
+        list_of_ids: List[str] = []
+        output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
+
+        def add_to_list(
+            resources_: List[Dict[str, Any]], page_number: Optional[int]
+        ) -> bool:
+            end_batch = time.time()
+            list_of_ids.extend([resource_["id"] for resource_ in resources_])
+            if self._logger:
+                self._logger.info(
+                    f"Received {len(resources_)} ids from page {page_number}"
+                    f" (total={len(list_of_ids)}) in {timedelta(seconds=end_batch - start)}"
+                    f" starting with id: {resources_[0]['id'] if len(resources_) > 0 else 'none'}"
+                )
+
+            return True
+
+        # get token first
+        await fhir_client.access_token_async
+
+        if last_updated_start_date is not None and last_updated_end_date is not None:
+            assert last_updated_end_date >= last_updated_start_date
+            greater_than = last_updated_start_date - timedelta(days=1)
+            less_than = greater_than + timedelta(days=1)
+            last_updated_filter = LastUpdatedFilter(
+                less_than=less_than, greater_than=greater_than
+            )
+            fhir_client = fhir_client.filter([last_updated_filter])
+            while greater_than < last_updated_end_date:
+                greater_than = greater_than + timedelta(days=1)
+                less_than = greater_than + timedelta(days=1)
+                if self._logger:
+                    self._logger.info(f"===== Processing date {greater_than} =======")
+                last_updated_filter.less_than = less_than
+                last_updated_filter.greater_than = greater_than
+                start = time.time()
+                fhir_client._last_page = None  # clean any previous setting
+                await fhir_client.get_by_query_in_pages_async(
+                    concurrent_requests=concurrent_requests,
+                    output_queue=output_queue,
+                    fn_handle_batch=add_to_list,
+                    fn_handle_error=self.handle_error,
+                )
+                fhir_client._last_page = None  # clean any previous setting
+                end = time.time()
+                if self._logger:
+                    self._logger.info(
+                        f"Runtime processing date is {timedelta(seconds=end - start)} for {len(list_of_ids)} ids"
+                    )
+        else:
+            start = time.time()
+            fhir_client._last_page = None  # clean any previous setting
+            await fhir_client.get_by_query_in_pages_async(
+                concurrent_requests=concurrent_requests,
+                output_queue=output_queue,
+                fn_handle_batch=add_to_list,
+                fn_handle_error=self.handle_error,
+            )
+            fhir_client._last_page = None  # clean any previous setting
+            end = time.time()
+            if self._logger:
+                self._logger.info(
+                    f"Runtime processing date is {timedelta(seconds=end - start)} for {len(list_of_ids)} ids"
+                )
+
+        if self._logger:
+            self._logger.info(f"====== Received {len(list_of_ids)} ids =======")
+        # now split the ids
+        chunks: Generator[List[str], None, None] = self.divide_into_chunks(
+            list_of_ids, page_size_for_retrieving_resources
+        )
+        # chunks_list = list(chunks)
+        resources = []
+
+        def add_resources_to_list(
+            resources_: List[Dict[str, Any]], page_number: Optional[int]
+        ) -> bool:
+            end_batch = time.time()
+            resources.extend([resource_ for resource_ in resources_])
+            if self._logger:
+                self._logger.info(
+                    f"Received {len(resources_)} resources (total={len(resources)}/{len(list_of_ids)})"
+                    f" in {timedelta(seconds=(end_batch - start))} page={page_number}"
+                    f" starting with resource: {resources_[0]['id'] if len(resources_) > 0 else 'none'}"
+                )
+
+            return True
+
+        # create a new one to reset all the properties
+        self._include_only_properties = None
+        self._filters = []
+        await fhir_client.get_resources_by_id_in_parallel_batches_async(
+            concurrent_requests=concurrent_requests,
+            chunks=chunks,
+            fn_handle_batch=fn_handle_batch or add_resources_to_list,
+            fn_handle_error=fn_handle_error or self.handle_error,
+        )
+        return resources
+
+    async def get_in_batches_async(
+        self, fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], bool]]
+    ) -> FhirGetResponse:
+        """
+        Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
+
+        :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
+                                    resource is a dictionary. If this is specified then we don't return
+                                    the resources anymore.  If this function returns False then we stop
+                                    processing batches.
+        :return response containing all the resources received
+        """
+        # if paging is requested then iterate through the pages until the response is empty
+        assert self._url
+        assert self._page_size
+        self._page_number = 0
+        resources_list: List[Dict[str, Any]] = []
+        while True:
+            result: FhirGetResponse = await self.get_async()
+            if not result.error and bool(result.responses):
+                result_list: List[Dict[str, Any]] = json.loads(result.responses)
+                if len(result_list) == 0:
+                    break
+                if fn_handle_batch:
+                    if fn_handle_batch(result_list) is False:
+                        break
+                else:
+                    resources_list.extend(result_list)
+                if self._limit and self._limit > 0:
+                    if (self._page_number * self._page_size) > self._limit:
+                        break
+                self._page_number += 1
+            else:
+                break
+        return FhirGetResponse(
+            self._url,
+            responses=json.dumps(resources_list),
+            error=result.error,
+            access_token=self._access_token,
+            total_count=result.total_count,
+            status=200,
+        )
+
+    def get_in_batches(
+        self, fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], bool]] = None
+    ) -> FhirGetResponse:
+        """
+        Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
+
+        :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
+                                    resource is a dictionary. If this is specified then we don't return
+                                    the resources anymore.  If this function returns False then we stop
+                                    processing batches.
+        :return response containing all the resources received
+        """
+        # if paging is requested then iterate through the pages until the response is empty
+        result = asyncio.run(self.get_in_batches_async(fn_handle_batch=fn_handle_batch))
+        return result

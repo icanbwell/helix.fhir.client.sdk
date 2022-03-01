@@ -9,6 +9,7 @@ class FhirGetResponse:
         error: Optional[str],
         access_token: Optional[str],
         total_count: Optional[int],
+        status: int,
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -25,3 +26,4 @@ class FhirGetResponse:
         self.error: Optional[str] = error
         self.access_token: Optional[str] = access_token
         self.total_count: Optional[int] = total_count
+        self.status: int = status
