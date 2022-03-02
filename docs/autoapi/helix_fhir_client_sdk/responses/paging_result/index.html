@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <title>helix_fhir_client_sdk.responses.fhir_get_response &mdash; helix.fhir.client.sdk  documentation</title>
+  <title>helix_fhir_client_sdk.responses.paging_result &mdash; helix.fhir.client.sdk  documentation</title>
   
 
   
@@ -136,13 +136,13 @@
     
       <li><a href="../../../../index.html" class="icon icon-home"></a> &raquo;</li>
         
-      <li><code class="xref py py-mod docutils literal notranslate"><span class="pre">helix_fhir_client_sdk.responses.fhir_get_response</span></code></li>
+      <li><code class="xref py py-mod docutils literal notranslate"><span class="pre">helix_fhir_client_sdk.responses.paging_result</span></code></li>
     
     
       <li class="wy-breadcrumbs-aside">
         
           
-            <a href="../../../../_sources/autoapi/helix_fhir_client_sdk/responses/fhir_get_response/index.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../../../../_sources/autoapi/helix_fhir_client_sdk/responses/paging_result/index.rst.txt" rel="nofollow"> View page source</a>
           
         
       </li>
@@ -155,8 +155,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="section" id="module-helix_fhir_client_sdk.responses.fhir_get_response">
-<span id="helix-fhir-client-sdk-responses-fhir-get-response"></span><h1><a class="reference internal" href="#module-helix_fhir_client_sdk.responses.fhir_get_response" title="helix_fhir_client_sdk.responses.fhir_get_response"><code class="xref py py-mod docutils literal notranslate"><span class="pre">helix_fhir_client_sdk.responses.fhir_get_response</span></code></a><a class="headerlink" href="#module-helix_fhir_client_sdk.responses.fhir_get_response" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="module-helix_fhir_client_sdk.responses.paging_result">
+<span id="helix-fhir-client-sdk-responses-paging-result"></span><h1><a class="reference internal" href="#module-helix_fhir_client_sdk.responses.paging_result" title="helix_fhir_client_sdk.responses.paging_result"><code class="xref py py-mod docutils literal notranslate"><span class="pre">helix_fhir_client_sdk.responses.paging_result</span></code></a><a class="headerlink" href="#module-helix_fhir_client_sdk.responses.paging_result" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="module-contents">
 <h2>Module Contents<a class="headerlink" href="#module-contents" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="classes">
@@ -167,28 +167,24 @@
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse" title="helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FhirGetResponse</span></code></a></p></td>
-<td><p>Class that encapsulates the response from FHIR server</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#helix_fhir_client_sdk.responses.paging_result.PagingResult" title="helix_fhir_client_sdk.responses.paging_result.PagingResult"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PagingResult</span></code></a></p></td>
+<td><p></p></td>
 </tr>
 </tbody>
 </table>
 <dl class="py class">
-<dt class="sig sig-object py" id="helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse">
-<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">helix_fhir_client_sdk.responses.fhir_get_response.</span></span><span class="sig-name descname"><span class="pre">FhirGetResponse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">responses</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">access_token</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_count</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">status</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse" title="Permalink to this definition">¶</a></dt>
-<dd><p>Class that encapsulates the response from FHIR server</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>url</strong> (<em>str</em>) – url that was being accessed</p></li>
-<li><p><strong>responses</strong> (<em>str</em>) – response text</p></li>
-<li><p><strong>error</strong> (<em>Optional</em><em>[</em><em>str</em><em>]</em>) – Any error returned by FHIR server</p></li>
-<li><p><strong>access_token</strong> (<em>Optional</em><em>[</em><em>str</em><em>]</em>) – access token that was used</p></li>
-<li><p><strong>total_count</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – count of total records that match the provided query.
-Only set if include_total_count was set to avoid expensive operation by server.</p></li>
-<li><p><strong>status</strong> (<em>int</em>) – </p></li>
-</ul>
-</dd>
-</dl>
+<dt class="sig sig-object py" id="helix_fhir_client_sdk.responses.paging_result.PagingResult">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">helix_fhir_client_sdk.responses.paging_result.</span></span><span class="sig-name descname"><span class="pre">PagingResult</span></span><a class="headerlink" href="#helix_fhir_client_sdk.responses.paging_result.PagingResult" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="py attribute">
+<dt class="sig sig-object py" id="helix_fhir_client_sdk.responses.paging_result.PagingResult.resources">
+<span class="sig-name descname"><span class="pre">resources</span></span><em class="property"> <span class="pre">:List[Dict[str,</span> <span class="pre">Any]]</span></em><a class="headerlink" href="#helix_fhir_client_sdk.responses.paging_result.PagingResult.resources" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="helix_fhir_client_sdk.responses.paging_result.PagingResult.page_number">
+<span class="sig-name descname"><span class="pre">page_number</span></span><em class="property"> <span class="pre">:int</span></em><a class="headerlink" href="#helix_fhir_client_sdk.responses.paging_result.PagingResult.page_number" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </dd></dl>
 
 </div>

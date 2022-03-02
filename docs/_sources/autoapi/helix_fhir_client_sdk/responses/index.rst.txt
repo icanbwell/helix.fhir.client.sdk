@@ -10,7 +10,10 @@ Submodules
    :titlesonly:
    :maxdepth: 1
 
+   fhir_delete_response/index.rst
    fhir_get_response/index.rst
    fhir_merge_response/index.rst
+   fhir_update_response/index.rst
+   paging_result/index.rst
 
 

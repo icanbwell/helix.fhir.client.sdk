@@ -17,7 +17,7 @@ Classes
 
 
 
-.. py:class:: FhirGetResponse(url, responses, error, access_token, total_count)
+.. py:class:: FhirGetResponse(url, responses, error, access_token, total_count, status)
 
    
    Class that encapsulates the response from FHIR server

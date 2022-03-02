@@ -174,7 +174,7 @@
 </table>
 <dl class="py class">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.responses.fhir_merge_response.FhirMergeResponse">
-<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">helix_fhir_client_sdk.responses.fhir_merge_response.</span></span><span class="sig-name descname"><span class="pre">FhirMergeResponse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">responses</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">access_token</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.responses.fhir_merge_response.FhirMergeResponse" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">helix_fhir_client_sdk.responses.fhir_merge_response.</span></span><span class="sig-name descname"><span class="pre">FhirMergeResponse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">responses</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">access_token</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">status</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.responses.fhir_merge_response.FhirMergeResponse" title="Permalink to this definition">¶</a></dt>
 <dd><p>Class that encapsulates a response to e $merge call to FHIR server</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -183,6 +183,7 @@
 <li><p><strong>responses</strong> (<em>List</em><em>[</em><em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em><em>]</em>) – list of responses</p></li>
 <li><p><strong>error</strong> (<em>Optional</em><em>[</em><em>str</em><em>]</em>) – Any error returned by FHIR server</p></li>
 <li><p><strong>access_token</strong> (<em>Optional</em><em>[</em><em>str</em><em>]</em>) – access token that was used</p></li>
+<li><p><strong>status</strong> (<em>int</em>) – </p></li>
 </ul>
 </dd>
 </dl>

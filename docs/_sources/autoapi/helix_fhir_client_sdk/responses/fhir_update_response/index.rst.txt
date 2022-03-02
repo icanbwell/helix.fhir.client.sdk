@@ -1,0 +1,30 @@
+:py:mod:`helix_fhir_client_sdk.responses.fhir_update_response`
+==============================================================
+
+.. py:module:: helix_fhir_client_sdk.responses.fhir_update_response
+
+
+Module Contents
+---------------
+
+Classes
+~~~~~~~
+
+.. autoapisummary::
+
+   helix_fhir_client_sdk.responses.fhir_update_response.FhirUpdateResponse
+
+
+
+
+.. py:class:: FhirUpdateResponse(url, responses, error, access_token, status)
+
+   
+   Class that encapsulates the response from FHIR server
+
+   :param url: url that was being accessed
+   :param responses: response text
+   :param error: Any error returned by FHIR server
+   :param access_token: access token that was used
+
+

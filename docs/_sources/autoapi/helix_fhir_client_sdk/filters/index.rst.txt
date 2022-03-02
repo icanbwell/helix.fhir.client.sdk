@@ -12,6 +12,7 @@ Submodules
 
    base_filter/index.rst
    identifier_filter/index.rst
+   last_updated_filter/index.rst
    property_filter/index.rst
    property_missing_filter/index.rst
    security_access_filter/index.rst

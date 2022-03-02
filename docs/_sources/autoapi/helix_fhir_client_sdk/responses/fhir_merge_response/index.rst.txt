@@ -17,7 +17,7 @@ Classes
 
 
 
-.. py:class:: FhirMergeResponse(url, responses, error, access_token)
+.. py:class:: FhirMergeResponse(url, responses, error, access_token, status)
 
    
    Class that encapsulates a response to e $merge call to FHIR server
