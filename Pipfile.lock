@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "fcf2647ad8d6eb353d78eacbdf189e6679bfc4ed8984f2f25ea2d3accb0644a9"
+            "sha256": "12e35a6dee6c0c0fb0fe8b9fdfd049c633058ff5a682d1516dce38ecc973ea56"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -146,7 +146,7 @@
                 "sha256:2857e29ff0d34db842cd7ca3230549d1a697f96ee6d3fb071cfa6c7393832597",
                 "sha256:6881edbebdb17b39b4eaaa821b438bf6eddffb4468cf344f09f89def34a8b1df"
             ],
-            "markers": "python_full_version >= '3.5.0'",
+            "markers": "python_version >= '3'",
             "version": "==2.0.12"
         },
         "frozenlist": {
@@ -585,7 +585,7 @@
                 "sha256:2857e29ff0d34db842cd7ca3230549d1a697f96ee6d3fb071cfa6c7393832597",
                 "sha256:6881edbebdb17b39b4eaaa821b438bf6eddffb4468cf344f09f89def34a8b1df"
             ],
-            "markers": "python_full_version >= '3.5.0'",
+            "markers": "python_version >= '3'",
             "version": "==2.0.12"
         },
         "click": {
@@ -670,11 +670,11 @@
         },
         "helix-mockserver-client": {
             "hashes": [
-                "sha256:138a90ea8b50266e4ccede21c1c3eb1f58138f206e61710745fe8b985812eee4",
-                "sha256:bd09a2029bdccc7e63f696994b4daf11bb483431364b87b39d7579faae2342b6"
+                "sha256:1b2260528fa3653f6a0f5eafa5180cdcb9bbca0e1f217ad597f776d3e7973811",
+                "sha256:dd872dbc557c3906fd031250ea0e277f94ab0fea2e243cb7e103d7ec666793ab"
             ],
             "index": "pypi",
-            "version": "==0.0.7"
+            "version": "==0.0.8"
         },
         "identify": {
             "hashes": [
@@ -1327,7 +1327,7 @@
                 "sha256:f290617f74a610849bd8f5514e34ae3d09eafd521dceaa6cf68b3f4414266d4e",
                 "sha256:f30ddd110634c2d7534b2d4e0e22967e88366b0d356b24de87419cc4410c41b7"
             ],
-            "markers": "python_version < '3.8' and implementation_name == 'cpython'",
+            "markers": "python_version < '3.8'",
             "version": "==1.5.2"
         },
         "types-requests": {

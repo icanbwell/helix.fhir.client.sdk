@@ -532,7 +532,7 @@ class FhirClient:
             if self._sort_fields is not None:
                 full_uri.args["_sort"] = ",".join([str(s) for s in self._sort_fields])
 
-                # create full url by adding on any query parameters
+            # create full url by adding on any query parameters
             full_url: str = full_uri.url
             if self._additional_parameters:
                 if len(full_uri.args) > 0:

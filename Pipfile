@@ -27,7 +27,7 @@ Sphinx="==4.1.2"
 sphinx-autoapi="==1.8.4"
 sphinx-rtd-theme="==0.5.2"
 myst-parser="==0.15.1"
-helix-mockserver-client=">=0.0.7"
+helix-mockserver-client=">=0.0.8"
 
 [requires]
 python_version = "3.7"
