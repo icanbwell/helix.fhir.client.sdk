@@ -1544,6 +1544,7 @@ class FhirClient:
             resources_: List[Dict[str, Any]], page_number: Optional[int]
         ) -> bool:
             end_batch = time.time()
+            assert isinstance(list_of_ids, list)
             list_of_ids.extend([resource_["id"] for resource_ in resources_])
             if self._logger:
                 self._logger.info(
