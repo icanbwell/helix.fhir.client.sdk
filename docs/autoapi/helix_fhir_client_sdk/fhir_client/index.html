@@ -1084,41 +1084,6 @@ stop processing any further batches.</p></li>
 </dl>
 </dd></dl>
 
-<dl class="py method">
-<dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.get_in_batches_async">
-<em class="property"><span class="pre">async</span> </em><span class="sig-name descname"><span class="pre">get_in_batches_async</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_batch</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.get_in_batches_async" title="Permalink to this definition">¶</a></dt>
-<dd><p>Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>Callable</em><em>[</em><em>[</em><em>List</em><em>[</em><em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em><em>]</em><em>]</em><em>, </em><em>bool</em><em>]</em><em>]</em>) – Optional function to execute on each page of data.  Note that if this is passed we don’t
-return the resources in the response anymore.  If this function returns false then we
-stop processing any further batches.</p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="../responses/fhir_get_response/index.html#helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse" title="helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse">helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse</a></p>
-</dd>
-</dl>
-<p>:return response containing all the resources received</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.get_in_batches">
-<span class="sig-name descname"><span class="pre">get_in_batches</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_batch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.get_in_batches" title="Permalink to this definition">¶</a></dt>
-<dd><p>Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>Callable</em><em>[</em><em>[</em><em>List</em><em>[</em><em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em><em>]</em><em>]</em><em>, </em><em>bool</em><em>]</em><em>]</em>) – function to call for each batch.  Receives a list of resources where each
-resource is a dictionary. If this is specified then we don’t return
-the resources anymore.  If this function returns False then we stop
-processing batches.</p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="../responses/fhir_get_response/index.html#helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse" title="helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse">helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse</a></p>
-</dd>
-</dl>
-<p>:return response containing all the resources received</p>
-</dd></dl>
-
 </dd></dl>
 
 </div>

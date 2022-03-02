@@ -9,7 +9,6 @@ from mockserver_client.mockserver_client import (
 )
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
-from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 
 async def test_fhir_client_patient_list_in_batches_async() -> None:
@@ -26,44 +25,149 @@ async def test_fhir_client_patient_list_in_batches_async() -> None:
     mock_client.clear(f"/{test_name}/*.*")
     mock_client.reset()
 
+    # this is the first call made by the first concurrent request
+    mock_client.expect(
+        mock_request(
+            path=f"/{relative_url}/Patient",
+            method="GET",
+            querystring={
+                "_elements": "id",
+                "_count": "1",
+                "_getpagesoffset": "0",
+                "_total": "accurate",
+            },
+        ),
+        mock_response(
+            body=json.dumps(
+                {
+                    "resourceType": "Bundle",
+                    "total": 2,
+                    "entry": [{"resource": {"id": "1"}}],
+                }
+            )
+        ),
+        timing=times(1),
+    )
+
+    # this is the second call made by first concurrent request
+    mock_client.expect(
+        mock_request(
+            path=f"/{relative_url}/Patient",
+            method="GET",
+            querystring={
+                "_elements": "id",
+                "_count": "1",
+                "_getpagesoffset": "3",
+                "_total": "accurate",
+                "id:above": "1",
+            },
+        ),
+        mock_response(
+            body=json.dumps(
+                {
+                    "resourceType": "Bundle",
+                    "total": 2,
+                    "entry": [],
+                }
+            )
+        ),
+        timing=times(1),
+    )
+
+    # this is the first call made by the second concurrent request
+    mock_client.expect(
+        mock_request(
+            path=f"/{relative_url}/Patient",
+            method="GET",
+            querystring={
+                "_elements": "id",
+                "_count": "1",
+                "_getpagesoffset": "1",
+                "_total": "accurate",
+            },
+        ),
+        mock_response(
+            body=json.dumps(
+                {
+                    "resourceType": "Bundle",
+                    "total": 2,
+                    "entry": [{"resource": {"id": "2"}}],
+                }
+            )
+        ),
+        timing=times(1),
+    )
+
+    # this is the second call made by second concurrent request
+    mock_client.expect(
+        mock_request(
+            path=f"/{relative_url}/Patient",
+            method="GET",
+            querystring={
+                "_elements": "id",
+                "_count": "1",
+                "_getpagesoffset": "3",
+                "_total": "accurate",
+                "id:above": "2",
+            },
+        ),
+        mock_response(
+            body=json.dumps(
+                {
+                    "resourceType": "Bundle",
+                    "total": 2,
+                    "entry": [],
+                }
+            )
+        ),
+        timing=times(1),
+    )
+
+    # this is the call made by the third concurrent request
+    mock_client.expect(
+        mock_request(
+            path=f"/{relative_url}/Patient",
+            method="GET",
+            querystring={
+                "_elements": "id",
+                "_count": "1",
+                "_getpagesoffset": "2",
+                "_total": "accurate",
+            },
+        ),
+        mock_response(
+            body=json.dumps(
+                {
+                    "resourceType": "Bundle",
+                    "total": 2,
+                    "entry": [],
+                }
+            )
+        ),
+        timing=times(1),
+    )
+
+    # now mock the actual calls to get resources
     response_text_1: Dict[str, Any] = {
         "resourceType": "Bundle",
         "total": 2,
-        "entry": [{"resource": {"resourceType": "Patient", "id": "1"}}],
+        "entry": [
+            {"resource": {"resourceType": "Patient", "id": "1"}},
+            {"resource": {"resourceType": "Patient", "id": "2"}},
+        ],
     }
     mock_client.expect(
         mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
-            querystring={"_count": "10", "_getpagesoffset": "0", "_total": "accurate"},
+            querystring={
+                "id": "1,2",
+                "_count": "1",
+                "_getpagesoffset": "0",
+                "_total": "accurate",
+            },
         ),
         mock_response(body=json.dumps(response_text_1)),
-        timing=times(1),
-    )
-
-    response_text_2: Dict[str, Any] = {
-        "resourceType": "Bundle",
-        "total": 2,
-        "entry": [{"resource": {"resourceType": "Patient", "id": "2"}}],
-    }
-    mock_client.expect(
-        mock_request(
-            path=f"/{relative_url}/Patient",
-            method="GET",
-            querystring={"_count": "10", "_getpagesoffset": "1", "_total": "accurate"},
-        ),
-        mock_response(body=json.dumps(response_text_2)),
-        timing=times(1),
-    )
-
-    response_text: Dict[str, Any] = {"resourceType": "Bundle", "total": 2, "entry": []}
-    mock_client.expect(
-        mock_request(
-            path=f"/{relative_url}/Patient",
-            method="GET",
-            querystring={"_count": "10", "_getpagesoffset": "2", "_total": "accurate"},
-        ),
-        mock_response(body=json.dumps(response_text)),
         timing=times(1),
     )
 
@@ -72,23 +176,32 @@ async def test_fhir_client_patient_list_in_batches_async() -> None:
     fhir_client = fhir_client.page_size(10)
     fhir_client = fhir_client.include_total(True)
 
-    def handle_batch(x: Optional[List[Dict[str, Any]]]) -> bool:
+    def handle_batch(
+        x: Optional[List[Dict[str, Any]]], page_number: Optional[int]
+    ) -> bool:
         if x:
             resources_list.extend(x)
         return True
 
     resources_list: List[Dict[str, Any]] = []
-    response: FhirGetResponse = await fhir_client.get_in_batches_async(
-        fn_handle_batch=handle_batch
+    response: List[Dict[str, Any]] = await fhir_client.get_resources_by_query_async(
+        fn_handle_batch=handle_batch,
+        page_size_for_retrieving_ids=1,
+        page_size_for_retrieving_resources=2,
+        concurrent_requests=3,
     )
 
-    print(response.responses)
-    assert response.responses == "[]"
+    print(response)
+    assert response == []
 
-    assert response.total_count == 2
+    assert len(resources_list) == 2
 
     print(resources_list)
     assert resources_list == [
-        response_text_1["entry"][0]["resource"],
-        response_text_2["entry"][0]["resource"],
+        {"resourceType": "Patient", "id": "1"},
+        {"resourceType": "Patient", "id": "2"},
     ]
+
+    # can't do this since we implement early stopping which is not deterministic since we use concurrent requests
+    # so some calls may not be made if a concurrent call returns empty
+    # mock_client.verify_expectations(test_name=test_name)
