@@ -1423,6 +1423,39 @@ class FhirClient:
             fn_handle_batch=fn_handle_batch,
         )
 
+    def get_resources_by_query_and_last_updated(
+        self,
+        last_updated_start_date: datetime,
+        last_updated_end_date: datetime,
+        concurrent_requests: int = 10,
+        page_size_for_retrieving_resources: int = 100,
+        page_size_for_retrieving_ids: int = 10000,
+        fn_handle_batch: Optional[HandleBatchFunction] = None,
+        fn_handle_error: Optional[HandleErrorFunction] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Gets results for a query by paging through one day at a time,
+            first downloading all the ids and then retrieving resources for each id in parallel
+        :param fn_handle_error: Optional function to call when there is an error
+        :param fn_handle_batch: Optional function to call when a batch is downloaded
+        :param last_updated_start_date: find resources updated after this datetime
+        :param last_updated_end_date: find resources updated before this datetime
+        :param concurrent_requests: number of concurrent requests to make to the server
+        :param page_size_for_retrieving_resources: number of resources to download in one batch
+        :param page_size_for_retrieving_ids:: number of ids to download in one batch
+        """
+        return asyncio.run(
+            self.get_resources_by_query_and_last_updated_async(
+                last_updated_start_date=last_updated_start_date,
+                last_updated_end_date=last_updated_end_date,
+                concurrent_requests=concurrent_requests,
+                page_size_for_retrieving_resources=page_size_for_retrieving_resources,
+                page_size_for_retrieving_ids=page_size_for_retrieving_ids,
+                fn_handle_batch=fn_handle_batch,
+                fn_handle_error=fn_handle_error,
+            )
+        )
+
     async def get_resources_by_query_async(
         self,
         last_updated_start_date: Optional[datetime] = None,
@@ -1443,17 +1476,75 @@ class FhirClient:
         :param page_size_for_retrieving_resources: number of resources to download in one batch
         :param page_size_for_retrieving_ids:: number of ids to download in one batch
         """
+        start = time.time()
+        list_of_ids: List[str] = await self.get_ids_for_query_async(
+            concurrent_requests=concurrent_requests,
+            last_updated_end_date=last_updated_end_date,
+            last_updated_start_date=last_updated_start_date,
+            page_size_for_retrieving_ids=page_size_for_retrieving_ids,
+        )
+        # now split the ids
+        chunks: Generator[List[str], None, None] = self.divide_into_chunks(
+            list_of_ids, page_size_for_retrieving_resources
+        )
+        # chunks_list = list(chunks)
+        resources = []
+
+        def add_resources_to_list(
+            resources_: List[Dict[str, Any]], page_number: Optional[int]
+        ) -> bool:
+            end_batch = time.time()
+            resources.extend([resource_ for resource_ in resources_])
+            if self._logger:
+                self._logger.info(
+                    f"Received {len(resources_)} resources (total={len(resources)}/{len(list_of_ids)})"
+                    f" in {timedelta(seconds=(end_batch - start))} page={page_number}"
+                    f" starting with resource: {resources_[0]['id'] if len(resources_) > 0 else 'none'}"
+                )
+
+            return True
+
+        # create a new one to reset all the properties
+        self._include_only_properties = None
+        self._filters = []
+
+        await self.get_resources_by_id_in_parallel_batches_async(
+            concurrent_requests=concurrent_requests,
+            chunks=chunks,
+            fn_handle_batch=fn_handle_batch or add_resources_to_list,
+            fn_handle_error=fn_handle_error or self.handle_error,
+        )
+        return resources
+
+    async def get_ids_for_query_async(
+        self,
+        *,
+        last_updated_start_date: Optional[datetime] = None,
+        last_updated_end_date: Optional[datetime] = None,
+        concurrent_requests: int = 10,
+        page_size_for_retrieving_ids: int = 10000,
+    ) -> List[str]:
+        """
+        Gets just the ids of the resources matching the query
+
+
+        :param last_updated_start_date:
+        :param last_updated_end_date:
+        :param concurrent_requests:
+        :param page_size_for_retrieving_ids:
+        :return: list of ids
+        """
         # get only ids first
+        list_of_ids: List[str] = []
         fhir_client = self.include_only_properties(["id"])
         fhir_client = fhir_client.page_size(page_size_for_retrieving_ids)
-
-        list_of_ids: List[str] = []
         output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
 
         def add_to_list(
             resources_: List[Dict[str, Any]], page_number: Optional[int]
         ) -> bool:
             end_batch = time.time()
+            assert isinstance(list_of_ids, list)
             list_of_ids.extend([resource_["id"] for resource_ in resources_])
             if self._logger:
                 self._logger.info(
@@ -1466,7 +1557,6 @@ class FhirClient:
 
         # get token first
         await fhir_client.access_token_async
-
         if last_updated_start_date is not None and last_updated_end_date is not None:
             assert last_updated_end_date >= last_updated_start_date
             greater_than = last_updated_start_date - timedelta(days=1)
@@ -1511,40 +1601,68 @@ class FhirClient:
                 self._logger.info(
                     f"Runtime processing date is {timedelta(seconds=end - start)} for {len(list_of_ids)} ids"
                 )
-
         if self._logger:
             self._logger.info(f"====== Received {len(list_of_ids)} ids =======")
-        # now split the ids
-        chunks: Generator[List[str], None, None] = self.divide_into_chunks(
-            list_of_ids, page_size_for_retrieving_resources
+        return list_of_ids
+
+    def get_ids_for_query(
+        self,
+        *,
+        last_updated_start_date: Optional[datetime] = None,
+        last_updated_end_date: Optional[datetime] = None,
+        concurrent_requests: int = 10,
+        page_size_for_retrieving_ids: int = 10000,
+    ) -> List[str]:
+        """
+        Gets just the ids of the resources matching the query
+
+
+        :param last_updated_start_date:
+        :param last_updated_end_date:
+        :param concurrent_requests:
+        :param page_size_for_retrieving_ids:
+        :return: list of ids
+        """
+        return asyncio.run(
+            self.get_ids_for_query_async(
+                last_updated_start_date=last_updated_start_date,
+                last_updated_end_date=last_updated_end_date,
+                concurrent_requests=concurrent_requests,
+                page_size_for_retrieving_ids=page_size_for_retrieving_ids,
+            )
         )
-        # chunks_list = list(chunks)
-        resources = []
 
-        def add_resources_to_list(
-            resources_: List[Dict[str, Any]], page_number: Optional[int]
-        ) -> bool:
-            end_batch = time.time()
-            resources.extend([resource_ for resource_ in resources_])
-            if self._logger:
-                self._logger.info(
-                    f"Received {len(resources_)} resources (total={len(resources)}/{len(list_of_ids)})"
-                    f" in {timedelta(seconds=(end_batch - start))} page={page_number}"
-                    f" starting with resource: {resources_[0]['id'] if len(resources_) > 0 else 'none'}"
-                )
-
-            return True
-
-        # create a new one to reset all the properties
-        self._include_only_properties = None
-        self._filters = []
-        await fhir_client.get_resources_by_id_in_parallel_batches_async(
-            concurrent_requests=concurrent_requests,
-            chunks=chunks,
-            fn_handle_batch=fn_handle_batch or add_resources_to_list,
-            fn_handle_error=fn_handle_error or self.handle_error,
+    def get_resources_by_query(
+        self,
+        last_updated_start_date: Optional[datetime] = None,
+        last_updated_end_date: Optional[datetime] = None,
+        concurrent_requests: int = 10,
+        page_size_for_retrieving_resources: int = 100,
+        page_size_for_retrieving_ids: int = 10000,
+        fn_handle_batch: Optional[HandleBatchFunction] = None,
+        fn_handle_error: Optional[HandleErrorFunction] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel
+        :param fn_handle_error: Optional function to call when there is an error
+        :param fn_handle_batch: Optional function to call when a batch is downloaded
+        :param last_updated_start_date: find resources updated after this datetime
+        :param last_updated_end_date: find resources updated before this datetime
+        :param concurrent_requests: number of concurrent requests to make to the server
+        :param page_size_for_retrieving_resources: number of resources to download in one batch
+        :param page_size_for_retrieving_ids:: number of ids to download in one batch
+        """
+        return asyncio.run(
+            self.get_resources_by_query_async(
+                last_updated_start_date=last_updated_start_date,
+                last_updated_end_date=last_updated_end_date,
+                concurrent_requests=concurrent_requests,
+                page_size_for_retrieving_resources=page_size_for_retrieving_resources,
+                page_size_for_retrieving_ids=page_size_for_retrieving_ids,
+                fn_handle_batch=fn_handle_batch,
+                fn_handle_error=fn_handle_error,
+            )
         )
-        return resources
 
     async def get_in_batches_async(
         self, fn_handle_batch: Optional[Callable[[List[Dict[str, Any]]], bool]]
