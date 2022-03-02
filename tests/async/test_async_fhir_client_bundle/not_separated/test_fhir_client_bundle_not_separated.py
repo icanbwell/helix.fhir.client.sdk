@@ -67,7 +67,7 @@ async def test_fhir_client_bundle_not_separated_async() -> None:
         mock_request(
             path=f"/{relative_url}/Patient/$graph",
             method="POST",
-            querystring={"id": "1710949219,1053306548", "contained": "true"},
+            querystring={"id": "1053306548,1710949219", "contained": "true"},
         ),
         mock_response(body=response_text),
         timing=times(1),

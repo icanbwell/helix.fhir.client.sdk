@@ -549,28 +549,4 @@ Attributes
       :param page_size_for_retrieving_ids:: number of ids to download in one batch
 
 
-   .. py:method:: get_in_batches_async(self, fn_handle_batch)
-      :async:
-
-      Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
-
-
-      :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
-                              return the resources in the response anymore.  If this function returns false then we
-                              stop processing any further batches.
-      :return response containing all the resources received
-
-
-   .. py:method:: get_in_batches(self, fn_handle_batch = None)
-
-      Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
-
-
-      :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
-                                  resource is a dictionary. If this is specified then we don't return
-                                  the resources anymore.  If this function returns False then we stop
-                                  processing batches.
-      :return response containing all the resources received
-
-
 
