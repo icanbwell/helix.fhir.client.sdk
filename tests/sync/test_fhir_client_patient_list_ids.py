@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import List
 
 from mockserver_client.mockserver_client import (
@@ -25,6 +26,8 @@ def test_fhir_client_patient_list_ids() -> None:
     mock_client.clear(f"/{test_name}/*.*")
     mock_client.reset()
 
+    last_updated_after = datetime.strptime("2022-01-10", "%Y-%m-%d")
+
     response_text: str = json.dumps(
         [
             {"resourceType": "Patient", "id": "12355"},
@@ -32,13 +35,23 @@ def test_fhir_client_patient_list_ids() -> None:
         ]
     )
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/Patient", method="GET"),
+        mock_request(
+            path=f"/{relative_url}/Patient",
+            method="GET",
+            querystring={
+                "_elements": "id",
+                "_count": "10000",
+                "_getpagesoffset": "9",
+                "_lastUpdated": "ge2022-01-10T00:00:00Z",
+            },
+        ),
         mock_response(body=response_text),
         timing=times(1),
     )
 
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
+    fhir_client = fhir_client.last_updated_after(last_updated_after)
     list_of_ids: List[str] = fhir_client.get_ids_for_query()
 
     print(json.dumps(list_of_ids))
