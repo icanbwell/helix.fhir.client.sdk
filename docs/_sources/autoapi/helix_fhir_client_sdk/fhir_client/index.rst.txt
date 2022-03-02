@@ -40,17 +40,25 @@ Attributes
 
    Class used to call FHIR server (uses async and parallel execution to speed up)
 
+   Class used to call FHIR server (uses async and parallel execution to speed up)
+
    .. py:method:: action(self, action)
+
+      Set the action
 
       :param action: (Optional) do an action e.g., $everything
 
 
    .. py:method:: action_payload(self, action_payload)
 
+      Set action payload
+
       :param action_payload: (Optional) if action such as $graph needs a http payload
 
 
    .. py:method:: resource(self, resource)
+
+      set resource to query
 
       :param resource: what FHIR resource to retrieve
 
@@ -60,20 +68,32 @@ Attributes
 
    .. py:method:: url(self, url)
 
+      set url
+
+
       :param url: server to call for FHIR
 
 
    .. py:method:: validation_server_url(self, validation_server_url)
+
+      set url to validate
+
 
       :param validation_server_url: server to call for FHIR validation
 
 
    .. py:method:: additional_parameters(self, additional_parameters)
 
+      set additional parameters
+
+
       :param additional_parameters: Any additional parameters to send with request
 
 
    .. py:method:: filter_by_resource(self, filter_by_resource)
+
+      filter
+
 
       :param filter_by_resource: filter the resource by this. e.g., /Condition?Patient=1
               (resource=Condition, filter_by_resource=Patient)
@@ -81,51 +101,81 @@ Attributes
 
    .. py:method:: filter_parameter(self, filter_parameter)
 
+      filter
+
+
       :param filter_parameter: Instead of requesting ?patient=1,
               do ?subject:Patient=1 (if filter_parameter is subject)
 
 
    .. py:method:: include_only_properties(self, include_only_properties)
 
+      include only these properties
+
+
       :param include_only_properties: includes only these properties
 
 
    .. py:method:: page_number(self, page_number)
+
+      page number to load
+
 
       :param page_number: page number to load
 
 
    .. py:method:: page_size(self, page_size)
 
+      page size
+
+
       :param page_size: (Optional) use paging and get this many items in each page
 
 
    .. py:method:: last_updated_after(self, last_updated_after)
+
+      get records updated after this datetime
+
 
       :param last_updated_after: (Optional) Only get records newer than this
 
 
    .. py:method:: last_updated_before(self, last_updated_before)
 
+      get records updated before this datetime
+
+
       :param last_updated_before: (Optional) Only get records older than this
 
 
    .. py:method:: sort_fields(self, sort_fields)
+
+      sort
+
 
       :param sort_fields: sort by fields in the resource
 
 
    .. py:method:: auth_server_url(self, auth_server_url)
 
+      auth server url
+
+
       :param auth_server_url: server url to call to get the authentication token
 
 
    .. py:method:: auth_scopes(self, auth_scopes)
 
+      auth scopes
+
+
       :param auth_scopes: list of scopes to request permission for e.g., system/AllergyIntolerance.read
 
 
    .. py:method:: login_token(self, login_token)
+
+      login token
+
 
       :param login_token: login token to use
 
@@ -188,9 +238,11 @@ Attributes
       Delete the resources
 
 
+
    .. py:method:: delete(self)
 
       Delete the resources
+
 
 
    .. py:method:: separate_bundle_resources(self, separate_bundle_resources)
@@ -214,8 +266,14 @@ Attributes
 
       Issues a GET call
 
+      :return: response
+
 
    .. py:method:: get(self)
+
+      Issues a GET call
+
+      :return: response
 
 
    .. py:method:: create_http_session()
@@ -224,39 +282,41 @@ Attributes
       Creates an HTTP Session
 
 
+
    .. py:method:: get_with_handler_async(self, session, page_number, ids, fn_handle_batch, fn_handle_error, id_above = None)
       :async:
+
+      gets data and calls the handlers as data is received
+
+
+      :param session:
+      :param page_number:
+      :param ids: ids to retrieve
+      :param fn_handle_batch: function to call when data is received
+      :param fn_handle_error: function to call when there is an error
+      :param id_above:
+      :return: list of resources
 
 
    .. py:method:: get_page_by_query_async(self, session, start_page, increment, output_queue, fn_handle_batch, fn_handle_error)
       :async:
 
       Gets the specified page for query
+
       :param session:
       :param start_page:
       :param increment:
-      :param output_queue:
-      :param fn_handle_batch:
-      :param fn_handle_error:
+      :param output_queue: queue to use
+      :param fn_handle_batch: function to call when data is received
+      :param fn_handle_error: function to call when there is an error
       :return: list of paging results
-
-
-   .. py:method:: get_page_by_query_tasks_async(self, concurrent_requests, output_queue, fn_handle_batch, fn_handle_error, http)
-      :async:
-
-      Returns tasks to get pages by query
-      :param concurrent_requests:
-      :param output_queue:
-      :param fn_handle_batch:
-      :param fn_handle_error:
-      :param http:
-      :return: task
 
 
    .. py:method:: get_by_query_in_pages_async(self, concurrent_requests, output_queue, fn_handle_batch, fn_handle_error)
       :async:
 
       Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
+
 
       :param output_queue:
       :type output_queue:
@@ -305,7 +365,6 @@ Attributes
       Executes the $graph query on the FHIR server
 
 
-      :param fn_handle_error:
       :param concurrent_requests:
       :param graph_definition: definition of a graph to execute
       :param contained: whether we should return the related resources as top level list or nest them inside their
@@ -314,6 +373,7 @@ Attributes
       :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
                               return the resources in the response anymore.  If this function returns false then we
                               stop processing any further batches.
+      :param fn_handle_error: function that is called when there is an error
 
 
    .. py:method:: graph(self, *, graph_definition, contained, process_in_batches = None, concurrent_requests = 1)
@@ -322,6 +382,7 @@ Attributes
    .. py:method:: include_total(self, include_total)
 
       Whether to ask the server to include the total count in the result
+
 
       :param include_total: whether to include total count
 
@@ -340,25 +401,59 @@ Attributes
       Update the resource.  This will completely overwrite the resource.  We recommend using merge()
           instead since that does proper merging.
 
+
       :param json_data: data to update the resource with
 
 
    .. py:method:: update(self, json_data)
 
+      Update the resource.  This will completely overwrite the resource.  We recommend using merge()
+          instead since that does proper merging.
+
+
+      :param json_data: data to update the resource with
+
 
    .. py:method:: get_resources_by_id_in_parallel_batches_async(self, concurrent_requests, chunks, fn_handle_batch, fn_handle_error)
       :async:
 
+      Given a list of ids, this function loads them in parallel batches
 
-   .. py:method:: get_resources_by_id_async(self, session, queue, task_number, fn_handle_batch, fn_handle_error)
+
+      :param concurrent_requests:
+      :param chunks: a generator that returns a list of ids to load in one batch
+      :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                              return the resources in the response anymore.  If this function returns false then we
+                              stop processing any further batches.
+      :param fn_handle_error: function that is called when there is an error
+      :return: list of resources
+
+
+   .. py:method:: get_resources_by_id_from_queue_async(self, session, queue, task_number, fn_handle_batch, fn_handle_error)
       :async:
 
+      Gets resources given a queue
 
-   .. py:method:: divide_into_chunks(array, chunk_size)
-      :staticmethod:
+
+      :param session:
+      :param queue: queue to use
+      :param task_number:
+      :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                              return the resources in the response anymore.  If this function returns false then we
+                              stop processing any further batches.
+      :param fn_handle_error: function that is called when there is an error
+      :return: list of resources
 
 
    .. py:method:: handle_error(self, error, response, page_number)
+
+      Default handler for errors.  Can be replaced by passing in fnError to functions
+
+
+      :param error:  error text
+      :param response: response text
+      :param page_number:
+      :return: whether to continue processing
 
 
    .. py:method:: get_resources_by_query_and_last_updated_async(self, last_updated_start_date, last_updated_end_date, concurrent_requests = 10, page_size_for_retrieving_resources = 100, page_size_for_retrieving_ids = 10000, fn_handle_batch = None, fn_handle_error = None)
@@ -366,8 +461,12 @@ Attributes
 
       Gets results for a query by paging through one day at a time,
           first downloading all the ids and then retrieving resources for each id in parallel
-      :param fn_handle_error: Optional function to call when there is an error
-      :param fn_handle_batch: Optional function to call when a batch is downloaded
+
+
+      :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                              return the resources in the response anymore.  If this function returns false then we
+                              stop processing any further batches.
+      :param fn_handle_error: Optional function that is called when there is an error
       :param last_updated_start_date: find resources updated after this datetime
       :param last_updated_end_date: find resources updated before this datetime
       :param concurrent_requests: number of concurrent requests to make to the server
@@ -379,8 +478,12 @@ Attributes
 
       Gets results for a query by paging through one day at a time,
           first downloading all the ids and then retrieving resources for each id in parallel
-      :param fn_handle_error: Optional function to call when there is an error
-      :param fn_handle_batch: Optional function to call when a batch is downloaded
+
+
+      :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                              return the resources in the response anymore.  If this function returns false then we
+                              stop processing any further batches.
+      :param fn_handle_error: Optional function that is called when there is an error
       :param last_updated_start_date: find resources updated after this datetime
       :param last_updated_end_date: find resources updated before this datetime
       :param concurrent_requests: number of concurrent requests to make to the server
@@ -392,8 +495,12 @@ Attributes
       :async:
 
       Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel
-      :param fn_handle_error: Optional function to call when there is an error
-      :param fn_handle_batch: Optional function to call when a batch is downloaded
+
+
+      :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                              return the resources in the response anymore.  If this function returns false then we
+                              stop processing any further batches.
+      :param fn_handle_error: function that is called when there is an error
       :param last_updated_start_date: find resources updated after this datetime
       :param last_updated_end_date: find resources updated before this datetime
       :param concurrent_requests: number of concurrent requests to make to the server
@@ -407,9 +514,9 @@ Attributes
       Gets just the ids of the resources matching the query
 
 
-      :param last_updated_start_date:
-      :param last_updated_end_date:
-      :param concurrent_requests:
+      :param last_updated_start_date: (Optional) get ids updated after this date
+      :param last_updated_end_date: (Optional) get ids updated before this date
+      :param concurrent_requests: number of concurrent requests
       :param page_size_for_retrieving_ids:
       :return: list of ids
 
@@ -419,8 +526,8 @@ Attributes
       Gets just the ids of the resources matching the query
 
 
-      :param last_updated_start_date:
-      :param last_updated_end_date:
+      :param last_updated_start_date: (Optional) get ids updated after this date
+      :param last_updated_end_date: (Optional) get ids updated before this date
       :param concurrent_requests:
       :param page_size_for_retrieving_ids:
       :return: list of ids
@@ -429,10 +536,14 @@ Attributes
    .. py:method:: get_resources_by_query(self, last_updated_start_date = None, last_updated_end_date = None, concurrent_requests = 10, page_size_for_retrieving_resources = 100, page_size_for_retrieving_ids = 10000, fn_handle_batch = None, fn_handle_error = None)
 
       Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel
-      :param fn_handle_error: Optional function to call when there is an error
-      :param fn_handle_batch: Optional function to call when a batch is downloaded
-      :param last_updated_start_date: find resources updated after this datetime
-      :param last_updated_end_date: find resources updated before this datetime
+
+
+      :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                              return the resources in the response anymore.  If this function returns false then we
+                              stop processing any further batches.
+      :param fn_handle_error: function that is called when there is an error
+      :param last_updated_start_date: (Optional) get ids updated after this date
+      :param last_updated_end_date: (Optional) get ids updated before this date
       :param concurrent_requests: number of concurrent requests to make to the server
       :param page_size_for_retrieving_resources: number of resources to download in one batch
       :param page_size_for_retrieving_ids:: number of ids to download in one batch
@@ -443,16 +554,17 @@ Attributes
 
       Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
 
-      :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
-                                  resource is a dictionary. If this is specified then we don't return
-                                  the resources anymore.  If this function returns False then we stop
-                                  processing batches.
+
+      :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                              return the resources in the response anymore.  If this function returns false then we
+                              stop processing any further batches.
       :return response containing all the resources received
 
 
    .. py:method:: get_in_batches(self, fn_handle_batch = None)
 
       Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
+
 
       :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
                                   resource is a dictionary. If this is specified then we don't return

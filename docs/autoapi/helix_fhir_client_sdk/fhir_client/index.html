@@ -203,10 +203,12 @@
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient">
 <em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">helix_fhir_client_sdk.fhir_client.</span></span><span class="sig-name descname"><span class="pre">FhirClient</span></span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient" title="Permalink to this definition">¶</a></dt>
 <dd><p>Class used to call FHIR server (uses async and parallel execution to speed up)</p>
+<p>Class used to call FHIR server (uses async and parallel execution to speed up)</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.action">
 <span class="sig-name descname"><span class="pre">action</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.action" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>Set the action</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>action</strong> (<em>str</em>) – (Optional) do an action e.g., $everything</p>
 </dd>
@@ -219,7 +221,8 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.action_payload">
 <span class="sig-name descname"><span class="pre">action_payload</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action_payload</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.action_payload" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>Set action payload</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>action_payload</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em>) – (Optional) if action such as $graph needs a http payload</p>
 </dd>
@@ -232,7 +235,8 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.resource">
 <span class="sig-name descname"><span class="pre">resource</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resource</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.resource" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>set resource to query</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>resource</strong> (<em>str</em>) – what FHIR resource to retrieve</p>
 </dd>
@@ -258,7 +262,8 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.url">
 <span class="sig-name descname"><span class="pre">url</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">url</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.url" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>set url</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>url</strong> (<em>str</em>) – server to call for FHIR</p>
 </dd>
@@ -271,7 +276,8 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.validation_server_url">
 <span class="sig-name descname"><span class="pre">validation_server_url</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">validation_server_url</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.validation_server_url" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>set url to validate</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>validation_server_url</strong> (<em>str</em>) – server to call for FHIR validation</p>
 </dd>
@@ -284,7 +290,8 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.additional_parameters">
 <span class="sig-name descname"><span class="pre">additional_parameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">additional_parameters</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.additional_parameters" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>set additional parameters</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>additional_parameters</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – Any additional parameters to send with request</p>
 </dd>
@@ -297,7 +304,8 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_resource">
 <span class="sig-name descname"><span class="pre">filter_by_resource</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_by_resource</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.filter_by_resource" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>filter</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>filter_by_resource</strong> (<em>str</em>) – filter the resource by this. e.g., /Condition?Patient=1
 (resource=Condition, filter_by_resource=Patient)</p>
@@ -311,7 +319,8 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.filter_parameter">
 <span class="sig-name descname"><span class="pre">filter_parameter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_parameter</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.filter_parameter" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>filter</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>filter_parameter</strong> (<em>str</em>) – Instead of requesting ?patient=1,
 do ?subject:Patient=1 (if filter_parameter is subject)</p>
@@ -325,7 +334,8 @@ do ?subject:Patient=1 (if filter_parameter is subject)</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.include_only_properties">
 <span class="sig-name descname"><span class="pre">include_only_properties</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_only_properties</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.include_only_properties" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>include only these properties</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>include_only_properties</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – includes only these properties</p>
 </dd>
@@ -338,7 +348,8 @@ do ?subject:Patient=1 (if filter_parameter is subject)</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.page_number">
 <span class="sig-name descname"><span class="pre">page_number</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">page_number</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.page_number" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>page number to load</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>page_number</strong> (<em>int</em>) – page number to load</p>
 </dd>
@@ -351,7 +362,8 @@ do ?subject:Patient=1 (if filter_parameter is subject)</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.page_size">
 <span class="sig-name descname"><span class="pre">page_size</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">page_size</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.page_size" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>page size</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>page_size</strong> (<em>int</em>) – (Optional) use paging and get this many items in each page</p>
 </dd>
@@ -364,7 +376,8 @@ do ?subject:Patient=1 (if filter_parameter is subject)</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.last_updated_after">
 <span class="sig-name descname"><span class="pre">last_updated_after</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">last_updated_after</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.last_updated_after" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>get records updated after this datetime</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>last_updated_after</strong> (<em>datetime.datetime</em>) – (Optional) Only get records newer than this</p>
 </dd>
@@ -377,7 +390,8 @@ do ?subject:Patient=1 (if filter_parameter is subject)</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.last_updated_before">
 <span class="sig-name descname"><span class="pre">last_updated_before</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">last_updated_before</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.last_updated_before" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>get records updated before this datetime</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>last_updated_before</strong> (<em>datetime.datetime</em>) – (Optional) Only get records older than this</p>
 </dd>
@@ -390,7 +404,8 @@ do ?subject:Patient=1 (if filter_parameter is subject)</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.sort_fields">
 <span class="sig-name descname"><span class="pre">sort_fields</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_fields</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.sort_fields" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>sort</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>sort_fields</strong> (<em>List</em><em>[</em><a class="reference internal" href="../filters/sort_field/index.html#helix_fhir_client_sdk.filters.sort_field.SortField" title="helix_fhir_client_sdk.filters.sort_field.SortField"><em>helix_fhir_client_sdk.filters.sort_field.SortField</em></a><em>]</em>) – sort by fields in the resource</p>
 </dd>
@@ -403,7 +418,8 @@ do ?subject:Patient=1 (if filter_parameter is subject)</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.auth_server_url">
 <span class="sig-name descname"><span class="pre">auth_server_url</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auth_server_url</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.auth_server_url" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>auth server url</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>auth_server_url</strong> (<em>str</em>) – server url to call to get the authentication token</p>
 </dd>
@@ -416,7 +432,8 @@ do ?subject:Patient=1 (if filter_parameter is subject)</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.auth_scopes">
 <span class="sig-name descname"><span class="pre">auth_scopes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auth_scopes</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.auth_scopes" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>auth scopes</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>auth_scopes</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – list of scopes to request permission for e.g., system/AllergyIntolerance.read</p>
 </dd>
@@ -429,7 +446,8 @@ do ?subject:Patient=1 (if filter_parameter is subject)</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.login_token">
 <span class="sig-name descname"><span class="pre">login_token</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">login_token</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.login_token" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>login token</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>login_token</strong> (<em>str</em>) – login token to use</p>
 </dd>
@@ -584,8 +602,11 @@ do ?subject:Patient=1 (if filter_parameter is subject)</p>
 <em class="property"><span class="pre">async</span> </em><span class="sig-name descname"><span class="pre">get_async</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.get_async" title="Permalink to this definition">¶</a></dt>
 <dd><p>Issues a GET call</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference internal" href="../responses/fhir_get_response/index.html#helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse" title="helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse">helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse</a></p>
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>response</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="../responses/fhir_get_response/index.html#helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse" title="helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse">helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -593,9 +614,13 @@ do ?subject:Patient=1 (if filter_parameter is subject)</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.get">
 <span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.get" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference internal" href="../responses/fhir_get_response/index.html#helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse" title="helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse">helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse</a></p>
+<dd><p>Issues a GET call</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>response</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="../responses/fhir_get_response/index.html#helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse" title="helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse">helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -614,19 +639,23 @@ do ?subject:Patient=1 (if filter_parameter is subject)</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.get_with_handler_async">
 <em class="property"><span class="pre">async</span> </em><span class="sig-name descname"><span class="pre">get_with_handler_async</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">page_number</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_error</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">id_above</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.get_with_handler_async" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>gets data and calls the handlers as data is received</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>session</strong> (<em>Optional</em><em>[</em><em>aiohttp.ClientSession</em><em>]</em>) – </p></li>
 <li><p><strong>page_number</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – </p></li>
-<li><p><strong>ids</strong> (<em>Optional</em><em>[</em><em>List</em><em>[</em><em>str</em><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – </p></li>
-<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – </p></li>
+<li><p><strong>ids</strong> (<em>Optional</em><em>[</em><em>List</em><em>[</em><em>str</em><em>]</em><em>]</em>) – ids to retrieve</p></li>
+<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – function to call when data is received</p></li>
+<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – function to call when there is an error</p></li>
 <li><p><strong>id_above</strong> (<em>Optional</em><em>[</em><em>str</em><em>]</em>) – </p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p>List[Dict[str, Any]]</p>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>list of resources</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>List[Dict[str, Any]]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -634,53 +663,23 @@ do ?subject:Patient=1 (if filter_parameter is subject)</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.get_page_by_query_async">
 <em class="property"><span class="pre">async</span> </em><span class="sig-name descname"><span class="pre">get_page_by_query_async</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_page</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increment</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_queue</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_error</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.get_page_by_query_async" title="Permalink to this definition">¶</a></dt>
-<dd><p>Gets the specified page for query
-:param session:
-:param start_page:
-:param increment:
-:param output_queue:
-:param fn_handle_batch:
-:param fn_handle_error:
-:return: list of paging results</p>
+<dd><p>Gets the specified page for query</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>session</strong> (<em>Optional</em><em>[</em><em>aiohttp.ClientSession</em><em>]</em>) – </p></li>
 <li><p><strong>start_page</strong> (<em>int</em>) – </p></li>
 <li><p><strong>increment</strong> (<em>int</em>) – </p></li>
-<li><p><strong>output_queue</strong> (<em>asyncio.Queue</em><em>[</em><a class="reference internal" href="../responses/paging_result/index.html#helix_fhir_client_sdk.responses.paging_result.PagingResult" title="helix_fhir_client_sdk.responses.paging_result.PagingResult"><em>helix_fhir_client_sdk.responses.paging_result.PagingResult</em></a><em>]</em>) – </p></li>
-<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – </p></li>
-<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – </p></li>
+<li><p><strong>output_queue</strong> (<em>asyncio.Queue</em><em>[</em><a class="reference internal" href="../responses/paging_result/index.html#helix_fhir_client_sdk.responses.paging_result.PagingResult" title="helix_fhir_client_sdk.responses.paging_result.PagingResult"><em>helix_fhir_client_sdk.responses.paging_result.PagingResult</em></a><em>]</em>) – queue to use</p></li>
+<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – function to call when data is received</p></li>
+<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – function to call when there is an error</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p>List[<a class="reference internal" href="../responses/paging_result/index.html#helix_fhir_client_sdk.responses.paging_result.PagingResult" title="helix_fhir_client_sdk.responses.paging_result.PagingResult">helix_fhir_client_sdk.responses.paging_result.PagingResult</a>]</p>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>list of paging results</p>
 </dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.get_page_by_query_tasks_async">
-<em class="property"><span class="pre">async</span> </em><span class="sig-name descname"><span class="pre">get_page_by_query_tasks_async</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">concurrent_requests</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_queue</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_error</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">http</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.get_page_by_query_tasks_async" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns tasks to get pages by query
-:param concurrent_requests:
-:param output_queue:
-:param fn_handle_batch:
-:param fn_handle_error:
-:param http:
-:return: task</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>concurrent_requests</strong> (<em>int</em>) – </p></li>
-<li><p><strong>output_queue</strong> (<em>asyncio.Queue</em><em>[</em><a class="reference internal" href="../responses/paging_result/index.html#helix_fhir_client_sdk.responses.paging_result.PagingResult" title="helix_fhir_client_sdk.responses.paging_result.PagingResult"><em>helix_fhir_client_sdk.responses.paging_result.PagingResult</em></a><em>]</em>) – </p></li>
-<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – </p></li>
-<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – </p></li>
-<li><p><strong>http</strong> (<em>aiohttp.ClientSession</em>) – </p></li>
-</ul>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p>AsyncGenerator[Coroutine[Any, Any, List[<a class="reference internal" href="../responses/paging_result/index.html#helix_fhir_client_sdk.responses.paging_result.PagingResult" title="helix_fhir_client_sdk.responses.paging_result.PagingResult">helix_fhir_client_sdk.responses.paging_result.PagingResult</a>]], None]</p>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>List[<a class="reference internal" href="../responses/paging_result/index.html#helix_fhir_client_sdk.responses.paging_result.PagingResult" title="helix_fhir_client_sdk.responses.paging_result.PagingResult">helix_fhir_client_sdk.responses.paging_result.PagingResult</a>]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -765,7 +764,6 @@ processing batches.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – </p></li>
 <li><p><strong>concurrent_requests</strong> (<em>int</em>) – </p></li>
 <li><p><strong>graph_definition</strong> (<a class="reference internal" href="../graph/graph_definition/index.html#helix_fhir_client_sdk.graph.graph_definition.GraphDefinition" title="helix_fhir_client_sdk.graph.graph_definition.GraphDefinition"><em>helix_fhir_client_sdk.graph.graph_definition.GraphDefinition</em></a>) – definition of a graph to execute</p></li>
 <li><p><strong>contained</strong> (<em>bool</em>) – whether we should return the related resources as top level list or nest them inside their
@@ -774,6 +772,7 @@ parent resources in a contained property</p></li>
 <li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – Optional function to execute on each page of data.  Note that if this is passed we don’t
 return the resources in the response anymore.  If this function returns false then we
 stop processing any further batches.</p></li>
+<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – function that is called when there is an error</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type</dt>
@@ -851,9 +850,13 @@ stop processing any further batches.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.update">
 <span class="sig-name descname"><span class="pre">update</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">json_data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.update" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><dl class="simple">
+<dt>Update the resource.  This will completely overwrite the resource.  We recommend using merge()</dt><dd><p>instead since that does proper merging.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>json_data</strong> (<em>str</em>) – </p>
+<dd class="field-odd"><p><strong>json_data</strong> (<em>str</em>) – data to update the resource with</p>
 </dd>
 <dt class="field-even">Return type</dt>
 <dd class="field-even"><p><a class="reference internal" href="../responses/fhir_update_response/index.html#helix_fhir_client_sdk.responses.fhir_update_response.FhirUpdateResponse" title="helix_fhir_client_sdk.responses.fhir_update_response.FhirUpdateResponse">helix_fhir_client_sdk.responses.fhir_update_response.FhirUpdateResponse</a></p>
@@ -864,52 +867,48 @@ stop processing any further batches.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.get_resources_by_id_in_parallel_batches_async">
 <em class="property"><span class="pre">async</span> </em><span class="sig-name descname"><span class="pre">get_resources_by_id_in_parallel_batches_async</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">concurrent_requests</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunks</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_error</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.get_resources_by_id_in_parallel_batches_async" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>Given a list of ids, this function loads them in parallel batches</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>concurrent_requests</strong> (<em>int</em>) – </p></li>
-<li><p><strong>chunks</strong> (<em>Generator</em><em>[</em><em>List</em><em>[</em><em>str</em><em>]</em><em>, </em><em>None</em><em>, </em><em>None</em><em>]</em>) – </p></li>
-<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – </p></li>
-<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – </p></li>
+<li><p><strong>chunks</strong> (<em>Generator</em><em>[</em><em>List</em><em>[</em><em>str</em><em>]</em><em>, </em><em>None</em><em>, </em><em>None</em><em>]</em>) – a generator that returns a list of ids to load in one batch</p></li>
+<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – Optional function to execute on each page of data.  Note that if this is passed we don’t
+return the resources in the response anymore.  If this function returns false then we
+stop processing any further batches.</p></li>
+<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – function that is called when there is an error</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p>List[Dict[str, Any]]</p>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>list of resources</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>List[Dict[str, Any]]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.get_resources_by_id_async">
-<em class="property"><span class="pre">async</span> </em><span class="sig-name descname"><span class="pre">get_resources_by_id_async</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">queue</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_number</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_error</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.get_resources_by_id_async" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.get_resources_by_id_from_queue_async">
+<em class="property"><span class="pre">async</span> </em><span class="sig-name descname"><span class="pre">get_resources_by_id_from_queue_async</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">queue</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task_number</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_error</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.get_resources_by_id_from_queue_async" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets resources given a queue</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>session</strong> (<em>aiohttp.ClientSession</em>) – </p></li>
-<li><p><strong>queue</strong> (<em>asyncio.Queue</em><em>[</em><em>List</em><em>[</em><em>str</em><em>]</em><em>]</em>) – </p></li>
+<li><p><strong>queue</strong> (<em>asyncio.Queue</em><em>[</em><em>List</em><em>[</em><em>str</em><em>]</em><em>]</em>) – queue to use</p></li>
 <li><p><strong>task_number</strong> (<em>int</em>) – </p></li>
-<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – </p></li>
-<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – </p></li>
+<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – Optional function to execute on each page of data.  Note that if this is passed we don’t
+return the resources in the response anymore.  If this function returns false then we
+stop processing any further batches.</p></li>
+<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – function that is called when there is an error</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p>List[Dict[str, Any]]</p>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>list of resources</p>
 </dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.divide_into_chunks">
-<em class="property"><span class="pre">static</span> </em><span class="sig-name descname"><span class="pre">divide_into_chunks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_size</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.divide_into_chunks" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>array</strong> (<em>List</em><em>[</em><em>Any</em><em>]</em>) – </p></li>
-<li><p><strong>chunk_size</strong> (<em>int</em>) – </p></li>
-</ul>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p>Generator[List[str], None, None]</p>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>List[Dict[str, Any]]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -917,16 +916,20 @@ stop processing any further batches.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.handle_error">
 <span class="sig-name descname"><span class="pre">handle_error</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">response</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">page_number</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.handle_error" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>Default handler for errors.  Can be replaced by passing in fnError to functions</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>error</strong> (<em>str</em>) – </p></li>
-<li><p><strong>response</strong> (<em>str</em>) – </p></li>
+<li><p><strong>error</strong> (<em>str</em>) – error text</p></li>
+<li><p><strong>response</strong> (<em>str</em>) – response text</p></li>
 <li><p><strong>page_number</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – </p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p>bool</p>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>whether to continue processing</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>bool</p>
 </dd>
 </dl>
 </dd></dl>
@@ -941,8 +944,10 @@ stop processing any further batches.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – Optional function to call when there is an error</p></li>
-<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – Optional function to call when a batch is downloaded</p></li>
+<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – Optional function to execute on each page of data.  Note that if this is passed we don’t
+return the resources in the response anymore.  If this function returns false then we
+stop processing any further batches.</p></li>
+<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – Optional function that is called when there is an error</p></li>
 <li><p><strong>last_updated_start_date</strong> (<em>datetime.datetime</em>) – find resources updated after this datetime</p></li>
 <li><p><strong>last_updated_end_date</strong> (<em>datetime.datetime</em>) – find resources updated before this datetime</p></li>
 <li><p><strong>concurrent_requests</strong> (<em>int</em>) – number of concurrent requests to make to the server</p></li>
@@ -967,8 +972,10 @@ stop processing any further batches.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – Optional function to call when there is an error</p></li>
-<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – Optional function to call when a batch is downloaded</p></li>
+<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – Optional function to execute on each page of data.  Note that if this is passed we don’t
+return the resources in the response anymore.  If this function returns false then we
+stop processing any further batches.</p></li>
+<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – Optional function that is called when there is an error</p></li>
 <li><p><strong>last_updated_start_date</strong> (<em>datetime.datetime</em>) – find resources updated after this datetime</p></li>
 <li><p><strong>last_updated_end_date</strong> (<em>datetime.datetime</em>) – find resources updated before this datetime</p></li>
 <li><p><strong>concurrent_requests</strong> (<em>int</em>) – number of concurrent requests to make to the server</p></li>
@@ -986,24 +993,20 @@ stop processing any further batches.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.get_resources_by_query_async">
 <em class="property"><span class="pre">async</span> </em><span class="sig-name descname"><span class="pre">get_resources_by_query_async</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">last_updated_start_date</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">last_updated_end_date</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">concurrent_requests</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">page_size_for_retrieving_resources</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">page_size_for_retrieving_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_batch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.get_resources_by_query_async" title="Permalink to this definition">¶</a></dt>
-<dd><p>Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel
-:param fn_handle_error: Optional function to call when there is an error
-:param fn_handle_batch: Optional function to call when a batch is downloaded
-:param last_updated_start_date: find resources updated after this datetime
-:param last_updated_end_date: find resources updated before this datetime
-:param concurrent_requests: number of concurrent requests to make to the server
-:param page_size_for_retrieving_resources: number of resources to download in one batch
-:param page_size_for_retrieving_ids:: number of ids to download in one batch</p>
+<dd><p>Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>last_updated_start_date</strong> (<em>Optional</em><em>[</em><em>datetime.datetime</em><em>]</em>) – </p></li>
-<li><p><strong>last_updated_end_date</strong> (<em>Optional</em><em>[</em><em>datetime.datetime</em><em>]</em>) – </p></li>
-<li><p><strong>concurrent_requests</strong> (<em>int</em>) – </p></li>
-<li><p><strong>page_size_for_retrieving_resources</strong> (<em>int</em>) – </p></li>
+<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – Optional function to execute on each page of data.  Note that if this is passed we don’t
+return the resources in the response anymore.  If this function returns false then we
+stop processing any further batches.</p></li>
+<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – function that is called when there is an error</p></li>
+<li><p><strong>last_updated_start_date</strong> (<em>Optional</em><em>[</em><em>datetime.datetime</em><em>]</em>) – find resources updated after this datetime</p></li>
+<li><p><strong>last_updated_end_date</strong> (<em>Optional</em><em>[</em><em>datetime.datetime</em><em>]</em>) – find resources updated before this datetime</p></li>
+<li><p><strong>concurrent_requests</strong> (<em>int</em>) – number of concurrent requests to make to the server</p></li>
+<li><p><strong>page_size_for_retrieving_resources</strong> (<em>int</em>) – number of resources to download in one batch</p></li>
+<li><p><strong>page_size_for_retrieving_ids:</strong> – number of ids to download in one batch</p></li>
 <li><p><strong>page_size_for_retrieving_ids</strong> (<em>int</em>) – </p></li>
-<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – </p></li>
-<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – </p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type</dt>
@@ -1019,9 +1022,9 @@ stop processing any further batches.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>last_updated_start_date</strong> (<em>Optional</em><em>[</em><em>datetime.datetime</em><em>]</em>) – </p></li>
-<li><p><strong>last_updated_end_date</strong> (<em>Optional</em><em>[</em><em>datetime.datetime</em><em>]</em>) – </p></li>
-<li><p><strong>concurrent_requests</strong> (<em>int</em>) – </p></li>
+<li><p><strong>last_updated_start_date</strong> (<em>Optional</em><em>[</em><em>datetime.datetime</em><em>]</em>) – (Optional) get ids updated after this date</p></li>
+<li><p><strong>last_updated_end_date</strong> (<em>Optional</em><em>[</em><em>datetime.datetime</em><em>]</em>) – (Optional) get ids updated before this date</p></li>
+<li><p><strong>concurrent_requests</strong> (<em>int</em>) – number of concurrent requests</p></li>
 <li><p><strong>page_size_for_retrieving_ids</strong> (<em>int</em>) – </p></li>
 </ul>
 </dd>
@@ -1041,8 +1044,8 @@ stop processing any further batches.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>last_updated_start_date</strong> (<em>Optional</em><em>[</em><em>datetime.datetime</em><em>]</em>) – </p></li>
-<li><p><strong>last_updated_end_date</strong> (<em>Optional</em><em>[</em><em>datetime.datetime</em><em>]</em>) – </p></li>
+<li><p><strong>last_updated_start_date</strong> (<em>Optional</em><em>[</em><em>datetime.datetime</em><em>]</em>) – (Optional) get ids updated after this date</p></li>
+<li><p><strong>last_updated_end_date</strong> (<em>Optional</em><em>[</em><em>datetime.datetime</em><em>]</em>) – (Optional) get ids updated before this date</p></li>
 <li><p><strong>concurrent_requests</strong> (<em>int</em>) – </p></li>
 <li><p><strong>page_size_for_retrieving_ids</strong> (<em>int</em>) – </p></li>
 </ul>
@@ -1059,24 +1062,20 @@ stop processing any further batches.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="helix_fhir_client_sdk.fhir_client.FhirClient.get_resources_by_query">
 <span class="sig-name descname"><span class="pre">get_resources_by_query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">last_updated_start_date</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">last_updated_end_date</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">concurrent_requests</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">page_size_for_retrieving_resources</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">page_size_for_retrieving_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_batch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fn_handle_error</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#helix_fhir_client_sdk.fhir_client.FhirClient.get_resources_by_query" title="Permalink to this definition">¶</a></dt>
-<dd><p>Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel
-:param fn_handle_error: Optional function to call when there is an error
-:param fn_handle_batch: Optional function to call when a batch is downloaded
-:param last_updated_start_date: find resources updated after this datetime
-:param last_updated_end_date: find resources updated before this datetime
-:param concurrent_requests: number of concurrent requests to make to the server
-:param page_size_for_retrieving_resources: number of resources to download in one batch
-:param page_size_for_retrieving_ids:: number of ids to download in one batch</p>
+<dd><p>Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>last_updated_start_date</strong> (<em>Optional</em><em>[</em><em>datetime.datetime</em><em>]</em>) – </p></li>
-<li><p><strong>last_updated_end_date</strong> (<em>Optional</em><em>[</em><em>datetime.datetime</em><em>]</em>) – </p></li>
-<li><p><strong>concurrent_requests</strong> (<em>int</em>) – </p></li>
-<li><p><strong>page_size_for_retrieving_resources</strong> (<em>int</em>) – </p></li>
+<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – Optional function to execute on each page of data.  Note that if this is passed we don’t
+return the resources in the response anymore.  If this function returns false then we
+stop processing any further batches.</p></li>
+<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – function that is called when there is an error</p></li>
+<li><p><strong>last_updated_start_date</strong> (<em>Optional</em><em>[</em><em>datetime.datetime</em><em>]</em>) – (Optional) get ids updated after this date</p></li>
+<li><p><strong>last_updated_end_date</strong> (<em>Optional</em><em>[</em><em>datetime.datetime</em><em>]</em>) – (Optional) get ids updated before this date</p></li>
+<li><p><strong>concurrent_requests</strong> (<em>int</em>) – number of concurrent requests to make to the server</p></li>
+<li><p><strong>page_size_for_retrieving_resources</strong> (<em>int</em>) – number of resources to download in one batch</p></li>
+<li><p><strong>page_size_for_retrieving_ids:</strong> – number of ids to download in one batch</p></li>
 <li><p><strong>page_size_for_retrieving_ids</strong> (<em>int</em>) – </p></li>
-<li><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>HandleBatchFunction</em><em>]</em>) – </p></li>
-<li><p><strong>fn_handle_error</strong> (<em>Optional</em><em>[</em><em>HandleErrorFunction</em><em>]</em>) – </p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type</dt>
@@ -1091,10 +1090,9 @@ stop processing any further batches.</p></li>
 <dd><p>Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>Callable</em><em>[</em><em>[</em><em>List</em><em>[</em><em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em><em>]</em><em>]</em><em>, </em><em>bool</em><em>]</em><em>]</em>) – function to call for each batch.  Receives a list of resources where each
-resource is a dictionary. If this is specified then we don’t return
-the resources anymore.  If this function returns False then we stop
-processing batches.</p>
+<dd class="field-odd"><p><strong>fn_handle_batch</strong> (<em>Optional</em><em>[</em><em>Callable</em><em>[</em><em>[</em><em>List</em><em>[</em><em>Dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em><em>]</em><em>]</em><em>, </em><em>bool</em><em>]</em><em>]</em>) – Optional function to execute on each page of data.  Note that if this is passed we don’t
+return the resources in the response anymore.  If this function returns false then we
+stop processing any further batches.</p>
 </dd>
 <dt class="field-even">Return type</dt>
 <dd class="field-even"><p><a class="reference internal" href="../responses/fhir_get_response/index.html#helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse" title="helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse">helix_fhir_client_sdk.responses.fhir_get_response.FhirGetResponse</a></p>

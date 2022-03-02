@@ -64,6 +64,9 @@ class FhirClient:
     _well_known_configuration_cache_lock: Lock = Lock()
 
     def __init__(self) -> None:
+        """
+        Class used to call FHIR server (uses async and parallel execution to speed up)
+        """
         self._action: Optional[str] = None
         self._action_payload: Optional[Dict[str, Any]] = None
         self._resource: Optional[str] = None
@@ -104,6 +107,8 @@ class FhirClient:
 
     def action(self, action: str) -> "FhirClient":
         """
+        Set the action
+
         :param action: (Optional) do an action e.g., $everything
         """
         self._action = action
@@ -111,6 +116,8 @@ class FhirClient:
 
     def action_payload(self, action_payload: Dict[str, Any]) -> "FhirClient":
         """
+        Set action payload
+
         :param action_payload: (Optional) if action such as $graph needs a http payload
         """
         self._action_payload = action_payload
@@ -118,6 +125,8 @@ class FhirClient:
 
     def resource(self, resource: str) -> "FhirClient":
         """
+        set resource to query
+
         :param resource: what FHIR resource to retrieve
         """
         self._resource = resource
@@ -129,6 +138,9 @@ class FhirClient:
 
     def url(self, url: str) -> "FhirClient":
         """
+        set url
+
+
         :param url: server to call for FHIR
         """
         self._url = url
@@ -136,6 +148,9 @@ class FhirClient:
 
     def validation_server_url(self, validation_server_url: str) -> "FhirClient":
         """
+        set url to validate
+
+
         :param validation_server_url: server to call for FHIR validation
         """
         self._validation_server_url = validation_server_url
@@ -143,6 +158,9 @@ class FhirClient:
 
     def additional_parameters(self, additional_parameters: List[str]) -> "FhirClient":
         """
+        set additional parameters
+
+
         :param additional_parameters: Any additional parameters to send with request
         """
         self._additional_parameters = additional_parameters
@@ -150,6 +168,9 @@ class FhirClient:
 
     def filter_by_resource(self, filter_by_resource: str) -> "FhirClient":
         """
+        filter
+
+
         :param filter_by_resource: filter the resource by this. e.g., /Condition?Patient=1
                 (resource=Condition, filter_by_resource=Patient)
         """
@@ -158,6 +179,9 @@ class FhirClient:
 
     def filter_parameter(self, filter_parameter: str) -> "FhirClient":
         """
+        filter
+
+
         :param filter_parameter: Instead of requesting ?patient=1,
                 do ?subject:Patient=1 (if filter_parameter is subject)
         """
@@ -168,6 +192,9 @@ class FhirClient:
         self, include_only_properties: List[str]
     ) -> "FhirClient":
         """
+        include only these properties
+
+
         :param include_only_properties: includes only these properties
         """
         self._include_only_properties = include_only_properties
@@ -175,6 +202,9 @@ class FhirClient:
 
     def page_number(self, page_number: int) -> "FhirClient":
         """
+        page number to load
+
+
         :param page_number: page number to load
         """
         self._page_number = page_number
@@ -182,6 +212,9 @@ class FhirClient:
 
     def page_size(self, page_size: int) -> "FhirClient":
         """
+        page size
+
+
         :param page_size: (Optional) use paging and get this many items in each page
         """
 
@@ -190,6 +223,9 @@ class FhirClient:
 
     def last_updated_after(self, last_updated_after: datetime) -> "FhirClient":
         """
+        get records updated after this datetime
+
+
         :param last_updated_after: (Optional) Only get records newer than this
         """
         self._last_updated_after = last_updated_after
@@ -197,6 +233,9 @@ class FhirClient:
 
     def last_updated_before(self, last_updated_before: datetime) -> "FhirClient":
         """
+        get records updated before this datetime
+
+
         :param last_updated_before: (Optional) Only get records older than this
         """
         self._last_updated_before = last_updated_before
@@ -204,6 +243,9 @@ class FhirClient:
 
     def sort_fields(self, sort_fields: List[SortField]) -> "FhirClient":
         """
+        sort
+
+
         :param sort_fields: sort by fields in the resource
         """
         self._sort_fields = sort_fields
@@ -211,6 +253,9 @@ class FhirClient:
 
     def auth_server_url(self, auth_server_url: str) -> "FhirClient":
         """
+        auth server url
+
+
         :param auth_server_url: server url to call to get the authentication token
         """
         self._auth_server_url = auth_server_url
@@ -218,6 +263,9 @@ class FhirClient:
 
     def auth_scopes(self, auth_scopes: List[str]) -> "FhirClient":
         """
+        auth scopes
+
+
         :param auth_scopes: list of scopes to request permission for e.g., system/AllergyIntolerance.read
         """
         assert isinstance(auth_scopes, list), f"{type(auth_scopes)} is not a list"
@@ -226,6 +274,9 @@ class FhirClient:
 
     def login_token(self, login_token: str) -> "FhirClient":
         """
+        login token
+
+
         :param login_token: login token to use
         """
         self._login_token = login_token
@@ -333,6 +384,7 @@ class FhirClient:
     async def delete_async(self) -> FhirDeleteResponse:
         """
         Delete the resources
+
         """
         if not self._id:
             raise ValueError("delete requires the ID of FHIR object to delete")
@@ -370,6 +422,7 @@ class FhirClient:
     def delete(self) -> FhirDeleteResponse:
         """
         Delete the resources
+
         """
         result: FhirDeleteResponse = asyncio.run(self.delete_async())
         return result
@@ -399,6 +452,8 @@ class FhirClient:
     async def get_async(self) -> FhirGetResponse:
         """
         Issues a GET call
+
+        :return: response
         """
         ids: Optional[List[str]] = None
         if self._id:
@@ -408,6 +463,11 @@ class FhirClient:
             return await self._get_with_session_async(session=http, ids=ids)
 
     def get(self) -> FhirGetResponse:
+        """
+        Issues a GET call
+
+        :return: response
+        """
         result: FhirGetResponse = asyncio.run(self.get_async())
         return result
 
@@ -419,7 +479,14 @@ class FhirClient:
         id_above: Optional[str] = None,
     ) -> FhirGetResponse:
         """
-        Issues a GET call
+        issues a GET call with the specified session, page_number and ids
+
+
+        :param session:
+        :param page_number:
+        :param ids:
+        :param id_above: return ids greater than this
+        :return: response
         """
         assert self._url, "No FHIR server url was set"
         assert self._resource, "No Resource was set"
@@ -693,9 +760,9 @@ class FhirClient:
 
 
         :param http: session to use
-        :param full_url:
-        :param headers:
-        :param payload:
+        :param full_url: url to call
+        :param headers: headers to send
+        :param payload: payload to send
         """
         if self._action == "$graph":
             if self._logger:
@@ -725,6 +792,7 @@ class FhirClient:
     def create_http_session() -> ClientSession:
         """
         Creates an HTTP Session
+
         """
         # retry_strategy = Retry(
         #     total=5,
@@ -755,6 +823,18 @@ class FhirClient:
         fn_handle_error: Optional[HandleErrorFunction],
         id_above: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
+        """
+        gets data and calls the handlers as data is received
+
+
+        :param session:
+        :param page_number:
+        :param ids: ids to retrieve
+        :param fn_handle_batch: function to call when data is received
+        :param fn_handle_error: function to call when there is an error
+        :param id_above:
+        :return: list of resources
+        """
         result = await self._get_with_session_async(
             session=session, page_number=page_number, ids=ids, id_above=id_above
         )
@@ -780,12 +860,13 @@ class FhirClient:
     ) -> List[PagingResult]:
         """
         Gets the specified page for query
+
         :param session:
         :param start_page:
         :param increment:
-        :param output_queue:
-        :param fn_handle_batch:
-        :param fn_handle_error:
+        :param output_queue: queue to use
+        :param fn_handle_batch: function to call when data is received
+        :param fn_handle_error: function to call when there is an error
         :return: list of paging results
         """
         page_number: int = start_page
@@ -825,7 +906,7 @@ class FhirClient:
             page_number = page_number + increment
         return result
 
-    async def get_page_by_query_tasks_async(
+    async def _get_page_by_query_tasks_async(
         self,
         concurrent_requests: int,
         output_queue: asyncio.Queue[PagingResult],
@@ -835,11 +916,13 @@ class FhirClient:
     ) -> AsyncGenerator[Coroutine[Any, Any, List[PagingResult]], None]:
         """
         Returns tasks to get pages by query
+
+
         :param concurrent_requests:
         :param output_queue:
-        :param fn_handle_batch:
-        :param fn_handle_error:
-        :param http:
+        :param fn_handle_batch: function to call when data is received
+        :param fn_handle_error: function to call when there is an error
+        :param http: session
         :return: task
         """
         for taskNumber in range(concurrent_requests):
@@ -864,6 +947,7 @@ class FhirClient:
         """
         Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
 
+
         :param output_queue:
         :type output_queue:
         :param fn_handle_error:
@@ -886,7 +970,7 @@ class FhirClient:
             for first_completed in asyncio.as_completed(
                 [
                     task
-                    async for task in self.get_page_by_query_tasks_async(
+                    async for task in self._get_page_by_query_tasks_async(
                         http=http,
                         output_queue=output_queue,
                         concurrent_requests=concurrent_requests,
@@ -1187,7 +1271,6 @@ class FhirClient:
         Executes the $graph query on the FHIR server
 
 
-        :param fn_handle_error:
         :param concurrent_requests:
         :param graph_definition: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
@@ -1196,6 +1279,7 @@ class FhirClient:
         :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
                                 return the resources in the response anymore.  If this function returns false then we
                                 stop processing any further batches.
+        :param fn_handle_error: function that is called when there is an error
         """
         assert graph_definition
         assert isinstance(graph_definition, GraphDefinition)
@@ -1242,6 +1326,7 @@ class FhirClient:
         """
         Whether to ask the server to include the total count in the result
 
+
         :param include_total: whether to include total count
         """
         self._include_total = include_total
@@ -1262,6 +1347,7 @@ class FhirClient:
         """
         Update the resource.  This will completely overwrite the resource.  We recommend using merge()
             instead since that does proper merging.
+
 
         :param json_data: data to update the resource with
         """
@@ -1312,6 +1398,13 @@ class FhirClient:
             )
 
     def update(self, json_data: str) -> FhirUpdateResponse:
+        """
+        Update the resource.  This will completely overwrite the resource.  We recommend using merge()
+            instead since that does proper merging.
+
+
+        :param json_data: data to update the resource with
+        """
         result: FhirUpdateResponse = asyncio.run(self.update_async(json_data))
         return result
 
@@ -1322,6 +1415,18 @@ class FhirClient:
         fn_handle_batch: Optional[HandleBatchFunction],
         fn_handle_error: Optional[HandleErrorFunction],
     ) -> List[Dict[str, Any]]:
+        """
+        Given a list of ids, this function loads them in parallel batches
+
+
+        :param concurrent_requests:
+        :param chunks: a generator that returns a list of ids to load in one batch
+        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                                return the resources in the response anymore.  If this function returns false then we
+                                stop processing any further batches.
+        :param fn_handle_error: function that is called when there is an error
+        :return: list of resources
+        """
         queue: asyncio.Queue[List[str]] = asyncio.Queue()
         chunk: List[str]
         for chunk in chunks:
@@ -1329,7 +1434,7 @@ class FhirClient:
 
         async with self.create_http_session() as http:
             tasks = [
-                self.get_resources_by_id_async(
+                self.get_resources_by_id_from_queue_async(
                     session=http,
                     queue=queue,
                     task_number=taskNumber,
@@ -1343,7 +1448,7 @@ class FhirClient:
             await queue.join()
             return result_list
 
-    async def get_resources_by_id_async(
+    async def get_resources_by_id_from_queue_async(
         self,
         session: ClientSession,
         queue: asyncio.Queue[List[str]],
@@ -1351,7 +1456,19 @@ class FhirClient:
         fn_handle_batch: Optional[HandleBatchFunction],
         fn_handle_error: Optional[HandleErrorFunction],
     ) -> List[Dict[str, Any]]:
+        """
+        Gets resources given a queue
 
+
+        :param session:
+        :param queue: queue to use
+        :param task_number:
+        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                                return the resources in the response anymore.  If this function returns false then we
+                                stop processing any further batches.
+        :param fn_handle_error: function that is called when there is an error
+        :return: list of resources
+        """
         result: List[Dict[str, Any]] = []
         while not queue.empty():
             try:
@@ -1376,9 +1493,17 @@ class FhirClient:
 
     # Yield successive n-sized chunks from l.
     @staticmethod
-    def divide_into_chunks(
+    def _divide_into_chunks(
         array: List[Any], chunk_size: int
     ) -> Generator[List[str], None, None]:
+        """
+        Divides a list into a list of chunks
+
+
+        :param array: array to divide into chunks
+        :param chunk_size: size of each chunk
+        :return: generator that returns a list of strings
+        """
         # looping till length l
         for i in range(0, len(array), chunk_size):
             yield array[i : i + chunk_size]
@@ -1386,6 +1511,15 @@ class FhirClient:
     def handle_error(
         self, error: str, response: str, page_number: Optional[int]
     ) -> bool:
+        """
+        Default handler for errors.  Can be replaced by passing in fnError to functions
+
+
+        :param error:  error text
+        :param response: response text
+        :param page_number:
+        :return: whether to continue processing
+        """
         if self._logger:
             self._logger.error(f"page: {page_number} {error}: {response}")
         if self._internal_logger:
@@ -1405,8 +1539,12 @@ class FhirClient:
         """
         Gets results for a query by paging through one day at a time,
             first downloading all the ids and then retrieving resources for each id in parallel
-        :param fn_handle_error: Optional function to call when there is an error
-        :param fn_handle_batch: Optional function to call when a batch is downloaded
+
+
+        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                                return the resources in the response anymore.  If this function returns false then we
+                                stop processing any further batches.
+        :param fn_handle_error: Optional function that is called when there is an error
         :param last_updated_start_date: find resources updated after this datetime
         :param last_updated_end_date: find resources updated before this datetime
         :param concurrent_requests: number of concurrent requests to make to the server
@@ -1436,8 +1574,12 @@ class FhirClient:
         """
         Gets results for a query by paging through one day at a time,
             first downloading all the ids and then retrieving resources for each id in parallel
-        :param fn_handle_error: Optional function to call when there is an error
-        :param fn_handle_batch: Optional function to call when a batch is downloaded
+
+
+        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                                return the resources in the response anymore.  If this function returns false then we
+                                stop processing any further batches.
+        :param fn_handle_error: Optional function that is called when there is an error
         :param last_updated_start_date: find resources updated after this datetime
         :param last_updated_end_date: find resources updated before this datetime
         :param concurrent_requests: number of concurrent requests to make to the server
@@ -1468,8 +1610,12 @@ class FhirClient:
     ) -> List[Dict[str, Any]]:
         """
         Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel
-        :param fn_handle_error: Optional function to call when there is an error
-        :param fn_handle_batch: Optional function to call when a batch is downloaded
+
+
+        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                                return the resources in the response anymore.  If this function returns false then we
+                                stop processing any further batches.
+        :param fn_handle_error: function that is called when there is an error
         :param last_updated_start_date: find resources updated after this datetime
         :param last_updated_end_date: find resources updated before this datetime
         :param concurrent_requests: number of concurrent requests to make to the server
@@ -1484,7 +1630,7 @@ class FhirClient:
             page_size_for_retrieving_ids=page_size_for_retrieving_ids,
         )
         # now split the ids
-        chunks: Generator[List[str], None, None] = self.divide_into_chunks(
+        chunks: Generator[List[str], None, None] = self._divide_into_chunks(
             list_of_ids, page_size_for_retrieving_resources
         )
         # chunks_list = list(chunks)
@@ -1493,6 +1639,13 @@ class FhirClient:
         def add_resources_to_list(
             resources_: List[Dict[str, Any]], page_number: Optional[int]
         ) -> bool:
+            """
+            adds resources to a list of resources
+
+            :param resources_:
+            :param page_number:
+            :return: whether to continue
+            """
             end_batch = time.time()
             resources.extend([resource_ for resource_ in resources_])
             if self._logger:
@@ -1528,9 +1681,9 @@ class FhirClient:
         Gets just the ids of the resources matching the query
 
 
-        :param last_updated_start_date:
-        :param last_updated_end_date:
-        :param concurrent_requests:
+        :param last_updated_start_date: (Optional) get ids updated after this date
+        :param last_updated_end_date: (Optional) get ids updated before this date
+        :param concurrent_requests: number of concurrent requests
         :param page_size_for_retrieving_ids:
         :return: list of ids
         """
@@ -1617,8 +1770,8 @@ class FhirClient:
         Gets just the ids of the resources matching the query
 
 
-        :param last_updated_start_date:
-        :param last_updated_end_date:
+        :param last_updated_start_date: (Optional) get ids updated after this date
+        :param last_updated_end_date: (Optional) get ids updated before this date
         :param concurrent_requests:
         :param page_size_for_retrieving_ids:
         :return: list of ids
@@ -1644,10 +1797,14 @@ class FhirClient:
     ) -> List[Dict[str, Any]]:
         """
         Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel
-        :param fn_handle_error: Optional function to call when there is an error
-        :param fn_handle_batch: Optional function to call when a batch is downloaded
-        :param last_updated_start_date: find resources updated after this datetime
-        :param last_updated_end_date: find resources updated before this datetime
+
+
+        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                                return the resources in the response anymore.  If this function returns false then we
+                                stop processing any further batches.
+        :param fn_handle_error: function that is called when there is an error
+        :param last_updated_start_date: (Optional) get ids updated after this date
+        :param last_updated_end_date: (Optional) get ids updated before this date
         :param concurrent_requests: number of concurrent requests to make to the server
         :param page_size_for_retrieving_resources: number of resources to download in one batch
         :param page_size_for_retrieving_ids:: number of ids to download in one batch
@@ -1670,10 +1827,10 @@ class FhirClient:
         """
         Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
 
-        :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
-                                    resource is a dictionary. If this is specified then we don't return
-                                    the resources anymore.  If this function returns False then we stop
-                                    processing batches.
+
+        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                                return the resources in the response anymore.  If this function returns false then we
+                                stop processing any further batches.
         :return response containing all the resources received
         """
         # if paging is requested then iterate through the pages until the response is empty
@@ -1712,6 +1869,7 @@ class FhirClient:
     ) -> FhirGetResponse:
         """
         Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
+
 
         :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
                                     resource is a dictionary. If this is specified then we don't return
