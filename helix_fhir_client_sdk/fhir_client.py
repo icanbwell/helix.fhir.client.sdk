@@ -330,8 +330,7 @@ class FhirClient:
         self._limit = limit
         return self
 
-    @property
-    async def access_token_async(self) -> Optional[str]:
+    async def get_access_token_async(self) -> Optional[str]:
         """
         Gets current access token
 
@@ -361,15 +360,8 @@ class FhirClient:
                 )
         return self._access_token
 
-    @access_token_async.setter
-    def access_token_async(self, value: str) -> None:
-        """
-        Sets access token
-
-
-        :param value: value to set access token to
-        """
-        self._access_token = value
+    def get_access_token(self) -> Optional[str]:
+        return asyncio.run(self.get_access_token_async())
 
     def set_access_token(self, value: str) -> "FhirClient":
         """
@@ -398,9 +390,9 @@ class FhirClient:
             # set up headers
             headers: Dict[str, str] = {}
 
-            access_token = await self.access_token_async
+            access_token = await self.get_access_token_async()
             # set access token in request if present
-            if await self.access_token_async:
+            if access_token:
                 headers["Authorization"] = f"Bearer {access_token}"
 
             # actually make the request
@@ -589,8 +581,10 @@ class FhirClient:
             }
 
             # set access token in request if present
-            if await self.access_token_async:
-                headers["Authorization"] = f"Bearer {await self.access_token_async}"
+            if await self.get_access_token_async():
+                headers[
+                    "Authorization"
+                ] = f"Bearer {await self.get_access_token_async()}"
 
             # actually make the request
             if session is None:
@@ -1084,8 +1078,10 @@ class FhirClient:
             responses: List[Dict[str, Any]] = []
             async with self.create_http_session() as http:
                 # set access token in request if present
-                if await self.access_token_async:
-                    headers["Authorization"] = f"Bearer {await self.access_token_async}"
+                if await self.get_access_token_async():
+                    headers[
+                        "Authorization"
+                    ] = f"Bearer {await self.get_access_token_async()}"
 
                 try:
                     resource_json_list: List[Dict[str, Any]] = [
@@ -1367,9 +1363,9 @@ class FhirClient:
             # set up headers
             headers = {"Content-Type": "application/fhir+json"}
 
-            access_token = await self.access_token_async
+            access_token = await self.get_access_token_async()
             # set access token in request if present
-            if await self.access_token_async:
+            if access_token:
                 headers["Authorization"] = f"Bearer {access_token}"
 
             if self._validation_server_url:
@@ -1709,7 +1705,7 @@ class FhirClient:
             return True
 
         # get token first
-        await fhir_client.access_token_async
+        await fhir_client.get_access_token_async()
         if last_updated_start_date is not None and last_updated_end_date is not None:
             assert last_updated_end_date >= last_updated_start_date
             greater_than = last_updated_start_date - timedelta(days=1)
