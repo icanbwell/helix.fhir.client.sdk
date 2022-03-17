@@ -15,3 +15,5 @@ Fluent API to call the FHIR server that handles:
 # Documentation
 https://icanbwell.github.io/helix.fhir.client.sdk/
 
+# Test Project using this
+https://github.com/icanbwell/fhir-server-performance
