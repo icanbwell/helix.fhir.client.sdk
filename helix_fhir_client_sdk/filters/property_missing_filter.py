@@ -10,7 +10,7 @@ class PropertyMissingFilter(BaseFilter):
         :param missing: whether we're checking if it is missing or whether we're checking if it is not missing
         """
         assert property_
-        assert missing
+        assert missing is not None
         self.property_: str = property_
         self.missing: bool = missing
 
