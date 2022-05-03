@@ -22,9 +22,16 @@ from typing import (
 )
 from urllib import parse
 
+# noinspection PyPackageRequirements
 import aiohttp
+
+# noinspection PyPackageRequirements
 import requests
+
+# noinspection PyPackageRequirements
 from aiohttp import ClientSession, ClientResponse, ClientPayloadError
+
+# noinspection PyPackageRequirements
 from furl import furl
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
@@ -41,11 +48,14 @@ from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValid
 from helix_fhir_client_sdk.well_known_configuration import (
     WellKnownConfigurationCacheEntry,
 )
+
+# noinspection PyPackageRequirements
 from requests.adapters import BaseAdapter
 
 # from urllib3 import Retry  # type: ignore
 
 HandleBatchFunction = Callable[[List[Dict[str, Any]], Optional[int]], bool]
+HandleStreamingChunkFunction = Callable[[bytes, Optional[int]], bool]
 HandleErrorFunction = Callable[[str, str, Optional[int]], bool]
 
 
@@ -103,6 +113,8 @@ class FhirClient:
         self._stop_processing: bool = False
         self._authentication_token_lock: Lock = Lock()
         self._last_page: Optional[int] = None
+
+        self._use_data_streaming: bool = False
         self._last_page_lock: Lock = Lock()
 
     def action(self, action: str) -> "FhirClient":
@@ -330,6 +342,16 @@ class FhirClient:
         self._limit = limit
         return self
 
+    def use_data_streaming(self, use: bool) -> "FhirClient":
+        """
+        Use data streaming or not
+
+
+        :param use: where to use data streaming
+        """
+        self._use_data_streaming = use
+        return self
+
     async def get_access_token_async(self) -> Optional[str]:
         """
         Gets current access token
@@ -441,7 +463,9 @@ class FhirClient:
         self._expand_fhir_bundle = expand_fhir_bundle
         return self
 
-    async def get_async(self) -> FhirGetResponse:
+    async def get_async(
+        self, data_chunk_handler: Optional[HandleStreamingChunkFunction] = None
+    ) -> FhirGetResponse:
         """
         Issues a GET call
 
@@ -452,7 +476,9 @@ class FhirClient:
             ids = self._id if isinstance(self._id, list) else [self._id]
         # actually make the request
         async with self.create_http_session() as http:
-            return await self._get_with_session_async(session=http, ids=ids)
+            return await self._get_with_session_async(
+                session=http, ids=ids, fn_handle_streaming_chunk=data_chunk_handler
+            )
 
     def get(self) -> FhirGetResponse:
         """
@@ -469,6 +495,7 @@ class FhirClient:
         page_number: Optional[int] = None,
         ids: Optional[List[str]] = None,
         id_above: Optional[str] = None,
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
     ) -> FhirGetResponse:
         """
         issues a GET call with the specified session, page_number and ids
@@ -575,7 +602,9 @@ class FhirClient:
                 self._action_payload if self._action_payload else {}
             )
             headers = {
-                "Accept": "application/json",
+                "Accept": "application/fhir+ndjson"
+                if self._use_data_streaming
+                else "application/fhir+json",
                 "Content-Type": "application/fhir+json",
                 "Accept-Encoding": "gzip,deflate",
             }
@@ -594,78 +623,102 @@ class FhirClient:
             response: ClientResponse = await self._send_fhir_request_async(
                 http, full_url, headers, payload
             )
+
+            # if using streams, use ndjson content type:
+            # async for data, _ in response.content.iter_chunks():
+            #     print(data)
+
             # if request is ok (200) then return the data
             if response.ok:
-                if self._logger:
-                    self._logger.info(f"Successfully retrieved: {full_url}")
-
                 total_count: int = 0
-                # noinspection PyBroadException
-                try:
-                    text = await response.text()
-                except ClientPayloadError as e:
-                    # do a retry
+                if self._use_data_streaming:
+                    chunk_number = 0
+                    line: bytes
+                    async for line in response.content:
+                        chunk_number += 1
+                        if fn_handle_streaming_chunk:
+                            fn_handle_streaming_chunk(line, chunk_number)
+                        if self._logger:
+                            self._logger.info(
+                                f"Successfully retrieved chunk {chunk_number}: {full_url}"
+                            )
+                        resources = line.decode("utf-8")
+                else:
                     if self._logger:
-                        self._logger.error(f"{e}: {response.headers}")
-                    continue
-                if len(text) > 0:
-                    response_json: Dict[str, Any] = json.loads(text)
-                    # see if this is a Resource Bundle and un-bundle it
-                    if (
-                        self._expand_fhir_bundle
-                        and "resourceType" in response_json
-                        and response_json["resourceType"] == "Bundle"
-                    ):
-                        if "total" in response_json:
-                            total_count = int(response_json["total"])
-                        if "entry" in response_json:
-                            entries: List[Dict[str, Any]] = response_json["entry"]
-                            entry: Dict[str, Any]
-                            resources_list: List[Dict[str, Any]] = []
-                            for entry in entries:
-                                if "resource" in entry:
-                                    if self._separate_bundle_resources:
-                                        if self._action != "$graph":
-                                            raise Exception(
-                                                "only $graph action with _separate_bundle_resources=True"
-                                                " is supported at this moment"
-                                            )
-                                        resources_dict: Dict[
-                                            str, List[Any]
-                                        ] = {}  # {resource type: [data]}}
-                                        # iterate through the entry list
-                                        # have to split these here otherwise when Spark loads them it can't handle
-                                        # that items in the entry array can have different types
-                                        resource_type: str = str(
-                                            entry["resource"]["resourceType"]
-                                        ).lower()
-                                        parent_resource: Dict[str, Any] = entry[
-                                            "resource"
-                                        ]
-                                        resources_dict[resource_type] = [
-                                            parent_resource
-                                        ]
-                                        # $graph returns "contained" if there is any related resources
-                                        if "contained" in entry["resource"]:
-                                            contained = parent_resource.pop("contained")
-                                            for contained_entry in contained:
-                                                resource_type = str(
-                                                    contained_entry["resourceType"]
-                                                ).lower()
-                                                if resource_type not in resources_dict:
-                                                    resources_dict[resource_type] = []
-
-                                                resources_dict[resource_type].append(
-                                                    contained_entry
+                        self._logger.info(f"Successfully retrieved: {full_url}")
+                    # noinspection PyBroadException
+                    try:
+                        text = await response.text()
+                    except ClientPayloadError as e:
+                        # do a retry
+                        if self._logger:
+                            self._logger.error(f"{e}: {response.headers}")
+                        continue
+                    if len(text) > 0:
+                        response_json: Dict[str, Any] = json.loads(text)
+                        # see if this is a Resource Bundle and un-bundle it
+                        if (
+                            self._expand_fhir_bundle
+                            and "resourceType" in response_json
+                            and response_json["resourceType"] == "Bundle"
+                        ):
+                            if "total" in response_json:
+                                total_count = int(response_json["total"])
+                            if "entry" in response_json:
+                                entries: List[Dict[str, Any]] = response_json["entry"]
+                                entry: Dict[str, Any]
+                                resources_list: List[Dict[str, Any]] = []
+                                for entry in entries:
+                                    if "resource" in entry:
+                                        if self._separate_bundle_resources:
+                                            if self._action != "$graph":
+                                                raise Exception(
+                                                    "only $graph action with _separate_bundle_resources=True"
+                                                    " is supported at this moment"
                                                 )
-                                        resources_list.append(resources_dict)
+                                            resources_dict: Dict[
+                                                str, List[Any]
+                                            ] = {}  # {resource type: [data]}}
+                                            # iterate through the entry list
+                                            # have to split these here otherwise when Spark loads them it can't handle
+                                            # that items in the entry array can have different types
+                                            resource_type: str = str(
+                                                entry["resource"]["resourceType"]
+                                            ).lower()
+                                            parent_resource: Dict[str, Any] = entry[
+                                                "resource"
+                                            ]
+                                            resources_dict[resource_type] = [
+                                                parent_resource
+                                            ]
+                                            # $graph returns "contained" if there is any related resources
+                                            if "contained" in entry["resource"]:
+                                                contained = parent_resource.pop(
+                                                    "contained"
+                                                )
+                                                for contained_entry in contained:
+                                                    resource_type = str(
+                                                        contained_entry["resourceType"]
+                                                    ).lower()
+                                                    if (
+                                                        resource_type
+                                                        not in resources_dict
+                                                    ):
+                                                        resources_dict[
+                                                            resource_type
+                                                        ] = []
 
-                                    else:
-                                        resources_list.append(entry["resource"])
+                                                    resources_dict[
+                                                        resource_type
+                                                    ].append(contained_entry)
+                                            resources_list.append(resources_dict)
 
-                            resources = json.dumps(resources_list)
-                    else:
-                        resources = text
+                                        else:
+                                            resources_list.append(entry["resource"])
+
+                                resources = json.dumps(resources_list)
+                        else:
+                            resources = text
                 return FhirGetResponse(
                     url=full_url,
                     responses=resources,
@@ -815,12 +868,14 @@ class FhirClient:
         ids: Optional[List[str]],
         fn_handle_batch: Optional[HandleBatchFunction],
         fn_handle_error: Optional[HandleErrorFunction],
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
         id_above: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         gets data and calls the handlers as data is received
 
 
+        :param fn_handle_streaming_chunk:
         :param session:
         :param page_number:
         :param ids: ids to retrieve
@@ -830,7 +885,11 @@ class FhirClient:
         :return: list of resources
         """
         result = await self._get_with_session_async(
-            session=session, page_number=page_number, ids=ids, id_above=id_above
+            session=session,
+            page_number=page_number,
+            ids=ids,
+            id_above=id_above,
+            fn_handle_streaming_chunk=fn_handle_streaming_chunk,
         )
         if result.error:
             if fn_handle_error:
@@ -851,10 +910,12 @@ class FhirClient:
         output_queue: asyncio.Queue[PagingResult],
         fn_handle_batch: Optional[HandleBatchFunction],
         fn_handle_error: Optional[HandleErrorFunction],
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
     ) -> List[PagingResult]:
         """
         Gets the specified page for query
 
+        :param fn_handle_streaming_chunk:
         :param session:
         :param start_page:
         :param increment:
@@ -876,6 +937,7 @@ class FhirClient:
                 ids=None,
                 fn_handle_batch=fn_handle_batch,
                 fn_handle_error=fn_handle_error,
+                fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                 id_above=id_above,
             )
             if result_for_page and len(result_for_page) > 0:
@@ -906,6 +968,7 @@ class FhirClient:
         output_queue: asyncio.Queue[PagingResult],
         fn_handle_batch: Optional[HandleBatchFunction],
         fn_handle_error: Optional[HandleErrorFunction],
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
         http: ClientSession,
     ) -> AsyncGenerator[Coroutine[Any, Any, List[PagingResult]], None]:
         """
@@ -928,6 +991,7 @@ class FhirClient:
                     output_queue=output_queue,
                     fn_handle_batch=fn_handle_batch,
                     fn_handle_error=fn_handle_error,
+                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                 )
             )
 
@@ -937,11 +1001,13 @@ class FhirClient:
         output_queue: asyncio.Queue[PagingResult],
         fn_handle_batch: Optional[HandleBatchFunction],
         fn_handle_error: Optional[HandleErrorFunction],
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
     ) -> FhirGetResponse:
         """
         Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
 
 
+        :param fn_handle_streaming_chunk:
         :param output_queue:
         :type output_queue:
         :param fn_handle_error:
@@ -970,6 +1036,7 @@ class FhirClient:
                         concurrent_requests=concurrent_requests,
                         fn_handle_batch=fn_handle_batch,
                         fn_handle_error=fn_handle_error,
+                        fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                     )
                 ]
             ):
@@ -1261,12 +1328,15 @@ class FhirClient:
         process_in_batches: Optional[bool] = None,
         fn_handle_batch: Optional[HandleBatchFunction] = None,
         fn_handle_error: Optional[HandleErrorFunction] = None,
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
         concurrent_requests: int = 1,
     ) -> FhirGetResponse:
         """
         Executes the $graph query on the FHIR server
 
 
+        :param fn_handle_streaming_chunk:
+        :type fn_handle_streaming_chunk:
         :param concurrent_requests:
         :param graph_definition: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
@@ -1291,13 +1361,16 @@ class FhirClient:
         output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
         async with self.create_http_session() as http:
             return (
-                await self._get_with_session_async(session=http)
+                await self._get_with_session_async(
+                    session=http, fn_handle_streaming_chunk=fn_handle_streaming_chunk
+                )
                 if not process_in_batches
                 else await self.get_by_query_in_pages_async(
                     concurrent_requests=concurrent_requests,
                     output_queue=output_queue,
                     fn_handle_error=fn_handle_error,
                     fn_handle_batch=fn_handle_batch,
+                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                 )
             )
 
@@ -1444,6 +1517,7 @@ class FhirClient:
             await queue.join()
             return result_list
 
+    # noinspection PyUnusedLocal
     async def get_resources_by_id_from_queue_async(
         self,
         session: ClientSession,
@@ -1689,6 +1763,10 @@ class FhirClient:
         fhir_client = fhir_client.page_size(page_size_for_retrieving_ids)
         output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
 
+        # noinspection PyUnusedLocal
+        def on_streaming_chunk(data: bytes, chunk_number: Optional[int]) -> bool:
+            return True
+
         def add_to_list(
             resources_: List[Dict[str, Any]], page_number: Optional[int]
         ) -> bool:
@@ -1728,6 +1806,7 @@ class FhirClient:
                     output_queue=output_queue,
                     fn_handle_batch=add_to_list,
                     fn_handle_error=self.handle_error,
+                    fn_handle_streaming_chunk=on_streaming_chunk,
                 )
                 fhir_client._last_page = None  # clean any previous setting
                 end = time.time()
@@ -1743,6 +1822,7 @@ class FhirClient:
                 output_queue=output_queue,
                 fn_handle_batch=add_to_list,
                 fn_handle_error=self.handle_error,
+                fn_handle_streaming_chunk=on_streaming_chunk,
             )
             fhir_client._last_page = None  # clean any previous setting
             end = time.time()
