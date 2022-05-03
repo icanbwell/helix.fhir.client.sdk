@@ -19,6 +19,7 @@ from typing import (
     Generator,
     AsyncGenerator,
     Coroutine,
+    Awaitable,
 )
 from urllib import parse
 
@@ -55,7 +56,7 @@ from requests.adapters import BaseAdapter
 # from urllib3 import Retry  # type: ignore
 
 HandleBatchFunction = Callable[[List[Dict[str, Any]], Optional[int]], bool]
-HandleStreamingChunkFunction = Callable[[bytes, Optional[int]], bool]
+HandleStreamingChunkFunction = Callable[[bytes, Optional[int]], Awaitable[bool]]
 HandleErrorFunction = Callable[[str, str, Optional[int]], bool]
 
 
@@ -637,7 +638,7 @@ class FhirClient:
                     async for line in response.content:
                         chunk_number += 1
                         if fn_handle_streaming_chunk:
-                            fn_handle_streaming_chunk(line, chunk_number)
+                            await fn_handle_streaming_chunk(line, chunk_number)
                         if self._logger:
                             self._logger.info(
                                 f"Successfully retrieved chunk {chunk_number}: {full_url}"
@@ -1764,7 +1765,7 @@ class FhirClient:
         output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
 
         # noinspection PyUnusedLocal
-        def on_streaming_chunk(data: bytes, chunk_number: Optional[int]) -> bool:
+        async def on_streaming_chunk(data: bytes, chunk_number: Optional[int]) -> bool:
             return True
 
         def add_to_list(
