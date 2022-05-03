@@ -630,6 +630,7 @@ class FhirClient:
 
             # if request is ok (200) then return the data
             if response.ok:
+                total_count: int = 0
                 if self._use_data_streaming:
                     chunk_number = 0
                     line: bytes
@@ -641,11 +642,10 @@ class FhirClient:
                             self._logger.info(
                                 f"Successfully retrieved chunk {chunk_number}: {full_url}"
                             )
+                        resources = line.decode("utf-8")
                 else:
                     if self._logger:
                         self._logger.info(f"Successfully retrieved: {full_url}")
-
-                    total_count: int = 0
                     # noinspection PyBroadException
                     try:
                         text = await response.text()
@@ -719,14 +719,14 @@ class FhirClient:
                                 resources = json.dumps(resources_list)
                         else:
                             resources = text
-                    return FhirGetResponse(
-                        url=full_url,
-                        responses=resources,
-                        error=None,
-                        access_token=self._access_token,
-                        total_count=total_count,
-                        status=response.status,
-                    )
+                return FhirGetResponse(
+                    url=full_url,
+                    responses=resources,
+                    error=None,
+                    access_token=self._access_token,
+                    total_count=total_count,
+                    status=response.status,
+                )
             elif response.status == 404:  # not found
                 if self._logger:
                     self._logger.error(f"resource not found! {full_url}")
