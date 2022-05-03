@@ -7,6 +7,7 @@ Fluent API to call the FHIR server that handles:
 3. Retry when there are transient errors
 4. Un-bundling the resources received from FHIR server
 5. Paging
+6. Streaming
 
 
 # Usage

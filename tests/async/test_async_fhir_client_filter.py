@@ -185,7 +185,7 @@ async def test_fhir_client_filter_async() -> None:
         [IdentifierFilter(system="http://hl7.org/fhir/sid/us-npi", value="1487831681")]
     )
 
-    def handle_batch(
+    async def handle_batch(
         x: Optional[List[Dict[str, Any]]], page_number: Optional[int]
     ) -> bool:
         if x:
