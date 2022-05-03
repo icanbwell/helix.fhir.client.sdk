@@ -171,7 +171,7 @@ def test_fhir_client_patient_list_in_batches() -> None:
     fhir_client = fhir_client.page_size(10)
     fhir_client = fhir_client.include_total(True)
 
-    def handle_batch(
+    async def handle_batch(
         x: Optional[List[Dict[str, Any]]], page_number: Optional[int]
     ) -> bool:
         if x:

@@ -55,9 +55,9 @@ from requests.adapters import BaseAdapter
 
 # from urllib3 import Retry  # type: ignore
 
-HandleBatchFunction = Callable[[List[Dict[str, Any]], Optional[int]], bool]
+HandleBatchFunction = Callable[[List[Dict[str, Any]], Optional[int]], Awaitable[bool]]
 HandleStreamingChunkFunction = Callable[[bytes, Optional[int]], Awaitable[bool]]
-HandleErrorFunction = Callable[[str, str, Optional[int]], bool]
+HandleErrorFunction = Callable[[str, str, Optional[int]], Awaitable[bool]]
 
 
 class FhirClient:
@@ -894,11 +894,14 @@ class FhirClient:
         )
         if result.error:
             if fn_handle_error:
-                fn_handle_error(result.error, result.responses, page_number)
+                await fn_handle_error(result.error, result.responses, page_number)
         elif not result.error and bool(result.responses):
             result_list: List[Dict[str, Any]] = json.loads(result.responses)
             if fn_handle_batch:
-                if fn_handle_batch(result_list, page_number) is False:
+                handle_batch_result: bool = await fn_handle_batch(
+                    result_list, page_number
+                )
+                if handle_batch_result is False:
                     self._stop_processing = True
             return result_list
         return []
@@ -1579,7 +1582,7 @@ class FhirClient:
         for i in range(0, len(array), chunk_size):
             yield array[i : i + chunk_size]
 
-    def handle_error(
+    async def handle_error(
         self, error: str, response: str, page_number: Optional[int]
     ) -> bool:
         """
@@ -1707,7 +1710,7 @@ class FhirClient:
         # chunks_list = list(chunks)
         resources = []
 
-        def add_resources_to_list(
+        async def add_resources_to_list(
             resources_: List[Dict[str, Any]], page_number: Optional[int]
         ) -> bool:
             """
@@ -1768,7 +1771,7 @@ class FhirClient:
         async def on_streaming_chunk(data: bytes, chunk_number: Optional[int]) -> bool:
             return True
 
-        def add_to_list(
+        async def add_to_list(
             resources_: List[Dict[str, Any]], page_number: Optional[int]
         ) -> bool:
             end_batch = time.time()
