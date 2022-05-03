@@ -604,7 +604,7 @@ class FhirClient:
             headers = {
                 "Accept": "application/fhir+ndjson"
                 if self._use_data_streaming
-                else "application/json",
+                else "application/fhir+json",
                 "Content-Type": "application/fhir+json",
                 "Accept-Encoding": "gzip,deflate",
             }
