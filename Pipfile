@@ -9,6 +9,7 @@ requests = "*"
 urllib3 = "*"
 chardet = "*"
 aiohttp = "*"
+multidict = "*"
 
 [dev-packages]
 setuptools=">=60.9.3"
