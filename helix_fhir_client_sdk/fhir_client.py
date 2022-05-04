@@ -1936,6 +1936,7 @@ class FhirClient:
         Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel
 
 
+        :param fn_handle_streaming_chunk:
         :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
                                 return the resources in the response anymore.  If this function returns false then we
                                 stop processing any further batches.
