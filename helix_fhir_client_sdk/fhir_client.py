@@ -531,14 +531,26 @@ class FhirClient:
             full_uri /= self._resource
             if self._obj_id:
                 full_uri /= parse.quote(str(self._obj_id), safe="")
-            full_url = await self._set_parameters_in_query_string(
-                full_uri, id_above, ids, page_number
+
+            # add action to url
+            if self._action:
+                full_uri /= self._action
+
+            # create the query
+            full_url = (
+                await self._set_parameters_in_query_string(
+                    full_uri, id_above, ids, page_number
+                )
+                if not self._use_post_for_search
+                else ""
             )
 
-            # set up headers
+            # set up payload
             payload: Dict[str, str] = (
                 self._action_payload if self._action_payload else {}
             )
+
+            # set up headers
             headers = {
                 "Accept": "application/fhir+ndjson"
                 if self._use_data_streaming
@@ -764,9 +776,6 @@ class FhirClient:
                     full_uri /= ids
                 else:
                     full_uri.args["id"] = ",".join(sorted(ids))
-        # add action to url
-        if self._action:
-            full_uri /= self._action
         # add a query for just desired properties
         if self._include_only_properties:
             full_uri.args["_elements"] = ",".join(self._include_only_properties)
