@@ -643,7 +643,7 @@ class FhirClient:
                             self._logger.info(
                                 f"Successfully retrieved chunk {chunk_number}: {full_url}"
                             )
-                        resources = line.decode("utf-8")
+                        resources += line.decode("utf-8")
                 else:
                     if self._logger:
                         self._logger.info(f"Successfully retrieved: {full_url}")
@@ -896,7 +896,11 @@ class FhirClient:
             if fn_handle_error:
                 await fn_handle_error(result.error, result.responses, page_number)
         elif not result.error and bool(result.responses):
-            result_list: List[Dict[str, Any]] = json.loads(result.responses)
+            result_list: Union[List[Dict[str, Any]], Dict[str, Any]] = json.loads(
+                result.responses
+            )
+            if isinstance(result_list, dict):  # if we got a dict i.e., ndjson
+                result_list = [result_list]
             if fn_handle_batch:
                 handle_batch_result: bool = await fn_handle_batch(
                     result_list, page_number
@@ -1811,7 +1815,9 @@ class FhirClient:
         ) -> bool:
             end_batch = time.time()
             assert isinstance(list_of_ids, list)
-            list_of_ids.extend([resource_["id"] for resource_ in resources_])
+            assert isinstance(resources_, list)
+            for resource_ in resources_:
+                list_of_ids.append(resource_["id"])
             if fn_handle_ids:
                 await fn_handle_ids(resources_, page_number)
             if self._logger:
