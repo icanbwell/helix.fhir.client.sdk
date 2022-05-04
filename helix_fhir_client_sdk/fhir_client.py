@@ -118,6 +118,8 @@ class FhirClient:
         self._use_data_streaming: bool = False
         self._last_page_lock: Lock = Lock()
 
+        self._use_post_for_search: bool = False
+
     def action(self, action: str) -> "FhirClient":
         """
         Set the action
@@ -351,6 +353,16 @@ class FhirClient:
         :param use: where to use data streaming
         """
         self._use_data_streaming = use
+        return self
+
+    def use_post_for_search(self, use: bool) -> "FhirClient":
+        """
+        Whether to use POST instead of GET for search
+
+
+        :param use:
+        """
+        self._use_post_for_search = use
         return self
 
     async def get_access_token_async(self) -> Optional[str]:
