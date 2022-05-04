@@ -896,11 +896,19 @@ class FhirClient:
             if fn_handle_error:
                 await fn_handle_error(result.error, result.responses, page_number)
         elif not result.error and bool(result.responses):
-            result_list: Union[List[Dict[str, Any]], Dict[str, Any]] = json.loads(
-                result.responses
-            )
-            if isinstance(result_list, dict):  # if we got a dict i.e., ndjson
-                result_list = [result_list]
+            result_list: List[Dict[str, Any]] = []
+            if self._use_data_streaming:
+                # convert ndjson to a list
+                assert isinstance(result.responses, str)
+                ndjson_content = result.responses
+                for ndjson_line in ndjson_content.splitlines():
+                    if not ndjson_line.strip():
+                        continue  # ignore empty lines
+                    json_line = json.loads(ndjson_line)
+                    result_list.append(json_line)
+            else:
+                result_list = json.loads(result.responses)
+                assert isinstance(result_list, list)
             if fn_handle_batch:
                 handle_batch_result: bool = await fn_handle_batch(
                     result_list, page_number
