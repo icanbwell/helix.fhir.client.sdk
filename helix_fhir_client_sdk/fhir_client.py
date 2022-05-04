@@ -547,7 +547,11 @@ class FhirClient:
 
             # set up payload
             payload: Dict[str, str] = (
-                self._action_payload if self._action_payload else {}
+                (self._action_payload if self._action_payload else {})
+                if not self._use_post_for_search
+                else await self._set_parameters_in_payload(
+                    full_uri, id_above, ids, page_number
+                )
             )
 
             # set up headers
@@ -831,6 +835,82 @@ class FhirClient:
                 full_url += "?"
             full_url += f"id:above={id_above}"
         return full_url
+
+    async def _set_parameters_in_payload(
+        self,
+        full_uri: furl,
+        id_above: Optional[str],
+        ids: Optional[List[str]],
+        page_number: Optional[int],
+    ) -> Dict[str, Union[str, int]]:
+        """
+        Creates the query string for the url query
+
+
+        :param full_uri:
+        :param id_above:
+        :param ids:
+        :param page_number:
+        """
+
+        payload: Dict[str, Union[str, int]] = {}
+        if ids is not None and len(ids) > 0:
+            if self._filter_by_resource:
+                if self._filter_parameter:
+                    # ?subject:Patient=27384972
+                    payload[
+                        f"{self._filter_parameter}:{self._filter_by_resource}"
+                    ] = ids[0]
+                else:
+                    # ?patient=27384972
+                    payload[self._filter_by_resource.lower()] = ids[0]
+            else:
+                payload["id"] = ",".join(sorted(ids))
+        # add a query for just desired properties
+        if self._include_only_properties:
+            payload["_elements"] = ",".join(self._include_only_properties)
+        if self._page_size and (
+            self._page_number is not None or page_number is not None
+        ):
+            # noinspection SpellCheckingInspection
+            payload["_count"] = self._page_size
+            if page_number:
+                # noinspection SpellCheckingInspection
+                payload["_getpagesoffset"] = page_number
+            elif self._page_number:
+                # noinspection SpellCheckingInspection
+                payload["_getpagesoffset"] = self._page_number
+        # add any sort fields
+        if self._sort_fields is not None:
+            payload["_sort"] = ",".join([str(s) for s in self._sort_fields])
+        if self._additional_parameters:
+            # split on &
+            for parameter in self._additional_parameters:
+                parameter_parts: List[str] = parameter.split("=")
+                parameter_name: str = parameter_parts[0]
+                parameter_value: str = parameter_parts[1]
+                payload[parameter_name] = parameter_value
+        if self._include_total:
+            payload["_total"] = "accurate"
+        if self._filters and len(self._filters) > 0:
+            filter_set = set([str(f) for f in self._filters])
+            for filter_ in filter_set:
+                filter_parts: List[str] = filter_.split("=")
+                filter_name: str = filter_parts[0]
+                filter_value: str = filter_parts[1]
+                payload[filter_name] = filter_value
+        # have to be done here since this arg can be used twice
+        if self._last_updated_before:
+            payload[
+                "_lastUpdated"
+            ] = f"lt{self._last_updated_before.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+        if self._last_updated_after:
+            payload[
+                "_lastUpdated"
+            ] = f"ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+        if id_above is not None:
+            payload["id:above"] = id_above
+        return payload
 
     async def _send_fhir_request_async(
         self,
