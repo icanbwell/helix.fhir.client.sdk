@@ -1554,26 +1554,25 @@ class FhirClient:
         :return: list of resources
         """
         result: List[Dict[str, Any]] = []
-        page_number: int = 0
         while not queue.empty():
             try:
                 chunk = queue.get_nowait()
                 # Notify the queue that the "work item" has been processed.
                 queue.task_done()
                 if chunk is not None:
-                    page_number += 1
                     result_per_chunk: List[
                         Dict[str, Any]
                     ] = await self.get_with_handler_async(
                         session=session,
-                        page_number=page_number,
+                        page_number=0,  # this stays at 0 as we're always just loading the first page with id:above
                         ids=chunk,
                         fn_handle_batch=fn_handle_batch,
                         fn_handle_error=fn_handle_error,
                         fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                     )
                     if result_per_chunk:
-                        result.extend(result_per_chunk)
+                        for result_ in result_per_chunk:
+                            result.append(result_)
             except Empty:
                 break
         return result
@@ -1748,7 +1747,8 @@ class FhirClient:
             :return: whether to continue
             """
             end_batch = time.time()
-            resources.extend([resource_ for resource_ in resources_])
+            for resource_ in resources_:
+                resources.append(resource_)
             if self._logger:
                 self._logger.info(
                     f"Received {len(resources_)} resources (total={len(resources)}/{len(list_of_ids)})"
@@ -1845,7 +1845,7 @@ class FhirClient:
                 await fhir_client.get_by_query_in_pages_async(
                     concurrent_requests=concurrent_requests,
                     output_queue=output_queue,
-                    fn_handle_batch=fn_handle_batch or add_to_list,
+                    fn_handle_batch=add_to_list,
                     fn_handle_error=fn_handle_error or self.handle_error,
                     fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                 )
