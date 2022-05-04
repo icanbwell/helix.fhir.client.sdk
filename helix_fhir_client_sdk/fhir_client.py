@@ -118,6 +118,8 @@ class FhirClient:
         self._use_data_streaming: bool = False
         self._last_page_lock: Lock = Lock()
 
+        self._use_post_for_search: bool = False
+
     def action(self, action: str) -> "FhirClient":
         """
         Set the action
@@ -351,6 +353,16 @@ class FhirClient:
         :param use: where to use data streaming
         """
         self._use_data_streaming = use
+        return self
+
+    def use_post_for_search(self, use: bool) -> "FhirClient":
+        """
+        Whether to use POST instead of GET for search
+
+
+        :param use:
+        """
+        self._use_post_for_search = use
         return self
 
     async def get_access_token_async(self) -> Optional[str]:
@@ -643,7 +655,7 @@ class FhirClient:
                             self._logger.info(
                                 f"Successfully retrieved chunk {chunk_number}: {full_url}"
                             )
-                        resources = line.decode("utf-8")
+                        resources += line.decode("utf-8")
                 else:
                     if self._logger:
                         self._logger.info(f"Successfully retrieved: {full_url}")
@@ -896,7 +908,19 @@ class FhirClient:
             if fn_handle_error:
                 await fn_handle_error(result.error, result.responses, page_number)
         elif not result.error and bool(result.responses):
-            result_list: List[Dict[str, Any]] = json.loads(result.responses)
+            result_list: List[Dict[str, Any]] = []
+            if self._use_data_streaming:
+                # convert ndjson to a list
+                assert isinstance(result.responses, str)
+                ndjson_content = result.responses
+                for ndjson_line in ndjson_content.splitlines():
+                    if not ndjson_line.strip():
+                        continue  # ignore empty lines
+                    json_line = json.loads(ndjson_line)
+                    result_list.append(json_line)
+            else:
+                result_list = json.loads(result.responses)
+                assert isinstance(result_list, list)
             if fn_handle_batch:
                 handle_batch_result: bool = await fn_handle_batch(
                     result_list, page_number
@@ -1623,6 +1647,7 @@ class FhirClient:
         fn_handle_batch: Optional[HandleBatchFunction] = None,
         fn_handle_error: Optional[HandleErrorFunction] = None,
         fn_handle_ids: Optional[HandleBatchFunction] = None,
+        fn_handle_streaming_ids: Optional[HandleStreamingChunkFunction] = None,
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
     ) -> List[Dict[str, Any]]:
         """
@@ -1634,6 +1659,7 @@ class FhirClient:
                                 return the resources in the response anymore.  If this function returns false then we
                                 stop processing any further batches.
         :param fn_handle_error: Optional function that is called when there is an error
+        :param fn_handle_streaming_ids: Optional function to execute when we get ids in streaming
         :param fn_handle_streaming_chunk: Optional function to execute when we get a chunk in streaming
         :param fn_handle_ids: Optional function to execute when we get a page of ids
         :param last_updated_start_date: find resources updated after this datetime
@@ -1651,6 +1677,7 @@ class FhirClient:
             fn_handle_error=fn_handle_error,
             fn_handle_batch=fn_handle_batch,
             fn_handle_ids=fn_handle_ids,
+            fn_handle_streaming_ids=fn_handle_streaming_ids,
             fn_handle_streaming_chunk=fn_handle_streaming_chunk,
         )
 
@@ -1701,6 +1728,7 @@ class FhirClient:
         fn_handle_batch: Optional[HandleBatchFunction] = None,
         fn_handle_error: Optional[HandleErrorFunction] = None,
         fn_handle_ids: Optional[HandleBatchFunction] = None,
+        fn_handle_streaming_ids: Optional[HandleStreamingChunkFunction] = None,
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
     ) -> List[Dict[str, Any]]:
         """
@@ -1711,6 +1739,7 @@ class FhirClient:
                                 return the resources in the response anymore.  If this function returns false then we
                                 stop processing any further batches.
         :param fn_handle_error: function that is called when there is an error
+        :param fn_handle_streaming_ids: Optional function to execute when we get ids in streaming
         :param fn_handle_streaming_chunk: Optional function to execute when we get a chunk in streaming
         :param fn_handle_ids: Optional function to execute when we get a page of ids
         :param last_updated_start_date: find resources updated after this datetime
@@ -1726,7 +1755,7 @@ class FhirClient:
             last_updated_start_date=last_updated_start_date,
             page_size_for_retrieving_ids=page_size_for_retrieving_ids,
             fn_handle_ids=fn_handle_ids,
-            fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+            fn_handle_streaming_chunk=fn_handle_streaming_ids,
             fn_handle_error=fn_handle_error,
         )
         # now split the ids
@@ -1811,7 +1840,9 @@ class FhirClient:
         ) -> bool:
             end_batch = time.time()
             assert isinstance(list_of_ids, list)
-            list_of_ids.extend([resource_["id"] for resource_ in resources_])
+            assert isinstance(resources_, list)
+            for resource_ in resources_:
+                list_of_ids.append(resource_["id"])
             if fn_handle_ids:
                 await fn_handle_ids(resources_, page_number)
             if self._logger:
@@ -1911,11 +1942,13 @@ class FhirClient:
         page_size_for_retrieving_ids: int = 10000,
         fn_handle_batch: Optional[HandleBatchFunction] = None,
         fn_handle_error: Optional[HandleErrorFunction] = None,
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
     ) -> List[Dict[str, Any]]:
         """
         Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel
 
 
+        :param fn_handle_streaming_chunk:
         :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
                                 return the resources in the response anymore.  If this function returns false then we
                                 stop processing any further batches.
@@ -1935,5 +1968,6 @@ class FhirClient:
                 page_size_for_retrieving_ids=page_size_for_retrieving_ids,
                 fn_handle_batch=fn_handle_batch,
                 fn_handle_error=fn_handle_error,
+                fn_handle_streaming_chunk=fn_handle_streaming_chunk,
             )
         )
