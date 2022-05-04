@@ -20,6 +20,7 @@ from typing import (
     AsyncGenerator,
     Coroutine,
     Awaitable,
+    MutableMapping,
 )
 from urllib import parse
 
@@ -34,6 +35,8 @@ from aiohttp import ClientSession, ClientResponse, ClientPayloadError
 
 # noinspection PyPackageRequirements
 from furl import furl
+from multidict import MultiDict
+
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
 from helix_fhir_client_sdk.filters.last_updated_filter import LastUpdatedFilter
@@ -546,8 +549,12 @@ class FhirClient:
             )
 
             # set up payload
-            payload: Dict[str, str] = (
-                (self._action_payload if self._action_payload else {})
+            payload: MutableMapping[str, Union[str, int]] = (
+                (
+                    MultiDict(self._action_payload)
+                    if self._action_payload
+                    else MultiDict()
+                )
                 if not self._use_post_for_search
                 else await self._set_parameters_in_payload(
                     full_uri, id_above, ids, page_number
@@ -842,7 +849,7 @@ class FhirClient:
         id_above: Optional[str],
         ids: Optional[List[str]],
         page_number: Optional[int],
-    ) -> Dict[str, Union[str, int]]:
+    ) -> MutableMapping[str, Union[str, int]]:
         """
         Creates the query string for the url query
 
@@ -853,7 +860,7 @@ class FhirClient:
         :param page_number:
         """
 
-        payload: Dict[str, Union[str, int]] = {}
+        payload: MultiDict[Union[str, int]] = MultiDict()
         if ids is not None and len(ids) > 0:
             if self._filter_by_resource:
                 if self._filter_parameter:
@@ -917,7 +924,7 @@ class FhirClient:
         http: ClientSession,
         full_url: str,
         headers: Dict[str, str],
-        payload: Dict[str, Any],
+        payload: MutableMapping[str, Union[str, int]],
     ) -> ClientResponse:
         """
         Sends a request to the server
