@@ -1635,6 +1635,7 @@ class FhirClient:
         fn_handle_batch: Optional[HandleBatchFunction] = None,
         fn_handle_error: Optional[HandleErrorFunction] = None,
         fn_handle_ids: Optional[HandleBatchFunction] = None,
+        fn_handle_streaming_ids: Optional[HandleStreamingChunkFunction] = None,
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
     ) -> List[Dict[str, Any]]:
         """
@@ -1646,6 +1647,7 @@ class FhirClient:
                                 return the resources in the response anymore.  If this function returns false then we
                                 stop processing any further batches.
         :param fn_handle_error: Optional function that is called when there is an error
+        :param fn_handle_streaming_ids: Optional function to execute when we get ids in streaming
         :param fn_handle_streaming_chunk: Optional function to execute when we get a chunk in streaming
         :param fn_handle_ids: Optional function to execute when we get a page of ids
         :param last_updated_start_date: find resources updated after this datetime
@@ -1663,6 +1665,7 @@ class FhirClient:
             fn_handle_error=fn_handle_error,
             fn_handle_batch=fn_handle_batch,
             fn_handle_ids=fn_handle_ids,
+            fn_handle_streaming_ids=fn_handle_streaming_ids,
             fn_handle_streaming_chunk=fn_handle_streaming_chunk,
         )
 
@@ -1713,6 +1716,7 @@ class FhirClient:
         fn_handle_batch: Optional[HandleBatchFunction] = None,
         fn_handle_error: Optional[HandleErrorFunction] = None,
         fn_handle_ids: Optional[HandleBatchFunction] = None,
+        fn_handle_streaming_ids: Optional[HandleStreamingChunkFunction] = None,
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
     ) -> List[Dict[str, Any]]:
         """
@@ -1723,6 +1727,7 @@ class FhirClient:
                                 return the resources in the response anymore.  If this function returns false then we
                                 stop processing any further batches.
         :param fn_handle_error: function that is called when there is an error
+        :param fn_handle_streaming_ids: Optional function to execute when we get ids in streaming
         :param fn_handle_streaming_chunk: Optional function to execute when we get a chunk in streaming
         :param fn_handle_ids: Optional function to execute when we get a page of ids
         :param last_updated_start_date: find resources updated after this datetime
@@ -1738,7 +1743,7 @@ class FhirClient:
             last_updated_start_date=last_updated_start_date,
             page_size_for_retrieving_ids=page_size_for_retrieving_ids,
             fn_handle_ids=fn_handle_ids,
-            fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+            fn_handle_streaming_chunk=fn_handle_streaming_ids,
             fn_handle_error=fn_handle_error,
         )
         # now split the ids
@@ -1925,6 +1930,7 @@ class FhirClient:
         page_size_for_retrieving_ids: int = 10000,
         fn_handle_batch: Optional[HandleBatchFunction] = None,
         fn_handle_error: Optional[HandleErrorFunction] = None,
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
     ) -> List[Dict[str, Any]]:
         """
         Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel
@@ -1949,5 +1955,6 @@ class FhirClient:
                 page_size_for_retrieving_ids=page_size_for_retrieving_ids,
                 fn_handle_batch=fn_handle_batch,
                 fn_handle_error=fn_handle_error,
+                fn_handle_streaming_chunk=fn_handle_streaming_chunk,
             )
         )
