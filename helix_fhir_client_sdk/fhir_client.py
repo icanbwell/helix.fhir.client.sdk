@@ -665,7 +665,9 @@ class FhirClient:
                     except ClientPayloadError as e:
                         # do a retry
                         if self._logger:
-                            self._logger.error(f"{e}: {response.headers}")
+                            self._logger.error(
+                                f"{e}: {full_url}: retries={retries} headers={response.headers}"
+                            )
                         continue
                     if len(text) > 0:
                         response_json: Dict[str, Any] = json.loads(text)
