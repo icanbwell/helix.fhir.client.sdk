@@ -545,7 +545,7 @@ class FhirClient:
                     full_uri, id_above, ids, page_number
                 )
                 if not self._use_post_for_search
-                else ""
+                else full_uri.tostr()
             )
 
             # set up payload
@@ -613,7 +613,7 @@ class FhirClient:
                     except ClientPayloadError as e:
                         # do a retry
                         if self._logger:
-                            self._logger.error(f"{e}: {response.headers}")
+                            self._logger.error(f"{e}: {full_url}: {response.headers}")
                         continue
                     if len(text) > 0:
                         response_json: Dict[str, Any] = json.loads(text)
@@ -950,14 +950,24 @@ class FhirClient:
                     "$graph needs a payload to define the returning response (use action_payload parameter)"
                 )
         else:
-            if self._logger:
-                self._logger.info(
-                    f"sending a get: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
+            if self._use_post_for_search:
+                if self._logger:
+                    self._logger.info(
+                        f"sending a POST: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
+                    )
+                self._internal_logger.info(
+                    f"sending a POST: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
                 )
-            self._internal_logger.info(
-                f"sending a get: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
-            )
-            return await http.get(full_url, headers=headers, data=payload)
+                return await http.post(full_url, headers=headers, json=payload)
+            else:
+                if self._logger:
+                    self._logger.info(
+                        f"sending a GET: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
+                    )
+                self._internal_logger.info(
+                    f"sending a GET: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
+                )
+                return await http.get(full_url, headers=headers, data=payload)
 
     @staticmethod
     def create_http_session() -> ClientSession:

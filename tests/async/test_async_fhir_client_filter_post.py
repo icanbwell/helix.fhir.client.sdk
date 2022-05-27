@@ -181,6 +181,7 @@ async def test_fhir_client_filter_post_async() -> None:
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     fhir_client = fhir_client.page_size(10)
     fhir_client = fhir_client.include_total(True)
+    fhir_client = fhir_client.use_post_for_search(True)
     fhir_client = fhir_client.filter(
         [IdentifierFilter(system="http://hl7.org/fhir/sid/us-npi", value="1487831681")]
     )
