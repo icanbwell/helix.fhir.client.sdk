@@ -257,7 +257,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
     )
 
     # now mock the actual calls to get resources
-    response_text: str = json.dumps({"resourceType": "Location", "id": "tc-epic-222126"})
+    response_text: Dict[str, Any] = {"resourceType": "Location", "id": "tc-epic-222126"}
     mock_client.expect(
         mock_request(
             path=f"/{relative_url}/Location/tc-epic-222126",
@@ -268,7 +268,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
                 "identifier": "http://thedacare.org/epic|222126",
             },
         ),
-        mock_response(body=response_text),
+        mock_response(body=json.dumps(response_text)),
         timing=times(1),
     )
 
