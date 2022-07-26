@@ -42,7 +42,14 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
                 {
                     "resourceType": "Bundle",
                     "total": 0,
-                    "entry": [{"resource": {"resourceType": "Location", "id": "tc-epic-222126"}}],
+                    "entry": [
+                        {
+                            "resource": {
+                                "resourceType": "Location",
+                                "id": "tc-epic-222126",
+                            }
+                        }
+                    ],
                 }
             )
         ),
@@ -277,9 +284,9 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
     fhir_client = (
         fhir_client.url(absolute_url)
         .resource("Location")
-        .additional_parameters(['identifier=http://thedacare.org/epic|222126'])
+        .additional_parameters(["identifier=http://thedacare.org/epic|222126"])
     )
     response: List[Dict[str, Any]] = await fhir_client.get_resources_by_query_async()
 
     # Assert
-    assert response == response_text
+    assert response == [response_text]
