@@ -922,6 +922,8 @@ class FhirClient:
                     result_list.append(json_line)
             else:
                 result_list = json.loads(result.responses)
+                if isinstance(result_list, dict):
+                    result_list = [result_list]
                 assert isinstance(result_list, list)
             if fn_handle_batch:
                 handle_batch_result: bool = await fn_handle_batch(
