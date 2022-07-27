@@ -13,7 +13,7 @@ services:
       - docker.env
 
   mock-server:
-    image: jamesdbloom/mockserver:mockserver-5.12.0
+    image: jamesdbloom/mockserver:mockserver-5.13.2
     command: -logLevel DEBUG -serverPort 1080
     ports:
       - '1080:1080'
@@ -24,7 +24,7 @@ services:
   fhir:
     depends_on:
       - mongo
-    image: imranq2/node-fhir-server-mongo:2.1.76
+    image: imranq2/node-fhir-server-mongo:2.1.131
     # To use local fhir code, comment above line and uncomment below
 #    build:
 #      dockerfile: Dockerfile
@@ -54,7 +54,7 @@ services:
 
   mongo:
 #    image: docker.io/bitnami/mongodb:4.4.9
-    image: mongo:4.4.12
+    image: mongo:5.0.9
     ports:
       - '27017:27017'
     environment:
