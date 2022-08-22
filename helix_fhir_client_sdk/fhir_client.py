@@ -522,6 +522,7 @@ class FhirClient:
         """
         assert self._url, "No FHIR server url was set"
         assert self._resource, "No Resource was set"
+        request_id: Optional[str]
         retries: int = 2
         while retries >= 0:
             retries = retries - 1
@@ -637,6 +638,7 @@ class FhirClient:
                 http, full_url, headers, payload
             )
 
+            request_id = response.headers.getone("X-Request-ID")
             # if using streams, use ndjson content type:
             # async for data, _ in response.content.iter_chunks():
             #     print(data)
@@ -808,7 +810,9 @@ class FhirClient:
                     total_count=0,
                     status=response.status,
                 )
-        raise Exception("Could not talk to FHIR server after multiple tries")
+        raise Exception(
+            f"Could not talk to FHIR server after multiple tries.  RequestId: {request_id}"
+        )
 
     async def _send_fhir_request_async(
         self,
