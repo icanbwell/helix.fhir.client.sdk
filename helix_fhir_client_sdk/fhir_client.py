@@ -44,6 +44,7 @@ from helix_fhir_client_sdk.responses.fhir_delete_response import FhirDeleteRespo
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
 from helix_fhir_client_sdk.responses.fhir_update_response import FhirUpdateResponse
+from helix_fhir_client_sdk.responses.get_result import GetResult
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
 from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValidator
 from helix_fhir_client_sdk.well_known_configuration import (
@@ -434,11 +435,13 @@ class FhirClient:
             response: ClientResponse = await http.delete(
                 full_uri.tostr(), headers=headers
             )
+            request_id = response.headers.getone("X-Request-ID", None)
             if response.ok:
                 if self._logger:
                     self._logger.info(f"Successfully deleted: {full_uri}")
 
             return FhirDeleteResponse(
+                request_id=request_id,
                 url=full_uri.tostr(),
                 responses=await response.text(),
                 error=f"{response.status}" if not response.ok else None,
@@ -522,7 +525,7 @@ class FhirClient:
         """
         assert self._url, "No FHIR server url was set"
         assert self._resource, "No Resource was set"
-        request_id: Optional[str]
+        request_id: Optional[str] = None
         retries: int = 2
         while retries >= 0:
             retries = retries - 1
@@ -638,7 +641,7 @@ class FhirClient:
                 http, full_url, headers, payload
             )
 
-            request_id = response.headers.getone("X-Request-ID")
+            request_id = response.headers.getone("X-Request-ID", None)
             # if using streams, use ndjson content type:
             # async for data, _ in response.content.iter_chunks():
             #     print(data)
@@ -737,6 +740,7 @@ class FhirClient:
                         else:
                             resources = text
                 return FhirGetResponse(
+                    request_id=request_id,
                     url=full_url,
                     responses=resources,
                     error=None,
@@ -748,6 +752,7 @@ class FhirClient:
                 if self._logger:
                     self._logger.error(f"resource not found! {full_url}")
                 return FhirGetResponse(
+                    request_id=request_id,
                     url=full_url,
                     responses=await response.text(),
                     error=f"{response.status}",
@@ -760,6 +765,7 @@ class FhirClient:
                     continue
             elif response.status == 403:  # forbidden
                 return FhirGetResponse(
+                    request_id=request_id,
                     url=full_url,
                     responses=await response.text(),
                     error=f"{response.status}",
@@ -786,6 +792,7 @@ class FhirClient:
                 else:
                     # out of retries so just fail now
                     return FhirGetResponse(
+                        request_id=request_id,
                         url=full_url,
                         responses=await response.text(),
                         error=f"{response.status}",
@@ -803,6 +810,7 @@ class FhirClient:
                 if self._logger:
                     self._logger.error(error_text)
                 return FhirGetResponse(
+                    request_id=request_id,
                     url=full_url,
                     responses=error_text,
                     access_token=self._access_token,
@@ -889,7 +897,7 @@ class FhirClient:
         fn_handle_error: Optional[HandleErrorFunction],
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
         id_above: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> GetResult:
         """
         gets data and calls the handlers as data is received
 
@@ -903,7 +911,7 @@ class FhirClient:
         :param id_above:
         :return: list of resources
         """
-        result = await self._get_with_session_async(
+        result: FhirGetResponse = await self._get_with_session_async(
             session=session,
             page_number=page_number,
             ids=ids,
@@ -935,8 +943,8 @@ class FhirClient:
                 )
                 if handle_batch_result is False:
                     self._stop_processing = True
-            return result_list
-        return []
+            return GetResult(request_id=result.request_id, resources=result_list)
+        return GetResult(request_id=result.request_id, resources=[])
 
     async def get_page_by_query_async(
         self,
@@ -967,7 +975,7 @@ class FhirClient:
         while (
             not self._last_page and not self._last_page == 0
         ) or page_number < self._last_page:
-            result_for_page: List[Dict[str, Any]] = await self.get_with_handler_async(
+            result_for_page: GetResult = await self.get_with_handler_async(
                 session=session,
                 page_number=server_page_number,
                 ids=None,
@@ -976,9 +984,11 @@ class FhirClient:
                 fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                 id_above=id_above,
             )
-            if result_for_page and len(result_for_page) > 0:
+            if result_for_page and len(result_for_page.resources) > 0:
                 paging_result = PagingResult(
-                    resources=result_for_page, page_number=page_number
+                    request_id=result_for_page.request_id,
+                    resources=result_for_page.resources,
+                    page_number=page_number,
                 )
                 await output_queue.put(paging_result)
                 result.append(paging_result)
@@ -990,7 +1000,7 @@ class FhirClient:
                             self._logger.info(f"Setting last page to {self._last_page}")
                 break
             # get id of last resource to use as minimum for next page
-            last_json_resource = result_for_page[-1]
+            last_json_resource = result_for_page.resources[-1]
             if "id" in last_json_resource:
                 # use id:above to optimize the next query
                 id_above = last_json_resource["id"]
@@ -1081,7 +1091,8 @@ class FhirClient:
                     resources_list.extend(resources)
 
             return FhirGetResponse(
-                self._url,
+                request_id=result_list[0].request_id if len(result_list) > 0 else None,
+                url=self._url,
                 responses=json.dumps(resources_list),
                 error="",
                 access_token=self._access_token,
@@ -1170,6 +1181,7 @@ class FhirClient:
             f"Calling $merge on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
         )
 
+        request_id: Optional[str] = None
         response_status: Optional[int] = None
         retries: int = 2
         while retries >= 0:
@@ -1217,6 +1229,7 @@ class FhirClient:
                             headers=headers,
                         )
                         response_status = response.status
+                        request_id = response.headers.getone("X-Request-ID", None)
                         if response and response.ok:
                             # logging does not work in UDFs since they run on nodes
                             # if progress_logger:
@@ -1261,6 +1274,7 @@ class FhirClient:
                             response.raise_for_status()
                     except requests.exceptions.HTTPError as e:
                         raise FhirSenderException(
+                            request_id=request_id,
                             url=resource_uri.url,
                             json_data=json_payload,
                             response_text=await response.text() if response else "",
@@ -1270,6 +1284,7 @@ class FhirClient:
                         ) from e
                     except Exception as e:
                         raise FhirSenderException(
+                            request_id=request_id,
                             url=resource_uri.url,
                             json_data=json_payload,
                             response_text=await response.text() if response else "",
@@ -1285,7 +1300,9 @@ class FhirClient:
                                 f"Assertion: FHIR send failed: {str(e)} for resource: {json_data_list}"
                             )
                         )
+
                 return FhirMergeResponse(
+                    request_id=request_id,
                     url=self._url or "",
                     responses=responses,
                     error=json.dumps(responses) if response_status != 200 else None,
@@ -1293,7 +1310,9 @@ class FhirClient:
                     status=response_status if response_status else 500,
                 )
 
-        raise Exception("Could not talk to FHIR server after multiple tries")
+        raise Exception(
+            f"Could not talk to FHIR server after multiple tries: {request_id}"
+        )
 
     def merge(
         self,
@@ -1490,11 +1509,13 @@ class FhirClient:
             response = await http.put(
                 url=full_uri.url, data=json_payload_bytes, headers=headers
             )
+            request_id = response.headers.getone("X-Request-ID", None)
             if response.ok:
                 if self._logger:
                     self._logger.info(f"Successfully updated: {full_uri}")
 
             return FhirUpdateResponse(
+                request_id=request_id,
                 url=full_uri.tostr(),
                 responses=await response.text(),
                 error=f"{response.status}" if not response.ok else None,
@@ -1592,9 +1613,7 @@ class FhirClient:
                 # Notify the queue that the "work item" has been processed.
                 queue.task_done()
                 if chunk is not None:
-                    result_per_chunk: List[
-                        Dict[str, Any]
-                    ] = await self.get_with_handler_async(
+                    result_per_chunk: GetResult = await self.get_with_handler_async(
                         session=session,
                         page_number=0,  # this stays at 0 as we're always just loading the first page with id:above
                         ids=chunk,
@@ -1603,7 +1622,7 @@ class FhirClient:
                         fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                     )
                     if result_per_chunk:
-                        for result_ in result_per_chunk:
+                        for result_ in result_per_chunk.resources:
                             result.append(result_)
             except Empty:
                 break
@@ -1826,9 +1845,7 @@ class FhirClient:
 
 
         :param fn_handle_error:
-        :type fn_handle_error:
         :param fn_handle_batch:
-        :type fn_handle_batch:
         :param last_updated_start_date: (Optional) get ids updated after this date
         :param last_updated_end_date: (Optional) get ids updated before this date
         :param concurrent_requests: number of concurrent requests
