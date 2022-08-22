@@ -14,7 +14,13 @@ init: devdocker up setup-pre-commit  ## Initializes the local developer environm
 
 .PHONY: up
 up: Pipfile.lock
-	docker-compose up --build -d --remove-orphans
+	docker-compose up --build -d --remove-orphans && \
+	echo "\nwaiting for Mongo server to become healthy" && \
+	while [ "`docker inspect --format {{.State.Health.Status}} helixfhirclientsdk_mongo_1`" != "healthy" ] && [ "`docker inspect --format {{.State.Health.Status}} helixfhirclientsdk_mongo_1`" != "unhealthy" ] && [ "`docker inspect --format {{.State.Status}} helixfhirclientsdk_mongo_1`" != "restarting" ]; do printf "." && sleep 2; done && \
+	if [ "`docker inspect --format {{.State.Health.Status}} helixfhirclientsdk_mongo_1`" != "healthy" ]; then docker ps && docker logs helixfhirclientsdk_mongo_1 && printf "========== ERROR: helixfhirclientsdk_mongo_1 did not start. Run docker logs helixfhirclientsdk_mongo_1 =========\n" && exit 1; fi
+	echo "\nwaiting for FHIR server to become healthy" && \
+	while [ "`docker inspect --format {{.State.Health.Status}} helixfhirclientsdk_fhir_1`" != "healthy" ] && [ "`docker inspect --format {{.State.Health.Status}} helixfhirclientsdk_fhir_1`" != "unhealthy" ] && [ "`docker inspect --format {{.State.Status}} helixfhirclientsdk_fhir_1`" != "restarting" ]; do printf "." && sleep 2; done && \
+	if [ "`docker inspect --format {{.State.Health.Status}} helixfhirclientsdk_fhir_1`" != "healthy" ]; then docker ps && docker logs helixfhirclientsdk_fhir_1 && printf "========== ERROR: helixfhirclientsdk_mongo_1 did not start. Run docker logs helixfhirclientsdk_fhir_1 =========\n" && exit 1; fi
 	@echo MockServer dashboard: http://localhost:1080/mockserver/dashboard
 
 .PHONY: down
