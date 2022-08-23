@@ -1828,6 +1828,7 @@ class FhirClient:
         )
         return resources
 
+    # noinspection PyUnusedLocal
     async def get_ids_for_query_async(
         self,
         *,

@@ -91,3 +91,12 @@ console_test:  ## runs the test via console to download resources from FHIR serv
 .PHONY:pipenv-setup
 pipenv-setup:devdocker ## Brings up the bash shell in dev docker
 	docker-compose run --rm --name helix.fhir.client.sdk dev pipenv-setup sync --pipfile
+
+.PHONY:clean
+clean: down
+	docker image rm imranq2/node-fhir-server-mongo -f
+	docker image rm node-fhir-server-mongo_fhir -f
+	docker volume rm helixfhirclientsdk_mongo_data -f
+ifneq ($(shell docker volume ls | grep "helixfhirclientsdk"| awk '{print $$2}'),)
+	docker volume ls | grep "helixfhirclientsdk" | awk '{print $$2}' | xargs docker volume rm
+endif
