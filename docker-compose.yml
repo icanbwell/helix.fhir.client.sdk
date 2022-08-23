@@ -24,7 +24,7 @@ services:
   fhir:
     depends_on:
       - mongo
-    image: imranq2/node-fhir-server-mongo:2.1.131
+    image: imranq2/node-fhir-server-mongo:2.1.141
     # To use local fhir code, comment above line and uncomment below
 #    build:
 #      dockerfile: Dockerfile
@@ -53,8 +53,7 @@ services:
         test: ["CMD-SHELL", "curl --silent --fail localhost:3000/health || exit 1"]
 
   mongo:
-#    image: docker.io/bitnami/mongodb:4.4.9
-    image: mongo:5.0.9
+    image: mongo:5.0.11
     ports:
       - '27017:27017'
     environment:

@@ -3,7 +3,6 @@ from typing import Dict, Any
 from aiohttp import ClientSession, ClientResponse
 from furl import furl
 
-
 from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
     FhirValidationException,
 )
@@ -35,11 +34,13 @@ class AsyncFhirValidator:
             data=json_data.encode("utf-8"),
             headers=headers,
         )
+        request_id = validation_response.headers.getone("X-Request-ID", None)
         if validation_response.ok:
             operation_outcome: Dict[str, Any] = await validation_response.json()
             if operation_outcome["issue"][0]["severity"] == "error":
                 response_text = await validation_response.text()
                 raise FhirValidationException(
+                    request_id=request_id,
                     url=full_validation_uri.url,
                     json_data=json_data,
                     response_text=response_text,
@@ -49,6 +50,7 @@ class AsyncFhirValidator:
         else:
             response_text = await validation_response.text()
             raise FhirValidationException(
+                request_id=request_id,
                 url=full_validation_uri.url,
                 json_data=json_data,
                 response_text=response_text,

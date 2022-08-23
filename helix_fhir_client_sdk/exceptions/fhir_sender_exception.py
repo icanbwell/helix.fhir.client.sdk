@@ -4,6 +4,7 @@ from typing import Optional
 class FhirSenderException(Exception):
     def __init__(
         self,
+        request_id: Optional[str],
         exception: Exception,
         url: str,
         json_data: str,
@@ -12,8 +13,9 @@ class FhirSenderException(Exception):
         message: str,
     ) -> None:
         """
-        Creates a exception when sending data
+        Creates an exception when sending data
 
+        :param request_id: request id
         :param exception: Exception thrown
         :param url: url that was being accessed
         :param json_data: data that was being sent
@@ -21,6 +23,7 @@ class FhirSenderException(Exception):
         :param response_status_code: status code returned by FHIR server
         :param message: error message
         """
+        self.request_id: Optional[str] = request_id
         self.exception: Exception = exception
         self.url: str = url
         self.data: str = json_data

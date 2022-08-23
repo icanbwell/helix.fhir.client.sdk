@@ -3,7 +3,6 @@ from typing import List, Dict, Any, Optional
 
 
 @dataclasses.dataclass
-class PagingResult:
+class GetResult:
     request_id: Optional[str]
     resources: List[Dict[str, Any]]
-    page_number: int
