@@ -40,7 +40,7 @@ services:
       INTROSPECTION_URL: https://myauthzserver.com/introspect
       MONGO_DB_NAME: fhir
       CHECK_ACCESS_TAG_ON_SAVE: 1
-      IS_PRODUCTION: 0
+      IS_PRODUCTION: ""
       RETURN_BUNDLE: "1"
       VALIDATE_SCHEMA: "1"
       AUTH_ENABLED: "0"
