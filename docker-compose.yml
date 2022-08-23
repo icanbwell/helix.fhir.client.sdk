@@ -48,7 +48,7 @@ services:
       LOGLEVEL: "DEBUG"
     ports:
       - '3000:3000'
-    command: npm run dev 2>&1
+    command: yarn start
     healthcheck:
         test: ["CMD-SHELL", "curl --silent --fail localhost:3000/health || exit 1"]
 
