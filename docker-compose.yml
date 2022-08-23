@@ -24,11 +24,11 @@ services:
   fhir:
     depends_on:
       - mongo
-    image: imranq2/node-fhir-server-mongo:2.1.147
+    image: imranq2/node-fhir-server-mongo:2.1.148
     # To use local fhir code, comment above line and uncomment below
 #    build:
 #      dockerfile: Dockerfile
-#      context: ../node-fhir-server-mongo
+#      context: ../fhir-server
     environment:
       SERVER_PORT: 3000
       MONGO_HOSTNAME: mongo
@@ -50,7 +50,7 @@ services:
       - '3000:3000'
     command: yarn start
     healthcheck:
-        test: ["CMD-SHELL", "curl --silent --fail localhost:3000/health || exit 1"]
+      test: [ "CMD-SHELL", "curl --silent --fail localhost:3000/health || exit 1" ]
 
   mongo:
     image: mongo:5.0.11
