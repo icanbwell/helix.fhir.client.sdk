@@ -24,7 +24,7 @@ services:
   fhir:
     depends_on:
       - mongo
-    image: imranq2/node-fhir-server-mongo:2.1.141
+    image: imranq2/node-fhir-server-mongo:2.1.147
     # To use local fhir code, comment above line and uncomment below
 #    build:
 #      dockerfile: Dockerfile
@@ -40,7 +40,7 @@ services:
       INTROSPECTION_URL: https://myauthzserver.com/introspect
       MONGO_DB_NAME: fhir
       CHECK_ACCESS_TAG_ON_SAVE: 1
-      IS_PRODUCTION:
+      IS_PRODUCTION: 0
       RETURN_BUNDLE: "1"
       VALIDATE_SCHEMA: "1"
       AUTH_ENABLED: "0"
@@ -48,7 +48,7 @@ services:
       LOGLEVEL: "DEBUG"
     ports:
       - '3000:3000'
-    command: yarn start
+    command: npm run dev 2>&1
     healthcheck:
         test: ["CMD-SHELL", "curl --silent --fail localhost:3000/health || exit 1"]
 
