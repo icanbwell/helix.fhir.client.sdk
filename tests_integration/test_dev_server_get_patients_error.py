@@ -18,12 +18,7 @@ async def test_dev_server_get_patients_error() -> None:
     resource = {
         "resourceType": "Patient",
         "id": "12356",
-        "meta": {
-            "security": [
-                {"system": "https://www.icanbwell.com/access", "code": "bwell"}
-            ]
-        },
-        "badfield": "imbad",
+        "meta": "bad",
     }
     merge_response: FhirMergeResponse = await fhir_client.merge_async(
         [json.dumps(resource)]
@@ -31,5 +26,7 @@ async def test_dev_server_get_patients_error() -> None:
     print(merge_response.responses)
     assert merge_response.status == 200, merge_response.responses
     assert merge_response.request_id is not None
-    assert merge_response.responses[0]["created"] is False, json.dumps(merge_response)
+    assert merge_response.responses[0]["created"] is False, json.dumps(
+        merge_response.responses
+    )
     assert merge_response.responses[0]["issue"] is not None
