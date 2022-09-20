@@ -15,7 +15,7 @@ async def test_dev_server_get_patients() -> None:
     await fhir_client.id_("12355").delete_async()
 
     fhir_client = FhirClient()
-    fhir_client = fhir_client.url(url).resource("Patient")
+    fhir_client = fhir_client.url(url).use_data_streaming(False).resource("Patient")
     resource = {
         "resourceType": "Patient",
         "id": "12355",

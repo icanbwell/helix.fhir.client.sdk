@@ -50,6 +50,10 @@ tests: up
 	docker-compose run --rm --name helix.fhir.client.sdk dev pytest tests && \
 	docker-compose run --rm --name helix.fhir.client.sdk dev pytest tests_integration
 
+.PHONY:tests_integration
+tests_integration: up
+	docker-compose run --rm --name helix.fhir.client.sdk dev pytest tests_integration
+
 .PHONY:shell
 shell:devdocker ## Brings up the bash shell in dev docker
 	docker-compose run --rm --name helix.fhir.client.sdk dev /bin/bash
