@@ -106,6 +106,8 @@ class FhirClient:
             False  # for each entry in bundle create a property for each resource
         )
         self._internal_logger: Logger = logging.getLogger("FhirClient")
+        # link handler to logger
+        self._internal_logger.addHandler(logging.StreamHandler())
         self._internal_logger.setLevel(logging.INFO)
         self._obj_id: Optional[str] = None
         self._include_total: bool = False
@@ -436,6 +438,7 @@ class FhirClient:
                 full_uri.tostr(), headers=headers
             )
             request_id = response.headers.getone("X-Request-ID", None)
+            self._internal_logger.info(f"X-Request-ID={request_id}")
             if response.ok:
                 if self._logger:
                     self._logger.info(f"Successfully deleted: {full_uri}")
@@ -487,6 +490,25 @@ class FhirClient:
 
         :return: response
         """
+        instance_variables: Dict[str, Any] = vars(self)
+        # instance_variables = {k: v for k, v in instance_variables.items() if isinstance(v, (int, float, bool, str))}
+        instance_variables = {
+            k: v
+            for k, v in instance_variables.items()
+            if type(v) in [int, float, bool, str, datetime]
+        }
+        # instance_variables = {k: v for k, v in instance_variables.items() if not isinstance(v, object)}
+        if self._sort_fields:
+            instance_variables["sort_fields"] = [
+                f"{f.field}:{f.ascending}" for f in self._sort_fields
+            ]
+        if self._filters:
+            instance_variables["filters"] = [f"{f}" for f in self._filters]
+        instance_variables_text: str = json.dumps(instance_variables)
+        if self._logger:
+            self._logger.info(f"parameters: {instance_variables_text}")
+        else:
+            self._internal_logger.info(f"parameters: {instance_variables_text}")
         ids: Optional[List[str]] = None
         if self._id:
             ids = self._id if isinstance(self._id, list) else [self._id]
@@ -642,6 +664,7 @@ class FhirClient:
             )
 
             request_id = response.headers.getone("X-Request-ID", None)
+            self._internal_logger.info(f"X-Request-ID={request_id}")
             # if using streams, use ndjson content type:
             # async for data, _ in response.content.iter_chunks():
             #     print(data)
@@ -1230,6 +1253,7 @@ class FhirClient:
                         )
                         response_status = response.status
                         request_id = response.headers.getone("X-Request-ID", None)
+                        self._internal_logger.info(f"X-Request-ID={request_id}")
                         if response and response.ok:
                             # logging does not work in UDFs since they run on nodes
                             # if progress_logger:
@@ -1510,6 +1534,7 @@ class FhirClient:
                 url=full_uri.url, data=json_payload_bytes, headers=headers
             )
             request_id = response.headers.getone("X-Request-ID", None)
+            self._internal_logger.info(f"X-Request-ID={request_id}")
             if response.ok:
                 if self._logger:
                     self._logger.info(f"Successfully updated: {full_uri}")

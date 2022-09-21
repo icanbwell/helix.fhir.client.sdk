@@ -28,5 +28,5 @@ class FhirSenderException(Exception):
         self.url: str = url
         self.data: str = json_data
         super().__init__(
-            f"FHIR send failed to {url} {response_status_code}: {json_data}.  {message} {response_text}"
+            f"FHIR send {request_id} failed to {url} {response_status_code}: {json_data}.  {message} {response_text}"
         )

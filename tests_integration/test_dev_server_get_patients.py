@@ -1,4 +1,5 @@
 import json
+from typing import Any, List
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -15,7 +16,7 @@ async def test_dev_server_get_patients() -> None:
     await fhir_client.id_("12355").delete_async()
 
     fhir_client = FhirClient()
-    fhir_client = fhir_client.url(url).resource("Patient")
+    fhir_client = fhir_client.url(url).use_data_streaming(True).resource("Patient")
     resource = {
         "resourceType": "Patient",
         "id": "12355",
@@ -33,7 +34,9 @@ async def test_dev_server_get_patients() -> None:
     assert merge_response.responses[0]["created"] is True, merge_response.responses
     fhir_client = fhir_client.url(url).resource("Patient")
     response: FhirGetResponse = await fhir_client.get_async()
-    print(response.responses)
-    responses_ = json.loads(response.responses)[0]
-    assert responses_["id"] == resource["id"]
-    assert responses_["resourceType"] == resource["resourceType"]
+    response_text = response.responses
+    bundle = json.loads(response_text)
+    responses_: List[Any] = [r["resource"] for r in bundle["entry"]]
+    assert len(responses_) == 1
+    assert responses_[0]["id"] == resource["id"]
+    assert responses_[0]["resourceType"] == resource["resourceType"]
