@@ -438,6 +438,7 @@ class FhirClient:
                 full_uri.tostr(), headers=headers
             )
             request_id = response.headers.getone("X-Request-ID", None)
+            self._internal_logger.info(f"X-Request-ID={request_id}")
             if response.ok:
                 if self._logger:
                     self._logger.info(f"Successfully deleted: {full_uri}")
@@ -663,6 +664,7 @@ class FhirClient:
             )
 
             request_id = response.headers.getone("X-Request-ID", None)
+            self._internal_logger.info(f"X-Request-ID={request_id}")
             # if using streams, use ndjson content type:
             # async for data, _ in response.content.iter_chunks():
             #     print(data)
@@ -1251,6 +1253,7 @@ class FhirClient:
                         )
                         response_status = response.status
                         request_id = response.headers.getone("X-Request-ID", None)
+                        self._internal_logger.info(f"X-Request-ID={request_id}")
                         if response and response.ok:
                             # logging does not work in UDFs since they run on nodes
                             # if progress_logger:
@@ -1531,6 +1534,7 @@ class FhirClient:
                 url=full_uri.url, data=json_payload_bytes, headers=headers
             )
             request_id = response.headers.getone("X-Request-ID", None)
+            self._internal_logger.info(f"X-Request-ID={request_id}")
             if response.ok:
                 if self._logger:
                     self._logger.info(f"Successfully updated: {full_uri}")
