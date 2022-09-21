@@ -16,7 +16,7 @@ async def test_dev_server_get_patients() -> None:
     await fhir_client.id_("12355").delete_async()
 
     fhir_client = FhirClient()
-    fhir_client = fhir_client.url(url).resource("Patient")
+    fhir_client = fhir_client.url(url).use_data_streaming(True).resource("Patient")
     resource = {
         "resourceType": "Patient",
         "id": "12355",
@@ -35,8 +35,6 @@ async def test_dev_server_get_patients() -> None:
     fhir_client = fhir_client.url(url).resource("Patient")
     response: FhirGetResponse = await fhir_client.get_async()
     response_text = response.responses
-    print(response_text)
-    print(type(response_text))
     bundle = json.loads(response_text)
     responses_: List[Any] = [r["resource"] for r in bundle["entry"]]
     assert len(responses_) == 1

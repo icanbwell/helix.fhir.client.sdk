@@ -118,7 +118,7 @@ class FhirClient:
         self._authentication_token_lock: Lock = Lock()
         self._last_page: Optional[int] = None
 
-        self._use_data_streaming: bool = True
+        self._use_data_streaming: bool = False
         self._last_page_lock: Lock = Lock()
 
         self._use_post_for_search: bool = False
