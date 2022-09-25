@@ -5,7 +5,7 @@ import json
 import logging
 import time
 from asyncio import Future
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from logging import Logger
 from queue import Empty
 from threading import Lock
@@ -504,7 +504,18 @@ class FhirClient:
             ]
         if self._filters:
             instance_variables["filters"] = [f"{f}" for f in self._filters]
-        instance_variables_text: str = json.dumps(instance_variables)
+
+        def json_serial(obj: Any) -> str:
+            """JSON serializer for objects not serializable by default json code"""
+
+            # https://stackoverflow.com/questions/11875770/how-to-overcome-datetime-datetime-not-json-serializable
+            if isinstance(obj, (datetime, date)):
+                return obj.isoformat()
+            return str(obj)
+
+        instance_variables_text: str = json.dumps(
+            instance_variables, default=json_serial
+        )
         if self._logger:
             self._logger.info(f"parameters: {instance_variables_text}")
         else:
