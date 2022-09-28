@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from logging import Logger
 from queue import Empty
 from threading import Lock
+from types import SimpleNamespace
 from typing import (
     Dict,
     Optional,
@@ -30,7 +31,12 @@ import aiohttp
 import requests
 
 # noinspection PyPackageRequirements
-from aiohttp import ClientSession, ClientResponse, ClientPayloadError
+from aiohttp import (
+    ClientSession,
+    ClientResponse,
+    ClientPayloadError,
+    TraceRequestEndParams,
+)
 
 # noinspection PyPackageRequirements
 from furl import furl
@@ -77,6 +83,11 @@ class FhirClient:
     # used to lock access to above cache
     _well_known_configuration_cache_lock: Lock = Lock()
 
+    _internal_logger: Logger = logging.getLogger("FhirClient")
+    # link handler to logger
+    _internal_logger.addHandler(logging.StreamHandler())
+    _internal_logger.setLevel(logging.INFO)
+
     def __init__(self) -> None:
         """
         Class used to call FHIR server (uses async and parallel execution to speed up)
@@ -107,10 +118,6 @@ class FhirClient:
         self._separate_bundle_resources: bool = (
             False  # for each entry in bundle create a property for each resource
         )
-        self._internal_logger: Logger = logging.getLogger("FhirClient")
-        # link handler to logger
-        self._internal_logger.addHandler(logging.StreamHandler())
-        self._internal_logger.setLevel(logging.INFO)
         self._obj_id: Optional[str] = None
         self._include_total: bool = False
         self._filters: List[BaseFilter] = []
@@ -405,6 +412,20 @@ class FhirClient:
         """
         self._accept_encoding = encoding
         return self
+
+    @staticmethod
+    async def on_request_end(
+        session: ClientSession,
+        trace_config_ctx: SimpleNamespace,
+        params: TraceRequestEndParams,
+    ) -> None:
+        FhirClient._internal_logger.info(
+            "Ending %s request for %s. I sent: %s"
+            % (params.method, params.url, params.headers)
+        )
+        FhirClient._internal_logger.info(
+            "Sent headers: %s" % params.response.request_info.headers
+        )
 
     async def get_access_token_async(self) -> Optional[str]:
         """
@@ -942,8 +963,12 @@ class FhirClient:
         #     backoff_factor=5,
         # )
         # session: ClientSession = aiohttp.ClientSession()
+        trace_config = aiohttp.TraceConfig()
+        # trace_config.on_request_start.append(on_request_start)
+        trace_config.on_request_end.append(FhirClient.on_request_end)
+        # trace_config.on_response_chunk_received
         session: ClientSession = aiohttp.ClientSession(
-            headers={"Connection": "keep-alive"}
+            trace_configs=[trace_config], headers={"Connection": "keep-alive"}
         )
         return session
 
