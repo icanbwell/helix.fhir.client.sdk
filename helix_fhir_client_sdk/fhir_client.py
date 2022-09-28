@@ -396,7 +396,7 @@ class FhirClient:
 
     def accept_encoding(self, encoding: str) -> "FhirClient":
         """
-        Type to send to server in the request header Content-Type
+        Type to send to server in the request header Accept-Encoding
 
         :param encoding:
         :return:
