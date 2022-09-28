@@ -123,6 +123,10 @@ class FhirClient:
 
         self._use_post_for_search: bool = False
 
+        self._accept: str = "application/fhir+json"
+        self._content_type: str = "application/fhir+json"
+        self._accept_encoding: str = "gzip,deflate"
+
     def action(self, action: str) -> "FhirClient":
         """
         Set the action
@@ -356,6 +360,8 @@ class FhirClient:
         :param use: where to use data streaming
         """
         self._use_data_streaming = use
+        self._accept = "application/fhir+ndjson"
+
         return self
 
     def use_post_for_search(self, use: bool) -> "FhirClient":
@@ -366,6 +372,36 @@ class FhirClient:
         :param use:
         """
         self._use_post_for_search = use
+        return self
+
+    def accept(self, accept_type: str) -> "FhirClient":
+        """
+        Type to send to server in the request header Accept
+
+        :param accept_type:
+        :return:
+        """
+        self._accept = accept_type
+        return self
+
+    def content_type(self, type_: str) -> "FhirClient":
+        """
+        Type to send to server in the request header Content-Type
+
+        :param type_:
+        :return:
+        """
+        self._content_type = type_
+        return self
+
+    def accept_encoding(self, encoding: str) -> "FhirClient":
+        """
+        Type to send to server in the request header Content-Type
+
+        :param encoding:
+        :return:
+        """
+        self._accept_encoding = encoding
         return self
 
     async def get_access_token_async(self) -> Optional[str]:
@@ -652,11 +688,9 @@ class FhirClient:
                 self._action_payload if self._action_payload else {}
             )
             headers = {
-                "Accept": "application/fhir+ndjson"
-                if self._use_data_streaming
-                else "application/fhir+json",
-                "Content-Type": "application/fhir+json",
-                "Accept-Encoding": "gzip,deflate",
+                "Accept": self._accept,
+                "Content-Type": self._content_type,
+                "Accept-Encoding": self._accept_encoding,
             }
 
             # set access token in request if present
