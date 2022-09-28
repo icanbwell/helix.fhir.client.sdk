@@ -5,7 +5,7 @@ import json
 import logging
 import time
 from asyncio import Future
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 from logging import Logger
 from queue import Empty
 from threading import Lock
@@ -34,6 +34,8 @@ from aiohttp import ClientSession, ClientResponse, ClientPayloadError
 
 # noinspection PyPackageRequirements
 from furl import furl
+
+from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
 from helix_fhir_client_sdk.filters.last_updated_filter import LastUpdatedFilter
@@ -526,32 +528,7 @@ class FhirClient:
 
         :return: response
         """
-        instance_variables: Dict[str, Any] = vars(self)
-        # instance_variables = {k: v for k, v in instance_variables.items() if isinstance(v, (int, float, bool, str))}
-        instance_variables = {
-            k: v
-            for k, v in instance_variables.items()
-            if type(v) in [int, float, bool, str, datetime]
-        }
-        # instance_variables = {k: v for k, v in instance_variables.items() if not isinstance(v, object)}
-        if self._sort_fields:
-            instance_variables["sort_fields"] = [
-                f"{f.field}:{f.ascending}" for f in self._sort_fields
-            ]
-        if self._filters:
-            instance_variables["filters"] = [f"{f}" for f in self._filters]
-
-        def json_serial(obj: Any) -> str:
-            """JSON serializer for objects not serializable by default json code"""
-
-            # https://stackoverflow.com/questions/11875770/how-to-overcome-datetime-datetime-not-json-serializable
-            if isinstance(obj, (datetime, date)):
-                return obj.isoformat()
-            return str(obj)
-
-        instance_variables_text: str = json.dumps(
-            instance_variables, default=json_serial
-        )
+        instance_variables_text = convert_dict_to_str(vars(self))
         if self._logger:
             self._logger.info(f"parameters: {instance_variables_text}")
         else:
@@ -596,269 +573,232 @@ class FhirClient:
         assert self._resource, "No Resource was set"
         request_id: Optional[str] = None
         retries: int = 2
-        while retries >= 0:
-            retries = retries - 1
-            # create url and query to request from FHIR server
-            resources: str = ""
-            full_uri: furl = furl(self._url)
-            full_uri /= self._resource
-            if self._obj_id:
-                full_uri /= parse.quote(str(self._obj_id), safe="")
-            if ids is not None and len(ids) > 0:
-                if self._filter_by_resource:
-                    if self._filter_parameter:
-                        # ?subject:Patient=27384972
-                        full_uri.args[
-                            f"{self._filter_parameter}:{self._filter_by_resource}"
-                        ] = ids[0]
-                    else:
-                        # ?patient=27384972
-                        full_uri.args[self._filter_by_resource.lower()] = ids[0]
+        # create url and query to request from FHIR server
+        resources: str = ""
+        full_uri: furl = furl(self._url)
+        full_uri /= self._resource
+        if self._obj_id:
+            full_uri /= parse.quote(str(self._obj_id), safe="")
+        if ids is not None and len(ids) > 0:
+            if self._filter_by_resource:
+                if self._filter_parameter:
+                    # ?subject:Patient=27384972
+                    full_uri.args[
+                        f"{self._filter_parameter}:{self._filter_by_resource}"
+                    ] = ids[0]
                 else:
-                    if len(ids) == 1 and not self._obj_id:
-                        full_uri /= ids
-                    else:
-                        full_uri.args["id"] = ",".join(sorted(ids))
-            # add action to url
-            if self._action:
-                full_uri /= self._action
-            # add a query for just desired properties
-            if self._include_only_properties:
-                full_uri.args["_elements"] = ",".join(self._include_only_properties)
-            if self._page_size and (
-                self._page_number is not None or page_number is not None
-            ):
-                # noinspection SpellCheckingInspection
-                full_uri.args["_count"] = self._page_size
-                # noinspection SpellCheckingInspection
-                full_uri.args["_getpagesoffset"] = page_number or self._page_number
-
-            # add any sort fields
-            if self._sort_fields is not None:
-                full_uri.args["_sort"] = ",".join([str(s) for s in self._sort_fields])
-
-            # create full url by adding on any query parameters
-            full_url: str = full_uri.url
-            if self._additional_parameters:
-                if len(full_uri.args) > 0:
-                    full_url += "&"
-                else:
-                    full_url += "?"
-                full_url += "&".join(self._additional_parameters)
-
-            if self._include_total:
-                if len(full_uri.args) > 0:
-                    full_url += "&"
-                else:
-                    full_url += "?"
-                full_url += "_total=accurate"
-
-            if self._filters and len(self._filters) > 0:
-                if len(full_uri.args) > 0:
-                    full_url += "&"
-                else:
-                    full_url += "?"
-                full_url += "&".join(
-                    set([str(f) for f in self._filters])
-                )  # remove any duplicates
-
-            # have to be done here since this arg can be used twice
-            if self._last_updated_before:
-                if len(full_uri.args) > 0:
-                    full_url += "&"
-                else:
-                    full_url += "?"
-                full_url += f"_lastUpdated=lt{self._last_updated_before.strftime('%Y-%m-%dT%H:%M:%SZ')}"
-            if self._last_updated_after:
-                if len(full_uri.args) > 0:
-                    full_url += "&"
-                else:
-                    full_url += "?"
-                full_url += f"_lastUpdated=ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
-
-            if id_above is not None:
-                if len(full_uri.args) > 0:
-                    full_url += "&"
-                else:
-                    full_url += "?"
-                full_url += f"id:above={id_above}"
-
-            # set up headers
-            payload: Dict[str, str] = (
-                self._action_payload if self._action_payload else {}
-            )
-            headers = {
-                "Accept": self._accept,
-                "Content-Type": self._content_type,
-                "Accept-Encoding": self._accept_encoding,
-            }
-
-            # set access token in request if present
-            if await self.get_access_token_async():
-                headers[
-                    "Authorization"
-                ] = f"Bearer {await self.get_access_token_async()}"
-
-            # actually make the request
-            if session is None:
-                http = self.create_http_session()
+                    # ?patient=27384972
+                    full_uri.args[self._filter_by_resource.lower()] = ids[0]
             else:
-                http = session
-            response: ClientResponse = await self._send_fhir_request_async(
-                http, full_url, headers, payload
-            )
-
-            request_id = response.headers.getone("X-Request-ID", None)
-            self._internal_logger.info(f"X-Request-ID={request_id}")
-            # if using streams, use ndjson content type:
-            # async for data, _ in response.content.iter_chunks():
-            #     print(data)
-
-            # if request is ok (200) then return the data
-            if response.ok:
-                total_count: int = 0
-                if self._use_data_streaming:
-                    chunk_number = 0
-                    line: bytes
-                    async for line in response.content:
-                        chunk_number += 1
-                        if fn_handle_streaming_chunk:
-                            await fn_handle_streaming_chunk(line, chunk_number)
-                        if self._logger:
-                            self._logger.info(
-                                f"Successfully retrieved chunk {chunk_number}: {full_url}"
-                            )
-                        resources += line.decode("utf-8")
+                if len(ids) == 1 and not self._obj_id:
+                    full_uri /= ids
                 else:
-                    if self._logger:
-                        self._logger.info(f"Successfully retrieved: {full_url}")
-                    # noinspection PyBroadException
-                    try:
-                        text = await response.text()
-                    except ClientPayloadError as e:
-                        # do a retry
+                    full_uri.args["id"] = ",".join(sorted(ids))
+        # add action to url
+        if self._action:
+            full_uri /= self._action
+        # add a query for just desired properties
+        if self._include_only_properties:
+            full_uri.args["_elements"] = ",".join(self._include_only_properties)
+        if self._page_size and (
+            self._page_number is not None or page_number is not None
+        ):
+            # noinspection SpellCheckingInspection
+            full_uri.args["_count"] = self._page_size
+            # noinspection SpellCheckingInspection
+            full_uri.args["_getpagesoffset"] = page_number or self._page_number
+
+        # add any sort fields
+        if self._sort_fields is not None:
+            full_uri.args["_sort"] = ",".join([str(s) for s in self._sort_fields])
+
+        # create full url by adding on any query parameters
+        full_url: str = full_uri.url
+        if self._additional_parameters:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += "&".join(self._additional_parameters)
+
+        if self._include_total:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += "_total=accurate"
+
+        if self._filters and len(self._filters) > 0:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += "&".join(
+                set([str(f) for f in self._filters])
+            )  # remove any duplicates
+
+        # have to be done here since this arg can be used twice
+        if self._last_updated_before:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += f"_lastUpdated=lt{self._last_updated_before.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+        if self._last_updated_after:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += f"_lastUpdated=ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+
+        if id_above is not None:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += f"id:above={id_above}"
+
+        # set up headers
+        payload: Dict[str, str] = self._action_payload if self._action_payload else {}
+        headers = {
+            "Accept": self._accept,
+            "Content-Type": self._content_type,
+            "Accept-Encoding": self._accept_encoding,
+        }
+
+        try:
+            retries = retries - 1
+            while retries >= 0:
+                # set access token in request if present
+                if await self.get_access_token_async():
+                    headers[
+                        "Authorization"
+                    ] = f"Bearer {await self.get_access_token_async()}"
+
+                # actually make the request
+                if session is None:
+                    http = self.create_http_session()
+                else:
+                    http = session
+                response: ClientResponse = await self._send_fhir_request_async(
+                    http, full_url, headers, payload
+                )
+
+                request_id = response.headers.getone("X-Request-ID", None)
+                self._internal_logger.info(f"X-Request-ID={request_id}")
+                # if using streams, use ndjson content type:
+                # async for data, _ in response.content.iter_chunks():
+                #     print(data)
+
+                # if request is ok (200) then return the data
+                if response.ok:
+                    total_count: int = 0
+                    if self._use_data_streaming:
+                        chunk_number = 0
+                        line: bytes
+                        async for line in response.content:
+                            chunk_number += 1
+                            if fn_handle_streaming_chunk:
+                                await fn_handle_streaming_chunk(line, chunk_number)
+                            if self._logger:
+                                self._logger.info(
+                                    f"Successfully retrieved chunk {chunk_number}: {full_url}"
+                                )
+                            resources += line.decode("utf-8")
+                    else:
                         if self._logger:
-                            self._logger.error(
-                                f"{e}: {full_url}: retries={retries} headers={response.headers}"
-                            )
-                        continue
-                    if len(text) > 0:
-                        response_json: Dict[str, Any] = json.loads(text)
-                        # see if this is a Resource Bundle and un-bundle it
-                        if (
-                            self._expand_fhir_bundle
-                            and "resourceType" in response_json
-                            and response_json["resourceType"] == "Bundle"
-                        ):
-                            if "total" in response_json:
-                                total_count = int(response_json["total"])
-                            if "entry" in response_json:
-                                entries: List[Dict[str, Any]] = response_json["entry"]
-                                entry: Dict[str, Any]
-                                resources_list: List[Dict[str, Any]] = []
-                                for entry in entries:
-                                    if "resource" in entry:
-                                        if self._separate_bundle_resources:
-                                            if self._action != "$graph":
-                                                raise Exception(
-                                                    "only $graph action with _separate_bundle_resources=True"
-                                                    " is supported at this moment"
-                                                )
-                                            resources_dict: Dict[
-                                                str, List[Any]
-                                            ] = {}  # {resource type: [data]}}
-                                            # iterate through the entry list
-                                            # have to split these here otherwise when Spark loads them it can't handle
-                                            # that items in the entry array can have different types
-                                            resource_type: str = str(
-                                                entry["resource"]["resourceType"]
-                                            ).lower()
-                                            parent_resource: Dict[str, Any] = entry[
-                                                "resource"
-                                            ]
-                                            resources_dict[resource_type] = [
-                                                parent_resource
-                                            ]
-                                            # $graph returns "contained" if there is any related resources
-                                            if "contained" in entry["resource"]:
-                                                contained = parent_resource.pop(
-                                                    "contained"
-                                                )
-                                                for contained_entry in contained:
-                                                    resource_type = str(
-                                                        contained_entry["resourceType"]
-                                                    ).lower()
-                                                    if (
-                                                        resource_type
-                                                        not in resources_dict
-                                                    ):
+                            self._logger.info(f"Successfully retrieved: {full_url}")
+                        # noinspection PyBroadException
+                        try:
+                            text = await response.text()
+                        except ClientPayloadError as e:
+                            # do a retry
+                            if self._logger:
+                                self._logger.error(
+                                    f"{e}: {full_url}: retries={retries} headers={response.headers}"
+                                )
+                            continue
+                        if len(text) > 0:
+                            response_json: Dict[str, Any] = json.loads(text)
+                            # see if this is a Resource Bundle and un-bundle it
+                            if (
+                                self._expand_fhir_bundle
+                                and "resourceType" in response_json
+                                and response_json["resourceType"] == "Bundle"
+                            ):
+                                if "total" in response_json:
+                                    total_count = int(response_json["total"])
+                                if "entry" in response_json:
+                                    entries: List[Dict[str, Any]] = response_json[
+                                        "entry"
+                                    ]
+                                    entry: Dict[str, Any]
+                                    resources_list: List[Dict[str, Any]] = []
+                                    for entry in entries:
+                                        if "resource" in entry:
+                                            if self._separate_bundle_resources:
+                                                if self._action != "$graph":
+                                                    raise Exception(
+                                                        "only $graph action with _separate_bundle_resources=True"
+                                                        " is supported at this moment"
+                                                    )
+                                                resources_dict: Dict[
+                                                    str, List[Any]
+                                                ] = {}  # {resource type: [data]}}
+                                                # iterate through the entry list
+                                                # have to split these here otherwise when Spark loads them it can't handle
+                                                # that items in the entry array can have different types
+                                                resource_type: str = str(
+                                                    entry["resource"]["resourceType"]
+                                                ).lower()
+                                                parent_resource: Dict[str, Any] = entry[
+                                                    "resource"
+                                                ]
+                                                resources_dict[resource_type] = [
+                                                    parent_resource
+                                                ]
+                                                # $graph returns "contained" if there is any related resources
+                                                if "contained" in entry["resource"]:
+                                                    contained = parent_resource.pop(
+                                                        "contained"
+                                                    )
+                                                    for contained_entry in contained:
+                                                        resource_type = str(
+                                                            contained_entry[
+                                                                "resourceType"
+                                                            ]
+                                                        ).lower()
+                                                        if (
+                                                            resource_type
+                                                            not in resources_dict
+                                                        ):
+                                                            resources_dict[
+                                                                resource_type
+                                                            ] = []
+
                                                         resources_dict[
                                                             resource_type
-                                                        ] = []
+                                                        ].append(contained_entry)
+                                                resources_list.append(resources_dict)
 
-                                                    resources_dict[
-                                                        resource_type
-                                                    ].append(contained_entry)
-                                            resources_list.append(resources_dict)
+                                            else:
+                                                resources_list.append(entry["resource"])
 
-                                        else:
-                                            resources_list.append(entry["resource"])
-
-                                resources = json.dumps(resources_list)
-                        else:
-                            resources = text
-                return FhirGetResponse(
-                    request_id=request_id,
-                    url=full_url,
-                    responses=resources,
-                    error=None,
-                    access_token=self._access_token,
-                    total_count=total_count,
-                    status=response.status,
-                )
-            elif response.status == 404:  # not found
-                if self._logger:
-                    self._logger.error(f"resource not found! {full_url}")
-                return FhirGetResponse(
-                    request_id=request_id,
-                    url=full_url,
-                    responses=await response.text(),
-                    error=f"{response.status}",
-                    access_token=self._access_token,
-                    total_count=0,
-                    status=response.status,
-                )
-            elif response.status == 502 or response.status == 504:  # time out
-                if retries >= 0:
-                    continue
-            elif response.status == 403:  # forbidden
-                return FhirGetResponse(
-                    request_id=request_id,
-                    url=full_url,
-                    responses=await response.text(),
-                    error=f"{response.status}",
-                    access_token=self._access_token,
-                    total_count=0,
-                    status=response.status,
-                )
-            elif response.status == 401:  # unauthorized
-                if retries >= 0:
-                    assert (
-                        self._auth_server_url
-                    ), f"{response.status} received from server but no auth_server_url was specified to use"
-                    assert (
-                        self._login_token
-                    ), f"{response.status} received from server but no login_token was specified to use"
-                    self._access_token = await self.authenticate_async(
-                        http=http,
-                        auth_server_url=self._auth_server_url,
-                        auth_scopes=self._auth_scopes,
-                        login_token=self._login_token,
+                                    resources = json.dumps(resources_list)
+                            else:
+                                resources = text
+                    return FhirGetResponse(
+                        request_id=request_id,
+                        url=full_url,
+                        responses=resources,
+                        error=None,
+                        access_token=self._access_token,
+                        total_count=total_count,
+                        status=response.status,
                     )
-                    # try again
-                    continue
-                else:
-                    # out of retries so just fail now
+                elif response.status == 404:  # not found
+                    if self._logger:
+                        self._logger.error(f"resource not found! {full_url}")
                     return FhirGetResponse(
                         request_id=request_id,
                         url=full_url,
@@ -868,27 +808,78 @@ class FhirClient:
                         total_count=0,
                         status=response.status,
                     )
-            else:
-                # some unexpected error
-                if self._logger:
-                    self._logger.error(
-                        f"Fhir Receive failed [{response.status}]: {full_url} "
+                elif response.status == 502 or response.status == 504:  # time out
+                    if retries >= 0:
+                        continue
+                elif response.status == 403:  # forbidden
+                    return FhirGetResponse(
+                        request_id=request_id,
+                        url=full_url,
+                        responses=await response.text(),
+                        error=f"{response.status}",
+                        access_token=self._access_token,
+                        total_count=0,
+                        status=response.status,
                     )
-                error_text: str = await response.text()
-                if self._logger:
-                    self._logger.error(error_text)
-                return FhirGetResponse(
-                    request_id=request_id,
-                    url=full_url,
-                    responses=error_text,
-                    access_token=self._access_token,
-                    error=f"{response.status}",
-                    total_count=0,
-                    status=response.status,
-                )
-        raise Exception(
-            f"Could not talk to FHIR server after multiple tries.  RequestId: {request_id}"
-        )
+                elif response.status == 401:  # unauthorized
+                    if retries >= 0:
+                        assert (
+                            self._auth_server_url
+                        ), f"{response.status} received from server but no auth_server_url was specified to use"
+                        assert (
+                            self._login_token
+                        ), f"{response.status} received from server but no login_token was specified to use"
+                        self._access_token = await self.authenticate_async(
+                            http=http,
+                            auth_server_url=self._auth_server_url,
+                            auth_scopes=self._auth_scopes,
+                            login_token=self._login_token,
+                        )
+                        # try again
+                        continue
+                    else:
+                        # out of retries so just fail now
+                        return FhirGetResponse(
+                            request_id=request_id,
+                            url=full_url,
+                            responses=await response.text(),
+                            error=f"{response.status}",
+                            access_token=self._access_token,
+                            total_count=0,
+                            status=response.status,
+                        )
+                else:
+                    # some unexpected error
+                    if self._logger:
+                        self._logger.error(
+                            f"Fhir Receive failed [{response.status}]: {full_url} "
+                        )
+                    error_text: str = await response.text()
+                    if self._logger:
+                        self._logger.error(error_text)
+                    return FhirGetResponse(
+                        request_id=request_id,
+                        url=full_url,
+                        responses=error_text,
+                        access_token=self._access_token,
+                        error=f"{response.status}",
+                        total_count=0,
+                        status=response.status,
+                    )
+            raise Exception(
+                f"Could not talk to FHIR server after multiple tries.  RequestId: {request_id}"
+            )
+        except Exception as ex:
+            raise FhirSenderException(
+                request_id=request_id,
+                exception=ex,
+                url=full_url,
+                json_data="",
+                variables=vars(self),
+                response_text="",
+                response_status_code=0,
+                message="",
+            )
 
     async def _send_fhir_request_async(
         self,
@@ -1349,6 +1340,7 @@ class FhirClient:
                             response_text=await response.text() if response else "",
                             response_status_code=response.status if response else None,
                             exception=e,
+                            variables=vars(self),
                             message=f"HttpError: {e}",
                         ) from e
                     except Exception as e:
@@ -1359,6 +1351,7 @@ class FhirClient:
                             response_text=await response.text() if response else "",
                             response_status_code=response.status if response else None,
                             exception=e,
+                            variables=vars(self),
                             message=f"Unknown Error: {e}",
                         ) from e
 
@@ -1366,7 +1359,8 @@ class FhirClient:
                     if self._logger:
                         self._logger.error(
                             Exception(
-                                f"Assertion: FHIR send failed: {str(e)} for resource: {json_data_list}"
+                                f"Assertion: FHIR send failed: {str(e)} for resource: {json_data_list}. "
+                                + f"variables={convert_dict_to_str(vars(self))}"
                             )
                         )
 
