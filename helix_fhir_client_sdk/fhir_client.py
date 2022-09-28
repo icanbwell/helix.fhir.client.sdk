@@ -413,6 +413,7 @@ class FhirClient:
         self._accept_encoding = encoding
         return self
 
+    # noinspection PyUnusedLocal
     @staticmethod
     async def on_request_end(
         session: ClientSession,
@@ -895,6 +896,7 @@ class FhirClient:
                 request_id=request_id,
                 exception=ex,
                 url=full_url,
+                headers=headers,
                 json_data="",
                 variables=vars(self),
                 response_text="",
@@ -1361,6 +1363,7 @@ class FhirClient:
                         raise FhirSenderException(
                             request_id=request_id,
                             url=resource_uri.url,
+                            headers=headers,
                             json_data=json_payload,
                             response_text=await response.text() if response else "",
                             response_status_code=response.status if response else None,
@@ -1372,6 +1375,7 @@ class FhirClient:
                         raise FhirSenderException(
                             request_id=request_id,
                             url=resource_uri.url,
+                            headers=headers,
                             json_data=json_payload,
                             response_text=await response.text() if response else "",
                             response_status_code=response.status if response else None,
