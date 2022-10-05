@@ -8,6 +8,7 @@ Fluent API to call the FHIR server that handles:
 4. Un-bundling the resources received from FHIR server
 5. Paging
 6. Streaming
+7. Logging
 
 
 # Usage
