@@ -3,7 +3,6 @@ import asyncio
 import base64
 import json
 import logging
-import time
 from asyncio import Future
 from datetime import datetime, timedelta
 from logging import Logger
@@ -58,6 +57,8 @@ from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValid
 from helix_fhir_client_sdk.well_known_configuration import (
     WellKnownConfigurationCacheEntry,
 )
+
+import time
 
 # noinspection PyPackageRequirements
 from requests.adapters import BaseAdapter
@@ -690,7 +691,7 @@ class FhirClient:
             "Content-Type": self._content_type,
             "Accept-Encoding": self._accept_encoding,
         }
-
+        start_time: float = time.time()
         try:
             retries = retries - 1
             while retries >= 0:
@@ -892,7 +893,7 @@ class FhirClient:
                         status=response.status,
                     )
             raise Exception(
-                f"Could not talk to FHIR server after multiple tries.  RequestId: {request_id}"
+                f"Could not talk to FHIR server after multiple tries.  RequestId: {request_id}, retries: {retries}"
             )
         except Exception as ex:
             raise FhirSenderException(
@@ -905,6 +906,7 @@ class FhirClient:
                 response_text="",
                 response_status_code=0,
                 message="",
+                elapsed_time=time.time() - start_time,
             )
 
     async def _send_fhir_request_async(
@@ -1280,6 +1282,7 @@ class FhirClient:
             full_uri /= self._resource
             headers = {"Content-Type": "application/fhir+json"}
             responses: List[Dict[str, Any]] = []
+            start_time: float = time.time()
             async with self.create_http_session() as http:
                 # set access token in request if present
                 if await self.get_access_token_async():
@@ -1368,11 +1371,14 @@ class FhirClient:
                             url=resource_uri.url,
                             headers=headers,
                             json_data=json_payload,
-                            response_text=await response.text() if response else "",
+                            response_text=await self.get_safe_response_text_async(
+                                response=response
+                            ),
                             response_status_code=response.status if response else None,
                             exception=e,
                             variables=vars(self),
                             message=f"HttpError: {e}",
+                            elapsed_time=time.time() - start_time,
                         ) from e
                     except Exception as e:
                         raise FhirSenderException(
@@ -1380,11 +1386,14 @@ class FhirClient:
                             url=resource_uri.url,
                             headers=headers,
                             json_data=json_payload,
-                            response_text=await response.text() if response else "",
+                            response_text=await self.get_safe_response_text_async(
+                                response=response
+                            ),
                             response_status_code=response.status if response else None,
                             exception=e,
                             variables=vars(self),
                             message=f"Unknown Error: {e}",
+                            elapsed_time=time.time() - start_time,
                         ) from e
 
                 except AssertionError as e:
@@ -1408,6 +1417,17 @@ class FhirClient:
         raise Exception(
             f"Could not talk to FHIR server after multiple tries: {request_id}"
         )
+
+    # noinspection PyMethodMayBeStatic
+    async def get_safe_response_text_async(
+        self, response: Optional[ClientResponse]
+    ) -> str:
+        try:
+            return (
+                await response.text() if (response and response.status != 504) else ""
+            )
+        except Exception as e:
+            return str(e)
 
     def merge(
         self,

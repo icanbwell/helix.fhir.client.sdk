@@ -15,6 +15,7 @@ class FhirSenderException(Exception):
         response_status_code: Optional[int],
         message: str,
         variables: Dict[str, Any],
+        elapsed_time: float,
     ) -> None:
         """
         Creates an exception when sending data
@@ -33,8 +34,10 @@ class FhirSenderException(Exception):
         self.data: str = json_data
         self.headers = headers
         self.variables: Dict[str, Any] = variables
+        self.elapsed_time: float = elapsed_time
         super().__init__(
             f"FHIR send {request_id} failed to {url} {response_status_code}: {json_data}.  {message} {response_text}. "
-            + f"headers={convert_dict_to_str(headers)}"
-            + f"variables={convert_dict_to_str(variables)}"
+            + f"headers={convert_dict_to_str(headers)}, "
+            + f"variables={convert_dict_to_str(variables)}, "
+            + f"elapsed time in seconds={elapsed_time}"
         )
