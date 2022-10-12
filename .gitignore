@@ -137,3 +137,6 @@ docsrc/_build/
 !.idea/
 .idea/*
 !.idea/fileTemplates/
+/client_sdk_test
+/venv_fhir_client_sdk
+/test_scripts/client_payload_error.py

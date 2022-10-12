@@ -104,3 +104,16 @@ clean: down
 ifneq ($(shell docker volume ls | grep "helixfhirclientsdk"| awk '{print $$2}'),)
 	docker volume ls | grep "helixfhirclientsdk" | awk '{print $$2}' | xargs docker volume rm
 endif
+
+
+VENV_NAME=venv_fhir_client_sdk
+
+.PHONY:venv
+venv:
+	python3 -m venv $(VENV_NAME)
+
+.PHONY:devsetup
+devsetup:venv
+	source ./$(VENV_NAME)/bin/activate
+
+

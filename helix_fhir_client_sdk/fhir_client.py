@@ -723,6 +723,8 @@ class FhirClient:
                         chunk_number = 0
                         line: bytes
                         async for line in response.content:
+                            # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
+                            await asyncio.sleep(0)
                             chunk_number += 1
                             if fn_handle_streaming_chunk:
                                 await fn_handle_streaming_chunk(line, chunk_number)
@@ -772,7 +774,8 @@ class FhirClient:
                                                     str, List[Any]
                                                 ] = {}  # {resource type: [data]}}
                                                 # iterate through the entry list
-                                                # have to split these here otherwise when Spark loads them it can't handle
+                                                # have to split these here otherwise when Spark loads them
+                                                # it can't handle
                                                 # that items in the entry array can have different types
                                                 resource_type: str = str(
                                                     entry["resource"]["resourceType"]
@@ -974,8 +977,12 @@ class FhirClient:
         # trace_config.on_request_start.append(on_request_start)
         trace_config.on_request_end.append(FhirClient.on_request_end)
         # trace_config.on_response_chunk_received
+        # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
+        timeout = aiohttp.ClientTimeout(total=60 * 60, sock_read=240)
         session: ClientSession = aiohttp.ClientSession(
-            trace_configs=[trace_config], headers={"Connection": "keep-alive"}
+            trace_configs=[trace_config],
+            headers={"Connection": "keep-alive"},
+            timeout=timeout,
         )
         return session
 
@@ -1469,26 +1476,31 @@ class FhirClient:
         full_uri /= ".well-known/smart-configuration"
         self._internal_logger.info(f"Calling {full_uri.tostr()}")
         async with self.create_http_session() as http:
-            response: ClientResponse = await http.get(full_uri.tostr())
-            text_ = await response.text()
-            if response and response.ok and text_:
-                content: Dict[str, Any] = json.loads(text_)
-                token_endpoint: Optional[str] = str(content["token_endpoint"])
-                with self._well_known_configuration_cache_lock:
-                    self._well_known_configuration_cache[
-                        host_name
-                    ] = WellKnownConfigurationCacheEntry(
-                        auth_url=token_endpoint, last_updated_utc=datetime.utcnow()
-                    )
-                return token_endpoint
-            else:
-                with self._well_known_configuration_cache_lock:
-                    self._well_known_configuration_cache[
-                        host_name
-                    ] = WellKnownConfigurationCacheEntry(
-                        auth_url=None, last_updated_utc=datetime.utcnow()
-                    )
-                return None
+            try:
+                response: ClientResponse = await http.get(full_uri.tostr())
+                text_ = await response.text()
+                if response and response.ok and text_:
+                    content: Dict[str, Any] = json.loads(text_)
+                    token_endpoint: Optional[str] = str(content["token_endpoint"])
+                    with self._well_known_configuration_cache_lock:
+                        self._well_known_configuration_cache[
+                            host_name
+                        ] = WellKnownConfigurationCacheEntry(
+                            auth_url=token_endpoint, last_updated_utc=datetime.utcnow()
+                        )
+                    return token_endpoint
+                else:
+                    with self._well_known_configuration_cache_lock:
+                        self._well_known_configuration_cache[
+                            host_name
+                        ] = WellKnownConfigurationCacheEntry(
+                            auth_url=None, last_updated_utc=datetime.utcnow()
+                        )
+                    return None
+            except Exception as e:
+                raise Exception(
+                    f"Error getting well known configuration from {full_uri.tostr()}"
+                ) from e
 
     async def graph_async(
         self,
