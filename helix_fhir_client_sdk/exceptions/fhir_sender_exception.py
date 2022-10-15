@@ -35,9 +35,17 @@ class FhirSenderException(Exception):
         self.headers = headers
         self.variables: Dict[str, Any] = variables
         self.elapsed_time: float = elapsed_time
-        super().__init__(
-            f"FHIR send {request_id} failed to {url} {response_status_code}: {json_data}.  {message} {response_text}. "
-            + f"headers={convert_dict_to_str(headers)}, "
-            + f"variables={convert_dict_to_str(variables)}, "
-            + f"elapsed time in seconds={elapsed_time}"
-        )
+        json = {
+            "message": f"FHIR send failed: {message}",
+            "request_id": request_id,
+            "url": url,
+            "status_code": response_status_code,
+            "headers": headers,
+            "variables": variables,
+            "elapsed_time": elapsed_time,
+            "response_text": response_text,
+            "json_data": json_data,
+            "exception": exception,
+        }
+
+        super().__init__(convert_dict_to_str(json))
