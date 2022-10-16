@@ -13,7 +13,7 @@ services:
       - docker.env
 
   mock-server:
-    image: jamesdbloom/mockserver:mockserver-5.13.2
+    image: mockserver/mockserver:mockserver-5.14.0
     command: -logLevel DEBUG -serverPort 1080
     ports:
       - '1080:1080'
