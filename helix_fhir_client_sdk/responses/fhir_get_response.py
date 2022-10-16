@@ -11,6 +11,7 @@ class FhirGetResponse:
         access_token: Optional[str],
         total_count: Optional[int],
         status: int,
+        next_url: Optional[str] = None,
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -30,3 +31,4 @@ class FhirGetResponse:
         self.access_token: Optional[str] = access_token
         self.total_count: Optional[int] = total_count
         self.status: int = status
+        self.next_url: Optional[str] = next_url

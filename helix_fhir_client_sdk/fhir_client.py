@@ -20,6 +20,7 @@ from typing import (
     AsyncGenerator,
     Coroutine,
     Awaitable,
+    Tuple,
 )
 from urllib import parse
 
@@ -136,6 +137,8 @@ class FhirClient:
         self._accept: str = "application/fhir+json"
         self._content_type: str = "application/fhir+json"
         self._accept_encoding: str = "gzip,deflate"
+
+        self._maximum_time_to_retry_on_429: int = 60 * 60
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -312,6 +315,10 @@ class FhirClient:
         :param login_token: login token to use
         """
         self._login_token = login_token
+        return self
+
+    def maximum_time_to_retry_on_429(self, time_in_seconds: int) -> "FhirClient":
+        self._maximum_time_to_retry_on_429 = time_in_seconds
         return self
 
     def client_credentials(self, client_id: str, client_secret: str) -> "FhirClient":
@@ -597,7 +604,7 @@ class FhirClient:
         request_id: Optional[str] = None
         retries: int = 2
         # create url and query to request from FHIR server
-        resources: str = ""
+        resources_json: str = ""
         full_uri: furl = furl(self._url)
         full_uri /= self._resource
         if self._obj_id:
@@ -719,6 +726,7 @@ class FhirClient:
                 # if request is ok (200) then return the data
                 if response.ok:
                     total_count: int = 0
+                    next_url: Optional[str] = None
                     if self._use_data_streaming:
                         chunk_number = 0
                         line: bytes
@@ -732,7 +740,7 @@ class FhirClient:
                                 self._logger.info(
                                     f"Successfully retrieved chunk {chunk_number}: {full_url}"
                                 )
-                            resources += line.decode("utf-8")
+                            resources_json += line.decode("utf-8")
                     else:
                         if self._logger:
                             self._logger.info(f"Successfully retrieved: {full_url}")
@@ -748,82 +756,47 @@ class FhirClient:
                             continue
                         if len(text) > 0:
                             response_json: Dict[str, Any] = json.loads(text)
+                            if (
+                                "resourceType" in response_json
+                                and response_json["resourceType"] == "Bundle"
+                            ):
+                                # get next url if present
+                                if "link" in response_json:
+                                    links: List[Dict[str, Any]] = response_json.get(
+                                        "link", []
+                                    )
+                                    next_links = [
+                                        link
+                                        for link in links
+                                        if link.get("relation") == "next"
+                                    ]
+                                    if len(next_links) > 0:
+                                        next_link: Dict[str, Any] = next_links[0]
+                                        next_url = next_link.get("url")
+
                             # see if this is a Resource Bundle and un-bundle it
                             if (
                                 self._expand_fhir_bundle
                                 and "resourceType" in response_json
                                 and response_json["resourceType"] == "Bundle"
                             ):
-                                if "total" in response_json:
-                                    total_count = int(response_json["total"])
-                                if "entry" in response_json:
-                                    entries: List[Dict[str, Any]] = response_json[
-                                        "entry"
-                                    ]
-                                    entry: Dict[str, Any]
-                                    resources_list: List[Dict[str, Any]] = []
-                                    for entry in entries:
-                                        if "resource" in entry:
-                                            if self._separate_bundle_resources:
-                                                if self._action != "$graph":
-                                                    raise Exception(
-                                                        "only $graph action with _separate_bundle_resources=True"
-                                                        " is supported at this moment"
-                                                    )
-                                                resources_dict: Dict[
-                                                    str, List[Any]
-                                                ] = {}  # {resource type: [data]}}
-                                                # iterate through the entry list
-                                                # have to split these here otherwise when Spark loads them
-                                                # it can't handle
-                                                # that items in the entry array can have different types
-                                                resource_type: str = str(
-                                                    entry["resource"]["resourceType"]
-                                                ).lower()
-                                                parent_resource: Dict[str, Any] = entry[
-                                                    "resource"
-                                                ]
-                                                resources_dict[resource_type] = [
-                                                    parent_resource
-                                                ]
-                                                # $graph returns "contained" if there is any related resources
-                                                if "contained" in entry["resource"]:
-                                                    contained = parent_resource.pop(
-                                                        "contained"
-                                                    )
-                                                    for contained_entry in contained:
-                                                        resource_type = str(
-                                                            contained_entry[
-                                                                "resourceType"
-                                                            ]
-                                                        ).lower()
-                                                        if (
-                                                            resource_type
-                                                            not in resources_dict
-                                                        ):
-                                                            resources_dict[
-                                                                resource_type
-                                                            ] = []
-
-                                                        resources_dict[
-                                                            resource_type
-                                                        ].append(contained_entry)
-                                                resources_list.append(resources_dict)
-
-                                            else:
-                                                resources_list.append(entry["resource"])
-
-                                    resources = json.dumps(resources_list)
+                                (
+                                    resources_json,
+                                    total_count,
+                                ) = await self._expand_bundle_async(
+                                    resources_json, response_json, total_count
+                                )
                             else:
-                                resources = text
+                                resources_json = text
                     return FhirGetResponse(
                         request_id=request_id,
                         url=full_url,
-                        responses=resources,
+                        responses=resources_json,
                         error=None,
                         access_token=self._access_token,
                         total_count=total_count,
                         status=response.status,
+                        next_url=next_url,
                     )
                 elif response.status == 404:  # not found
                     if self._logger:
@@ -877,6 +850,31 @@ class FhirClient:
                             total_count=0,
                             status=response.status,
                         )
+                elif response.status == 429:  # too many calls
+                    # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+                    # read the Retry-After header
+                    # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
+                    retry_after_text: str = str(response.headers.getone("Retry-After"))
+                    if self._logger:
+                        self._logger.info(
+                            f"Server sent a 429 with retry-after: {retry_after_text}"
+                        )
+                    if retry_after_text:
+                        if retry_after_text.isnumeric():  # it is number of seconds
+                            time.sleep(int(retry_after_text))
+                        else:
+                            wait_till: datetime = datetime.strptime(
+                                retry_after_text, "%a, %d %b %Y %H:%M:%S GMT"
+                            )
+                            while datetime.utcnow() < wait_till:
+                                time.sleep(10)
+                    else:
+                        time.sleep(60)
+                    if self._logger:
+                        self._logger.info(
+                            f"Finished waiting after a 429 with retry-after: {retry_after_text}"
+                        )
+                    continue
                 else:
                     # some unexpected error
                     if self._logger:
@@ -911,6 +909,55 @@ class FhirClient:
                 message="",
                 elapsed_time=time.time() - start_time,
             )
+
+    async def _expand_bundle_async(
+        self, resources: str, response_json: Dict[str, Any], total_count: int
+    ) -> Tuple[str, int]:
+        if "total" in response_json:
+            total_count = int(response_json["total"])
+        if "entry" in response_json:
+            entries: List[Dict[str, Any]] = response_json["entry"]
+            entry: Dict[str, Any]
+            resources_list: List[Dict[str, Any]] = []
+            for entry in entries:
+                if "resource" in entry:
+                    if self._separate_bundle_resources:
+                        await self._separate_contained_resources_async(
+                            entry, resources_list
+                        )
+                    else:
+                        resources_list.append(entry["resource"])
+
+            resources = json.dumps(resources_list)
+        return resources, total_count
+
+    @staticmethod
+    async def _separate_contained_resources_async(
+        entry: Dict[str, Any], resources_list: List[Dict[str, Any]]
+    ) -> None:
+        # if self._action != "$graph":
+        #     raise Exception(
+        #         "only $graph action with _separate_bundle_resources=True"
+        #         " is supported at this moment"
+        #     )
+        resources_dict: Dict[str, List[Any]] = {}  # {resource type: [data]}}
+        # iterate through the entry list
+        # have to split these here otherwise when Spark loads them
+        # it can't handle
+        # that items in the entry array can have different types
+        resource_type: str = str(entry["resource"]["resourceType"]).lower()
+        parent_resource: Dict[str, Any] = entry["resource"]
+        resources_dict[resource_type] = [parent_resource]
+        # $graph returns "contained" if there is any related resources
+        if "contained" in entry["resource"]:
+            contained = parent_resource.pop("contained")
+            for contained_entry in contained:
+                resource_type = str(contained_entry["resourceType"]).lower()
+                if resource_type not in resources_dict:
+                    resources_dict[resource_type] = []
+
+                resources_dict[resource_type].append(contained_entry)
+        resources_list.append(resources_dict)
 
     async def _send_fhir_request_async(
         self,
