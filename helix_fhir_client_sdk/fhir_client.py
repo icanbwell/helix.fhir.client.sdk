@@ -726,6 +726,7 @@ class FhirClient:
                 # if request is ok (200) then return the data
                 if response.ok:
                     total_count: int = 0
+                    next_url: Optional[str] = None
                     if self._use_data_streaming:
                         chunk_number = 0
                         line: bytes
@@ -755,13 +756,34 @@ class FhirClient:
                             continue
                         if len(text) > 0:
                             response_json: Dict[str, Any] = json.loads(text)
+                            if (
+                                "resourceType" in response_json
+                                and response_json["resourceType"] == "Bundle"
+                            ):
+                                # get next url if present
+                                if "link" in response_json:
+                                    links: List[Dict[str, Any]] = response_json.get(
+                                        "link", []
+                                    )
+                                    next_links = [
+                                        link
+                                        for link in links
+                                        if link.get("relation") == "next"
+                                    ]
+                                    if len(next_links) > 0:
+                                        next_link: Dict[str, Any] = next_links[0]
+                                        next_url = next_link.get("url")
+
                             # see if this is a Resource Bundle and un-bundle it
                             if (
                                 self._expand_fhir_bundle
                                 and "resourceType" in response_json
                                 and response_json["resourceType"] == "Bundle"
                             ):
-                                resources, total_count = await self.expand_bundle_async(
+                                (
+                                    resources,
+                                    total_count,
+                                ) = await self._expand_bundle_async(
                                     resources, response_json, total_count
                                 )
                             else:
@@ -774,6 +796,7 @@ class FhirClient:
                         access_token=self._access_token,
                         total_count=total_count,
                         status=response.status,
+                        next_url=next_url,
                     )
                 elif response.status == 404:  # not found
                     if self._logger:
@@ -887,7 +910,7 @@ class FhirClient:
                 elapsed_time=time.time() - start_time,
             )
 
-    async def expand_bundle_async(
+    async def _expand_bundle_async(
         self, resources: str, response_json: Dict[str, Any], total_count: int
     ) -> Tuple[str, int]:
         if "total" in response_json:
@@ -899,8 +922,9 @@ class FhirClient:
             for entry in entries:
                 if "resource" in entry:
                     if self._separate_bundle_resources:
-                        await self.separate_contained_resources(entry, resources_list)
-
+                        await self._separate_contained_resources_async(
+                            entry, resources_list
+                        )
                     else:
                         resources_list.append(entry["resource"])
 
@@ -908,7 +932,7 @@ class FhirClient:
         return resources, total_count
 
     @staticmethod
-    async def separate_contained_resources(
+    async def _separate_contained_resources_async(
         entry: Dict[str, Any], resources_list: List[Dict[str, Any]]
     ) -> None:
         # if self._action != "$graph":
