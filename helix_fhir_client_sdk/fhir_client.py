@@ -604,7 +604,7 @@ class FhirClient:
         request_id: Optional[str] = None
         retries: int = 2
         # create url and query to request from FHIR server
-        resources: str = ""
+        resources_json: str = ""
         full_uri: furl = furl(self._url)
         full_uri /= self._resource
         if self._obj_id:
@@ -740,7 +740,7 @@ class FhirClient:
                                 self._logger.info(
                                     f"Successfully retrieved chunk {chunk_number}: {full_url}"
                                 )
-                            resources += line.decode("utf-8")
+                            resources_json += line.decode("utf-8")
                     else:
                         if self._logger:
                             self._logger.info(f"Successfully retrieved: {full_url}")
@@ -781,17 +781,17 @@ class FhirClient:
                                 and response_json["resourceType"] == "Bundle"
                             ):
                                 (
-                                    resources,
+                                    resources_json,
                                     total_count,
                                 ) = await self._expand_bundle_async(
-                                    resources, response_json, total_count
+                                    resources_json, response_json, total_count
                                 )
                             else:
-                                resources = text
+                                resources_json = text
                     return FhirGetResponse(
                         request_id=request_id,
                         url=full_url,
-                        responses=resources,
+                        responses=resources_json,
                         error=None,
                         access_token=self._access_token,
                         total_count=total_count,
