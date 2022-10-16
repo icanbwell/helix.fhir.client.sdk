@@ -20,6 +20,7 @@ from typing import (
     AsyncGenerator,
     Coroutine,
     Awaitable,
+    Tuple,
 )
 from urllib import parse
 
@@ -760,66 +761,9 @@ class FhirClient:
                                 and "resourceType" in response_json
                                 and response_json["resourceType"] == "Bundle"
                             ):
-                                if "total" in response_json:
-                                    total_count = int(response_json["total"])
-                                if "entry" in response_json:
-                                    entries: List[Dict[str, Any]] = response_json[
-                                        "entry"
-                                    ]
-                                    entry: Dict[str, Any]
-                                    resources_list: List[Dict[str, Any]] = []
-                                    for entry in entries:
-                                        if "resource" in entry:
-                                            if self._separate_bundle_resources:
-                                                # if self._action != "$graph":
-                                                #     raise Exception(
-                                                #         "only $graph action with _separate_bundle_resources=True"
-                                                #         " is supported at this moment"
-                                                #     )
-                                                resources_dict: Dict[
-                                                    str, List[Any]
-                                                ] = {}  # {resource type: [data]}}
-                                                # iterate through the entry list
-                                                # have to split these here otherwise when Spark loads them
-                                                # it can't handle
-                                                # that items in the entry array can have different types
-                                                resource_type: str = str(
-                                                    entry["resource"]["resourceType"]
-                                                ).lower()
-                                                parent_resource: Dict[str, Any] = entry[
-                                                    "resource"
-                                                ]
-                                                resources_dict[resource_type] = [
-                                                    parent_resource
-                                                ]
-                                                # $graph returns "contained" if there is any related resources
-                                                if "contained" in entry["resource"]:
-                                                    contained = parent_resource.pop(
-                                                        "contained"
-                                                    )
-                                                    for contained_entry in contained:
-                                                        resource_type = str(
-                                                            contained_entry[
-                                                                "resourceType"
-                                                            ]
-                                                        ).lower()
-                                                        if (
-                                                            resource_type
-                                                            not in resources_dict
-                                                        ):
-                                                            resources_dict[
-                                                                resource_type
-                                                            ] = []
-
-                                                        resources_dict[
-                                                            resource_type
-                                                        ].append(contained_entry)
-                                                resources_list.append(resources_dict)
-
-                                            else:
-                                                resources_list.append(entry["resource"])
-
-                                    resources = json.dumps(resources_list)
+                                resources, total_count = await self.expand_bundle_async(
+                                    resources, response_json, total_count
+                                )
                             else:
                                 resources = text
                     return FhirGetResponse(
@@ -942,6 +886,54 @@ class FhirClient:
                 message="",
                 elapsed_time=time.time() - start_time,
             )
+
+    async def expand_bundle_async(
+        self, resources: str, response_json: Dict[str, Any], total_count: int
+    ) -> Tuple[str, int]:
+        if "total" in response_json:
+            total_count = int(response_json["total"])
+        if "entry" in response_json:
+            entries: List[Dict[str, Any]] = response_json["entry"]
+            entry: Dict[str, Any]
+            resources_list: List[Dict[str, Any]] = []
+            for entry in entries:
+                if "resource" in entry:
+                    if self._separate_bundle_resources:
+                        await self.separate_contained_resources(entry, resources_list)
+
+                    else:
+                        resources_list.append(entry["resource"])
+
+            resources = json.dumps(resources_list)
+        return resources, total_count
+
+    @staticmethod
+    async def separate_contained_resources(
+        entry: Dict[str, Any], resources_list: List[Dict[str, Any]]
+    ) -> None:
+        # if self._action != "$graph":
+        #     raise Exception(
+        #         "only $graph action with _separate_bundle_resources=True"
+        #         " is supported at this moment"
+        #     )
+        resources_dict: Dict[str, List[Any]] = {}  # {resource type: [data]}}
+        # iterate through the entry list
+        # have to split these here otherwise when Spark loads them
+        # it can't handle
+        # that items in the entry array can have different types
+        resource_type: str = str(entry["resource"]["resourceType"]).lower()
+        parent_resource: Dict[str, Any] = entry["resource"]
+        resources_dict[resource_type] = [parent_resource]
+        # $graph returns "contained" if there is any related resources
+        if "contained" in entry["resource"]:
+            contained = parent_resource.pop("contained")
+            for contained_entry in contained:
+                resource_type = str(contained_entry["resourceType"]).lower()
+                if resource_type not in resources_dict:
+                    resources_dict[resource_type] = []
+
+                resources_dict[resource_type].append(contained_entry)
+        resources_list.append(resources_dict)
 
     async def _send_fhir_request_async(
         self,
