@@ -137,6 +137,8 @@ class FhirClient:
         self._content_type: str = "application/fhir+json"
         self._accept_encoding: str = "gzip,deflate"
 
+        self._maximum_time_to_retry_on_429: int = 60 * 60
+
     def action(self, action: str) -> "FhirClient":
         """
         Set the action
@@ -312,6 +314,10 @@ class FhirClient:
         :param login_token: login token to use
         """
         self._login_token = login_token
+        return self
+
+    def maximum_time_to_retry_on_429(self, time_in_seconds: int) -> "FhirClient":
+        self._maximum_time_to_retry_on_429 = time_in_seconds
         return self
 
     def client_credentials(self, client_id: str, client_secret: str) -> "FhirClient":
@@ -765,11 +771,11 @@ class FhirClient:
                                     for entry in entries:
                                         if "resource" in entry:
                                             if self._separate_bundle_resources:
-                                                if self._action != "$graph":
-                                                    raise Exception(
-                                                        "only $graph action with _separate_bundle_resources=True"
-                                                        " is supported at this moment"
-                                                    )
+                                                # if self._action != "$graph":
+                                                #     raise Exception(
+                                                #         "only $graph action with _separate_bundle_resources=True"
+                                                #         " is supported at this moment"
+                                                #     )
                                                 resources_dict: Dict[
                                                     str, List[Any]
                                                 ] = {}  # {resource type: [data]}}
@@ -877,6 +883,31 @@ class FhirClient:
                             total_count=0,
                             status=response.status,
                         )
+                elif response.status == 429:  # too many calls
+                    # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+                    # read the Retry-After header
+                    # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
+                    retry_after_text: str = str(response.headers.getone("Retry-After"))
+                    if self._logger:
+                        self._logger.info(
+                            f"Server sent a 429 with retry-after: {retry_after_text}"
+                        )
+                    if retry_after_text:
+                        if retry_after_text.isnumeric():  # it is number of seconds
+                            time.sleep(int(retry_after_text))
+                        else:
+                            wait_till: datetime = datetime.strptime(
+                                retry_after_text, "%a, %d %b %Y %H:%M:%S GMT"
+                            )
+                            while datetime.utcnow() < wait_till:
+                                time.sleep(10)
+                    else:
+                        time.sleep(60)
+                    if self._logger:
+                        self._logger.info(
+                            f"Finished waiting after a 429 with retry-after: {retry_after_text}"
+                        )
+                    continue
                 else:
                     # some unexpected error
                     if self._logger:
