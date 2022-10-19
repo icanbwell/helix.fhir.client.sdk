@@ -703,10 +703,9 @@ class FhirClient:
             retries = retries - 1
             while retries >= 0:
                 # set access token in request if present
-                if await self.get_access_token_async():
-                    headers[
-                        "Authorization"
-                    ] = f"Bearer {await self.get_access_token_async()}"
+                access_token: Optional[str] = await self.get_access_token_async()
+                if access_token:
+                    headers["Authorization"] = f"Bearer {access_token}"
 
                 # actually make the request
                 if session is None:
@@ -784,7 +783,10 @@ class FhirClient:
                                     resources_json,
                                     total_count,
                                 ) = await self._expand_bundle_async(
-                                    resources_json, response_json, total_count
+                                    resources_json,
+                                    response_json,
+                                    total_count,
+                                    access_token=access_token,
                                 )
                             else:
                                 resources_json = text
@@ -911,7 +913,11 @@ class FhirClient:
             )
 
     async def _expand_bundle_async(
-        self, resources: str, response_json: Dict[str, Any], total_count: int
+        self,
+        resources: str,
+        response_json: Dict[str, Any],
+        total_count: int,
+        access_token: Optional[str],
     ) -> Tuple[str, int]:
         if "total" in response_json:
             total_count = int(response_json["total"])
@@ -923,7 +929,9 @@ class FhirClient:
                 if "resource" in entry:
                     if self._separate_bundle_resources:
                         await self._separate_contained_resources_async(
-                            entry, resources_list
+                            entry=entry,
+                            resources_list=resources_list,
+                            access_token=access_token,
                         )
                     else:
                         resources_list.append(entry["resource"])
@@ -933,18 +941,23 @@ class FhirClient:
 
     @staticmethod
     async def _separate_contained_resources_async(
-        entry: Dict[str, Any], resources_list: List[Dict[str, Any]]
+        *,
+        entry: Dict[str, Any],
+        resources_list: List[Dict[str, Any]],
+        access_token: Optional[str],
     ) -> None:
         # if self._action != "$graph":
         #     raise Exception(
         #         "only $graph action with _separate_bundle_resources=True"
         #         " is supported at this moment"
         #     )
-        resources_dict: Dict[str, List[Any]] = {}  # {resource type: [data]}}
+        resources_dict: Dict[
+            str, Union[Optional[str], List[Any]]
+        ] = {}  # {resource type: [data]}}
         # iterate through the entry list
         # have to split these here otherwise when Spark loads them
         # it can't handle
-        # that items in the entry array can have different types
+        # that items in the entry array can have different schemas
         resource_type: str = str(entry["resource"]["resourceType"]).lower()
         parent_resource: Dict[str, Any] = entry["resource"]
         resources_dict[resource_type] = [parent_resource]
@@ -956,7 +969,9 @@ class FhirClient:
                 if resource_type not in resources_dict:
                     resources_dict[resource_type] = []
 
-                resources_dict[resource_type].append(contained_entry)
+                if isinstance(resources_dict[resource_type], list):
+                    resources_dict[resource_type].append(contained_entry)  # type: ignore
+        resources_dict["token"] = access_token
         resources_list.append(resources_dict)
 
     async def _send_fhir_request_async(
