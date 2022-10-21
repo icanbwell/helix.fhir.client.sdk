@@ -787,6 +787,7 @@ class FhirClient:
                                     response_json,
                                     total_count,
                                     access_token=access_token,
+                                    url=self._url,
                                 )
                             elif (
                                 self._separate_bundle_resources
@@ -800,6 +801,7 @@ class FhirClient:
                                             response_json
                                         ],
                                         "token": access_token,
+                                        "url": self._url,
                                     }
                                 )
                             else:
@@ -932,6 +934,7 @@ class FhirClient:
         response_json: Dict[str, Any],
         total_count: int,
         access_token: Optional[str],
+        url: str,
     ) -> Tuple[str, int]:
         if "total" in response_json:
             total_count = int(response_json["total"])
@@ -946,6 +949,7 @@ class FhirClient:
                             entry=entry,
                             resources_list=resources_list,
                             access_token=access_token,
+                            url=url,
                         )
                     else:
                         resources_list.append(entry["resource"])
@@ -959,6 +963,7 @@ class FhirClient:
         entry: Dict[str, Any],
         resources_list: List[Dict[str, Any]],
         access_token: Optional[str],
+        url: str,
     ) -> None:
         # if self._action != "$graph":
         #     raise Exception(
@@ -986,6 +991,7 @@ class FhirClient:
                 if isinstance(resources_dict[resource_type], list):
                     resources_dict[resource_type].append(contained_entry)  # type: ignore
         resources_dict["token"] = access_token
+        resources_dict["url"] = url
         resources_list.append(resources_dict)
 
     async def _send_fhir_request_async(
