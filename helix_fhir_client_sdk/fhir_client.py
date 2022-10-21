@@ -788,6 +788,20 @@ class FhirClient:
                                     total_count,
                                     access_token=access_token,
                                 )
+                            elif (
+                                self._separate_bundle_resources
+                                and "resourceType" in response_json
+                                and response_json["resourceType"] != "Bundle"
+                            ):
+                                # single resource was returned
+                                resources_json = json.dumps(
+                                    {
+                                        f'{response_json["resourceType"].lower()}': [
+                                            response_json
+                                        ],
+                                        "token": access_token,
+                                    }
+                                )
                             else:
                                 resources_json = text
                     return FhirGetResponse(
