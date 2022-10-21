@@ -492,7 +492,8 @@
                 ]
             }
         ],
-        "token": null
+        "token": null,
+        "url": "http://mock-server:1080/test_fhir_client_bundle_separated_async"
     },
     {
         "practitioner": [
@@ -807,6 +808,7 @@
                 ]
             }
         ],
-        "token": null
+        "token": null,
+        "url": "http://mock-server:1080/test_fhir_client_bundle_separated_async"
     }
 ]
