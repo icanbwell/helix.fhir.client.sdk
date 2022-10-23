@@ -140,6 +140,8 @@ class FhirClient:
 
         self._maximum_time_to_retry_on_429: int = 60 * 60
 
+        self._extra_context_to_return: Optional[Dict[str, Any]] = None
+
     def action(self, action: str) -> "FhirClient":
         """
         Set the action
@@ -319,6 +321,10 @@ class FhirClient:
 
     def maximum_time_to_retry_on_429(self, time_in_seconds: int) -> "FhirClient":
         self._maximum_time_to_retry_on_429 = time_in_seconds
+        return self
+
+    def extra_context_to_return(self, context: Dict[str, Any]) -> "FhirClient":
+        self._extra_context_to_return = context
         return self
 
     def client_credentials(self, client_id: str, client_secret: str) -> "FhirClient":
@@ -583,6 +589,7 @@ class FhirClient:
 
     async def _get_with_session_async(
         self,
+        *,
         session: Optional[ClientSession],
         page_number: Optional[int] = None,
         ids: Optional[List[str]] = None,
@@ -795,15 +802,17 @@ class FhirClient:
                                 and response_json["resourceType"] != "Bundle"
                             ):
                                 # single resource was returned
-                                resources_json = json.dumps(
-                                    {
-                                        f'{response_json["resourceType"].lower()}': [
-                                            response_json
-                                        ],
-                                        "token": access_token,
-                                        "url": self._url,
-                                    }
-                                )
+                                resources_dict = {
+                                    f'{response_json["resourceType"].lower()}': [
+                                        response_json
+                                    ],
+                                    "token": access_token,
+                                    "url": self._url,
+                                }
+                                if self._extra_context_to_return:
+                                    resources_dict.update(self._extra_context_to_return)
+
+                                resources_json = json.dumps(resources_dict)
                             else:
                                 resources_json = text
                     return FhirGetResponse(
@@ -815,6 +824,7 @@ class FhirClient:
                         total_count=total_count,
                         status=response.status,
                         next_url=next_url,
+                        extra_context_to_return=self._extra_context_to_return,
                     )
                 elif response.status == 404:  # not found
                     if self._logger:
@@ -827,6 +837,7 @@ class FhirClient:
                         access_token=self._access_token,
                         total_count=0,
                         status=response.status,
+                        extra_context_to_return=self._extra_context_to_return,
                     )
                 elif response.status == 502 or response.status == 504:  # time out
                     if retries >= 0:
@@ -840,6 +851,7 @@ class FhirClient:
                         access_token=self._access_token,
                         total_count=0,
                         status=response.status,
+                        extra_context_to_return=self._extra_context_to_return,
                     )
                 elif response.status == 401:  # unauthorized
                     if retries >= 0:
@@ -867,6 +879,7 @@ class FhirClient:
                             access_token=self._access_token,
                             total_count=0,
                             status=response.status,
+                            extra_context_to_return=self._extra_context_to_return,
                         )
                 elif response.status == 429:  # too many calls
                     # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
@@ -910,6 +923,7 @@ class FhirClient:
                         error=f"{response.status}",
                         total_count=0,
                         status=response.status,
+                        extra_context_to_return=self._extra_context_to_return,
                     )
             raise Exception(
                 f"Could not talk to FHIR server after multiple tries.  RequestId: {request_id}, retries: {retries}"
@@ -957,8 +971,8 @@ class FhirClient:
             resources = json.dumps(resources_list)
         return resources, total_count
 
-    @staticmethod
     async def _separate_contained_resources_async(
+        self,
         *,
         entry: Dict[str, Any],
         resources_list: List[Dict[str, Any]],
@@ -992,6 +1006,8 @@ class FhirClient:
                     resources_dict[resource_type].append(contained_entry)  # type: ignore
         resources_dict["token"] = access_token
         resources_dict["url"] = url
+        if self._extra_context_to_return:
+            resources_dict.update(self._extra_context_to_return)
         resources_list.append(resources_dict)
 
     async def _send_fhir_request_async(
@@ -1034,6 +1050,7 @@ class FhirClient:
             )
             return await http.get(full_url, headers=headers, data=payload)
 
+    # noinspection SpellCheckingInspection
     @staticmethod
     def create_http_session() -> ClientSession:
         """
@@ -1278,6 +1295,7 @@ class FhirClient:
                 access_token=self._access_token,
                 total_count=len(resources_list),
                 status=200,
+                extra_context_to_return=self._extra_context_to_return,
             )
 
     @staticmethod
