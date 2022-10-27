@@ -47,6 +47,7 @@ class FhirValidator:
                     response_status_code=validation_response.status_code,
                     message="FhirSender: Validation Failed",
                     headers=headers,
+                    issue=operation_outcome["issue"],
                 )
         else:
             raise FhirValidationException(
@@ -57,4 +58,5 @@ class FhirValidator:
                 response_status_code=validation_response.status_code,
                 message="FhirSender: Validation Failed",
                 headers=headers,
+                issue=None,
             )

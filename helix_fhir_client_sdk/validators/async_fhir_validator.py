@@ -47,6 +47,7 @@ class AsyncFhirValidator:
                     response_status_code=validation_response.status,
                     message="FhirSender: Validation Failed",
                     headers=headers,
+                    issue=operation_outcome["issue"],
                 )
         else:
             response_text = await validation_response.text()
@@ -58,4 +59,5 @@ class AsyncFhirValidator:
                 response_status_code=validation_response.status,
                 message="FhirSender: Validation Failed",
                 headers=headers,
+                issue=None,
             )

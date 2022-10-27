@@ -43,6 +43,9 @@ from furl import furl
 
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
+from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
+    FhirValidationException,
+)
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
 from helix_fhir_client_sdk.filters.last_updated_filter import LastUpdatedFilter
 from helix_fhir_client_sdk.filters.sort_field import SortField
@@ -1398,20 +1401,37 @@ class FhirClient:
                     ] = f"Bearer {await self.get_access_token_async()}"
 
                 try:
-                    resource_json_list: List[Dict[str, Any]] = [
+                    resource_json_list_incoming: List[Dict[str, Any]] = [
                         json.loads(json_data) for json_data in json_data_list
                     ]
+                    resource_json_list_clean: List[Dict[str, Any]] = []
+                    errors: List[Dict[str, Any]] = []
                     if self._validation_server_url:
                         resource_json: Dict[str, Any]
-                        for resource_json in resource_json_list:
-                            await AsyncFhirValidator.validate_fhir_resource(
-                                http=http,
-                                json_data=json.dumps(resource_json),
-                                resource_name=self._resource,
-                                validation_server_url=self._validation_server_url,
-                            )
+                        for resource_json in resource_json_list_incoming:
+                            try:
+                                await AsyncFhirValidator.validate_fhir_resource(
+                                    http=http,
+                                    json_data=json.dumps(resource_json),
+                                    resource_name=resource_json.get("resourceType")
+                                    or self._resource,
+                                    validation_server_url=self._validation_server_url,
+                                )
+                                resource_json_list_clean.append(resource_json)
+                            except FhirValidationException as e:
+                                errors.append(
+                                    {
+                                        "id": resource_json.get("id"),
+                                        "resourceType": resource_json.get(
+                                            "resourceType"
+                                        ),
+                                        "issue": e.issue,
+                                    }
+                                )
+                    else:
+                        resource_json_list_clean = resource_json_list_incoming
 
-                    json_payload: str = json.dumps(resource_json_list)
+                    json_payload: str = json.dumps(resource_json_list_clean)
                     # json_payload_bytes: str = json_payload
                     json_payload_bytes: bytes = json_payload.encode("utf-8")
                     obj_id = 1  # TODO: remove this once the node fhir accepts merge without a parameter
@@ -1515,8 +1535,10 @@ class FhirClient:
                 return FhirMergeResponse(
                     request_id=request_id,
                     url=self._url or "",
-                    responses=responses,
-                    error=json.dumps(responses) if response_status != 200 else None,
+                    responses=responses + errors,
+                    error=json.dumps(responses + errors)
+                    if response_status != 200
+                    else None,
                     access_token=self._access_token,
                     status=response_status if response_status else 500,
                 )
