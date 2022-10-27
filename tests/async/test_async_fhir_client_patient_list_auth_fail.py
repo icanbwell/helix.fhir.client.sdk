@@ -35,4 +35,4 @@ async def test_fhir_client_patient_list_auth_fail_async() -> None:
     response: FhirGetResponse = await fhir_client.get_async()
 
     print(response.responses)
-    assert response.error == "403"
+    assert response.status == 403
