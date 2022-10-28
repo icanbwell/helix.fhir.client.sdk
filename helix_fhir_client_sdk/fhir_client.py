@@ -3,9 +3,11 @@ import asyncio
 import base64
 import json
 import logging
+import uuid
 from asyncio import Future
 from datetime import datetime, timedelta
 from logging import Logger
+from os import environ
 from queue import Empty
 from threading import Lock
 from types import SimpleNamespace
@@ -144,6 +146,11 @@ class FhirClient:
         self._maximum_time_to_retry_on_429: int = 60 * 60
 
         self._extra_context_to_return: Optional[Dict[str, Any]] = None
+
+        self._retry_count: int = 2
+        self._exclude_status_codes_from_retry: Optional[List[int]] = None
+
+        self._uuid = uuid.uuid4()
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -330,6 +337,14 @@ class FhirClient:
         self._extra_context_to_return = context
         return self
 
+    def exclude_status_codes_from_retry(self, status_codes: List[int]) -> "FhirClient":
+        self._exclude_status_codes_from_retry = status_codes
+        return self
+
+    def retry_count(self, count: int) -> "FhirClient":
+        self._retry_count = count
+        return self
+
     def client_credentials(self, client_id: str, client_secret: str) -> "FhirClient":
         """
         Sets client credentials to use when calling the FHIR server
@@ -354,8 +369,9 @@ class FhirClient:
         :param logger: logger
         """
         self._logger = logger
-        # disable internal logger
-        self._internal_logger.setLevel(logging.ERROR)
+        if environ.get("LOGLEVEL") != "DEBUG":
+            # disable internal logger
+            self._internal_logger.setLevel(logging.ERROR)
         return self
 
     def adapter(self, adapter: BaseAdapter) -> "FhirClient":
@@ -437,13 +453,14 @@ class FhirClient:
         trace_config_ctx: SimpleNamespace,
         params: TraceRequestEndParams,
     ) -> None:
-        FhirClient._internal_logger.info(
-            "Ending %s request for %s. I sent: %s"
-            % (params.method, params.url, params.headers)
-        )
-        FhirClient._internal_logger.info(
-            "Sent headers: %s" % params.response.request_info.headers
-        )
+        if environ.get("LOGLEVEL") == "DEBUG":
+            FhirClient._internal_logger.info(
+                "Ending %s request for %s. I sent: %s"
+                % (params.method, params.url, params.headers)
+            )
+            FhirClient._internal_logger.info(
+                "Sent headers: %s" % params.response.request_info.headers
+            )
 
     async def get_access_token_async(self) -> Optional[str]:
         """
@@ -612,7 +629,7 @@ class FhirClient:
         assert self._url, "No FHIR server url was set"
         assert self._resource, "No Resource was set"
         request_id: Optional[str] = None
-        retries: int = 2
+        retries_left: int = self._retry_count
         # create url and query to request from FHIR server
         resources_json: str = ""
         full_uri: furl = furl(self._url)
@@ -709,9 +726,9 @@ class FhirClient:
             "Accept-Encoding": self._accept_encoding,
         }
         start_time: float = time.time()
+        last_status_code: Optional[int] = None
         try:
-            retries = retries - 1
-            while retries >= 0:
+            while retries_left > 0:
                 # set access token in request if present
                 access_token: Optional[str] = await self.get_access_token_async()
                 if access_token:
@@ -722,9 +739,26 @@ class FhirClient:
                     http = self.create_http_session()
                 else:
                     http = session
+
+                if environ.get("LOGLEVEL") == "DEBUG":
+                    if self._logger:
+                        self._logger.info(
+                            f"sending a get_with_session_async: {full_url} with client_id={self._client_id} "
+                            + f"and scopes={self._auth_scopes} instance_id={self._uuid} retries_left={retries_left}"
+                        )
                 response: ClientResponse = await self._send_fhir_request_async(
                     http, full_url, headers, payload
                 )
+                last_status_code = response.status
+                # retries_left
+                retries_left = retries_left - 1
+                if environ.get("LOGLEVEL") == "DEBUG":
+                    if self._logger:
+                        self._logger.info(
+                            f"response from get_with_session_async: {full_url} status_code {response.status} "
+                            + f"with client_id={self._client_id} and scopes={self._auth_scopes} instance_id={self._uuid} "
+                            + f"retries_left={retries_left}"
+                        )
 
                 request_id = response.headers.getone("X-Request-ID", None)
                 self._internal_logger.info(f"X-Request-ID={request_id}")
@@ -760,7 +794,7 @@ class FhirClient:
                             # do a retry
                             if self._logger:
                                 self._logger.error(
-                                    f"{e}: {full_url}: retries={retries} headers={response.headers}"
+                                    f"{e}: {full_url}: retries_left={retries_left} headers={response.headers}"
                                 )
                             continue
                         if len(text) > 0:
@@ -843,7 +877,10 @@ class FhirClient:
                         extra_context_to_return=self._extra_context_to_return,
                     )
                 elif response.status == 502 or response.status == 504:  # time out
-                    if retries >= 0:
+                    if retries_left > 0 and (
+                        not self._exclude_status_codes_from_retry
+                        or response.status not in self._exclude_status_codes_from_retry
+                    ):
                         continue
                 elif response.status == 403:  # forbidden
                     return FhirGetResponse(
@@ -857,7 +894,10 @@ class FhirClient:
                         extra_context_to_return=self._extra_context_to_return,
                     )
                 elif response.status == 401:  # unauthorized
-                    if retries >= 0:
+                    if retries_left > 0 and (
+                        not self._exclude_status_codes_from_retry
+                        or response.status not in self._exclude_status_codes_from_retry
+                    ):
                         assert (
                             self._auth_server_url
                         ), f"{response.status} received from server but no auth_server_url was specified to use"
@@ -873,7 +913,7 @@ class FhirClient:
                         # try again
                         continue
                     else:
-                        # out of retries so just fail now
+                        # out of retries_left so just fail now
                         return FhirGetResponse(
                             request_id=request_id,
                             url=full_url,
@@ -885,13 +925,27 @@ class FhirClient:
                             extra_context_to_return=self._extra_context_to_return,
                         )
                 elif response.status == 429:  # too many calls
+                    if (
+                        not self._exclude_status_codes_from_retry
+                        or response.status not in self._exclude_status_codes_from_retry
+                    ):
+                        return FhirGetResponse(
+                            request_id=request_id,
+                            url=full_url,
+                            responses=await response.text(),
+                            error=None,
+                            access_token=self._access_token,
+                            total_count=0,
+                            status=response.status,
+                            extra_context_to_return=self._extra_context_to_return,
+                        )
                     # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
                     # read the Retry-After header
                     # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
                     retry_after_text: str = str(response.headers.getone("Retry-After"))
                     if self._logger:
                         self._logger.info(
-                            f"Server sent a 429 with retry-after: {retry_after_text}"
+                            f"Server {full_url} sent a 429 with retry-after: {retry_after_text}"
                         )
                     if retry_after_text:
                         if retry_after_text.isnumeric():  # it is number of seconds
@@ -928,8 +982,22 @@ class FhirClient:
                         status=response.status,
                         extra_context_to_return=self._extra_context_to_return,
                     )
-            raise Exception(
-                f"Could not talk to FHIR server after multiple tries.  RequestId: {request_id}, retries: {retries}"
+
+                if self._logger:
+                    self._logger.info(
+                        f"Got status_code= {response.status}, Retries left={retries_left}"
+                    )
+
+            # if after retries_left we still fail then show it here
+            return FhirGetResponse(
+                request_id=request_id,
+                url=full_url,
+                responses="",
+                error=None,
+                access_token=self._access_token,
+                total_count=0,
+                status=last_status_code or 0,
+                extra_context_to_return=self._extra_context_to_return,
             )
         except Exception as ex:
             raise FhirSenderException(
@@ -1044,13 +1112,15 @@ class FhirClient:
                     "$graph needs a payload to define the returning response (use action_payload parameter)"
                 )
         else:
-            if self._logger:
-                self._logger.info(
-                    f"sending a get: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
-                )
-            self._internal_logger.info(
-                f"sending a get: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
-            )
+            if environ.get("LOGLEVEL") == "DEBUG":
+                if self._logger:
+                    self._logger.info(
+                        f"sending a get: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes} instance_id={self._uuid}"
+                    )
+                else:
+                    self._internal_logger.info(
+                        f"sending a get: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes} instance_id={self._uuid}"
+                    )
             return await http.get(full_url, headers=headers, data=payload)
 
     # noinspection SpellCheckingInspection
