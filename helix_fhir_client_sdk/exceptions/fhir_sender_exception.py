@@ -35,6 +35,8 @@ class FhirSenderException(Exception):
         self.headers = headers
         self.variables: Dict[str, Any] = variables
         self.elapsed_time: float = elapsed_time
+        self.response_text: Optional[str] = response_text
+        self.response_status_code: Optional[int] = response_status_code
         json = {
             "message": f"FHIR send failed: {message}",
             "request_id": request_id,

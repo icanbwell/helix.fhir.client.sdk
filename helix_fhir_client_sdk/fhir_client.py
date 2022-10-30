@@ -665,7 +665,7 @@ class FhirClient:
             # noinspection SpellCheckingInspection
             full_uri.args["_getpagesoffset"] = page_number or self._page_number
 
-        if self._limit and self._limit >= 0:
+        if not self._obj_id and ids is None and self._limit and self._limit >= 0:
             full_uri.args["_count"] = self._limit
 
         # add any sort fields
@@ -727,6 +727,7 @@ class FhirClient:
         }
         start_time: float = time.time()
         last_status_code: Optional[int] = None
+        last_response_text: Optional[str] = None
         try:
             while retries_left > 0:
                 # set access token in request if present
@@ -864,6 +865,9 @@ class FhirClient:
                         extra_context_to_return=self._extra_context_to_return,
                     )
                 elif response.status == 404:  # not found
+                    last_response_text = await self.get_safe_response_text_async(
+                        response=response
+                    )
                     if self._logger:
                         self._logger.error(f"resource not found! {full_url}")
                     return FhirGetResponse(
@@ -877,12 +881,18 @@ class FhirClient:
                         extra_context_to_return=self._extra_context_to_return,
                     )
                 elif response.status == 502 or response.status == 504:  # time out
+                    last_response_text = await self.get_safe_response_text_async(
+                        response=response
+                    )
                     if retries_left > 0 and (
                         not self._exclude_status_codes_from_retry
                         or response.status not in self._exclude_status_codes_from_retry
                     ):
                         continue
                 elif response.status == 403:  # forbidden
+                    last_response_text = await self.get_safe_response_text_async(
+                        response=response
+                    )
                     return FhirGetResponse(
                         request_id=request_id,
                         url=full_url,
@@ -894,6 +904,9 @@ class FhirClient:
                         extra_context_to_return=self._extra_context_to_return,
                     )
                 elif response.status == 401:  # unauthorized
+                    last_response_text = await self.get_safe_response_text_async(
+                        response=response
+                    )
                     if retries_left > 0 and (
                         not self._exclude_status_codes_from_retry
                         or response.status not in self._exclude_status_codes_from_retry
@@ -925,6 +938,9 @@ class FhirClient:
                             extra_context_to_return=self._extra_context_to_return,
                         )
                 elif response.status == 429:  # too many calls
+                    last_response_text = await self.get_safe_response_text_async(
+                        response=response
+                    )
                     if (
                         not self._exclude_status_codes_from_retry
                         or response.status not in self._exclude_status_codes_from_retry
@@ -993,7 +1009,7 @@ class FhirClient:
                 request_id=request_id,
                 url=full_url,
                 responses="",
-                error=None,
+                error=last_response_text or "Error after retries",
                 access_token=self._access_token,
                 total_count=0,
                 status=last_status_code or 0,
@@ -1007,8 +1023,8 @@ class FhirClient:
                 headers=headers,
                 json_data="",
                 variables=vars(self),
-                response_text="",
-                response_status_code=0,
+                response_text=last_response_text,
+                response_status_code=last_status_code,
                 message="",
                 elapsed_time=time.time() - start_time,
             )
