@@ -151,6 +151,7 @@ class FhirClient:
         self._exclude_status_codes_from_retry: Optional[List[int]] = None
 
         self._uuid = uuid.uuid4()
+        self._log_level: Optional[str] = environ.get("LOGLEVEL")
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -369,7 +370,7 @@ class FhirClient:
         :param logger: logger
         """
         self._logger = logger
-        if environ.get("LOGLEVEL") != "DEBUG":
+        if self._log_level != "DEBUG":
             # disable internal logger
             self._internal_logger.setLevel(logging.ERROR)
         return self
@@ -446,6 +447,10 @@ class FhirClient:
         self._accept_encoding = encoding
         return self
 
+    def log_level(self, level: Optional[str]) -> "FhirClient":
+        self._log_level = level
+        return self
+
     # noinspection PyUnusedLocal
     @staticmethod
     async def on_request_end(
@@ -453,14 +458,13 @@ class FhirClient:
         trace_config_ctx: SimpleNamespace,
         params: TraceRequestEndParams,
     ) -> None:
-        if environ.get("LOGLEVEL") == "DEBUG":
-            FhirClient._internal_logger.info(
-                "Ending %s request for %s. I sent: %s"
-                % (params.method, params.url, params.headers)
-            )
-            FhirClient._internal_logger.info(
-                "Sent headers: %s" % params.response.request_info.headers
-            )
+        FhirClient._internal_logger.info(
+            "Ending %s request for %s. I sent: %s"
+            % (params.method, params.url, params.headers)
+        )
+        FhirClient._internal_logger.info(
+            "Sent headers: %s" % params.response.request_info.headers
+        )
 
     async def get_access_token_async(self) -> Optional[str]:
         """
@@ -586,8 +590,10 @@ class FhirClient:
         """
         instance_variables_text = convert_dict_to_str(vars(self))
         if self._logger:
+            self._logger.info(f"LOGLEVEL: {self._log_level}")
             self._logger.info(f"parameters: {instance_variables_text}")
         else:
+            self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
             self._internal_logger.info(f"parameters: {instance_variables_text}")
         ids: Optional[List[str]] = None
         if self._id:
@@ -629,7 +635,7 @@ class FhirClient:
         assert self._url, "No FHIR server url was set"
         assert self._resource, "No Resource was set"
         request_id: Optional[str] = None
-        retries_left: int = self._retry_count
+        retries_left: int = self._retry_count + 1
         # create url and query to request from FHIR server
         resources_json: str = ""
         full_uri: furl = furl(self._url)
@@ -665,7 +671,7 @@ class FhirClient:
             # noinspection SpellCheckingInspection
             full_uri.args["_getpagesoffset"] = page_number or self._page_number
 
-        if self._limit and self._limit >= 0:
+        if not self._obj_id and ids is None and self._limit and self._limit >= 0:
             full_uri.args["_count"] = self._limit
 
         # add any sort fields
@@ -727,6 +733,7 @@ class FhirClient:
         }
         start_time: float = time.time()
         last_status_code: Optional[int] = None
+        last_response_text: Optional[str] = None
         try:
             while retries_left > 0:
                 # set access token in request if present
@@ -740,21 +747,33 @@ class FhirClient:
                 else:
                     http = session
 
-                if environ.get("LOGLEVEL") == "DEBUG":
+                if self._log_level == "DEBUG":
                     if self._logger:
                         self._logger.info(
                             f"sending a get_with_session_async: {full_url} with client_id={self._client_id} "
                             + f"and scopes={self._auth_scopes} instance_id={self._uuid} retries_left={retries_left}"
                         )
+                    if self._internal_logger:
+                        self._internal_logger.info(
+                            f"sending a get_with_session_async: {full_url} with client_id={self._client_id} "
+                            + f"and scopes={self._auth_scopes} instance_id={self._uuid} retries_left={retries_left}"
+                        )
+
                 response: ClientResponse = await self._send_fhir_request_async(
                     http, full_url, headers, payload
                 )
                 last_status_code = response.status
                 # retries_left
                 retries_left = retries_left - 1
-                if environ.get("LOGLEVEL") == "DEBUG":
+                if self._log_level == "DEBUG":
                     if self._logger:
                         self._logger.info(
+                            f"response from get_with_session_async: {full_url} status_code {response.status} "
+                            + f"with client_id={self._client_id} and scopes={self._auth_scopes} instance_id={self._uuid} "
+                            + f"retries_left={retries_left}"
+                        )
+                    if self._internal_logger:
+                        self._internal_logger.info(
                             f"response from get_with_session_async: {full_url} status_code {response.status} "
                             + f"with client_id={self._client_id} and scopes={self._auth_scopes} instance_id={self._uuid} "
                             + f"retries_left={retries_left}"
@@ -864,6 +883,9 @@ class FhirClient:
                         extra_context_to_return=self._extra_context_to_return,
                     )
                 elif response.status == 404:  # not found
+                    last_response_text = await self.get_safe_response_text_async(
+                        response=response
+                    )
                     if self._logger:
                         self._logger.error(f"resource not found! {full_url}")
                     return FhirGetResponse(
@@ -877,12 +899,18 @@ class FhirClient:
                         extra_context_to_return=self._extra_context_to_return,
                     )
                 elif response.status == 502 or response.status == 504:  # time out
+                    last_response_text = await self.get_safe_response_text_async(
+                        response=response
+                    )
                     if retries_left > 0 and (
                         not self._exclude_status_codes_from_retry
                         or response.status not in self._exclude_status_codes_from_retry
                     ):
                         continue
                 elif response.status == 403:  # forbidden
+                    last_response_text = await self.get_safe_response_text_async(
+                        response=response
+                    )
                     return FhirGetResponse(
                         request_id=request_id,
                         url=full_url,
@@ -894,6 +922,9 @@ class FhirClient:
                         extra_context_to_return=self._extra_context_to_return,
                     )
                 elif response.status == 401:  # unauthorized
+                    last_response_text = await self.get_safe_response_text_async(
+                        response=response
+                    )
                     if retries_left > 0 and (
                         not self._exclude_status_codes_from_retry
                         or response.status not in self._exclude_status_codes_from_retry
@@ -925,6 +956,9 @@ class FhirClient:
                             extra_context_to_return=self._extra_context_to_return,
                         )
                 elif response.status == 429:  # too many calls
+                    last_response_text = await self.get_safe_response_text_async(
+                        response=response
+                    )
                     if (
                         not self._exclude_status_codes_from_retry
                         or response.status not in self._exclude_status_codes_from_retry
@@ -969,9 +1003,18 @@ class FhirClient:
                         self._logger.error(
                             f"Fhir Receive failed [{response.status}]: {full_url} "
                         )
-                    error_text: str = await response.text()
+                    if self._internal_logger:
+                        self._internal_logger.error(
+                            f"Fhir Receive failed [{response.status}]: {full_url} "
+                        )
+                    error_text: str = await self.get_safe_response_text_async(
+                        response=response
+                    )
                     if self._logger:
                         self._logger.error(error_text)
+                    if self._internal_logger:
+                        self._internal_logger.error(error_text)
+
                     return FhirGetResponse(
                         request_id=request_id,
                         url=full_url,
@@ -987,13 +1030,17 @@ class FhirClient:
                     self._logger.info(
                         f"Got status_code= {response.status}, Retries left={retries_left}"
                     )
+                if self._internal_logger:
+                    self._internal_logger.info(
+                        f"Got status_code= {response.status}, Retries left={retries_left}"
+                    )
 
             # if after retries_left we still fail then show it here
             return FhirGetResponse(
                 request_id=request_id,
                 url=full_url,
                 responses="",
-                error=None,
+                error=last_response_text or "Error after retries",
                 access_token=self._access_token,
                 total_count=0,
                 status=last_status_code or 0,
@@ -1007,8 +1054,8 @@ class FhirClient:
                 headers=headers,
                 json_data="",
                 variables=vars(self),
-                response_text="",
-                response_status_code=0,
+                response_text=last_response_text,
+                response_status_code=last_status_code,
                 message="",
                 elapsed_time=time.time() - start_time,
             )
@@ -1112,7 +1159,7 @@ class FhirClient:
                     "$graph needs a payload to define the returning response (use action_payload parameter)"
                 )
         else:
-            if environ.get("LOGLEVEL") == "DEBUG":
+            if self._log_level == "DEBUG":
                 if self._logger:
                     self._logger.info(
                         f"sending a get: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes} instance_id={self._uuid}"
@@ -1124,8 +1171,7 @@ class FhirClient:
             return await http.get(full_url, headers=headers, data=payload)
 
     # noinspection SpellCheckingInspection
-    @staticmethod
-    def create_http_session() -> ClientSession:
+    def create_http_session(self) -> ClientSession:
         """
         Creates an HTTP Session
 
@@ -1147,7 +1193,8 @@ class FhirClient:
         # session: ClientSession = aiohttp.ClientSession()
         trace_config = aiohttp.TraceConfig()
         # trace_config.on_request_start.append(on_request_start)
-        trace_config.on_request_end.append(FhirClient.on_request_end)
+        if self._log_level == "DEBUG":
+            trace_config.on_request_end.append(FhirClient.on_request_end)
         # trace_config.on_response_chunk_received
         # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
         timeout = aiohttp.ClientTimeout(total=60 * 60, sock_read=240)
