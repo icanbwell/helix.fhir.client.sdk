@@ -586,8 +586,12 @@ class FhirClient:
         """
         instance_variables_text = convert_dict_to_str(vars(self))
         if self._logger:
+            self._logger.info(f"LOGLEVEL: {environ.get('LOGLEVEL')}")
             self._logger.info(f"parameters: {instance_variables_text}")
         else:
+            self._internal_logger.info(
+                f"LOGLEVEL (InternalLogger): {environ.get('LOGLEVEL')}"
+            )
             self._internal_logger.info(f"parameters: {instance_variables_text}")
         ids: Optional[List[str]] = None
         if self._id:
@@ -747,7 +751,7 @@ class FhirClient:
                             f"sending a get_with_session_async: {full_url} with client_id={self._client_id} "
                             + f"and scopes={self._auth_scopes} instance_id={self._uuid} retries_left={retries_left}"
                         )
-                    elif self._internal_logger:
+                    if self._internal_logger:
                         self._internal_logger.info(
                             f"sending a get_with_session_async: {full_url} with client_id={self._client_id} "
                             + f"and scopes={self._auth_scopes} instance_id={self._uuid} retries_left={retries_left}"
@@ -766,7 +770,7 @@ class FhirClient:
                             + f"with client_id={self._client_id} and scopes={self._auth_scopes} instance_id={self._uuid} "
                             + f"retries_left={retries_left}"
                         )
-                    elif self._internal_logger:
+                    if self._internal_logger:
                         self._internal_logger.info(
                             f"response from get_with_session_async: {full_url} status_code {response.status} "
                             + f"with client_id={self._client_id} and scopes={self._auth_scopes} instance_id={self._uuid} "
