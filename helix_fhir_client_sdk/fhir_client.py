@@ -985,9 +985,18 @@ class FhirClient:
                         self._logger.error(
                             f"Fhir Receive failed [{response.status}]: {full_url} "
                         )
-                    error_text: str = await response.text()
+                    if self._internal_logger:
+                        self._internal_logger.error(
+                            f"Fhir Receive failed [{response.status}]: {full_url} "
+                        )
+                    error_text: str = await self.get_safe_response_text_async(
+                        response=response
+                    )
                     if self._logger:
                         self._logger.error(error_text)
+                    if self._internal_logger:
+                        self._internal_logger.error(error_text)
+
                     return FhirGetResponse(
                         request_id=request_id,
                         url=full_url,
@@ -1001,6 +1010,10 @@ class FhirClient:
 
                 if self._logger:
                     self._logger.info(
+                        f"Got status_code= {response.status}, Retries left={retries_left}"
+                    )
+                if self._internal_logger:
+                    self._internal_logger.info(
                         f"Got status_code= {response.status}, Retries left={retries_left}"
                     )
 
