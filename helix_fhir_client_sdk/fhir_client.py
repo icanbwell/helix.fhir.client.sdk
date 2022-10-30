@@ -151,6 +151,7 @@ class FhirClient:
         self._exclude_status_codes_from_retry: Optional[List[int]] = None
 
         self._uuid = uuid.uuid4()
+        self._log_level: Optional[str] = environ.get("LOGLEVEL")
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -369,7 +370,7 @@ class FhirClient:
         :param logger: logger
         """
         self._logger = logger
-        if environ.get("LOGLEVEL") != "DEBUG":
+        if self._log_level != "DEBUG":
             # disable internal logger
             self._internal_logger.setLevel(logging.ERROR)
         return self
@@ -446,6 +447,10 @@ class FhirClient:
         self._accept_encoding = encoding
         return self
 
+    def log_level(self, level: Optional[str]) -> "FhirClient":
+        self._log_level = level
+        return self
+
     # noinspection PyUnusedLocal
     @staticmethod
     async def on_request_end(
@@ -453,14 +458,13 @@ class FhirClient:
         trace_config_ctx: SimpleNamespace,
         params: TraceRequestEndParams,
     ) -> None:
-        if environ.get("LOGLEVEL") == "DEBUG":
-            FhirClient._internal_logger.info(
-                "Ending %s request for %s. I sent: %s"
-                % (params.method, params.url, params.headers)
-            )
-            FhirClient._internal_logger.info(
-                "Sent headers: %s" % params.response.request_info.headers
-            )
+        FhirClient._internal_logger.info(
+            "Ending %s request for %s. I sent: %s"
+            % (params.method, params.url, params.headers)
+        )
+        FhirClient._internal_logger.info(
+            "Sent headers: %s" % params.response.request_info.headers
+        )
 
     async def get_access_token_async(self) -> Optional[str]:
         """
@@ -586,12 +590,10 @@ class FhirClient:
         """
         instance_variables_text = convert_dict_to_str(vars(self))
         if self._logger:
-            self._logger.info(f"LOGLEVEL: {environ.get('LOGLEVEL')}")
+            self._logger.info(f"LOGLEVEL: {self._log_level}")
             self._logger.info(f"parameters: {instance_variables_text}")
         else:
-            self._internal_logger.info(
-                f"LOGLEVEL (InternalLogger): {environ.get('LOGLEVEL')}"
-            )
+            self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
             self._internal_logger.info(f"parameters: {instance_variables_text}")
         ids: Optional[List[str]] = None
         if self._id:
@@ -745,7 +747,7 @@ class FhirClient:
                 else:
                     http = session
 
-                if environ.get("LOGLEVEL") == "DEBUG":
+                if self._log_level == "DEBUG":
                     if self._logger:
                         self._logger.info(
                             f"sending a get_with_session_async: {full_url} with client_id={self._client_id} "
@@ -763,7 +765,7 @@ class FhirClient:
                 last_status_code = response.status
                 # retries_left
                 retries_left = retries_left - 1
-                if environ.get("LOGLEVEL") == "DEBUG":
+                if self._log_level == "DEBUG":
                     if self._logger:
                         self._logger.info(
                             f"response from get_with_session_async: {full_url} status_code {response.status} "
@@ -1157,7 +1159,7 @@ class FhirClient:
                     "$graph needs a payload to define the returning response (use action_payload parameter)"
                 )
         else:
-            if environ.get("LOGLEVEL") == "DEBUG":
+            if self._log_level == "DEBUG":
                 if self._logger:
                     self._logger.info(
                         f"sending a get: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes} instance_id={self._uuid}"
@@ -1169,8 +1171,7 @@ class FhirClient:
             return await http.get(full_url, headers=headers, data=payload)
 
     # noinspection SpellCheckingInspection
-    @staticmethod
-    def create_http_session() -> ClientSession:
+    def create_http_session(self) -> ClientSession:
         """
         Creates an HTTP Session
 
@@ -1192,7 +1193,8 @@ class FhirClient:
         # session: ClientSession = aiohttp.ClientSession()
         trace_config = aiohttp.TraceConfig()
         # trace_config.on_request_start.append(on_request_start)
-        trace_config.on_request_end.append(FhirClient.on_request_end)
+        if self._log_level == "DEBUG":
+            trace_config.on_request_end.append(FhirClient.on_request_end)
         # trace_config.on_response_chunk_received
         # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
         timeout = aiohttp.ClientTimeout(total=60 * 60, sock_read=240)
