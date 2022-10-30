@@ -635,7 +635,7 @@ class FhirClient:
         assert self._url, "No FHIR server url was set"
         assert self._resource, "No Resource was set"
         request_id: Optional[str] = None
-        retries_left: int = self._retry_count
+        retries_left: int = self._retry_count + 1
         # create url and query to request from FHIR server
         resources_json: str = ""
         full_uri: furl = furl(self._url)
