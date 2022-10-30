@@ -747,6 +747,12 @@ class FhirClient:
                             f"sending a get_with_session_async: {full_url} with client_id={self._client_id} "
                             + f"and scopes={self._auth_scopes} instance_id={self._uuid} retries_left={retries_left}"
                         )
+                    elif self._internal_logger:
+                        self._internal_logger.info(
+                            f"sending a get_with_session_async: {full_url} with client_id={self._client_id} "
+                            + f"and scopes={self._auth_scopes} instance_id={self._uuid} retries_left={retries_left}"
+                        )
+
                 response: ClientResponse = await self._send_fhir_request_async(
                     http, full_url, headers, payload
                 )
@@ -756,6 +762,12 @@ class FhirClient:
                 if environ.get("LOGLEVEL") == "DEBUG":
                     if self._logger:
                         self._logger.info(
+                            f"response from get_with_session_async: {full_url} status_code {response.status} "
+                            + f"with client_id={self._client_id} and scopes={self._auth_scopes} instance_id={self._uuid} "
+                            + f"retries_left={retries_left}"
+                        )
+                    elif self._internal_logger:
+                        self._internal_logger.info(
                             f"response from get_with_session_async: {full_url} status_code {response.status} "
                             + f"with client_id={self._client_id} and scopes={self._auth_scopes} instance_id={self._uuid} "
                             + f"retries_left={retries_left}"
