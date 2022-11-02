@@ -651,7 +651,9 @@ class FhirClient:
                     ] = ids[0]
                 else:
                     # ?patient=27384972
-                    full_uri.args[self._filter_by_resource.lower()] = ids[0]
+                    full_uri.args[self._filter_by_resource.lower()] = ",".join(
+                        sorted(ids)
+                    )
             else:
                 if len(ids) == 1 and not self._obj_id:
                     full_uri /= ids
