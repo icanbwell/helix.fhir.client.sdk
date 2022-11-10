@@ -10,6 +10,7 @@ class FhirMergeResponse:
         error: Optional[str],
         access_token: Optional[str],
         status: int,
+        json_data: str,
     ) -> None:
         """
         Class that encapsulates a response to e $merge call to FHIR server
@@ -25,3 +26,4 @@ class FhirMergeResponse:
         self.error: Optional[str] = error
         self.access_token: Optional[str] = access_token
         self.status: int = status
+        self.data: str = json_data
