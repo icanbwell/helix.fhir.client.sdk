@@ -1624,7 +1624,17 @@ class FhirClient:
                                 request_id=request_id,
                                 url=self._url or "",
                                 json_data=json_payload,
-                                responses=[{"error": response_text}],
+                                responses=[
+                                    {
+                                        "issue": [
+                                            {
+                                                "severity": "error",
+                                                "code": "exception",
+                                                "diagnostics": response_text,
+                                            }
+                                        ]
+                                    }
+                                ],
                                 error=json.dumps(response_text),
                                 access_token=self._access_token,
                                 status=response.status if response.status else 500,
