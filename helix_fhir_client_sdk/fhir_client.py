@@ -1500,6 +1500,13 @@ class FhirClient:
         self._internal_logger.debug(
             f"Calling $merge on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
         )
+        instance_variables_text = convert_dict_to_str(vars(self))
+        if self._logger:
+            self._logger.info(f"LOGLEVEL: {self._log_level}")
+            self._logger.info(f"parameters: {instance_variables_text}")
+        else:
+            self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
+            self._internal_logger.info(f"parameters: {instance_variables_text}")
 
         request_id: Optional[str] = None
         response_status: Optional[int] = None
@@ -1606,11 +1613,22 @@ class FhirClient:
                             else:
                                 # out of retries so just fail now
                                 response.raise_for_status()
-                        else:
+                        else:  # other HTTP errors
                             self._internal_logger.info(
                                 f"response for {full_uri.tostr()}: {response.status}"
                             )
-                            response.raise_for_status()
+                            response_text = await self.get_safe_response_text_async(
+                                response=response
+                            )
+                            return FhirMergeResponse(
+                                request_id=request_id,
+                                url=self._url or "",
+                                json_data=json_payload,
+                                responses=[{"error": response_text}],
+                                error=json.dumps(response_text),
+                                access_token=self._access_token,
+                                status=response.status if response.status else 500,
+                            )
                     except requests.exceptions.HTTPError as e:
                         raise FhirSenderException(
                             request_id=request_id,
@@ -1660,6 +1678,7 @@ class FhirClient:
                     else None,
                     access_token=self._access_token,
                     status=response_status if response_status else 500,
+                    json_data=json_payload,
                 )
 
         raise Exception(
