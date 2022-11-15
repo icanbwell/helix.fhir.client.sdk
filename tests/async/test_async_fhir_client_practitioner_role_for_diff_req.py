@@ -66,6 +66,11 @@ def mock_calls_to_get_response(
 
 
 async def test_async_fhir_client_practitioner_role_for_diff_req() -> None:
+    """
+    Test case to check number of id's fetched for a resource are same when concurrent request and page size were
+    different.We are making 2 calls here one with (concurrent_req=2,page_size_for_retrieving_ids=2) and another with
+    (concurrent_req=3,page_size_for_retrieving_ids=2) and in both case we should get same number of id's
+    """
     test_name = "test_async_fhir_client_practitioner_role_for_diff_req"
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
