@@ -1323,7 +1323,7 @@ class FhirClient:
             if "id" in last_json_resource:
                 # use id:above to optimize the next query
                 id_above = last_json_resource["id"]
-            server_page_number = increment
+            server_page_number = increment - 1
             page_number = page_number + increment
         return result
 
