@@ -673,7 +673,12 @@ class FhirClient:
             # noinspection SpellCheckingInspection
             full_uri.args["_getpagesoffset"] = page_number or self._page_number
 
-        if not self._obj_id and ids is None and self._limit and self._limit >= 0:
+        if (
+            not self._obj_id
+            and (ids is None or self._filter_by_resource)
+            and self._limit
+            and self._limit >= 0
+        ):
             full_uri.args["_count"] = self._limit
 
         # add any sort fields
