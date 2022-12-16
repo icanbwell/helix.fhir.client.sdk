@@ -648,7 +648,7 @@ class FhirClient:
                     # ?subject:Patient=27384972
                     full_uri.args[
                         f"{self._filter_parameter}:{self._filter_by_resource}"
-                    ] = ids[0]
+                    ] = ",".join(sorted(ids))
                 else:
                     # ?patient=27384972
                     full_uri.args[self._filter_by_resource.lower()] = ",".join(
