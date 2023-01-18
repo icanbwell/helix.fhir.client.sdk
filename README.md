@@ -1,5 +1,20 @@
 # helix.fhir.client.sdk
 
+<p align="left">
+  <a href="https://github.com/icanbwell/helix.fhir.client.sdk/actions">
+    <img src="https://github.com/icanbwell/helix.fhir.client.sdk/workflows/Build%20and%20Test/badge.svg"
+         alt="Continuous Integration">
+  </a>
+  <a href="https://github.com/icanbwell/helix.fhir.client.sdk/releases/latest">
+    <img src="https://img.shields.io/github/v/release/icanbwell/helix.fhir.client.sdk?display_name=tag"
+          alt="Latest Release">
+  </a>
+  <a href="https://github.com/icanbwell/helix.fhir.client.sdk/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/license-Apache%202-blue"
+         alt="GitHub license">
+  </a>
+</p>
+
 Fluent API to call the FHIR server that handles:
 
 1. Authentication to FHIR server
