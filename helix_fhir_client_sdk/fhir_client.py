@@ -2411,36 +2411,27 @@ class FhirClient:
         self,
         *,
         id_: str,
-        graph_definition: GraphDefinition,
+        graph_json: Dict[str, Any],
         contained: bool,
-        process_in_batches: Optional[bool] = None,
-        fn_handle_batch: Optional[HandleBatchFunction] = None,
-        fn_handle_error: Optional[HandleErrorFunction] = None,
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
         concurrent_requests: int = 1,
         separate_bundle_resources: bool = False,
     ) -> FhirGetResponse:
         """
-        Executes the $graph query on the FHIR server
+        Simulates the $graph query on the FHIR server
 
 
         :param separate_bundle_resources:
         :param id_:
-        :param fn_handle_streaming_chunk:
-        :type fn_handle_streaming_chunk:
         :param concurrent_requests:
-        :param graph_definition: definition of a graph to execute
+        :param graph_json: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
                             parent resources in a contained property
-        :param process_in_batches: whether to process in batches of size page_size
-        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
-                                return the resources in the response anymore.  If this function returns false then we
-                                stop processing any further batches.
-        :param fn_handle_error: function that is called when there is an error
         """
-        assert graph_definition
+        assert graph_json
+        graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
         assert isinstance(graph_definition, GraphDefinition)
         assert graph_definition.start
+
         if contained:
             if not self._additional_parameters:
                 self._additional_parameters = []

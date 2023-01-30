@@ -10,9 +10,7 @@ from mockserver_client.mockserver_client import (
 )
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
-from helix_fhir_client_sdk.graph.graph_definition import (
-    GraphDefinition,
-)
+
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 
@@ -23,8 +21,6 @@ async def test_fhir_simulated_graph_async() -> None:
     with open(data_dir.joinpath("graphs").joinpath("aetna.json"), "r") as file:
         contents = file.read()
         graph_json = json.loads(contents)
-
-    graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
 
     test_name = "test_fhir_simulated_graph_async"
 
@@ -98,7 +94,7 @@ async def test_fhir_simulated_graph_async() -> None:
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     response: FhirGetResponse = await fhir_client.simulate_graph_async(
         id_="1",
-        graph_definition=graph_definition,
+        graph_json=graph_json,
         contained=False,
         separate_bundle_resources=False,
     )
