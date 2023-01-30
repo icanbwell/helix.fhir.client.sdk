@@ -23,6 +23,7 @@ from typing import (
     Coroutine,
     Awaitable,
     Tuple,
+    cast,
 )
 from urllib import parse
 
@@ -2482,10 +2483,31 @@ class FhirClient:
         if path:  # forward link
             if path.endswith("[x]"):  # a list
                 path = path.replace("[x]", "")
-            if parent and parent.get(path) and target_type:
-                response = await self._get_resources_by_parameters_async(
-                    session=session, resource_type=target_type, id_=parent.get(path)
-                )
+                if parent and parent.get(path) and target_type:
+                    references = parent.get(path)
+                    if references:
+                        reference_ids: List[str] = [
+                            r.get("reference") for r in references
+                        ]
+                        for reference_id in reference_ids:
+                            reference_parts = reference_id.split("/")
+                            if reference_parts[0] == target_type:
+                                response = (
+                                    await self._get_resources_by_parameters_async(
+                                        session=session,
+                                        resource_type=target_type,
+                                        id_=reference_parts[1],
+                                    )
+                                )
+            else:  # single reference
+                if parent and parent.get(path) and target_type:
+                    reference = parent.get(path)
+                    if reference:
+                        response = await self._get_resources_by_parameters_async(
+                            session=session,
+                            resource_type=target_type,
+                            id_=reference.get("id"),
+                        )
         elif target.params:  # reverse path
             # for a reverse link, get the ids of the current resource, put in a view and
             # add a stage to get that
@@ -2502,7 +2524,7 @@ class FhirClient:
     async def _get_resources_by_parameters_async(
         self,
         *,
-        id_: Optional[str] = None,
+        id_: Optional[Union[List[str], str]] = None,
         session: ClientSession,
         resource_type: str,
         parameters: Optional[List[str]] = None,
@@ -2510,7 +2532,12 @@ class FhirClient:
         self.resource(resource=resource_type)
         if parameters:
             self.additional_parameters(parameters)
+        id_list: Optional[List[str]] = None
+        if id_ and not isinstance(id_, list):
+            id_list = [id_]
+        else:
+            id_list = cast(Optional[List[str]], id_)
         result: FhirGetResponse = await self._get_with_session_async(
-            session=session, ids=[id_] if id_ else None
+            session=session, ids=id_list
         )
         return result
