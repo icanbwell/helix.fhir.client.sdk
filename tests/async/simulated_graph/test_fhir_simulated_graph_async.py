@@ -23,7 +23,7 @@ async def test_fhir_simulated_graph_async() -> None:
         contents = file.read()
         graph_json = json.loads(contents)
 
-    test_name = "test_fhir_graph_async"
+    test_name = "test_fhir_simulated_graph_async"
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
@@ -41,7 +41,7 @@ async def test_fhir_simulated_graph_async() -> None:
     graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
 
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/Patient/1/$graph", method="POST"),
+        mock_request(path=f"/{relative_url}/Patient/12355", method="GET"),
         mock_response(body=response_text),
         timing=times(1),
     )
@@ -49,7 +49,7 @@ async def test_fhir_simulated_graph_async() -> None:
     fhir_client = FhirClient()
 
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
-    response: FhirGetResponse = await fhir_client.graph_async(
-        graph_definition=graph_definition, contained=False
+    response: FhirGetResponse = await fhir_client.simulate_graph_async(
+        id_="12355", graph_definition=graph_definition, contained=False
     )
     assert json.loads(response.responses) == response_text

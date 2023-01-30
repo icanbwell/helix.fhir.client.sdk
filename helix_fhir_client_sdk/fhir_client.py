@@ -2408,6 +2408,7 @@ class FhirClient:
     async def simulate_graph_async(
         self,
         *,
+        id_: str,
         graph_definition: GraphDefinition,
         contained: bool,
         process_in_batches: Optional[bool] = None,
@@ -2420,6 +2421,7 @@ class FhirClient:
         Executes the $graph query on the FHIR server
 
 
+        :param id_:
         :param fn_handle_streaming_chunk:
         :type fn_handle_streaming_chunk:
         :param concurrent_requests:
@@ -2444,20 +2446,25 @@ class FhirClient:
         async with self.create_http_session() as http:
 
             # first load the start resource
+            start: str = graph_definition.start
+            response = await self._get_resources_by_parameters_async(
+                session=http, resource_type=start, id_=id_
+            )
+            # await self.get
 
             if graph_definition.link and len(graph_definition.link) > 0:
                 for link in graph_definition.link:
-                    await self._process_link(link)
+                    await self._process_link_async(link)
             return await self._get_with_session_async(
                 session=http, fn_handle_streaming_chunk=fn_handle_streaming_chunk
             )
 
-    async def _process_link(self, link: GraphDefinitionLink) -> None:
+    async def _process_link_async(self, link: GraphDefinitionLink) -> None:
         targets: List[GraphDefinitionTarget] = link.target
         for target in targets:
-            await self._process_target(target=target, path=link.path)
+            await self._process_target_async(target=target, path=link.path)
 
-    async def _process_target(
+    async def _process_target_async(
         self, target: GraphDefinitionTarget, path: Optional[str]
     ) -> None:
         if path:  # forward link
@@ -2472,4 +2479,20 @@ class FhirClient:
             property_name: str = ref_param.split("=")[0]
         if target.link:
             for child_link in target.link:
-                await self._process_link(link=child_link)
+                await self._process_link_async(link=child_link)
+
+    async def _get_resources_by_parameters_async(
+        self,
+        *,
+        id_: Optional[str] = None,
+        session: ClientSession,
+        resource_type: str,
+        parameters: Optional[List[str]] = None,
+    ) -> FhirGetResponse:
+        self.resource(resource=resource_type)
+        if parameters:
+            self.additional_parameters(parameters)
+        result: FhirGetResponse = await self._get_with_session_async(
+            session=session, ids=[id_] if id_ else None
+        )
+        return result
