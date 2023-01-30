@@ -2443,33 +2443,49 @@ class FhirClient:
             self._additional_parameters.append("contained=true")
 
         output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
-        async with self.create_http_session() as http:
-
+        async with self.create_http_session() as session:
             # first load the start resource
             start: str = graph_definition.start
-            response = await self._get_resources_by_parameters_async(
-                session=http, resource_type=start, id_=id_
+            response: FhirGetResponse = await self._get_resources_by_parameters_async(
+                session=session, resource_type=start, id_=id_
             )
-            # await self.get
-
+            result = json.loads(response.responses)
             if graph_definition.link and len(graph_definition.link) > 0:
                 for link in graph_definition.link:
-                    await self._process_link_async(link)
-            return await self._get_with_session_async(
-                session=http, fn_handle_streaming_chunk=fn_handle_streaming_chunk
-            )
+                    await self._process_link_async(
+                        session=session, link=link, parent=result
+                    )
+            return response
 
-    async def _process_link_async(self, link: GraphDefinitionLink) -> None:
+    async def _process_link_async(
+        self,
+        *,
+        session: ClientSession,
+        link: GraphDefinitionLink,
+        parent: Optional[Dict[str, Any]],
+    ) -> None:
         targets: List[GraphDefinitionTarget] = link.target
         for target in targets:
-            await self._process_target_async(target=target, path=link.path)
+            await self._process_target_async(
+                session=session, target=target, path=link.path, parent=parent
+            )
 
     async def _process_target_async(
-        self, target: GraphDefinitionTarget, path: Optional[str]
+        self,
+        *,
+        session: ClientSession,
+        target: GraphDefinitionTarget,
+        path: Optional[str],
+        parent: Optional[Dict[str, Any]],
     ) -> None:
+        target_type: Optional[str] = target.type_
         if path:  # forward link
             if path.endswith("[x]"):  # a list
                 path = path.replace("[x]", "")
+            if parent and parent.get(path) and target_type:
+                response = await self._get_resources_by_parameters_async(
+                    session=session, resource_type=target_type, id_=parent.get(path)
+                )
         elif target.params:  # reverse path
             # for a reverse link, get the ids of the current resource, put in a view and
             # add a stage to get that
@@ -2479,7 +2495,9 @@ class FhirClient:
             property_name: str = ref_param.split("=")[0]
         if target.link:
             for child_link in target.link:
-                await self._process_link_async(link=child_link)
+                await self._process_link_async(
+                    session=session, link=child_link, parent=parent
+                )
 
     async def _get_resources_by_parameters_async(
         self,

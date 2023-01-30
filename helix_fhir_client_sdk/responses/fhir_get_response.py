@@ -36,3 +36,7 @@ class FhirGetResponse:
         self.status: int = status
         self.next_url: Optional[str] = next_url
         self.extra_context_to_return: Optional[Dict[str, Any]] = extra_context_to_return
+
+    def append(self, other: "FhirGetResponse") -> "FhirGetResponse":
+        self.responses = other.responses
+        return self
