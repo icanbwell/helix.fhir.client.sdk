@@ -17,6 +17,7 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 
 async def test_fhir_simulated_graph_async() -> None:
+    print("")
     data_dir: Path = Path(__file__).parent.joinpath("./")
     graph_json: Dict[str, Any]
     with open(data_dir.joinpath("graphs").joinpath("aetna.json"), "r") as file:
@@ -76,6 +77,22 @@ async def test_fhir_simulated_graph_async() -> None:
         timing=times(1),
     )
 
+    response_text = {
+        "entry": [{"resource": {"resourceType": "Observation", "id": "8"}}]
+    }
+    mock_client.expect(
+        mock_request(
+            path=f"/{relative_url}/Observation",
+            querystring={
+                "patient": "1",
+                "category": "vital-signs,social-history,laboratory",
+            },
+            method="GET",
+        ),
+        mock_response(body=response_text),
+        timing=times(1),
+    )
+
     fhir_client = FhirClient()
 
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
@@ -99,6 +116,7 @@ async def test_fhir_simulated_graph_async() -> None:
         "Practitioner": [{"resourceType": "Practitioner", "id": "5"}],
         "Organization": [{"resourceType": "Organization", "id": "6"}],
         "Coverage": [{"resourceType": "Coverage", "id": "7"}],
+        "Observation": [{"id": "8", "resourceType": "Observation"}],
     }
 
     assert json.loads(response.responses) == expected_json
