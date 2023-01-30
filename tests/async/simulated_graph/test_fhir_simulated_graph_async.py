@@ -83,4 +83,21 @@ async def test_fhir_simulated_graph_async() -> None:
         id_="1", graph_definition=graph_definition, contained=False
     )
     print(response.responses)
-    # assert json.loads(response.responses) == response_text
+
+    expected_json = {
+        "entry": [
+            {
+                "resource": {
+                    "resourceType": "Patient",
+                    "id": "1",
+                    "generalPractitioner": [{"reference": "Practitioner/5"}],
+                    "managingOrganization": {"reference": "Organization/6"},
+                }
+            },
+            {"resource": {"resourceType": "Practitioner", "id": "5"}},
+            {"resource": {"resourceType": "Organization", "id": "6"}},
+            {"resource": {"entry": [{"resourceType": "Coverage", "id": "7"}]}},
+        ]
+    }
+
+    assert json.loads(response.responses) == expected_json

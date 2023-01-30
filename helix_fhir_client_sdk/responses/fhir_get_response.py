@@ -1,4 +1,5 @@
-from typing import Optional, Dict, Any
+import json
+from typing import Optional, Dict, Any, List
 
 
 class FhirGetResponse:
@@ -25,7 +26,8 @@ class FhirGetResponse:
         :param access_token: access token that was used
         :param total_count: count of total records that match the provided query.
                             Only set if include_total_count was set to avoid expensive operation by server.
-        :param extra_context_to_return: a dict to return with every row (separate_bundle_resources is set) or with FhirGetResponse
+        :param extra_context_to_return: a dict to return with every row (separate_bundle_resources is set)
+                                        or with FhirGetResponse
         """
         self.request_id: Optional[str] = request_id
         self.url: str = url
@@ -37,6 +39,9 @@ class FhirGetResponse:
         self.next_url: Optional[str] = next_url
         self.extra_context_to_return: Optional[Dict[str, Any]] = extra_context_to_return
 
-    def append(self, other: "FhirGetResponse") -> "FhirGetResponse":
-        self.responses = other.responses
+    def append(self, other: List["FhirGetResponse"]) -> "FhirGetResponse":
+        response_json = json.loads(self.responses)
+        for other_response in other:
+            if other_response.responses:
+                other_response_json = json.loads(other_response.responses)
         return self

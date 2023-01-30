@@ -49,6 +49,7 @@ from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderExc
 from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
     FhirValidationException,
 )
+from helix_fhir_client_sdk.fhir_bundle import Bundle, BundleEntry
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
 from helix_fhir_client_sdk.filters.last_updated_filter import LastUpdatedFilter
 from helix_fhir_client_sdk.filters.sort_field import SortField
@@ -2451,11 +2452,21 @@ class FhirClient:
                 session=session, resource_type=start, id_=id_
             )
             result = json.loads(response.responses)
+            # turn into a bundle if not already a bundle
+            bundle = Bundle(entry=[BundleEntry(resource=result)])
+
+            # now process the graph links
+            responses: List[FhirGetResponse] = []
             if graph_definition.link and len(graph_definition.link) > 0:
+                link: GraphDefinitionLink
                 for link in graph_definition.link:
-                    await self._process_link_async(
-                        session=session, link=link, parent=result
+                    responses.extend(
+                        await self._process_link_async(
+                            session=session, link=link, parent=result
+                        )
                     )
+            bundle.append_responses(responses)
+            response.responses = json.dumps(bundle.to_dict())
             return response
 
     async def _process_link_async(
@@ -2464,12 +2475,17 @@ class FhirClient:
         session: ClientSession,
         link: GraphDefinitionLink,
         parent: Optional[Dict[str, Any]],
-    ) -> None:
+    ) -> List[FhirGetResponse]:
+        responses: List[FhirGetResponse] = []
         targets: List[GraphDefinitionTarget] = link.target
+        target: GraphDefinitionTarget
         for target in targets:
-            await self._process_target_async(
-                session=session, target=target, path=link.path, parent=parent
+            responses.extend(
+                await self._process_target_async(
+                    session=session, target=target, path=link.path, parent=parent
+                )
             )
+        return responses
 
     async def _process_target_async(
         self,
@@ -2478,7 +2494,8 @@ class FhirClient:
         target: GraphDefinitionTarget,
         path: Optional[str],
         parent: Optional[Dict[str, Any]],
-    ) -> None:
+    ) -> List[FhirGetResponse]:
+        responses: List[FhirGetResponse] = []
         target_type: Optional[str] = target.type_
         if path:  # forward link
             if path.endswith("[x]"):  # a list
@@ -2492,7 +2509,7 @@ class FhirClient:
                         for reference_id in reference_ids:
                             reference_parts = reference_id.split("/")
                             if reference_parts[0] == target_type:
-                                response = (
+                                responses.append(
                                     await self._get_resources_by_parameters_async(
                                         session=session,
                                         resource_type=target_type,
@@ -2506,10 +2523,12 @@ class FhirClient:
                         reference_id = reference["reference"]
                         reference_parts = reference_id.split("/")
                         if reference_parts[0] == target_type:
-                            response = await self._get_resources_by_parameters_async(
-                                session=session,
-                                resource_type=target_type,
-                                id_=reference_parts[1],
+                            responses.append(
+                                await self._get_resources_by_parameters_async(
+                                    session=session,
+                                    resource_type=target_type,
+                                    id_=reference_parts[1],
+                                )
                             )
         elif target.params:  # reverse path
             # for a reverse link, get the ids of the current resource, put in a view and
@@ -2519,18 +2538,23 @@ class FhirClient:
             additional_parameters = [p for p in param_list if not p.endswith("{ref}")]
             property_name: str = ref_param.split("=")[0]
             if parent and property_name and parent.get("id") and target_type:
-                response = await self._get_resources_by_parameters_async(
-                    session=session,
-                    resource_type=target_type,
-                    parameters=[f"{property_name}={parent.get('id')}"]
-                    + additional_parameters,
+                responses.append(
+                    await self._get_resources_by_parameters_async(
+                        session=session,
+                        resource_type=target_type,
+                        parameters=[f"{property_name}={parent.get('id')}"]
+                        + additional_parameters,
+                    )
                 )
 
         if target.link:
             for child_link in target.link:
-                await self._process_link_async(
-                    session=session, link=child_link, parent=parent
+                responses.extend(
+                    await self._process_link_async(
+                        session=session, link=child_link, parent=parent
+                    )
                 )
+        return responses
 
     async def _get_resources_by_parameters_async(
         self,
