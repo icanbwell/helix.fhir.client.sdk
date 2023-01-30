@@ -28,6 +28,19 @@ class GraphDefinitionTarget:
             my_dict["link"] = [link.to_dict() for link in self.link]
         return my_dict
 
+    @classmethod
+    def from_dict(cls, dictionary: Dict[str, Any]) -> "GraphDefinitionTarget":
+        type_ = dictionary.get("type")
+        assert type_
+        return GraphDefinitionTarget(
+            type_=type_,
+            params=dictionary.get("params"),
+            link=[
+                GraphDefinitionLink.from_dict(link)
+                for link in dictionary.get("link", [])
+            ],
+        )
+
 
 class GraphDefinitionLink:
     def __init__(
@@ -53,6 +66,16 @@ class GraphDefinitionLink:
         if self.path:
             my_dict["path"] = self.path
         return my_dict
+
+    @classmethod
+    def from_dict(cls, dictionary: Dict[str, Any]) -> "GraphDefinitionLink":
+        return GraphDefinitionLink(
+            path=dictionary.get("path"),
+            target=[
+                GraphDefinitionTarget.from_dict(target)
+                for target in dictionary.get("target", [])
+            ],
+        )
 
 
 class GraphDefinition:
@@ -85,3 +108,21 @@ class GraphDefinition:
             "link": [link.to_dict() for link in self.link],
         }
         return my_dict
+
+    @classmethod
+    def from_dict(cls, dictionary: Dict[str, Any]) -> "GraphDefinition":
+        id_ = dictionary.get("id")
+        assert id_
+        name = dictionary.get("name")
+        assert name
+        start = dictionary.get("start")
+        assert start
+        return GraphDefinition(
+            id_=id_,
+            name=name,
+            start=start,
+            link=[
+                GraphDefinitionLink.from_dict(link)
+                for link in dictionary.get("link", [])
+            ],
+        )

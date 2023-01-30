@@ -51,7 +51,11 @@ from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
 from helix_fhir_client_sdk.filters.last_updated_filter import LastUpdatedFilter
 from helix_fhir_client_sdk.filters.sort_field import SortField
-from helix_fhir_client_sdk.graph.graph_definition import GraphDefinition
+from helix_fhir_client_sdk.graph.graph_definition import (
+    GraphDefinition,
+    GraphDefinitionLink,
+    GraphDefinitionTarget,
+)
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_delete_response import FhirDeleteResponse
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -2400,3 +2404,72 @@ class FhirClient:
                 fn_handle_streaming_chunk=fn_handle_streaming_chunk,
             )
         )
+
+    async def simulate_graph_async(
+        self,
+        *,
+        graph_definition: GraphDefinition,
+        contained: bool,
+        process_in_batches: Optional[bool] = None,
+        fn_handle_batch: Optional[HandleBatchFunction] = None,
+        fn_handle_error: Optional[HandleErrorFunction] = None,
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
+        concurrent_requests: int = 1,
+    ) -> FhirGetResponse:
+        """
+        Executes the $graph query on the FHIR server
+
+
+        :param fn_handle_streaming_chunk:
+        :type fn_handle_streaming_chunk:
+        :param concurrent_requests:
+        :param graph_definition: definition of a graph to execute
+        :param contained: whether we should return the related resources as top level list or nest them inside their
+                            parent resources in a contained property
+        :param process_in_batches: whether to process in batches of size page_size
+        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
+                                return the resources in the response anymore.  If this function returns false then we
+                                stop processing any further batches.
+        :param fn_handle_error: function that is called when there is an error
+        """
+        assert graph_definition
+        assert isinstance(graph_definition, GraphDefinition)
+        assert graph_definition.start
+        if contained:
+            if not self._additional_parameters:
+                self._additional_parameters = []
+            self._additional_parameters.append("contained=true")
+
+        output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
+        async with self.create_http_session() as http:
+
+            # first load the start resource
+
+            if graph_definition.link and len(graph_definition.link) > 0:
+                for link in graph_definition.link:
+                    await self._process_link(link)
+            return await self._get_with_session_async(
+                session=http, fn_handle_streaming_chunk=fn_handle_streaming_chunk
+            )
+
+    async def _process_link(self, link: GraphDefinitionLink) -> None:
+        targets: List[GraphDefinitionTarget] = link.target
+        for target in targets:
+            await self._process_target(target=target, path=link.path)
+
+    async def _process_target(
+        self, target: GraphDefinitionTarget, path: Optional[str]
+    ) -> None:
+        if path:  # forward link
+            if path.endswith("[x]"):  # a list
+                path = path.replace("[x]", "")
+        elif target.params:  # reverse path
+            # for a reverse link, get the ids of the current resource, put in a view and
+            # add a stage to get that
+            param_list: List[str] = target.params.split("&")
+            ref_param = [p for p in param_list if p.endswith("{ref}")][0]
+            additional_parameters = [p for p in param_list if not p.endswith("{ref}")]
+            property_name: str = ref_param.split("=")[0]
+        if target.link:
+            for child_link in target.link:
+                await self._process_link(link=child_link)
