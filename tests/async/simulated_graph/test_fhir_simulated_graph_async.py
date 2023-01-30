@@ -65,7 +65,7 @@ async def test_fhir_simulated_graph_async() -> None:
         timing=times(1),
     )
 
-    response_text = {"entry": [{"resourceType": "Coverage", "id": "7"}]}
+    response_text = {"entry": [{"resource": {"resourceType": "Coverage", "id": "7"}}]}
     mock_client.expect(
         mock_request(
             path=f"/{relative_url}/Coverage",
@@ -80,24 +80,25 @@ async def test_fhir_simulated_graph_async() -> None:
 
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     response: FhirGetResponse = await fhir_client.simulate_graph_async(
-        id_="1", graph_definition=graph_definition, contained=False
+        id_="1",
+        graph_definition=graph_definition,
+        contained=False,
+        separate_bundle_resources=True,
     )
     print(response.responses)
 
     expected_json = {
-        "entry": [
+        "Patient": [
             {
-                "resource": {
-                    "resourceType": "Patient",
-                    "id": "1",
-                    "generalPractitioner": [{"reference": "Practitioner/5"}],
-                    "managingOrganization": {"reference": "Organization/6"},
-                }
-            },
-            {"resource": {"resourceType": "Practitioner", "id": "5"}},
-            {"resource": {"resourceType": "Organization", "id": "6"}},
-            {"resource": {"entry": [{"resourceType": "Coverage", "id": "7"}]}},
-        ]
+                "resourceType": "Patient",
+                "id": "1",
+                "generalPractitioner": [{"reference": "Practitioner/5"}],
+                "managingOrganization": {"reference": "Organization/6"},
+            }
+        ],
+        "Practitioner": [{"resourceType": "Practitioner", "id": "5"}],
+        "Organization": [{"resourceType": "Organization", "id": "6"}],
+        "Coverage": [{"resourceType": "Coverage", "id": "7"}],
     }
 
     assert json.loads(response.responses) == expected_json

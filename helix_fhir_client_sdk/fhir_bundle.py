@@ -25,7 +25,7 @@ class Bundle:
                 response_json = json.loads(response_text)
                 if isinstance(response_json, list):
                     self.entry.extend([BundleEntry(resource=r) for r in response_json])
-                elif response_json.get("resourceType") == "Bundle":
+                elif response_json.get("entry"):
                     self.entry.extend(
                         [
                             BundleEntry(resource=entry["resource"])

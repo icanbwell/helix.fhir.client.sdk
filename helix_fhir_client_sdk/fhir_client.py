@@ -2418,11 +2418,13 @@ class FhirClient:
         fn_handle_error: Optional[HandleErrorFunction] = None,
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
         concurrent_requests: int = 1,
+        separate_bundle_resources: bool = False,
     ) -> FhirGetResponse:
         """
         Executes the $graph query on the FHIR server
 
 
+        :param separate_bundle_resources:
         :param id_:
         :param fn_handle_streaming_chunk:
         :type fn_handle_streaming_chunk:
@@ -2466,7 +2468,24 @@ class FhirClient:
                         )
                     )
             bundle.append_responses(responses)
-            response.responses = json.dumps(bundle.to_dict())
+
+            if separate_bundle_resources:
+                resources: Dict[str, List[Dict[str, Any]]] = {}
+                if bundle.entry:
+                    entry: BundleEntry
+                    for entry in bundle.entry:
+                        resource: Optional[Dict[str, Any]] = entry.resource
+                        if resource:
+                            resource_type = resource.get("resourceType")
+                            assert resource_type
+                            if resource_type not in resources:
+                                resources[resource_type] = []
+                            resources[resource_type].append(resource)
+
+                response.responses = json.dumps(resources)
+            else:
+                response.responses = json.dumps(bundle.to_dict())
+
             return response
 
     async def _process_link_async(
