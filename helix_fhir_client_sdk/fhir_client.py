@@ -2503,11 +2503,14 @@ class FhirClient:
                 if parent and parent.get(path) and target_type:
                     reference = parent.get(path)
                     if reference:
-                        response = await self._get_resources_by_parameters_async(
-                            session=session,
-                            resource_type=target_type,
-                            id_=reference.get("id"),
-                        )
+                        reference_id = reference["reference"]
+                        reference_parts = reference_id.split("/")
+                        if reference_parts[0] == target_type:
+                            response = await self._get_resources_by_parameters_async(
+                                session=session,
+                                resource_type=target_type,
+                                id_=reference_parts[1],
+                            )
         elif target.params:  # reverse path
             # for a reverse link, get the ids of the current resource, put in a view and
             # add a stage to get that
@@ -2515,6 +2518,14 @@ class FhirClient:
             ref_param = [p for p in param_list if p.endswith("{ref}")][0]
             additional_parameters = [p for p in param_list if not p.endswith("{ref}")]
             property_name: str = ref_param.split("=")[0]
+            if parent and property_name and parent.get("id") and target_type:
+                response = await self._get_resources_by_parameters_async(
+                    session=session,
+                    resource_type=target_type,
+                    parameters=[f"{property_name}={parent.get('id')}"]
+                    + additional_parameters,
+                )
+
         if target.link:
             for child_link in target.link:
                 await self._process_link_async(
@@ -2532,7 +2543,8 @@ class FhirClient:
         self.resource(resource=resource_type)
         if parameters:
             self.additional_parameters(parameters)
-        id_list: Optional[List[str]] = None
+
+        id_list: Optional[List[str]]
         if id_ and not isinstance(id_, list):
             id_list = [id_]
         else:
