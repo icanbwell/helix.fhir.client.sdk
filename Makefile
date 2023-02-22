@@ -116,4 +116,8 @@ venv:
 devsetup:venv
 	source ./$(VENV_NAME)/bin/activate
 
+.PHONY:show_dependency_graph
+show_dependency_graph:
+	docker-compose run --rm --name helix.fhir.client.sdk dev sh -c "pipenv install --skip-lock && pipenv graph --reverse"
+	docker-compose run --rm --name helix.fhir.client.sdk dev sh -c "pipenv install -d && pipenv graph"
 
