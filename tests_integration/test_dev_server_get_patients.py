@@ -22,7 +22,8 @@ async def test_dev_server_get_patients() -> None:
         "id": "12355",
         "meta": {
             "security": [
-                {"system": "https://www.icanbwell.com/access", "code": "bwell"}
+                {"system": "https://www.icanbwell.com/access", "code": "bwell"},
+                {"system": "https://www.icanbwell.com/owner", "code": "bwell"},
             ]
         },
     }
