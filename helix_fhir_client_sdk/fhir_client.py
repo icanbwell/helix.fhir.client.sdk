@@ -782,13 +782,15 @@ class FhirClient:
                     if self._logger:
                         self._logger.info(
                             f"response from get_with_session_async: {full_url} status_code {response.status} "
-                            + f"with client_id={self._client_id} and scopes={self._auth_scopes} instance_id={self._uuid} "
+                            + f"with client_id={self._client_id} and scopes={self._auth_scopes} "
+                            + f"instance_id={self._uuid} "
                             + f"retries_left={retries_left}"
                         )
                     if self._internal_logger:
                         self._internal_logger.info(
                             f"response from get_with_session_async: {full_url} status_code {response.status} "
-                            + f"with client_id={self._client_id} and scopes={self._auth_scopes} instance_id={self._uuid} "
+                            + f"with client_id={self._client_id} and scopes={self._auth_scopes} "
+                            + f"instance_id={self._uuid} "
                             + f"retries_left={retries_left}"
                         )
 
@@ -1175,11 +1177,13 @@ class FhirClient:
             if self._log_level == "DEBUG":
                 if self._logger:
                     self._logger.info(
-                        f"sending a get: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes} instance_id={self._uuid}"
+                        f"sending a get: {full_url} with client_id={self._client_id} "
+                        + f"and scopes={self._auth_scopes} instance_id={self._uuid}"
                     )
                 else:
                     self._internal_logger.info(
-                        f"sending a get: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes} instance_id={self._uuid}"
+                        f"sending a get: {full_url} with client_id={self._client_id} "
+                        + f"and scopes={self._auth_scopes} instance_id={self._uuid}"
                     )
             return await http.get(full_url, headers=headers, data=payload)
 

@@ -1,0 +1,37 @@
+{
+  "resourceType": "GraphDefinition",
+  "id": "o",
+  "name": "provider_slots",
+  "status": "active",
+  "start": "Practitioner",
+  "link": [
+    {
+      "target": [
+        {
+          "type": "PractitionerRole",
+          "params": "practitioner={ref}",
+          "link": [
+            {
+              "target": [
+                {
+                  "type": "Schedule",
+                  "params": "actor={ref}",
+                  "link": [
+                    {
+                      "target": [
+                        {
+                          "type": "Slot",
+                          "params": "schedule={ref}"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
