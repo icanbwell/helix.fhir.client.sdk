@@ -2490,6 +2490,8 @@ class FhirClient:
         link: GraphDefinitionLink,
         parent: Optional[Dict[str, Any]],
     ) -> List[FhirGetResponse]:
+        assert session
+        assert link
         responses: List[FhirGetResponse] = []
         targets: List[GraphDefinitionTarget] = link.target
         target: GraphDefinitionTarget
@@ -2510,6 +2512,9 @@ class FhirClient:
         parent: Optional[Dict[str, Any]],
     ) -> List[FhirGetResponse]:
         responses: List[FhirGetResponse] = []
+        children: List[Dict[str, Any]] = []
+        child_response: FhirGetResponse
+        child_response_resources: Union[Dict[str, Any], List[Dict[str, Any]]]
         target_type: Optional[str] = target.type_
         if path:  # forward link
             if path.endswith("[x]"):  # a list
@@ -2523,51 +2528,77 @@ class FhirClient:
                         for reference_id in reference_ids:
                             reference_parts = reference_id.split("/")
                             if reference_parts[0] == target_type:
-                                responses.append(
+                                child_response = (
                                     await self._get_resources_by_parameters_async(
                                         session=session,
                                         resource_type=target_type,
                                         id_=reference_parts[1],
                                     )
                                 )
-            else:  # single reference
-                if parent and parent.get(path) and target_type:
-                    reference = parent.get(path)
-                    if reference:
-                        reference_id = reference["reference"]
-                        reference_parts = reference_id.split("/")
-                        if reference_parts[0] == target_type:
-                            responses.append(
-                                await self._get_resources_by_parameters_async(
-                                    session=session,
-                                    resource_type=target_type,
-                                    id_=reference_parts[1],
+                                responses.append(child_response)
+                                child_response_resources = json.loads(
+                                    child_response.responses
                                 )
-                            )
-        elif target.params:  # reverse path
-            # for a reverse link, get the ids of the current resource, put in a view and
-            # add a stage to get that
-            param_list: List[str] = target.params.split("&")
-            ref_param = [p for p in param_list if p.endswith("{ref}")][0]
-            additional_parameters = [p for p in param_list if not p.endswith("{ref}")]
-            property_name: str = ref_param.split("=")[0]
-            if parent and property_name and parent.get("id") and target_type:
-                responses.append(
-                    await self._get_resources_by_parameters_async(
+                                children = (
+                                    child_response_resources
+                                    if isinstance(child_response_resources, list)
+                                    else [child_response_resources]
+                                )
+                else:  # single reference
+                    if parent and parent.get(path) and target_type:
+                        reference = parent.get(path)
+                        if reference:
+                            reference_id = reference["reference"]
+                            reference_parts = reference_id.split("/")
+                            if reference_parts[0] == target_type:
+                                child_response = (
+                                    await self._get_resources_by_parameters_async(
+                                        session=session,
+                                        resource_type=target_type,
+                                        id_=reference_parts[1],
+                                    )
+                                )
+                                responses.append(child_response)
+                                child_response_resources = json.loads(
+                                    child_response.responses
+                                )
+                                children = (
+                                    child_response_resources
+                                    if isinstance(child_response_resources, list)
+                                    else [child_response_resources]
+                                )
+            elif target.params:  # reverse path
+                # for a reverse link, get the ids of the current resource, put in a view and
+                # add a stage to get that
+                param_list: List[str] = target.params.split("&")
+                ref_param = [p for p in param_list if p.endswith("{ref}")][0]
+                additional_parameters = [
+                    p for p in param_list if not p.endswith("{ref}")
+                ]
+                property_name: str = ref_param.split("=")[0]
+                if parent and property_name and parent.get("id") and target_type:
+                    child_response = await self._get_resources_by_parameters_async(
                         session=session,
                         resource_type=target_type,
                         parameters=[f"{property_name}={parent.get('id')}"]
                         + additional_parameters,
                     )
-                )
-
-        if target.link:
-            for child_link in target.link:
-                responses.extend(
-                    await self._process_link_async(
-                        session=session, link=child_link, parent=parent
+                    responses.append(child_response)
+                    child_response_resources = json.loads(child_response.responses)
+                    children = (
+                        child_response_resources
+                        if isinstance(child_response_resources, list)
+                        else [child_response_resources]
                     )
-                )
+
+            if target.link:
+                for child_link in target.link:
+                    for child in children:
+                        responses.extend(
+                            await self._process_link_async(
+                                session=session, link=child_link, parent=child
+                            )
+                        )
         return responses
 
     async def _get_resources_by_parameters_async(
@@ -2578,6 +2609,8 @@ class FhirClient:
         resource_type: str,
         parameters: Optional[List[str]] = None,
     ) -> FhirGetResponse:
+        assert session
+        assert resource_type
         self.resource(resource=resource_type)
         if parameters:
             self.additional_parameters(parameters)
