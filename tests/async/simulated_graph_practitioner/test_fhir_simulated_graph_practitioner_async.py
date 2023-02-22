@@ -69,7 +69,7 @@ async def test_fhir_simulated_graph_async() -> None:
         mock_request(
             path=f"/{relative_url}/Schedule",
             method="GET",
-            querystring={"actor": "PractitionerRole/10"},
+            querystring={"actor": "10"},
         ),
         mock_response(body=response_text),
         timing=times(1),
@@ -84,7 +84,7 @@ async def test_fhir_simulated_graph_async() -> None:
         mock_request(
             path=f"/{relative_url}/Slot",
             method="GET",
-            querystring={"schedule": "Schedule/100"},
+            querystring={"schedule": "100"},
         ),
         mock_response(body=response_text),
         timing=times(1),
@@ -115,10 +115,16 @@ async def test_fhir_simulated_graph_async() -> None:
                 "resource": {
                     "resourceType": "Schedule",
                     "id": "100",
-                    "actor": "PractitionerRole/10",
+                    "actor": {"reference": "PractitionerRole/10"},
                 }
             },
-            {"resourceType": "Slot", "id": "1000", "schedule": "Schedule/100"},
+            {
+                "resource": {
+                    "resourceType": "Slot",
+                    "id": "1000",
+                    "schedule": {"reference": "Schedule/100"},
+                }
+            },
         ]
     }
 
