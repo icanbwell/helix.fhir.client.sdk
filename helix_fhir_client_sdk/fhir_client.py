@@ -2453,20 +2453,21 @@ class FhirClient:
             )
             if not response.responses:
                 return response
-            result = json.loads(response.responses)
+            parent_resources = response.get_resources()
             # turn into a bundle if not already a bundle
-            bundle = Bundle(entry=[BundleEntry(resource=result)])
+            bundle = Bundle(entry=[BundleEntry(resource=r) for r in parent_resources])
 
             # now process the graph links
             responses: List[FhirGetResponse] = []
             if graph_definition.link and len(graph_definition.link) > 0:
                 link: GraphDefinitionLink
                 for link in graph_definition.link:
-                    responses.extend(
-                        await self._process_link_async(
-                            session=session, link=link, parent=result
+                    for parent in parent_resources:
+                        responses.extend(
+                            await self._process_link_async(
+                                session=session, link=link, parent=parent
+                            )
                         )
-                    )
             bundle.append_responses(responses)
 
             if separate_bundle_resources:
