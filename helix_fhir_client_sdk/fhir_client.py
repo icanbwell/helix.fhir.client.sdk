@@ -2497,6 +2497,11 @@ class FhirClient:
                             resources[resource_type].append(resource)
 
                 response.responses = json.dumps(resources)
+            elif self._expand_fhir_bundle:
+                if bundle.entry:
+                    response.responses = json.dumps([e.resource for e in bundle.entry])
+                else:
+                    response.responses = ""
             else:
                 response.responses = json.dumps(bundle.to_dict())
 
