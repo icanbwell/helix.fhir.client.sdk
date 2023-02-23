@@ -2414,7 +2414,7 @@ class FhirClient:
     async def simulate_graph_async(
         self,
         *,
-        id_: str,
+        id_: Union[List[str], str],
         graph_json: Dict[str, Any],
         contained: bool,
         concurrent_requests: int = 1,
@@ -2425,7 +2425,7 @@ class FhirClient:
 
 
         :param separate_bundle_resources:
-        :param id_:
+        :param id_: single id or list of ids (ids can be comma separated too)
         :param concurrent_requests:
         :param graph_json: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
@@ -2435,6 +2435,9 @@ class FhirClient:
         graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
         assert isinstance(graph_definition, GraphDefinition)
         assert graph_definition.start
+
+        if not isinstance(id_, list):
+            id_ = id_.split(",")
 
         if contained:
             if not self._additional_parameters:
@@ -2448,6 +2451,8 @@ class FhirClient:
             response: FhirGetResponse = await self._get_resources_by_parameters_async(
                 session=session, resource_type=start, id_=id_
             )
+            if not response.responses:
+                return response
             result = json.loads(response.responses)
             # turn into a bundle if not already a bundle
             bundle = Bundle(entry=[BundleEntry(resource=result)])
