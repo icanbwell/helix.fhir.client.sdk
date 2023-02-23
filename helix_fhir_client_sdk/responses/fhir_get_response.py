@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 
 
 class FhirGetResponse:
@@ -44,4 +44,23 @@ class FhirGetResponse:
         for other_response in other:
             if other_response.responses:
                 other_response_json = json.loads(other_response.responses)
+
         return self
+
+    def get_resources(self) -> List[Dict[str, Any]]:
+        if not self.responses:
+            return []
+        child_response_resources: Union[
+            Dict[str, Any], List[Dict[str, Any]]
+        ] = json.loads(self.responses)
+        if isinstance(child_response_resources, list):
+            return child_response_resources
+
+        if "entry" in child_response_resources:
+            # bundle
+            child_response_resources = [
+                e["resource"] for e in child_response_resources["entry"]
+            ]
+            return child_response_resources
+        else:
+            return [child_response_resources]

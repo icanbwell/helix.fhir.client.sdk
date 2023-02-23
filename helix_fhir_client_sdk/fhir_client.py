@@ -2536,14 +2536,7 @@ class FhirClient:
                                     )
                                 )
                                 responses.append(child_response)
-                                child_response_resources = json.loads(
-                                    child_response.responses
-                                )
-                                children = (
-                                    child_response_resources
-                                    if isinstance(child_response_resources, list)
-                                    else [child_response_resources]
-                                )
+                                children = child_response.get_resources()
                 else:  # single reference
                     if parent and parent.get(path) and target_type:
                         reference = parent.get(path)
@@ -2559,14 +2552,7 @@ class FhirClient:
                                     )
                                 )
                                 responses.append(child_response)
-                                child_response_resources = json.loads(
-                                    child_response.responses
-                                )
-                                children = (
-                                    child_response_resources
-                                    if isinstance(child_response_resources, list)
-                                    else [child_response_resources]
-                                )
+                                children = child_response.get_resources()
         elif target.params:  # reverse path
             # for a reverse link, get the ids of the current resource, put in a view and
             # add a stage to get that
@@ -2582,12 +2568,7 @@ class FhirClient:
                     + additional_parameters,
                 )
                 responses.append(child_response)
-                child_response_resources = json.loads(child_response.responses)
-                children = (
-                    child_response_resources
-                    if isinstance(child_response_resources, list)
-                    else [child_response_resources]
-                )
+                children = child_response.get_resources()
 
         if target.link:
             for child_link in target.link:
