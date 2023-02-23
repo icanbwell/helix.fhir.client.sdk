@@ -2436,6 +2436,12 @@ class FhirClient:
         assert isinstance(graph_definition, GraphDefinition)
         assert graph_definition.start
 
+        if self._logger:
+            self._logger.info(
+                f"FhirClient.simulate_graph_async() id_=${id_}, contained={contained}, "
+                + f"separate_bundle_resources={separate_bundle_resources}"
+            )
+
         if not isinstance(id_, list):
             id_ = id_.split(",")
 
@@ -2454,6 +2460,11 @@ class FhirClient:
             if not response.responses:
                 return response
             parent_resources = response.get_resources()
+
+            if self._logger:
+                self._logger.info(
+                    f"FhirClient.simulate_graph_async() got parent resources: {response.responses}"
+                )
             # turn into a bundle if not already a bundle
             bundle = Bundle(entry=[BundleEntry(resource=r) for r in parent_resources])
 
@@ -2478,7 +2489,9 @@ class FhirClient:
                         resource: Optional[Dict[str, Any]] = entry.resource
                         if resource:
                             resource_type = resource.get("resourceType")
-                            assert resource_type
+                            assert (
+                                resource_type
+                            ), f"No resourceType in {json.dumps(resource)}"
                             if resource_type not in resources:
                                 resources[resource_type] = []
                             resources[resource_type].append(resource)
@@ -2534,14 +2547,21 @@ class FhirClient:
                         for reference_id in reference_ids:
                             reference_parts = reference_id.split("/")
                             if reference_parts[0] == target_type:
+                                child_id = reference_parts[1]
                                 child_response = (
                                     await self._get_resources_by_parameters_async(
                                         session=session,
                                         resource_type=target_type,
-                                        id_=reference_parts[1],
+                                        id_=child_id,
                                     )
                                 )
                                 responses.append(child_response)
+                                if self._logger:
+                                    self._logger.info(
+                                        f"FhirClient.simulate_graph_async() got child resources with path:{path} "
+                                        + f"from parent {target_type}/{child_id}: "
+                                        + f"{child_response.responses}"
+                                    )
                                 children = child_response.get_resources()
             else:  # single reference
                 if parent and parent.get(path) and target_type:
@@ -2550,14 +2570,21 @@ class FhirClient:
                         reference_id = reference["reference"]
                         reference_parts = reference_id.split("/")
                         if reference_parts[0] == target_type:
+                            child_id = reference_parts[1]
                             child_response = (
                                 await self._get_resources_by_parameters_async(
                                     session=session,
                                     resource_type=target_type,
-                                    id_=reference_parts[1],
+                                    id_=child_id,
                                 )
                             )
                             responses.append(child_response)
+                            if self._logger:
+                                self._logger.info(
+                                    f"FhirClient.simulate_graph_async() got child resources with path:{path} "
+                                    + f"from parent {target_type}/{child_id}: "
+                                    + f"{child_response.responses}"
+                                )
                             children = child_response.get_resources()
         elif target.params:  # reverse path
             # for a reverse link, get the ids of the current resource, put in a view and
@@ -2567,13 +2594,19 @@ class FhirClient:
             additional_parameters = [p for p in param_list if not p.endswith("{ref}")]
             property_name: str = ref_param.split("=")[0]
             if parent and property_name and parent.get("id") and target_type:
+                parent_id = parent.get("id")
                 child_response = await self._get_resources_by_parameters_async(
                     session=session,
                     resource_type=target_type,
-                    parameters=[f"{property_name}={parent.get('id')}"]
-                    + additional_parameters,
+                    parameters=[f"{property_name}={parent_id}"] + additional_parameters,
                 )
                 responses.append(child_response)
+                if self._logger:
+                    self._logger.info(
+                        f"FhirClient.simulate_graph_async() got child resources with params:{target.params} "
+                        + f"from parent {target_type} with {property_name}={parent_id}: "
+                        + f"{child_response.responses}"
+                    )
                 children = child_response.get_resources()
 
         if target.link:
