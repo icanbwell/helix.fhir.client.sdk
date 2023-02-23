@@ -2537,22 +2537,22 @@ class FhirClient:
                                 )
                                 responses.append(child_response)
                                 children = child_response.get_resources()
-                else:  # single reference
-                    if parent and parent.get(path) and target_type:
-                        reference = parent.get(path)
-                        if reference:
-                            reference_id = reference["reference"]
-                            reference_parts = reference_id.split("/")
-                            if reference_parts[0] == target_type:
-                                child_response = (
-                                    await self._get_resources_by_parameters_async(
-                                        session=session,
-                                        resource_type=target_type,
-                                        id_=reference_parts[1],
-                                    )
+            else:  # single reference
+                if parent and parent.get(path) and target_type:
+                    reference = parent.get(path)
+                    if reference:
+                        reference_id = reference["reference"]
+                        reference_parts = reference_id.split("/")
+                        if reference_parts[0] == target_type:
+                            child_response = (
+                                await self._get_resources_by_parameters_async(
+                                    session=session,
+                                    resource_type=target_type,
+                                    id_=reference_parts[1],
                                 )
-                                responses.append(child_response)
-                                children = child_response.get_resources()
+                            )
+                            responses.append(child_response)
+                            children = child_response.get_resources()
         elif target.params:  # reverse path
             # for a reverse link, get the ids of the current resource, put in a view and
             # add a stage to get that
