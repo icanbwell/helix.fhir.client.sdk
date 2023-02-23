@@ -40,11 +40,16 @@ class FhirGetResponse:
         self.extra_context_to_return: Optional[Dict[str, Any]] = extra_context_to_return
 
     def append(self, other: List["FhirGetResponse"]) -> "FhirGetResponse":
-        response_json = json.loads(self.responses)
+        resources = self.get_resources()
         for other_response in other:
             if other_response.responses:
-                other_response_json = json.loads(other_response.responses)
-
+                other_resources = other_response.get_resources()
+                resources.extend(other_resources)
+        bundle = {
+            "resourceType": "Bundle",
+            "entry": [{"resource": r for r in resources}],
+        }
+        self.responses = json.dumps(bundle)
         return self
 
     def get_resources(self) -> List[Dict[str, Any]]:
