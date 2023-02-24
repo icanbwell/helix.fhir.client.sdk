@@ -150,6 +150,8 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
 
     fhir_client = fhir_client.log_level("DEBUG")
 
+    fhir_client = fhir_client.expand_fhir_bundle(False)
+
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     response: FhirGetResponse = await fhir_client.simulate_graph_async(
         id_="1,2",
