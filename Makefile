@@ -116,4 +116,12 @@ venv:
 devsetup:venv
 	source ./$(VENV_NAME)/bin/activate
 
+.PHONY:show_dependency_graph
+show_dependency_graph:
+	docker-compose run --rm --name helix.fhir.client.sdk dev sh -c "pipenv install --skip-lock && pipenv graph --reverse"
+	docker-compose run --rm --name helix.fhir.client.sdk dev sh -c "pipenv install -d && pipenv graph"
+
+.PHONY:qodana
+qodana:
+	docker run --rm -it --name qodana --mount type=bind,source="${PWD}",target=/data/project -p 8080:8080 jetbrains/qodana-python:2022.3-eap --show-report
 

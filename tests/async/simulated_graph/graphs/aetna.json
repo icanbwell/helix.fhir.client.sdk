@@ -1,0 +1,76 @@
+{
+  "resourceType": "GraphDefinition",
+  "id": "o",
+  "name": "aetna_patient_access",
+  "status": "active",
+  "start": "Patient",
+  "link": [
+    {
+      "path": "generalPractitioner[x]",
+      "target": [
+        {
+          "type": "Practitioner"
+        }
+      ]
+    },
+    {
+      "path": "managingOrganization",
+      "target": [
+        {
+          "type": "Organization"
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "Coverage",
+          "params": "patient={ref}",
+          "link": [
+            {
+              "path": "payor[x]",
+              "target": [
+                {
+                  "type": "Organization"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "ExplanationOfBenefit",
+          "params": "patient={ref}"
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "Observation",
+          "params": "patient={ref}&category=vital-signs,social-history,laboratory"
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "MedicationRequest",
+          "params": "patient={ref}"
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "MedicationDispense",
+          "params": "patient={ref}"
+        }
+      ]
+    }
+  ]
+}
+

@@ -6,4 +6,4 @@ RUN apt-get update && \
     pip install pipenv && \
     pipenv sync --dev --system
 WORKDIR /sourcecode
-CMD pre-commit run --all-files
+CMD git config --global --add safe.directory /sourcecode && git status && pre-commit run --all-files
