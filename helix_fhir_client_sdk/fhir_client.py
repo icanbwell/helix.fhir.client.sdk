@@ -2436,6 +2436,9 @@ class FhirClient:
         assert isinstance(graph_definition, GraphDefinition)
         assert graph_definition.start
 
+        # we handle separate resources differently below
+        self.separate_bundle_resources(False)
+
         if self._logger:
             self._logger.info(
                 f"FhirClient.simulate_graph_async() id_=${id_}, contained={contained}, "
