@@ -2640,6 +2640,8 @@ class FhirClient:
         self.resource(resource=resource_type)
         if parameters:
             self.additional_parameters(parameters)
+        else:
+            self.additional_parameters([])  # clear any previous parameters
 
         id_list: Optional[List[str]]
         if id_ and not isinstance(id_, list):
