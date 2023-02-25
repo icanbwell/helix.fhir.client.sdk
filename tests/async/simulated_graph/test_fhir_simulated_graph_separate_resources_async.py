@@ -62,13 +62,30 @@ async def test_fhir_simulated_graph_async() -> None:
         timing=times(1),
     )
 
-    response_text = {"entry": [{"resource": {"resourceType": "Coverage", "id": "7"}}]}
+    response_text = {
+        "entry": [
+            {
+                "resource": {
+                    "resourceType": "Coverage",
+                    "id": "7",
+                    "payor": [{"reference": "Organization/CoveragePayor"}],
+                }
+            }
+        ]
+    }
     mock_client.expect(
         mock_request(
             path=f"/{relative_url}/Coverage",
             querystring={"patient": "1"},
             method="GET",
         ),
+        mock_response(body=response_text),
+        timing=times(1),
+    )
+
+    response_text = {"resourceType": "Organization", "id": "CoveragePayor"}
+    mock_client.expect(
+        mock_request(path=f"/{relative_url}/Organization/CoveragePayor", method="GET"),
         mock_response(body=response_text),
         timing=times(1),
     )
@@ -91,6 +108,8 @@ async def test_fhir_simulated_graph_async() -> None:
 
     fhir_client = FhirClient()
 
+    fhir_client = fhir_client.log_level("DEBUG")
+
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     response: FhirGetResponse = await fhir_client.simulate_graph_async(
         id_="1",
@@ -110,8 +129,17 @@ async def test_fhir_simulated_graph_async() -> None:
             }
         ],
         "Practitioner": [{"resourceType": "Practitioner", "id": "5"}],
-        "Organization": [{"resourceType": "Organization", "id": "6"}],
-        "Coverage": [{"resourceType": "Coverage", "id": "7"}],
+        "Organization": [
+            {"resourceType": "Organization", "id": "6"},
+            {"resourceType": "Organization", "id": "CoveragePayor"},
+        ],
+        "Coverage": [
+            {
+                "resourceType": "Coverage",
+                "id": "7",
+                "payor": [{"reference": "Organization/CoveragePayor"}],
+            }
+        ],
         "Observation": [{"id": "8", "resourceType": "Observation"}],
     }
 
