@@ -24,6 +24,7 @@ Fluent API to call the FHIR server that handles:
 5. Paging
 6. Streaming
 7. Logging
+8. Simulating a $graph call when the server does not support it
 
 
 # Usage
