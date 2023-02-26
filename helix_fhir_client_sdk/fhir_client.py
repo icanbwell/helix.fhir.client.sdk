@@ -2484,8 +2484,9 @@ class FhirClient:
                         )
             bundle.append_responses(responses)
 
+            # token, url, service_slug
             if separate_bundle_resources:
-                resources: Dict[str, List[Dict[str, Any]]] = {}
+                resources: Dict[str, Union[str, List[Dict[str, Any]]]] = {}
                 if bundle.entry:
                     entry: BundleEntry
                     for entry in bundle.entry:
@@ -2497,8 +2498,15 @@ class FhirClient:
                             ), f"No resourceType in {json.dumps(resource)}"
                             if resource_type not in resources:
                                 resources[resource_type] = []
-                            resources[resource_type].append(resource)
+                            if isinstance(resources[resource_type], list):
+                                resources[resource_type].append(resource)  # type: ignore
 
+                resources["token"] = self._access_token or ""
+                resources["url"] = self._url or ""
+                if self._extra_context_to_return:
+                    resources["service_slug"] = ""
+                    if self._extra_context_to_return:
+                        resources.update(self._extra_context_to_return)
                 response.responses = json.dumps(resources)
             elif self._expand_fhir_bundle:
                 if bundle.entry:
@@ -2506,7 +2514,13 @@ class FhirClient:
                 else:
                     response.responses = ""
             else:
-                response.responses = json.dumps(bundle.to_dict())
+                bundle_dict: Dict[str, Any] = bundle.to_dict()
+                bundle_dict["token"] = self._access_token or ""
+                bundle_dict["url"] = self._url or ""
+                if self._extra_context_to_return:
+                    if self._extra_context_to_return:
+                        bundle_dict.update(self._extra_context_to_return)
+                response.responses = json.dumps(bundle_dict)
 
             return response
 
