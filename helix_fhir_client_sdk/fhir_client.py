@@ -2588,7 +2588,7 @@ class FhirClient:
             else:  # single reference
                 if parent and parent.get(path) and target_type:
                     reference = parent.get(path)
-                    if reference:
+                    if reference and "reference" in reference:
                         reference_id = reference["reference"]
                         reference_parts = reference_id.split("/")
                         if reference_parts[0] == target_type:
