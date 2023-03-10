@@ -2560,6 +2560,7 @@ class FhirClient:
         if path:  # forward link
             if path.endswith("[x]"):  # a list
                 path = path.replace("[x]", "")
+                # TODO: handle path like performer.actor[x]
                 if parent and parent.get(path) and target_type:
                     references = parent.get(path)
                     if references:
