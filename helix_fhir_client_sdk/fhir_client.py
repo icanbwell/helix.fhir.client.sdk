@@ -44,6 +44,7 @@ from aiohttp import (
 # noinspection PyPackageRequirements
 from furl import furl
 
+from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
@@ -2561,31 +2562,28 @@ class FhirClient:
             if path.endswith("[x]"):  # a list
                 path = path.replace("[x]", "")
                 # TODO: handle path like performer.actor[x]
-                if parent and parent.get(path) and target_type:
-                    references = parent.get(path)
-                    if references:
-                        reference_ids: List[str] = [
-                            r.get("reference") for r in references
-                        ]
-                        for reference_id in reference_ids:
-                            reference_parts = reference_id.split("/")
-                            if reference_parts[0] == target_type:
-                                child_id = reference_parts[1]
-                                child_response = (
-                                    await self._get_resources_by_parameters_async(
-                                        session=session,
-                                        resource_type=target_type,
-                                        id_=child_id,
-                                    )
+                references = DictionaryParser.get_nested_property(parent, path)  # type: ignore
+                if parent and references and target_type:
+                    reference_ids: List[str] = [r.get("reference") for r in references]  # type: ignore
+                    for reference_id in reference_ids:
+                        reference_parts = reference_id.split("/")
+                        if reference_parts[0] == target_type:
+                            child_id = reference_parts[1]
+                            child_response = (
+                                await self._get_resources_by_parameters_async(
+                                    session=session,
+                                    resource_type=target_type,
+                                    id_=child_id,
                                 )
-                                responses.append(child_response)
-                                if self._logger:
-                                    self._logger.info(
-                                        f"FhirClient.simulate_graph_async() got child resources with path:{path} "
-                                        + f"from parent {target_type}/{child_id}: "
-                                        + f"{child_response.responses}"
-                                    )
-                                children = child_response.get_resources()
+                            )
+                            responses.append(child_response)
+                            if self._logger:
+                                self._logger.info(
+                                    f"FhirClient.simulate_graph_async() got child resources with path:{path} "
+                                    + f"from parent {target_type}/{child_id}: "
+                                    + f"{child_response.responses}"
+                                )
+                            children = child_response.get_resources()
             else:  # single reference
                 if parent and parent.get(path) and target_type:
                     reference = parent.get(path)
