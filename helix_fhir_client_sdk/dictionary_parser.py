@@ -2,6 +2,9 @@ from typing import List, Any, Dict, Union
 
 
 class DictionaryParser:
+    def __init__(self) -> None:
+        pass
+
     @staticmethod
     def flatten(my_list: List[Any]) -> List[Any]:
         """
