@@ -21,10 +21,11 @@ async def test_dev_server_get_patients() -> None:
         "resourceType": "Patient",
         "id": "12355",
         "meta": {
+            "source": "http://www.icanbwell.com",
             "security": [
                 {"system": "https://www.icanbwell.com/access", "code": "bwell"},
                 {"system": "https://www.icanbwell.com/owner", "code": "bwell"},
-            ]
+            ],
         },
     }
     merge_response: FhirMergeResponse = await fhir_client.merge_async(

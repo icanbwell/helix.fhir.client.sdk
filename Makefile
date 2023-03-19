@@ -22,6 +22,7 @@ up: Pipfile.lock
 	while [ "`docker inspect --format {{.State.Health.Status}} helixfhirclientsdk_fhir_1`" != "healthy" ] && [ "`docker inspect --format {{.State.Health.Status}} helixfhirclientsdk_fhir_1`" != "unhealthy" ] && [ "`docker inspect --format {{.State.Status}} helixfhirclientsdk_fhir_1`" != "restarting" ]; do printf "." && sleep 2; done && \
 	if [ "`docker inspect --format {{.State.Health.Status}} helixfhirclientsdk_fhir_1`" != "healthy" ]; then docker ps && docker logs helixfhirclientsdk_fhir_1 && printf "========== ERROR: helixfhirclientsdk_mongo_1 did not start. Run docker logs helixfhirclientsdk_fhir_1 =========\n" && exit 1; fi
 	@echo MockServer dashboard: http://localhost:1080/mockserver/dashboard
+	@echo Fhir server dashboard http://localhost:3000/
 
 .PHONY: down
 down:
