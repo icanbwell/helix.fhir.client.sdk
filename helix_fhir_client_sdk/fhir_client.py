@@ -2508,13 +2508,6 @@ class FhirClient:
                                 resources[resource_type] = []
                             if isinstance(resources[resource_type], list):
                                 resources[resource_type].append(resource)  # type: ignore
-
-                resources["token"] = self._access_token or ""
-                resources["url"] = self._url or ""
-                if self._extra_context_to_return:
-                    resources["service_slug"] = ""
-                    if self._extra_context_to_return:
-                        resources.update(self._extra_context_to_return)
                 response.responses = json.dumps(resources)
             elif self._expand_fhir_bundle:
                 if bundle.entry:
@@ -2523,13 +2516,9 @@ class FhirClient:
                     response.responses = ""
             else:
                 bundle_dict: Dict[str, Any] = bundle.to_dict()
-                bundle_dict["token"] = self._access_token or ""
-                bundle_dict["url"] = self._url or ""
-                if self._extra_context_to_return:
-                    if self._extra_context_to_return:
-                        bundle_dict.update(self._extra_context_to_return)
                 response.responses = json.dumps(bundle_dict)
 
+            response.url = self._url or response.url  # set url to top level url
             return response
 
     async def _process_link_async(

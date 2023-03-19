@@ -182,9 +182,7 @@ async def test_fhir_simulated_graph_multiple_graph_async() -> None:
                     "schedule": {"reference": "Schedule/100"},
                 }
             },
-        ],
-        "token": "",
-        "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_async",
+        ]
     }
 
     assert json.loads(response.responses) == expected_json
@@ -221,9 +219,7 @@ async def test_fhir_simulated_graph_multiple_graph_async() -> None:
                     "schedule": {"reference": "Schedule/120"},
                 }
             },
-        ],
-        "token": "",
-        "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_async",
+        ]
     }
 
     assert json.loads(response.responses) == expected_json

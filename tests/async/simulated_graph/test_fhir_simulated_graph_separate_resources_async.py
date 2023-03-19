@@ -148,9 +148,6 @@ async def test_fhir_simulated_graph_async() -> None:
             }
         ],
         "Observation": [{"id": "8", "resourceType": "Observation"}],
-        "token": "my_access_token",
-        "url": "http://mock-server:1080/test_fhir_simulated_graph_async",
-        "service_slug": "medstar",
     }
 
     assert json.loads(response.responses) == expected_json

@@ -1,4 +1,5 @@
-FROM python:3.7-slim
+FROM python:3.7-slim-bullseye
+
 
 COPY ${project_root}/Pipfile* ./
 RUN apt-get update && \
