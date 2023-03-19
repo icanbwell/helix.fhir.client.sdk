@@ -121,10 +121,7 @@ async def test_fhir_simulated_graph_async() -> None:
             {"resource": {"resourceType": "Organization", "id": "6"}},
             {"resource": {"resourceType": "Coverage", "id": "7"}},
             {"resource": {"resourceType": "Observation", "id": "8"}},
-        ],
-        "service_slug": "medstar",
-        "token": "my_access_token",
-        "url": "http://mock-server:1080/test_fhir_simulated_graph_async",
+        ]
     }
 
     assert json.loads(response.responses) == expected_json
