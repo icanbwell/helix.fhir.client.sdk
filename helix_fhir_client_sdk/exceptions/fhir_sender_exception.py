@@ -1,3 +1,4 @@
+import traceback
 from typing import Optional, Dict, Any
 
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
@@ -47,7 +48,9 @@ class FhirSenderException(Exception):
             "elapsed_time": elapsed_time,
             "response_text": response_text,
             "json_data": json_data,
-            "exception": exception,
+            "exception": "".join(
+                traceback.TracebackException.from_exception(exception).format()
+            ),
         }
 
         super().__init__(convert_dict_to_str(json))

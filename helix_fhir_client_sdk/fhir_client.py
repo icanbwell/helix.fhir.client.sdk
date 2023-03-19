@@ -544,7 +544,7 @@ class FhirClient:
             )
             request_id = response.headers.getone("X-Request-ID", None)
             self._internal_logger.info(f"X-Request-ID={request_id}")
-            if response.ok:
+            if response.status == 200:
                 if self._logger:
                     self._logger.info(f"Successfully deleted: {full_uri}")
 
@@ -552,7 +552,7 @@ class FhirClient:
                 request_id=request_id,
                 url=full_uri.tostr(),
                 responses=await response.text(),
-                error=f"{response.status}" if not response.ok else None,
+                error=f"{response.status}" if not response.status == 200 else None,
                 access_token=access_token,
                 status=response.status,
             )
@@ -802,7 +802,7 @@ class FhirClient:
                 #     print(data)
 
                 # if request is ok (200) then return the data
-                if response.ok:
+                if response.status == 200:
                     total_count: int = 0
                     next_url: Optional[str] = None
                     if self._use_data_streaming:
@@ -1593,7 +1593,7 @@ class FhirClient:
                             response_status = response.status
                             request_id = response.headers.getone("X-Request-ID", None)
                             self._internal_logger.info(f"X-Request-ID={request_id}")
-                            if response and response.ok:
+                            if response and response.status == 200:
                                 # logging does not work in UDFs since they run on nodes
                                 # if progress_logger:
                                 #     progress_logger.write_to_log(
@@ -1772,7 +1772,7 @@ class FhirClient:
             try:
                 response: ClientResponse = await http.get(full_uri.tostr())
                 text_ = await response.text()
-                if response and response.ok and text_:
+                if response and response.status == 200 and text_:
                     content: Dict[str, Any] = json.loads(text_)
                     token_endpoint: Optional[str] = str(content["token_endpoint"])
                     with self._well_known_configuration_cache_lock:
@@ -1931,7 +1931,7 @@ class FhirClient:
             )
             request_id = response.headers.getone("X-Request-ID", None)
             self._internal_logger.info(f"X-Request-ID={request_id}")
-            if response.ok:
+            if response.status == 200:
                 if self._logger:
                     self._logger.info(f"Successfully updated: {full_uri}")
 
@@ -1939,7 +1939,7 @@ class FhirClient:
                 request_id=request_id,
                 url=full_uri.tostr(),
                 responses=await response.text(),
-                error=f"{response.status}" if not response.ok else None,
+                error=f"{response.status}" if not response.status == 200 else None,
                 access_token=access_token,
                 status=response.status,
             )
