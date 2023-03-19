@@ -112,7 +112,6 @@ async def test_fhir_simulated_graph_async() -> None:
 
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
 
-
     fhir_client.extra_context_to_return({"service_slug": "medstar"})
 
     auth_access_token = "my_access_token"

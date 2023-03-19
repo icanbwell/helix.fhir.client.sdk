@@ -92,9 +92,7 @@ async def test_fhir_simulated_graph_with_url_column_async() -> None:
     fhir_client = FhirClient()
     fhir_client = fhir_client.expand_fhir_bundle(False)
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
-    fhir_client = fhir_client.extra_context_to_return({
-        "slug": "1234"
-    })
+    fhir_client = fhir_client.extra_context_to_return({"slug": "1234"})
     response: FhirGetResponse = await fhir_client.simulate_graph_async(
         id_="1",
         graph_json=graph_json,
@@ -103,10 +101,11 @@ async def test_fhir_simulated_graph_with_url_column_async() -> None:
     )
     print(response.responses)
 
-    assert response.url == "http://mock-server:1080/test_fhir_simulated_graph_with_url_column_async"
-    assert response.extra_context_to_return == {
-        "slug": "1234"
-    }
+    assert (
+        response.url
+        == "http://mock-server:1080/test_fhir_simulated_graph_with_url_column_async"
+    )
+    assert response.extra_context_to_return == {"slug": "1234"}
 
     expected_json = {
         "entry": [
