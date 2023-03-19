@@ -24,9 +24,8 @@ async def test_dev_server_get_patients_error() -> None:
         [json.dumps(resource)]
     )
     print(merge_response.responses)
-    assert merge_response.status == 200, merge_response.responses
+    assert merge_response.status == 400, merge_response.responses
     assert merge_response.request_id is not None
-    assert merge_response.responses[0]["created"] is False, json.dumps(
+    assert merge_response.responses[0]["issue"] is not None, json.dumps(
         merge_response.responses
     )
-    assert merge_response.responses[0]["issue"] is not None

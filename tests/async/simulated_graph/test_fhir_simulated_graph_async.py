@@ -91,6 +91,13 @@ async def test_fhir_simulated_graph_async() -> None:
 
     fhir_client = FhirClient()
     fhir_client = fhir_client.expand_fhir_bundle(False)
+
+    fhir_client.extra_context_to_return({"service_slug": "medstar"})
+
+    auth_access_token = "my_access_token"
+    if auth_access_token:
+        fhir_client = fhir_client.set_access_token(auth_access_token)
+
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     response: FhirGetResponse = await fhir_client.simulate_graph_async(
         id_="1",
@@ -114,7 +121,10 @@ async def test_fhir_simulated_graph_async() -> None:
             {"resource": {"resourceType": "Organization", "id": "6"}},
             {"resource": {"resourceType": "Coverage", "id": "7"}},
             {"resource": {"resourceType": "Observation", "id": "8"}},
-        ]
+        ],
+        "service_slug": "medstar",
+        "token": "my_access_token",
+        "url": "http://mock-server:1080/test_fhir_simulated_graph_async",
     }
 
     assert json.loads(response.responses) == expected_json
