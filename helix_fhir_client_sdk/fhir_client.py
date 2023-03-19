@@ -2530,7 +2530,7 @@ class FhirClient:
                         bundle_dict.update(self._extra_context_to_return)
                 response.responses = json.dumps(bundle_dict)
 
-            response.url = self._url  # set url to top level url
+            response.url = self._url or response.url  # set url to top level url
             return response
 
     async def _process_link_async(
