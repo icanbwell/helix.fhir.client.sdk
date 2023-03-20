@@ -147,7 +147,39 @@ async def test_fhir_simulated_graph_async() -> None:
                 "payor": [{"reference": "Organization/CoveragePayor"}],
             }
         ],
-        "Observation": [{"id": "8", "resourceType": "Observation"}],
+        "OperationOutcome": [
+            {
+                "resourceType": "OperationOutcome",
+                "issue": [
+                    {
+                        "severity": "error",
+                        "code": "not-found",
+                        "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_async/ExplanationOfBenefit?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"service_slug": "medstar"}, "access_token": "my_access_token", "request_id": null}',
+                    }
+                ],
+            },
+            {
+                "resourceType": "OperationOutcome",
+                "issue": [
+                    {
+                        "severity": "error",
+                        "code": "not-found",
+                        "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_async/MedicationRequest?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"service_slug": "medstar"}, "access_token": "my_access_token", "request_id": null}',
+                    }
+                ],
+            },
+            {
+                "resourceType": "OperationOutcome",
+                "issue": [
+                    {
+                        "severity": "error",
+                        "code": "not-found",
+                        "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_async/MedicationDispense?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"service_slug": "medstar"}, "access_token": "my_access_token", "request_id": null}',
+                    }
+                ],
+            },
+        ],
+        "Observation": [{"resourceType": "Observation", "id": "8"}],
     }
 
     assert json.loads(response.responses) == expected_json

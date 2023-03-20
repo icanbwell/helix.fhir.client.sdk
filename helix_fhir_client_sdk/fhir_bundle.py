@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
@@ -17,12 +17,41 @@ class Bundle:
         self.entry: Optional[List[BundleEntry]] = entry
 
     def append_responses(self, responses: List[FhirGetResponse]) -> "Bundle":
+        response: FhirGetResponse
         for response in responses:
             response_text = response.responses
-            if response_text:
+            if response_text or response.error:
                 if not self.entry:
                     self.entry = []
-                response_json = json.loads(response_text)
+                response_json: Union[List[Dict[str, Any]], Dict[str, Any]] = (
+                    json.loads(response_text)
+                    if not response.error
+                    else {
+                        "resourceType": "OperationOutcome",
+                        "issue": [
+                            {
+                                "severity": "error",
+                                "code": (
+                                    "expired"
+                                    if response.status == 401
+                                    else "not-found"
+                                    if response.status == 404
+                                    else "exception"
+                                ),
+                                "diagnostics": json.dumps(
+                                    {
+                                        "url": response.url,
+                                        "error": response.error,
+                                        "status": response.status,
+                                        "extra_context_to_return": response.extra_context_to_return,
+                                        "access_token": response.access_token,
+                                        "request_id": response.request_id,
+                                    }
+                                ),
+                            }
+                        ],
+                    }
+                )
                 if isinstance(response_json, list):
                     self.entry.extend([BundleEntry(resource=r) for r in response_json])
                 elif response_json.get("entry"):
