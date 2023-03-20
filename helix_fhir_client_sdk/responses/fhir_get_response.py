@@ -14,12 +14,16 @@ class FhirGetResponse:
         total_count: Optional[int],
         status: int,
         next_url: Optional[str] = None,
-        extra_context_to_return: Optional[Dict[str, Any]]
+        extra_context_to_return: Optional[Dict[str, Any]],
+        resource_type: Optional[str],
+        id_: Optional[Union[List[str], str]]
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
 
         :param request_id: request id
+        :param resource_type: (Optional)
+        :param id_: (Optional)
         :param url: url that was being accessed
         :param responses: response text
         :param error: Any error returned by FHIR server
@@ -29,6 +33,8 @@ class FhirGetResponse:
         :param extra_context_to_return: a dict to return with every row (separate_bundle_resources is set)
                                         or with FhirGetResponse
         """
+        self.id_: Optional[Union[List[str], str]] = id_
+        self.resource_type: Optional[str] = resource_type
         self.request_id: Optional[str] = request_id
         self.url: str = url
         self.responses: str = responses

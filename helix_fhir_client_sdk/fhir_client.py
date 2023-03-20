@@ -897,6 +897,8 @@ class FhirClient:
                         status=response.status,
                         next_url=next_url,
                         extra_context_to_return=self._extra_context_to_return,
+                        resource_type=self._resource,
+                        id_=self._id,
                     )
                 elif response.status == 404:  # not found
                     last_response_text = await self.get_safe_response_text_async(
@@ -913,6 +915,8 @@ class FhirClient:
                         total_count=0,
                         status=response.status,
                         extra_context_to_return=self._extra_context_to_return,
+                        resource_type=self._resource,
+                        id_=self._id,
                     )
                 elif response.status == 502 or response.status == 504:  # time out
                     last_response_text = await self.get_safe_response_text_async(
@@ -936,6 +940,8 @@ class FhirClient:
                         total_count=0,
                         status=response.status,
                         extra_context_to_return=self._extra_context_to_return,
+                        resource_type=self._resource,
+                        id_=self._id,
                     )
                 elif response.status == 401:  # unauthorized
                     last_response_text = await self.get_safe_response_text_async(
@@ -956,6 +962,8 @@ class FhirClient:
                                 total_count=0,
                                 status=response.status,
                                 extra_context_to_return=self._extra_context_to_return,
+                                resource_type=self._resource,
+                                id_=self._id,
                             )
                         assert (
                             self._auth_server_url
@@ -982,6 +990,8 @@ class FhirClient:
                             total_count=0,
                             status=response.status,
                             extra_context_to_return=self._extra_context_to_return,
+                            resource_type=self._resource,
+                            id_=self._id,
                         )
                 elif response.status == 429:  # too many calls
                     last_response_text = await self.get_safe_response_text_async(
@@ -1000,6 +1010,8 @@ class FhirClient:
                             total_count=0,
                             status=response.status,
                             extra_context_to_return=self._extra_context_to_return,
+                            resource_type=self._resource,
+                            id_=self._id,
                         )
                     # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
                     # read the Retry-After header
@@ -1052,6 +1064,8 @@ class FhirClient:
                         total_count=0,
                         status=response.status,
                         extra_context_to_return=self._extra_context_to_return,
+                        resource_type=self._resource,
+                        id_=self._id,
                     )
 
                 if self._logger:
@@ -1073,6 +1087,8 @@ class FhirClient:
                 total_count=0,
                 status=last_status_code or 0,
                 extra_context_to_return=self._extra_context_to_return,
+                resource_type=self._resource,
+                id_=self._id,
             )
         except Exception as ex:
             raise FhirSenderException(
@@ -1446,6 +1462,8 @@ class FhirClient:
                 total_count=len(resources_list),
                 status=200,
                 extra_context_to_return=self._extra_context_to_return,
+                resource_type=self._resource,
+                id_=self._id,
             )
 
     @staticmethod

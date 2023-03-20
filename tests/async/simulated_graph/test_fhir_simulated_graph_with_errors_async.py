@@ -121,7 +121,31 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
                         {
                             "severity": "error",
                             "code": "not-found",
-                            "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_with_errors_async/ExplanationOfBenefit?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"slug": "1234"}, "access_token": null, "request_id": null}',
+                            "details": {
+                                "coding": [
+                                    {
+                                        "system": "https://www.icanbwell.com/url",
+                                        "code": "http://mock-server:1080/test_fhir_simulated_graph_with_errors_async/ExplanationOfBenefit?patient=1",
+                                    },
+                                    {
+                                        "system": "https://www.icanbwell.com/resourceType",
+                                        "code": "ExplanationOfBenefit",
+                                    },
+                                    {
+                                        "system": "https://www.icanbwell.com/id",
+                                        "code": None,
+                                    },
+                                    {
+                                        "system": "https://www.icanbwell.com/statuscode",
+                                        "code": 404,
+                                    },
+                                    {
+                                        "system": "https://www.icanbwell.com/accessToken",
+                                        "code": None,
+                                    },
+                                ]
+                            },
+                            "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_with_errors_async/ExplanationOfBenefit?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"slug": "1234"}, "accessToken": null, "requestId": null, "resourceType": "ExplanationOfBenefit", "id": null}',
                         }
                     ],
                 }
@@ -133,7 +157,31 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
                         {
                             "severity": "error",
                             "code": "expired",
-                            "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_with_errors_async/Observation?patient=1&category=vital-signs,social-history,laboratory", "error": "UnAuthorized", "status": 401, "extra_context_to_return": {"slug": "1234"}, "access_token": null, "request_id": null}',
+                            "details": {
+                                "coding": [
+                                    {
+                                        "system": "https://www.icanbwell.com/url",
+                                        "code": "http://mock-server:1080/test_fhir_simulated_graph_with_errors_async/Observation?patient=1&category=vital-signs,social-history,laboratory",
+                                    },
+                                    {
+                                        "system": "https://www.icanbwell.com/resourceType",
+                                        "code": "Observation",
+                                    },
+                                    {
+                                        "system": "https://www.icanbwell.com/id",
+                                        "code": None,
+                                    },
+                                    {
+                                        "system": "https://www.icanbwell.com/statuscode",
+                                        "code": 401,
+                                    },
+                                    {
+                                        "system": "https://www.icanbwell.com/accessToken",
+                                        "code": None,
+                                    },
+                                ]
+                            },
+                            "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_with_errors_async/Observation?patient=1&category=vital-signs,social-history,laboratory", "error": "UnAuthorized", "status": 401, "extra_context_to_return": {"slug": "1234"}, "accessToken": null, "requestId": null, "resourceType": "Observation", "id": null}',
                         }
                     ],
                 }
@@ -145,7 +193,31 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
                         {
                             "severity": "error",
                             "code": "not-found",
-                            "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_with_errors_async/MedicationRequest?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"slug": "1234"}, "access_token": null, "request_id": null}',
+                            "details": {
+                                "coding": [
+                                    {
+                                        "system": "https://www.icanbwell.com/url",
+                                        "code": "http://mock-server:1080/test_fhir_simulated_graph_with_errors_async/MedicationRequest?patient=1",
+                                    },
+                                    {
+                                        "system": "https://www.icanbwell.com/resourceType",
+                                        "code": "MedicationRequest",
+                                    },
+                                    {
+                                        "system": "https://www.icanbwell.com/id",
+                                        "code": None,
+                                    },
+                                    {
+                                        "system": "https://www.icanbwell.com/statuscode",
+                                        "code": 404,
+                                    },
+                                    {
+                                        "system": "https://www.icanbwell.com/accessToken",
+                                        "code": None,
+                                    },
+                                ]
+                            },
+                            "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_with_errors_async/MedicationRequest?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"slug": "1234"}, "accessToken": null, "requestId": null, "resourceType": "MedicationRequest", "id": null}',
                         }
                     ],
                 }
@@ -157,7 +229,31 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
                         {
                             "severity": "error",
                             "code": "not-found",
-                            "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_with_errors_async/MedicationDispense?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"slug": "1234"}, "access_token": null, "request_id": null}',
+                            "details": {
+                                "coding": [
+                                    {
+                                        "system": "https://www.icanbwell.com/url",
+                                        "code": "http://mock-server:1080/test_fhir_simulated_graph_with_errors_async/MedicationDispense?patient=1",
+                                    },
+                                    {
+                                        "system": "https://www.icanbwell.com/resourceType",
+                                        "code": "MedicationDispense",
+                                    },
+                                    {
+                                        "system": "https://www.icanbwell.com/id",
+                                        "code": None,
+                                    },
+                                    {
+                                        "system": "https://www.icanbwell.com/statuscode",
+                                        "code": 404,
+                                    },
+                                    {
+                                        "system": "https://www.icanbwell.com/accessToken",
+                                        "code": None,
+                                    },
+                                ]
+                            },
+                            "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_with_errors_async/MedicationDispense?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"slug": "1234"}, "accessToken": null, "requestId": null, "resourceType": "MedicationDispense", "id": null}',
                         }
                     ],
                 }

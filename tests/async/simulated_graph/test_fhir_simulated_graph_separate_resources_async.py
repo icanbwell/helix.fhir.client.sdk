@@ -154,7 +154,31 @@ async def test_fhir_simulated_graph_async() -> None:
                     {
                         "severity": "error",
                         "code": "not-found",
-                        "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_async/ExplanationOfBenefit?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"service_slug": "medstar"}, "access_token": "my_access_token", "request_id": null}',
+                        "details": {
+                            "coding": [
+                                {
+                                    "system": "https://www.icanbwell.com/url",
+                                    "code": "http://mock-server:1080/test_fhir_simulated_graph_async/ExplanationOfBenefit?patient=1",
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/resourceType",
+                                    "code": "ExplanationOfBenefit",
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/id",
+                                    "code": None,
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/statuscode",
+                                    "code": 404,
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/accessToken",
+                                    "code": "my_access_token",
+                                },
+                            ]
+                        },
+                        "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_async/ExplanationOfBenefit?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"service_slug": "medstar"}, "accessToken": "my_access_token", "requestId": null, "resourceType": "ExplanationOfBenefit", "id": null}',
                     }
                 ],
             },
@@ -164,7 +188,31 @@ async def test_fhir_simulated_graph_async() -> None:
                     {
                         "severity": "error",
                         "code": "not-found",
-                        "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_async/MedicationRequest?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"service_slug": "medstar"}, "access_token": "my_access_token", "request_id": null}',
+                        "details": {
+                            "coding": [
+                                {
+                                    "system": "https://www.icanbwell.com/url",
+                                    "code": "http://mock-server:1080/test_fhir_simulated_graph_async/MedicationRequest?patient=1",
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/resourceType",
+                                    "code": "MedicationRequest",
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/id",
+                                    "code": None,
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/statuscode",
+                                    "code": 404,
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/accessToken",
+                                    "code": "my_access_token",
+                                },
+                            ]
+                        },
+                        "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_async/MedicationRequest?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"service_slug": "medstar"}, "accessToken": "my_access_token", "requestId": null, "resourceType": "MedicationRequest", "id": null}',
                     }
                 ],
             },
@@ -174,7 +222,31 @@ async def test_fhir_simulated_graph_async() -> None:
                     {
                         "severity": "error",
                         "code": "not-found",
-                        "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_async/MedicationDispense?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"service_slug": "medstar"}, "access_token": "my_access_token", "request_id": null}',
+                        "details": {
+                            "coding": [
+                                {
+                                    "system": "https://www.icanbwell.com/url",
+                                    "code": "http://mock-server:1080/test_fhir_simulated_graph_async/MedicationDispense?patient=1",
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/resourceType",
+                                    "code": "MedicationDispense",
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/id",
+                                    "code": None,
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/statuscode",
+                                    "code": 404,
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/accessToken",
+                                    "code": "my_access_token",
+                                },
+                            ]
+                        },
+                        "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_async/MedicationDispense?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"service_slug": "medstar"}, "accessToken": "my_access_token", "requestId": null, "resourceType": "MedicationDispense", "id": null}',
                     }
                 ],
             },

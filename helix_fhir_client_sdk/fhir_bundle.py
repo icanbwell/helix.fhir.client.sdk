@@ -45,11 +45,21 @@ class Bundle:
                                             "code": response.url,
                                         },
                                         {
+                                            "system": "https://www.icanbwell.com/resourceType",
+                                            "code": response.resource_type,
+                                        },
+                                        {
+                                            "system": "https://www.icanbwell.com/id",
+                                            "code": ",".join(response.id_)
+                                            if isinstance(response.id_, list)
+                                            else response.id_,
+                                        },
+                                        {
                                             "system": "https://www.icanbwell.com/statuscode",
                                             "code": response.status,
                                         },
                                         {
-                                            "system": "https://www.icanbwell.com/access_token",
+                                            "system": "https://www.icanbwell.com/accessToken",
                                             "code": response.access_token,
                                         },
                                     ]
@@ -60,8 +70,10 @@ class Bundle:
                                         "error": response.error,
                                         "status": response.status,
                                         "extra_context_to_return": response.extra_context_to_return,
-                                        "access_token": response.access_token,
-                                        "request_id": response.request_id,
+                                        "accessToken": response.access_token,
+                                        "requestId": response.request_id,
+                                        "resourceType": response.resource_type,
+                                        "id": response.id_,
                                     }
                                 ),
                             }
