@@ -4,6 +4,9 @@ from datetime import datetime, date
 
 
 class FhirClientJsonHelpers:
+    def __init__(self) -> None:
+        pass
+
     @staticmethod
     def json_serial(obj: Any) -> str:
         """JSON serializer for objects not serializable by default json code"""
