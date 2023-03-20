@@ -38,6 +38,22 @@ class Bundle:
                                     if response.status == 404
                                     else "exception"
                                 ),
+                                "details": {
+                                    "coding": [
+                                        {
+                                            "system": "https://www.icanbwell.com/url",
+                                            "code": response.url,
+                                        },
+                                        {
+                                            "system": "https://www.icanbwell.com/statuscode",
+                                            "code": response.status,
+                                        },
+                                        {
+                                            "system": "https://www.icanbwell.com/access_token",
+                                            "code": response.access_token,
+                                        },
+                                    ]
+                                },
                                 "diagnostics": json.dumps(
                                     {
                                         "url": response.url,
