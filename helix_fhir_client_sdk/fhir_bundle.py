@@ -2,6 +2,7 @@ import json
 from typing import Any, Dict, List, Optional, Union
 
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.utilities.json_helpers import FhirClientJsonHelpers
 
 
 class BundleEntry:
@@ -43,17 +44,23 @@ class Bundle:
                                         {
                                             "system": "https://www.icanbwell.com/url",
                                             "code": response.url,
-                                        },
+                                        }
+                                        if response.url
+                                        else None,
                                         {
                                             "system": "https://www.icanbwell.com/resourceType",
                                             "code": response.resource_type,
-                                        },
+                                        }
+                                        if response.resource_type
+                                        else None,
                                         {
                                             "system": "https://www.icanbwell.com/id",
                                             "code": ",".join(response.id_)
                                             if isinstance(response.id_, list)
                                             else response.id_,
-                                        },
+                                        }
+                                        if response.id_
+                                        else None,
                                         {
                                             "system": "https://www.icanbwell.com/statuscode",
                                             "code": response.status,
@@ -61,7 +68,9 @@ class Bundle:
                                         {
                                             "system": "https://www.icanbwell.com/accessToken",
                                             "code": response.access_token,
-                                        },
+                                        }
+                                        if response.access_token
+                                        else None,
                                     ]
                                 },
                                 "diagnostics": json.dumps(
@@ -79,6 +88,9 @@ class Bundle:
                             }
                         ],
                     }
+                )
+                response_json = FhirClientJsonHelpers.remove_empty_elements(
+                    response_json
                 )
                 if isinstance(response_json, list):
                     self.entry.extend([BundleEntry(resource=r) for r in response_json])

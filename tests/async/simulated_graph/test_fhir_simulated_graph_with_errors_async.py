@@ -132,16 +132,8 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
                                         "code": "ExplanationOfBenefit",
                                     },
                                     {
-                                        "system": "https://www.icanbwell.com/id",
-                                        "code": None,
-                                    },
-                                    {
                                         "system": "https://www.icanbwell.com/statuscode",
                                         "code": 404,
-                                    },
-                                    {
-                                        "system": "https://www.icanbwell.com/accessToken",
-                                        "code": None,
                                     },
                                 ]
                             },
@@ -168,16 +160,8 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
                                         "code": "Observation",
                                     },
                                     {
-                                        "system": "https://www.icanbwell.com/id",
-                                        "code": None,
-                                    },
-                                    {
                                         "system": "https://www.icanbwell.com/statuscode",
                                         "code": 401,
-                                    },
-                                    {
-                                        "system": "https://www.icanbwell.com/accessToken",
-                                        "code": None,
                                     },
                                 ]
                             },
@@ -204,16 +188,8 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
                                         "code": "MedicationRequest",
                                     },
                                     {
-                                        "system": "https://www.icanbwell.com/id",
-                                        "code": None,
-                                    },
-                                    {
                                         "system": "https://www.icanbwell.com/statuscode",
                                         "code": 404,
-                                    },
-                                    {
-                                        "system": "https://www.icanbwell.com/accessToken",
-                                        "code": None,
                                     },
                                 ]
                             },
@@ -240,16 +216,8 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
                                         "code": "MedicationDispense",
                                     },
                                     {
-                                        "system": "https://www.icanbwell.com/id",
-                                        "code": None,
-                                    },
-                                    {
                                         "system": "https://www.icanbwell.com/statuscode",
                                         "code": 404,
-                                    },
-                                    {
-                                        "system": "https://www.icanbwell.com/accessToken",
-                                        "code": None,
                                     },
                                 ]
                             },
