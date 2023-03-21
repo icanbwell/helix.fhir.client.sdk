@@ -124,4 +124,10 @@ async def test_fhir_simulated_graph_async() -> None:
         ]
     }
 
-    assert json.loads(response.responses) == expected_json
+    bundle = json.loads(response.responses)
+    bundle["entry"] = [
+        e
+        for e in bundle["entry"]
+        if e["resource"]["resourceType"] != "OperationOutcome"
+    ]
+    assert bundle == expected_json

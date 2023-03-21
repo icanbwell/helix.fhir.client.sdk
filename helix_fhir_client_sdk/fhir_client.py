@@ -897,6 +897,8 @@ class FhirClient:
                         status=response.status,
                         next_url=next_url,
                         extra_context_to_return=self._extra_context_to_return,
+                        resource_type=self._resource,
+                        id_=self._id,
                     )
                 elif response.status == 404:  # not found
                     last_response_text = await self.get_safe_response_text_async(
@@ -908,11 +910,13 @@ class FhirClient:
                         request_id=request_id,
                         url=full_url,
                         responses=await response.text(),
-                        error=None,
+                        error="NotFound",
                         access_token=self._access_token,
                         total_count=0,
                         status=response.status,
                         extra_context_to_return=self._extra_context_to_return,
+                        resource_type=self._resource,
+                        id_=self._id,
                     )
                 elif response.status == 502 or response.status == 504:  # time out
                     last_response_text = await self.get_safe_response_text_async(
@@ -936,6 +940,8 @@ class FhirClient:
                         total_count=0,
                         status=response.status,
                         extra_context_to_return=self._extra_context_to_return,
+                        resource_type=self._resource,
+                        id_=self._id,
                     )
                 elif response.status == 401:  # unauthorized
                     last_response_text = await self.get_safe_response_text_async(
@@ -945,6 +951,20 @@ class FhirClient:
                         not self._exclude_status_codes_from_retry
                         or response.status not in self._exclude_status_codes_from_retry
                     ):
+                        if not self._auth_server_url or not self._login_token:
+                            # no ability to refresh auth token
+                            return FhirGetResponse(
+                                request_id=request_id,
+                                url=full_url,
+                                responses="",
+                                error=last_response_text or "UnAuthorized",
+                                access_token=self._access_token,
+                                total_count=0,
+                                status=response.status,
+                                extra_context_to_return=self._extra_context_to_return,
+                                resource_type=self._resource,
+                                id_=self._id,
+                            )
                         assert (
                             self._auth_server_url
                         ), f"{response.status} received from server but no auth_server_url was specified to use"
@@ -970,6 +990,8 @@ class FhirClient:
                             total_count=0,
                             status=response.status,
                             extra_context_to_return=self._extra_context_to_return,
+                            resource_type=self._resource,
+                            id_=self._id,
                         )
                 elif response.status == 429:  # too many calls
                     last_response_text = await self.get_safe_response_text_async(
@@ -988,6 +1010,8 @@ class FhirClient:
                             total_count=0,
                             status=response.status,
                             extra_context_to_return=self._extra_context_to_return,
+                            resource_type=self._resource,
+                            id_=self._id,
                         )
                     # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
                     # read the Retry-After header
@@ -1040,6 +1064,8 @@ class FhirClient:
                         total_count=0,
                         status=response.status,
                         extra_context_to_return=self._extra_context_to_return,
+                        resource_type=self._resource,
+                        id_=self._id,
                     )
 
                 if self._logger:
@@ -1061,6 +1087,8 @@ class FhirClient:
                 total_count=0,
                 status=last_status_code or 0,
                 extra_context_to_return=self._extra_context_to_return,
+                resource_type=self._resource,
+                id_=self._id,
             )
         except Exception as ex:
             raise FhirSenderException(
@@ -1434,6 +1462,8 @@ class FhirClient:
                 total_count=len(resources_list),
                 status=200,
                 extra_context_to_return=self._extra_context_to_return,
+                resource_type=self._resource,
+                id_=self._id,
             )
 
     @staticmethod
@@ -2557,10 +2587,19 @@ class FhirClient:
         if path:  # forward link
             if path.endswith("[x]"):  # a list
                 path = path.replace("[x]", "")
-                # TODO: handle path like performer.actor[x]
-                references = DictionaryParser.get_nested_property(parent, path)  # type: ignore
+                # find references
+                references: Union[List[Dict[str, Any]], Dict[str, Any], str, None] = (
+                    DictionaryParser.get_nested_property(parent, path)
+                    if parent and path
+                    else None
+                )
+                # iterate through all references
                 if parent and references and target_type:
-                    reference_ids: List[str] = [r.get("reference") for r in references]  # type: ignore
+                    reference_ids: List[str] = [
+                        cast(str, r.get("reference"))
+                        for r in references
+                        if "reference" in r and isinstance(r, dict)
+                    ]
                     for reference_id in reference_ids:
                         reference_parts = reference_id.split("/")
                         if reference_parts[0] == target_type:
