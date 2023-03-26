@@ -27,3 +27,4 @@ class FhirMergeResponse:
         self.access_token: Optional[str] = access_token
         self.status: int = status
         self.data: str = json_data
+        self.successful: bool = status != 200
