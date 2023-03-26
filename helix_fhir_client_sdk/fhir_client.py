@@ -1603,13 +1603,14 @@ class FhirClient:
                     else:
                         resource_json_list_clean = resource_json_list_incoming
 
+                    resource_uri: furl = full_uri.copy()
                     if len(resource_json_list_clean) > 0:
                         json_payload: str = json.dumps(resource_json_list_clean)
                         # json_payload_bytes: str = json_payload
                         json_payload_bytes: bytes = json_payload.encode("utf-8")
                         obj_id = 1  # TODO: remove this once the node fhir accepts merge without a parameter
                         assert obj_id
-                        resource_uri = full_uri.copy()
+
                         resource_uri /= parse.quote(str(obj_id), safe="")
                         resource_uri /= "$merge"
                         response: Optional[ClientResponse] = None
@@ -1669,7 +1670,7 @@ class FhirClient:
                                 )
                                 return FhirMergeResponse(
                                     request_id=request_id,
-                                    url=self._url or "",
+                                    url=resource_uri.url or self._url or "",
                                     json_data=json_payload,
                                     responses=[
                                         {
@@ -1682,7 +1683,9 @@ class FhirClient:
                                             ]
                                         }
                                     ],
-                                    error=json.dumps(response_text),
+                                    error=json.dumps(response_text)
+                                    if response_text
+                                    else None,
                                     access_token=self._access_token,
                                     status=response.status if response.status else 500,
                                 )
@@ -1734,7 +1737,7 @@ class FhirClient:
 
                 return FhirMergeResponse(
                     request_id=request_id,
-                    url=self._url or "",
+                    url=resource_uri.url,
                     responses=responses + errors,
                     error=json.dumps(responses + errors)
                     if response_status != 200
