@@ -16,7 +16,7 @@ class FhirGetResponse:
         next_url: Optional[str] = None,
         extra_context_to_return: Optional[Dict[str, Any]],
         resource_type: Optional[str],
-        id_: Optional[Union[List[str], str]]
+        id_: Optional[Union[List[str], str]],
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -44,6 +44,7 @@ class FhirGetResponse:
         self.status: int = status
         self.next_url: Optional[str] = next_url
         self.extra_context_to_return: Optional[Dict[str, Any]] = extra_context_to_return
+        self.successful: bool = status != 200
 
     def append(self, other: List["FhirGetResponse"]) -> "FhirGetResponse":
         resources = self.get_resources()
@@ -75,3 +76,7 @@ class FhirGetResponse:
             return child_response_resources
         else:
             return [child_response_resources]
+
+    def __repr__(self) -> str:
+        instance_variables_text = str(vars(self))
+        return f"FhirGetResponse: {instance_variables_text}"
