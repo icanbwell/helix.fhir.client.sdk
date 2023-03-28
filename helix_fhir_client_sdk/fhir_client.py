@@ -1663,7 +1663,7 @@ class FhirClient:
                                     response.raise_for_status()
                             else:  # other HTTP errors
                                 self._internal_logger.info(
-                                    f"response for {full_uri.tostr()}: {response.status}"
+                                    f"POST response for {resource_uri.url}: {response.status}"
                                 )
                                 response_text = await self.get_safe_response_text_async(
                                     response=response
