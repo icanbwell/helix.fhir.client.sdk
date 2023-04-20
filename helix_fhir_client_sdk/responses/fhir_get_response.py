@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any, List, Union, cast
 
 
 class FhirGetResponse:
@@ -64,7 +64,7 @@ class FhirGetResponse:
             return []
         child_response_resources: Union[
             Dict[str, Any], List[Dict[str, Any]]
-        ] = json.loads(self.responses)
+        ] = self.parse_json()
         if isinstance(child_response_resources, list):
             return child_response_resources
 
@@ -76,6 +76,19 @@ class FhirGetResponse:
             return child_response_resources
         else:
             return [child_response_resources]
+
+    def parse_json(self) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        try:
+            return cast(
+                Union[Dict[str, Any], List[Dict[str, Any]]], json.loads(self.responses)
+            )
+        except json.decoder.JSONDecodeError as e:
+            return {
+                "resourceType": "OperationOutcome",
+                "issue": [
+                    {"severity": "error", "code": "exception", "diagnostics": str(e)}
+                ],
+            }
 
     def __repr__(self) -> str:
         instance_variables_text = str(vars(self))
