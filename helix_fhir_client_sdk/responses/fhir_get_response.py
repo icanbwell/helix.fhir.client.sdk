@@ -64,7 +64,7 @@ class FhirGetResponse:
             return []
         child_response_resources: Union[
             Dict[str, Any], List[Dict[str, Any]]
-        ] = self.parse_json()
+        ] = self.parse_json(self.responses)
         if isinstance(child_response_resources, list):
             return child_response_resources
 
@@ -77,10 +77,23 @@ class FhirGetResponse:
         else:
             return [child_response_resources]
 
-    def parse_json(self) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+    @staticmethod
+    def parse_json(responses: str) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        if responses is None or len(responses) == 0:
+            return {
+                "resourceType": "OperationOutcome",
+                "issue": [
+                    {
+                        "severity": "error",
+                        "code": "exception",
+                        "diagnostics": "Content was empty",
+                    }
+                ],
+            }
+
         try:
             return cast(
-                Union[Dict[str, Any], List[Dict[str, Any]]], json.loads(self.responses)
+                Union[Dict[str, Any], List[Dict[str, Any]]], json.loads(responses)
             )
         except json.decoder.JSONDecodeError as e:
             return {
