@@ -1559,21 +1559,6 @@ class FhirClient:
             # set access token in request if present
             if access_token:
                 headers["Authorization"] = f"Bearer {access_token}"
-            errors: Dict[str, Any] = {}
-            if self._validation_server_url:
-                try:
-                    await AsyncFhirValidator.validate_fhir_resource(
-                        http=http,
-                        json_data=data,
-                        resource_name=self._resource,
-                        validation_server_url=self._validation_server_url,
-                    )
-                except FhirValidationException as e:
-                    errors = {
-                        "id": self._id,
-                        "resourceType": self._resource,
-                        "issue": e.issue,
-                    }
             response: Optional[ClientResponse] = None
             try:
                 deserialized_data = json.loads(data)
@@ -1623,8 +1608,8 @@ class FhirClient:
             return FhirUpdateResponse(
                 request_id=request_id,
                 url=full_uri.tostr(),
-                responses=json.dumps({**responses, **errors}),
-                error=json.dumps({**responses, **errors}),
+                responses=json.dumps(responses),
+                error=json.dumps(responses),
                 access_token=access_token,
                 status=response_status if response_status else 500,
             )
