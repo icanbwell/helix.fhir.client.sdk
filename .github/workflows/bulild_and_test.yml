@@ -20,6 +20,11 @@ jobs:
         with:
           python-version: '3.7'
 
+      - name: Docker Compose Setup
+        run: |
+          sudo apt-get install docker-compose-plugin
+          docker compose version
+
       - name: pre-commit
         run: make run-pre-commit
 
