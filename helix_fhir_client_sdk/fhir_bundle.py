@@ -184,11 +184,11 @@ class Bundle:
             if resource.get("issue"):
                 for issue in resource["issue"]:
                     details: Dict[str, Any] = issue.get("details")
-                    if not details:
+                    if details is None:
                         issue["details"] = {}
                         details = issue["details"]
                     coding: Optional[List[Dict[str, Any]]] = details.get("coding")
-                    if not coding:
+                    if coding is None:
                         details["coding"] = []
                         coding = details["coding"]
                     assert coding is not None

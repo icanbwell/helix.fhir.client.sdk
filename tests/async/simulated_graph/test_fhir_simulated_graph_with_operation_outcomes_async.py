@@ -228,7 +228,6 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
                                         "code": "Observation",
                                         "system": "https://www.icanbwell.com/resourceType",
                                     },
-                                    None,
                                     {
                                         "code": 200,
                                         "system": "https://www.icanbwell.com/statuscode",
