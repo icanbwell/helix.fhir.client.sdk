@@ -20,7 +20,14 @@ class FhirClientJsonHelpers:
     def remove_empty_elements(
         d: Union[List[Dict[str, Any]], Dict[str, Any]]
     ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
-        """recursively remove empty lists, empty dicts, or None elements from a dictionary"""
+        """
+        recursively remove empty lists, empty dicts, or None elements from a dictionary
+        or a list of dictionaries
+
+
+        :param d: dictionary or list of dictionaries
+        :return: dictionary or list of dictionaries
+        """
 
         def empty(x: Any) -> bool:
             return x is None or x == {} or x == []

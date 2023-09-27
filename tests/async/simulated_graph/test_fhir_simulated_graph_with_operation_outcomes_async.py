@@ -219,7 +219,24 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
                                         "not be "
                                         "returned.",
                                         "system": "urn:oid:1.2.840.114350.1.13.0.1.7.2.657369",
-                                    }
+                                    },
+                                    {
+                                        "code": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/Observation?patient=1&category=vital-signs,social-history,laboratory",
+                                        "system": "https://www.icanbwell.com/url",
+                                    },
+                                    {
+                                        "code": "Observation",
+                                        "system": "https://www.icanbwell.com/resourceType",
+                                    },
+                                    None,
+                                    {
+                                        "code": 200,
+                                        "system": "https://www.icanbwell.com/statuscode",
+                                    },
+                                    {
+                                        "code": "my_access_token",
+                                        "system": "https://www.icanbwell.com/accessToken",
+                                    },
                                 ],
                                 "text": "The authenticated "
                                 "client's search "
