@@ -2598,7 +2598,7 @@ class FhirClient:
 
             if self._logger:
                 self._logger.info(
-                    f"FhirClient.simulate_graph_async() got parent resources: {response.responses}"
+                    f"FhirClient.simulate_graph_async() got parent resources: {len(response.get_resources())}"
                 )
             # turn into a bundle if not already a bundle
             bundle = Bundle(entry=[BundleEntry(resource=r) for r in parent_resources])
@@ -2710,7 +2710,7 @@ class FhirClient:
                                 self._logger.info(
                                     f"FhirClient.simulate_graph_async() got child resources with path:{path} "
                                     + f"from parent {target_type}/{child_id}: "
-                                    + f"{child_response.responses}"
+                                    + f"{len(child_response.get_resources())}"
                                 )
                             children = child_response.get_resources()
             else:  # single reference
@@ -2733,7 +2733,7 @@ class FhirClient:
                                 self._logger.info(
                                     f"FhirClient.simulate_graph_async() got child resources with path:{path} "
                                     + f"from parent {target_type}/{child_id}: "
-                                    + f"{child_response.responses}"
+                                    + f"{len(child_response.get_resources())}"
                                 )
                             children = child_response.get_resources()
         elif target.params:  # reverse path
