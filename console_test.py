@@ -32,6 +32,12 @@ class MyLogger(FhirLogger):
         """
         self._internal_logger.error(param)
 
+    def debug(self, param: Any) -> None:
+        """
+        Handle messages at debug level
+        """
+        self._internal_logger.debug(param)
+
 
 class ResourceDownloader:
     def __init__(self) -> None:

@@ -15,3 +15,8 @@ class FhirLogger:
         """
         Handle messages at error level
         """
+
+    def debug(self, param: Any) -> None:
+        """
+        Handle messages at debug level
+        """
