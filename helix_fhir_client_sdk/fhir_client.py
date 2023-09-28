@@ -597,7 +597,7 @@ class FhirClient:
         """
         instance_variables_text = convert_dict_to_str(vars(self))
         if self._logger:
-            self._logger.info(f"LOGLEVEL: {self._log_level}")
+            # self._logger.info(f"LOGLEVEL: {self._log_level}")
             self._logger.info(f"parameters: {instance_variables_text}")
         else:
             self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
@@ -763,7 +763,7 @@ class FhirClient:
 
                 if self._log_level == "DEBUG":
                     if self._logger:
-                        self._logger.info(
+                        self._logger.debug(
                             f"sending a get_with_session_async: {full_url} with client_id={self._client_id} "
                             + f"and scopes={self._auth_scopes} instance_id={self._uuid} retries_left={retries_left}"
                         )
@@ -815,13 +815,13 @@ class FhirClient:
                             if fn_handle_streaming_chunk:
                                 await fn_handle_streaming_chunk(line, chunk_number)
                             if self._logger:
-                                self._logger.info(
+                                self._logger.debug(
                                     f"Successfully retrieved chunk {chunk_number}: {full_url}"
                                 )
                             resources_json += line.decode("utf-8")
                     else:
                         if self._logger:
-                            self._logger.info(f"Successfully retrieved: {full_url}")
+                            self._logger.debug(f"Successfully retrieved: {full_url}")
                         # noinspection PyBroadException
                         try:
                             text = await response.text()
@@ -1639,9 +1639,8 @@ class FhirClient:
             f"Calling $merge on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
         )
         instance_variables_text = convert_dict_to_str(vars(self))
-        if self._logger:
-            self._logger.info(f"LOGLEVEL: {self._log_level}")
-            self._logger.info(f"parameters: {instance_variables_text}")
+        if self._internal_logger:
+            self._internal_logger.info(f"parameters: {instance_variables_text}")
         else:
             self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
             self._internal_logger.info(f"parameters: {instance_variables_text}")
@@ -2599,7 +2598,7 @@ class FhirClient:
 
             if self._logger:
                 self._logger.info(
-                    f"FhirClient.simulate_graph_async() got parent resources: {response.responses}"
+                    f"FhirClient.simulate_graph_async() got parent resources: {len(response.get_resources())}"
                 )
             # turn into a bundle if not already a bundle
             bundle = Bundle(entry=[BundleEntry(resource=r) for r in parent_resources])
@@ -2711,7 +2710,7 @@ class FhirClient:
                                 self._logger.info(
                                     f"FhirClient.simulate_graph_async() got child resources with path:{path} "
                                     + f"from parent {target_type}/{child_id}: "
-                                    + f"{child_response.responses}"
+                                    + f"{len(child_response.get_resources())}"
                                 )
                             children = child_response.get_resources()
             else:  # single reference
@@ -2734,7 +2733,7 @@ class FhirClient:
                                 self._logger.info(
                                     f"FhirClient.simulate_graph_async() got child resources with path:{path} "
                                     + f"from parent {target_type}/{child_id}: "
-                                    + f"{child_response.responses}"
+                                    + f"{len(child_response.get_resources())}"
                                 )
                             children = child_response.get_resources()
         elif target.params:  # reverse path
@@ -2753,7 +2752,7 @@ class FhirClient:
                 )
                 responses.append(child_response)
                 if self._logger:
-                    self._logger.info(
+                    self._logger.debug(
                         f"FhirClient.simulate_graph_async() got child resources with params:{target.params} "
                         + f"from parent {target_type} with {property_name}={parent_id}: "
                         + f"{child_response.responses}"

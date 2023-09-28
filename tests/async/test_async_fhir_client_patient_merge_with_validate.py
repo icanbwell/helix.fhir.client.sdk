@@ -55,7 +55,7 @@ async def test_fhir_client_patient_merge_with_validate_async() -> None:
                     "code": "invalid",
                     "details": {
                         "text": "Resource Patient/12355 is missing a security access tag with system: "
-                        + "https://www.icanbwell.com/access"
+                        + "https://www.icanbwell.com/owner"
                     },
                     "expression": ["Patient"],
                 }
