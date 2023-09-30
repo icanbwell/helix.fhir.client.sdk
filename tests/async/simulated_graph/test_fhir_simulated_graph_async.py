@@ -111,16 +111,40 @@ async def test_fhir_simulated_graph_async() -> None:
         "entry": [
             {
                 "resource": {
-                    "resourceType": "Patient",
-                    "id": "1",
                     "generalPractitioner": [{"reference": "Practitioner/5"}],
+                    "id": "1",
                     "managingOrganization": {"reference": "Organization/6"},
+                    "resourceType": "Patient",
                 }
             },
-            {"resource": {"resourceType": "Practitioner", "id": "5"}},
-            {"resource": {"resourceType": "Organization", "id": "6"}},
-            {"resource": {"resourceType": "Coverage", "id": "7"}},
-            {"resource": {"resourceType": "Observation", "id": "8"}},
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_async/Practitioner/5",
+                },
+                "resource": {"id": "5", "resourceType": "Practitioner"},
+            },
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_async/Organization/6",
+                },
+                "resource": {"id": "6", "resourceType": "Organization"},
+            },
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_async/Coverage?patient=1",
+                },
+                "resource": {"id": "7", "resourceType": "Coverage"},
+            },
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_async/Observation?patient=1&category=vital-signs,social-history,laboratory",
+                },
+                "resource": {"id": "8", "resourceType": "Observation"},
+            },
         ]
     }
 

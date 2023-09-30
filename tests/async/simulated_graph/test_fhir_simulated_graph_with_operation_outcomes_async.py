@@ -141,10 +141,32 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
                     "resourceType": "Patient",
                 }
             },
-            {"resource": {"id": "5", "resourceType": "Practitioner"}},
-            {"resource": {"id": "6", "resourceType": "Organization"}},
-            {"resource": {"id": "7", "resourceType": "Coverage"}},
             {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/Practitioner/5",
+                },
+                "resource": {"id": "5", "resourceType": "Practitioner"},
+            },
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/Organization/6",
+                },
+                "resource": {"id": "6", "resourceType": "Organization"},
+            },
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/Coverage?patient=1",
+                },
+                "resource": {"id": "7", "resourceType": "Coverage"},
+            },
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/ExplanationOfBenefit?patient=1",
+                },
                 "resource": {
                     "issue": [
                         {
@@ -185,10 +207,20 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
                         }
                     ],
                     "resourceType": "OperationOutcome",
-                }
+                },
             },
-            {"resource": {"id": "8", "resourceType": "Observation"}},
             {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/Observation?patient=1&category=vital-signs,social-history,laboratory",
+                },
+                "resource": {"id": "8", "resourceType": "Observation"},
+            },
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/Observation?patient=1&category=vital-signs,social-history,laboratory",
+                },
                 "resource": {
                     "issue": [
                         {
@@ -257,9 +289,13 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
                         }
                     ],
                     "resourceType": "OperationOutcome",
-                }
+                },
             },
             {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/MedicationRequest?patient=1",
+                },
                 "resource": {
                     "issue": [
                         {
@@ -300,9 +336,13 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
                         }
                     ],
                     "resourceType": "OperationOutcome",
-                }
+                },
             },
             {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/MedicationDispense?patient=1",
+                },
                 "resource": {
                     "issue": [
                         {
@@ -343,7 +383,7 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
                         }
                     ],
                     "resourceType": "OperationOutcome",
-                }
+                },
             },
         ]
     }

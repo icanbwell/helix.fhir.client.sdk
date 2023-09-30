@@ -5,12 +5,31 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.json_helpers import FhirClientJsonHelpers
 
 
-class BundleEntry:
-    def __init__(self, resource: Optional[Dict[str, Any]] = None) -> None:
-        self.resource: Optional[Dict[str, Any]] = resource
+class BundleEntryRequest:
+    def __init__(self, url: str, method: str = "GET") -> None:
+        self.url: str = url
+        self.method: str = method
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"resource": self.resource}
+        return {"url": self.url, "method": self.method}
+
+
+class BundleEntry:
+    def __init__(
+        self,
+        resource: Optional[Dict[str, Any]] = None,
+        request: Optional[BundleEntryRequest] = None,
+    ) -> None:
+        self.resource: Optional[Dict[str, Any]] = resource
+        self.request: Optional[BundleEntryRequest] = request
+
+    def to_dict(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
+        if self.resource is not None:
+            result["resource"] = self.resource
+        if self.request is not None:
+            result["request"] = self.request.to_dict()
+        return result
 
 
 class Bundle:
@@ -28,6 +47,7 @@ class Bundle:
         response: FhirGetResponse
         for response in responses:
             response_text = response.responses
+            response_url = response.url
             if response_text or response.error:
                 if not self.entry:
                     self.entry = []
@@ -138,9 +158,10 @@ class Bundle:
                     self.entry.extend(
                         [
                             BundleEntry(
+                                request=BundleEntryRequest(url=response_url),
                                 resource=self.add_diagnostics_to_operation_outcomes(
                                     resource=r, diagnostics_coding=diagnostics_coding
-                                )
+                                ),
                             )
                             for r in response_json
                         ]
@@ -149,16 +170,22 @@ class Bundle:
                     self.entry.extend(
                         [
                             BundleEntry(
+                                request=BundleEntryRequest(url=response_url),
                                 resource=self.add_diagnostics_to_operation_outcomes(
                                     resource=entry["resource"],
                                     diagnostics_coding=diagnostics_coding,
-                                )
+                                ),
                             )
                             for entry in response_json["entry"]
                         ]
                     )
                 else:
-                    self.entry.append(BundleEntry(resource=response_json))
+                    self.entry.append(
+                        BundleEntry(
+                            request=BundleEntryRequest(url=response_url),
+                            resource=response_json,
+                        )
+                    )
         return self
 
     def to_dict(self) -> Dict[str, Any]:
