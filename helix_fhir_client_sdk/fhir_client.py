@@ -2585,7 +2585,7 @@ class FhirClient:
         restrict_to_capability_statement: Optional[str] = None,
         retrieve_and_restrict_to_capability_statement: Optional[bool] = None,
         ifModifiedSince: Optional[datetime] = None,
-        ifModifiedETag: Optional[str] = None,
+        eTag: Optional[str] = None,
     ) -> FhirGetResponse:
         """
         Simulates the $graph query on the FHIR server
@@ -2602,7 +2602,7 @@ class FhirClient:
         :param restrict_to_capability_statement: Optional capability statement to restrict to
         :param retrieve_and_restrict_to_capability_statement: Optional capability statement to retrieve and restrict to
         :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
-        :param ifModifiedETag: Optional ETag to use for If-None-Match header
+        :param eTag: Optional ETag to use for If-None-Match header
         :return: FhirGetResponse
         """
         assert graph_json
@@ -2649,6 +2649,8 @@ class FhirClient:
                         request=BundleEntryRequest(url=response.url),
                         response=BundleEntryResponse(
                             status=str(response.status),
+                            lastModified=response.lastModified,
+                            etag=response.etag,
                         ),
                         resource=r,
                     )

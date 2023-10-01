@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import Optional, Dict, Any, List, Union, cast, Tuple
 
 
@@ -70,12 +71,14 @@ class FhirGetResponse:
     def get_resources(self) -> List[Dict[str, Any]]:
         if not self.responses:
             return []
+        # THis is either a list of resources or a Bundle resource containing a list of resources
         child_response_resources: Union[
             Dict[str, Any], List[Dict[str, Any]]
         ] = self.parse_json(self.responses)
+        # if it is a list of resources then return it
         if isinstance(child_response_resources, list):
             return child_response_resources
-
+        # otherwise it is a bundle so parse out the resources
         if "entry" in child_response_resources:
             # bundle
             child_response_resources = [
@@ -114,3 +117,28 @@ class FhirGetResponse:
     def __repr__(self) -> str:
         instance_variables_text = str(vars(self))
         return f"FhirGetResponse: {instance_variables_text}"
+
+    # noinspection PyPep8Naming
+    @property
+    def lastModified(self) -> Optional[datetime]:
+        if self.response_headers is None:
+            return None
+        for header in self.response_headers:
+            if header[0] == "Last-Modified":
+                last_modified_str: Optional[str] = header[1]
+                if last_modified_str is None:
+                    return None
+                last_modified_datetime: datetime = datetime.strptime(
+                    last_modified_str, "%a, %d %b %Y %H:%M:%S %Z"
+                )
+                return last_modified_datetime
+        return None
+
+    @property
+    def etag(self) -> Optional[str]:
+        if self.response_headers is None:
+            return None
+        for header in self.response_headers:
+            if header[0] == "ETag":
+                return cast(str, header[1])
+        return None

@@ -36,8 +36,8 @@ class BundleEntryResponse:
         self,
         *,
         status: str,
-        etag: Optional[str] = None,
-        lastModified: Optional[datetime] = None,
+        etag: Optional[str],
+        lastModified: Optional[datetime],
     ) -> None:
         self.status: str = status
         if isinstance(status, int):
@@ -211,6 +211,8 @@ class Bundle:
                                 request=BundleEntryRequest(url=response_url),
                                 response=BundleEntryResponse(
                                     status=str(response.status),
+                                    lastModified=response.lastModified,
+                                    etag=response.etag,
                                 ),
                                 resource=self.add_diagnostics_to_operation_outcomes(
                                     resource=r, diagnostics_coding=diagnostics_coding
@@ -226,6 +228,8 @@ class Bundle:
                                 request=BundleEntryRequest(url=response_url),
                                 response=BundleEntryResponse(
                                     status=str(response.status),
+                                    lastModified=response.lastModified,
+                                    etag=response.etag,
                                 ),
                                 resource=self.add_diagnostics_to_operation_outcomes(
                                     resource=entry["resource"],
@@ -241,6 +245,8 @@ class Bundle:
                             request=BundleEntryRequest(url=response_url),
                             response=BundleEntryResponse(
                                 status=str(response.status),
+                                lastModified=response.lastModified,
+                                etag=response.etag,
                             ),
                             resource=response_json,
                         )
