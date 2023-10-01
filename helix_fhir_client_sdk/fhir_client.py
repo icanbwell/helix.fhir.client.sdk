@@ -781,8 +781,8 @@ class FhirClient:
                     http, full_url, headers, payload
                 )
                 last_status_code = response.status
-                response_headers: List[Tuple[str, Any]] = [
-                    (key, value) for key, value in response.headers.items()
+                response_headers: List[str] = [
+                    f"{key}:{value}" for key, value in response.headers.items()
                 ]
                 # retries_left
                 retries_left = retries_left - 1

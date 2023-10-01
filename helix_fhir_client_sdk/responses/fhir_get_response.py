@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Optional, Dict, Any, List, Union, cast, Tuple
+from typing import Optional, Dict, Any, List, Union, cast
 
 from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntry,
@@ -10,6 +10,13 @@ from helix_fhir_client_sdk.fhir_bundle import (
 
 
 class FhirGetResponse:
+    """
+    This class represents a response from a FHIR server.
+    NOTE: This class does converted to a Row in Spark so keep all the property types simple python types
+
+
+    """
+
     def __init__(
         self,
         *,
@@ -25,11 +32,12 @@ class FhirGetResponse:
         resource_type: Optional[str],
         id_: Optional[Union[List[str], str]],
         response_headers: Optional[
-            List[Tuple[str, Any]]
-        ],  # use a tuple since there can be duplicate header names
+            List[str]
+        ],  # header name and value separated by a colon
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
+        NOTE: This class does converted to a Row in Spark so keep all the property types simple python types
 
         :param request_id: request id
         :param resource_type: (Optional)
@@ -51,15 +59,24 @@ class FhirGetResponse:
         self.resource_type: Optional[str] = resource_type
         self.request_id: Optional[str] = request_id
         self.url: str = url
+        """ string that holds the response from the fhir server """
         self.responses: str = responses
+        """ Any error returned by the fhir server """
         self.error: Optional[str] = error
+        """ Access token used to make the request to the fhir server """
         self.access_token: Optional[str] = access_token
+        """ Total count of resources returned by the fhir serer """
         self.total_count: Optional[int] = total_count
+        """ Status code returned by the fhir server """ ""
         self.status: int = status
+        """ Next url to use for pagination """
         self.next_url: Optional[str] = next_url
+        """ Extra context to return with every row (separate_bundle_resources is set) or with FhirGetResponse"""
         self.extra_context_to_return: Optional[Dict[str, Any]] = extra_context_to_return
+        """ True if the request was successful """
         self.successful: bool = status != 200
-        self.response_headers: Optional[List[Tuple[str, Any]]] = response_headers
+        """ Headers returned by the server (can have duplicate header names) """ ""
+        self.response_headers: Optional[List[str]] = response_headers
 
     def append(self, other: List["FhirGetResponse"]) -> "FhirGetResponse":
         """
@@ -199,9 +216,12 @@ class FhirGetResponse:
     def lastModified(self) -> Optional[datetime]:
         if self.response_headers is None:
             return None
+        header: str
         for header in self.response_headers:
-            if header[0] == "Last-Modified":
-                last_modified_str: Optional[str] = header[1]
+            header_name: str = header.split(":")[0].strip()
+            header_value: str = header.split(":")[1].strip()
+            if header_name == "Last-Modified":
+                last_modified_str: Optional[str] = header_value
                 if last_modified_str is None:
                     return None
                 last_modified_datetime: datetime = datetime.strptime(
@@ -214,7 +234,10 @@ class FhirGetResponse:
     def etag(self) -> Optional[str]:
         if self.response_headers is None:
             return None
+        header: str
         for header in self.response_headers:
-            if header[0] == "ETag":
-                return cast(str, header[1])
+            header_name: str = header.split(":")[0].strip()
+            header_value: str = header.split(":")[1].strip()
+            if header_name == "ETag":
+                return header_value
         return None
