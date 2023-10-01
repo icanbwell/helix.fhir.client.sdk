@@ -2556,6 +2556,8 @@ class FhirClient:
         contained: bool,
         concurrent_requests: int = 1,
         separate_bundle_resources: bool = False,
+        restrict_to_scope: Optional[str] = None,
+        restrict_to_resources: Optional[List[str]] = None,
     ) -> FhirGetResponse:
         """
         Simulates the $graph query on the FHIR server
@@ -2567,6 +2569,9 @@ class FhirClient:
         :param graph_json: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
                             parent resources in a contained property
+        :param restrict_to_scope: Optional scope to restrict to
+        :param restrict_to_resources: Optional list of resources to restrict to
+        :return: FhirGetResponse
         """
         assert graph_json
         graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
