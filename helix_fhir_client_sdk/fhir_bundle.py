@@ -55,18 +55,24 @@ class BundleEntryResponse:
 
 
 class BundleEntry:
+    # noinspection PyPep8Naming
     def __init__(
         self,
-        resource: Optional[Dict[str, Any]] = None,
-        request: Optional[BundleEntryRequest] = None,
-        response: Optional[BundleEntryResponse] = None,
+        *,
+        fullUrl: Optional[str] = None,
+        resource: Optional[Dict[str, Any]],
+        request: Optional[BundleEntryRequest],
+        response: Optional[BundleEntryResponse],
     ) -> None:
         self.resource: Optional[Dict[str, Any]] = resource
         self.request: Optional[BundleEntryRequest] = request
         self.response: Optional[BundleEntryResponse] = response
+        self.fullUrl: Optional[str] = fullUrl
 
     def to_dict(self) -> Dict[str, Any]:
         result: Dict[str, Any] = {}
+        if self.fullUrl is not None:
+            result["fullUrl"] = self.fullUrl
         if self.resource is not None:
             result["resource"] = self.resource
         if self.request is not None:
@@ -77,7 +83,7 @@ class BundleEntry:
 
 
 class Bundle:
-    def __init__(self, entry: Optional[List[BundleEntry]] = None) -> None:
+    def __init__(self, *, entry: Optional[List[BundleEntry]] = None) -> None:
         self.entry: Optional[List[BundleEntry]] = entry
 
     def append_responses(self, responses: List[FhirGetResponse]) -> "Bundle":

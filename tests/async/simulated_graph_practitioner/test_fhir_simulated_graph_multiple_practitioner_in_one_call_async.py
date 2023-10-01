@@ -163,8 +163,22 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
 
     expected_json = {
         "entry": [
-            {"resource": {"id": "1", "resourceType": "Practitioner"}},
-            {"resource": {"id": "2", "resourceType": "Practitioner"}},
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Practitioner?id=1%2C2",
+                },
+                "resource": {"id": "1", "resourceType": "Practitioner"},
+                "response": {"status": "200"},
+            },
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Practitioner?id=1%2C2",
+                },
+                "resource": {"id": "2", "resourceType": "Practitioner"},
+                "response": {"status": "200"},
+            },
             {
                 "request": {
                     "method": "GET",
@@ -175,6 +189,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
                     "practitioner": {"reference": "Practitioner/1"},
                     "resourceType": "PractitionerRole",
                 },
+                "response": {"status": "200"},
             },
             {
                 "request": {
@@ -186,6 +201,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
                     "id": "100",
                     "resourceType": "Schedule",
                 },
+                "response": {"status": "200"},
             },
             {
                 "request": {
@@ -197,6 +213,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
                     "resourceType": "Slot",
                     "schedule": {"reference": "Schedule/100"},
                 },
+                "response": {"status": "200"},
             },
             {
                 "request": {
@@ -208,6 +225,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
                     "practitioner": {"reference": "Practitioner/2"},
                     "resourceType": "PractitionerRole",
                 },
+                "response": {"status": "200"},
             },
             {
                 "request": {
@@ -219,6 +237,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
                     "id": "120",
                     "resourceType": "Schedule",
                 },
+                "response": {"status": "200"},
             },
             {
                 "request": {
@@ -230,6 +249,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
                     "resourceType": "Slot",
                     "schedule": {"reference": "Schedule/120"},
                 },
+                "response": {"status": "200"},
             },
         ]
     }

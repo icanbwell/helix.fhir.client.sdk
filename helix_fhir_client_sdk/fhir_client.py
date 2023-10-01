@@ -782,6 +782,9 @@ class FhirClient:
                     http, full_url, headers, payload
                 )
                 last_status_code = response.status
+                response_headers: List[Tuple[str, Any]] = [
+                    (key, value) for key, value in response.headers.items()
+                ]
                 # retries_left
                 retries_left = retries_left - 1
                 if self._log_level == "DEBUG":
@@ -904,6 +907,7 @@ class FhirClient:
                         extra_context_to_return=self._extra_context_to_return,
                         resource_type=self._resource,
                         id_=self._id,
+                        response_headers=response_headers,
                     )
                 elif response.status == 404:  # not found
                     last_response_text = await self.get_safe_response_text_async(
@@ -922,6 +926,7 @@ class FhirClient:
                         extra_context_to_return=self._extra_context_to_return,
                         resource_type=self._resource,
                         id_=self._id,
+                        response_headers=response_headers,
                     )
                 elif response.status == 502 or response.status == 504:  # time out
                     last_response_text = await self.get_safe_response_text_async(
@@ -947,6 +952,7 @@ class FhirClient:
                         extra_context_to_return=self._extra_context_to_return,
                         resource_type=self._resource,
                         id_=self._id,
+                        response_headers=response_headers,
                     )
                 elif response.status == 401:  # unauthorized
                     last_response_text = await self.get_safe_response_text_async(
@@ -969,6 +975,7 @@ class FhirClient:
                                 extra_context_to_return=self._extra_context_to_return,
                                 resource_type=self._resource,
                                 id_=self._id,
+                                response_headers=response_headers,
                             )
                         assert (
                             self._auth_server_url
@@ -997,6 +1004,7 @@ class FhirClient:
                             extra_context_to_return=self._extra_context_to_return,
                             resource_type=self._resource,
                             id_=self._id,
+                            response_headers=response_headers,
                         )
                 elif response.status == 429:  # too many calls
                     last_response_text = await self.get_safe_response_text_async(
@@ -1017,6 +1025,7 @@ class FhirClient:
                             extra_context_to_return=self._extra_context_to_return,
                             resource_type=self._resource,
                             id_=self._id,
+                            response_headers=response_headers,
                         )
                     # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
                     # read the Retry-After header
@@ -1071,6 +1080,7 @@ class FhirClient:
                         extra_context_to_return=self._extra_context_to_return,
                         resource_type=self._resource,
                         id_=self._id,
+                        response_headers=response_headers,
                     )
 
                 if self._logger:
@@ -1094,6 +1104,7 @@ class FhirClient:
                 extra_context_to_return=self._extra_context_to_return,
                 resource_type=self._resource,
                 id_=self._id,
+                response_headers=None,
             )
         except Exception as ex:
             raise FhirSenderException(
@@ -1311,8 +1322,16 @@ class FhirClient:
                 )
                 if handle_batch_result is False:
                     self._stop_processing = True
-            return GetResult(request_id=result.request_id, resources=result_list)
-        return GetResult(request_id=result.request_id, resources=[])
+            return GetResult(
+                request_id=result.request_id,
+                resources=result_list,
+                response_headers=result.response_headers,
+            )
+        return GetResult(
+            request_id=result.request_id,
+            resources=[],
+            response_headers=result.response_headers,
+        )
 
     async def get_page_by_query_async(
         self,
@@ -1357,6 +1376,7 @@ class FhirClient:
                     request_id=result_for_page.request_id,
                     resources=result_for_page.resources,
                     page_number=page_number,
+                    response_headers=result_for_page.response_headers,
                 )
                 await output_queue.put(paging_result)
                 result.append(paging_result)
@@ -1469,6 +1489,9 @@ class FhirClient:
                 extra_context_to_return=self._extra_context_to_return,
                 resource_type=self._resource,
                 id_=self._id,
+                response_headers=result_list[0].response_headers
+                if len(result_list) > 0
+                else None,
             )
 
     @staticmethod
@@ -2548,6 +2571,7 @@ class FhirClient:
             )
         )
 
+    # noinspection PyPep8Naming
     async def simulate_graph_async(
         self,
         *,
@@ -2558,6 +2582,10 @@ class FhirClient:
         separate_bundle_resources: bool = False,
         restrict_to_scope: Optional[str] = None,
         restrict_to_resources: Optional[List[str]] = None,
+        restrict_to_capability_statement: Optional[str] = None,
+        retrieve_and_restrict_to_capability_statement: Optional[bool] = None,
+        ifModifiedSince: Optional[datetime] = None,
+        ifModifiedETag: Optional[str] = None,
     ) -> FhirGetResponse:
         """
         Simulates the $graph query on the FHIR server
@@ -2571,6 +2599,10 @@ class FhirClient:
                             parent resources in a contained property
         :param restrict_to_scope: Optional scope to restrict to
         :param restrict_to_resources: Optional list of resources to restrict to
+        :param restrict_to_capability_statement: Optional capability statement to restrict to
+        :param retrieve_and_restrict_to_capability_statement: Optional capability statement to retrieve and restrict to
+        :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
+        :param ifModifiedETag: Optional ETag to use for If-None-Match header
         :return: FhirGetResponse
         """
         assert graph_json

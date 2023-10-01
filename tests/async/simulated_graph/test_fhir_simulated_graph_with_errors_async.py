@@ -104,12 +104,17 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
     expected_json = {
         "entry": [
             {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_errors_async/Patient/1",
+                },
                 "resource": {
                     "generalPractitioner": [{"reference": "Practitioner/5"}],
                     "id": "1",
                     "managingOrganization": {"reference": "Organization/6"},
                     "resourceType": "Patient",
-                }
+                },
+                "response": {"status": "200"},
             },
             {
                 "request": {
@@ -117,6 +122,7 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
                     "url": "http://mock-server:1080/test_fhir_simulated_graph_with_errors_async/Practitioner/5",
                 },
                 "resource": {"id": "5", "resourceType": "Practitioner"},
+                "response": {"status": "200"},
             },
             {
                 "request": {
@@ -124,6 +130,7 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
                     "url": "http://mock-server:1080/test_fhir_simulated_graph_with_errors_async/Organization/6",
                 },
                 "resource": {"id": "6", "resourceType": "Organization"},
+                "response": {"status": "200"},
             },
             {
                 "request": {
@@ -131,6 +138,7 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
                     "url": "http://mock-server:1080/test_fhir_simulated_graph_with_errors_async/Coverage?patient=1",
                 },
                 "resource": {"id": "7", "resourceType": "Coverage"},
+                "response": {"status": "200"},
             },
             {
                 "request": {
@@ -173,6 +181,7 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
                     ],
                     "resourceType": "OperationOutcome",
                 },
+                "response": {"status": "404"},
             },
             {
                 "request": {
@@ -214,6 +223,7 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
                     ],
                     "resourceType": "OperationOutcome",
                 },
+                "response": {"status": "401"},
             },
             {
                 "request": {
@@ -256,6 +266,7 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
                     ],
                     "resourceType": "OperationOutcome",
                 },
+                "response": {"status": "404"},
             },
             {
                 "request": {
@@ -298,6 +309,7 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
                     ],
                     "resourceType": "OperationOutcome",
                 },
+                "response": {"status": "404"},
             },
         ]
     }

@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Dict, Any, List, Union, cast
+from typing import Optional, Dict, Any, List, Union, cast, Tuple
 
 
 class FhirGetResponse:
@@ -17,6 +17,9 @@ class FhirGetResponse:
         extra_context_to_return: Optional[Dict[str, Any]],
         resource_type: Optional[str],
         id_: Optional[Union[List[str], str]],
+        response_headers: Optional[
+            List[Tuple[str, Any]]
+        ],  # use a tuple since there can be duplicate header names
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -32,6 +35,10 @@ class FhirGetResponse:
                             Only set if include_total_count was set to avoid expensive operation by server.
         :param extra_context_to_return: a dict to return with every row (separate_bundle_resources is set)
                                         or with FhirGetResponse
+        :param status: status code
+        :param next_url: next url to use for pagination
+        :param response_headers: headers returned by the server (can have duplicate header names)
+        :return: None
         """
         self.id_: Optional[Union[List[str], str]] = id_
         self.resource_type: Optional[str] = resource_type
@@ -45,6 +52,7 @@ class FhirGetResponse:
         self.next_url: Optional[str] = next_url
         self.extra_context_to_return: Optional[Dict[str, Any]] = extra_context_to_return
         self.successful: bool = status != 200
+        self.response_headers: Optional[List[Tuple[str, Any]]] = response_headers
 
     def append(self, other: List["FhirGetResponse"]) -> "FhirGetResponse":
         resources = self.get_resources()
