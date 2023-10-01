@@ -121,10 +121,18 @@ class FhirGetResponse:
         child_response_resources: Union[
             Dict[str, Any], List[Dict[str, Any]]
         ] = self.parse_json(self.responses)
+
+        # use these if the bundle entry does not have them
+        request: BundleEntryRequest = BundleEntryRequest(url=self.url)
+        response: BundleEntryResponse = BundleEntryResponse(
+            status=str(self.status),
+            lastModified=self.lastModified,
+            etag=self.etag,
+        )
         # if it is a list of resources then wrap them in a bundle entry and return them
         if isinstance(child_response_resources, list):
             return [
-                BundleEntry(resource=r, request=None, response=None)
+                BundleEntry(resource=r, request=request, response=response)
                 for r in child_response_resources
             ]
         # otherwise it is a bundle so parse out the resources
@@ -137,12 +145,12 @@ class FhirGetResponse:
                         cast(Dict[str, Any], entry.get("request"))
                     )
                     if entry.get("request") and isinstance(entry.get("request"), dict)
-                    else None,
+                    else request,
                     response=BundleEntryResponse.from_dict(
                         cast(Dict[str, Any], entry.get("response"))
                     )
                     if entry.get("response") and isinstance(entry.get("response"), dict)
-                    else None,
+                    else response,
                     fullUrl=entry.get("fullUrl"),
                 )
                 for entry in bundle_entries
@@ -150,7 +158,9 @@ class FhirGetResponse:
         else:
             return [
                 BundleEntry(
-                    resource=child_response_resources, request=None, response=None
+                    resource=child_response_resources,
+                    request=request,
+                    response=response,
                 )
             ]
 
