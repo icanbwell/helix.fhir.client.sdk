@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -6,12 +7,51 @@ from helix_fhir_client_sdk.utilities.json_helpers import FhirClientJsonHelpers
 
 
 class BundleEntryRequest:
-    def __init__(self, url: str, method: str = "GET") -> None:
+    # noinspection PyPep8Naming
+    def __init__(
+        self,
+        *,
+        url: str,
+        method: str = "GET",
+        ifNoneMatch: Optional[str] = None,
+        ifModifiedSince: Optional[datetime] = None,
+    ) -> None:
         self.url: str = url
         self.method: str = method
+        self.ifModifiedSince: Optional[datetime] = ifModifiedSince
+        self.ifNoneMatch: Optional[str] = ifNoneMatch
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"url": self.url, "method": self.method}
+        result: Dict[str, Any] = {"url": self.url, "method": self.method}
+        if self.ifModifiedSince is not None:
+            result["ifModifiedSince"] = self.ifModifiedSince.isoformat()
+        if self.ifNoneMatch is not None:
+            result["ifNoneMatch"] = self.ifNoneMatch
+        return result
+
+
+class BundleEntryResponse:
+    # noinspection PyPep8Naming
+    def __init__(
+        self,
+        *,
+        status: str,
+        etag: Optional[str] = None,
+        lastModified: Optional[datetime] = None,
+    ) -> None:
+        self.status: str = status
+        if isinstance(status, int):
+            self.status = str(status)
+        self.lastModified: Optional[datetime] = lastModified
+        self.etag: Optional[str] = etag
+
+    def to_dict(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {"status": self.status}
+        if self.lastModified is not None:
+            result["lastModified"] = self.lastModified.isoformat()
+        if self.etag is not None:
+            result["etag"] = self.etag
+        return result
 
 
 class BundleEntry:
@@ -19,9 +59,11 @@ class BundleEntry:
         self,
         resource: Optional[Dict[str, Any]] = None,
         request: Optional[BundleEntryRequest] = None,
+        response: Optional[BundleEntryResponse] = None,
     ) -> None:
         self.resource: Optional[Dict[str, Any]] = resource
         self.request: Optional[BundleEntryRequest] = request
+        self.response: Optional[BundleEntryResponse] = response
 
     def to_dict(self) -> Dict[str, Any]:
         result: Dict[str, Any] = {}
@@ -29,6 +71,8 @@ class BundleEntry:
             result["resource"] = self.resource
         if self.request is not None:
             result["request"] = self.request.to_dict()
+        if self.response is not None:
+            result["response"] = self.response.to_dict()
         return result
 
 
@@ -159,6 +203,9 @@ class Bundle:
                         [
                             BundleEntry(
                                 request=BundleEntryRequest(url=response_url),
+                                response=BundleEntryResponse(
+                                    status=str(response.status),
+                                ),
                                 resource=self.add_diagnostics_to_operation_outcomes(
                                     resource=r, diagnostics_coding=diagnostics_coding
                                 ),
@@ -171,6 +218,9 @@ class Bundle:
                         [
                             BundleEntry(
                                 request=BundleEntryRequest(url=response_url),
+                                response=BundleEntryResponse(
+                                    status=str(response.status),
+                                ),
                                 resource=self.add_diagnostics_to_operation_outcomes(
                                     resource=entry["resource"],
                                     diagnostics_coding=diagnostics_coding,
@@ -183,6 +233,9 @@ class Bundle:
                     self.entry.append(
                         BundleEntry(
                             request=BundleEntryRequest(url=response_url),
+                            response=BundleEntryResponse(
+                                status=str(response.status),
+                            ),
                             resource=response_json,
                         )
                     )

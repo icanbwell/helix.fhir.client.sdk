@@ -50,7 +50,12 @@ from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderExc
 from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
     FhirValidationException,
 )
-from helix_fhir_client_sdk.fhir_bundle import Bundle, BundleEntry
+from helix_fhir_client_sdk.fhir_bundle import (
+    Bundle,
+    BundleEntry,
+    BundleEntryRequest,
+    BundleEntryResponse,
+)
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
 from helix_fhir_client_sdk.filters.last_updated_filter import LastUpdatedFilter
 from helix_fhir_client_sdk.filters.sort_field import SortField
@@ -2601,7 +2606,18 @@ class FhirClient:
                     f"FhirClient.simulate_graph_async() got parent resources: {len(response.get_resources())}"
                 )
             # turn into a bundle if not already a bundle
-            bundle = Bundle(entry=[BundleEntry(resource=r) for r in parent_resources])
+            bundle = Bundle(
+                entry=[
+                    BundleEntry(
+                        request=BundleEntryRequest(url=response.url),
+                        response=BundleEntryResponse(
+                            status=str(response.status),
+                        ),
+                        resource=r,
+                    )
+                    for r in parent_resources
+                ]
+            )
 
             # now process the graph links
             responses: List[FhirGetResponse] = []
