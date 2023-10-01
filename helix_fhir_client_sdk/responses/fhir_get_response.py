@@ -2,6 +2,12 @@ import json
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Union, cast, Tuple
 
+from helix_fhir_client_sdk.fhir_bundle import (
+    BundleEntry,
+    BundleEntryRequest,
+    BundleEntryResponse,
+)
+
 
 class FhirGetResponse:
     def __init__(
@@ -56,19 +62,33 @@ class FhirGetResponse:
         self.response_headers: Optional[List[Tuple[str, Any]]] = response_headers
 
     def append(self, other: List["FhirGetResponse"]) -> "FhirGetResponse":
-        resources = self.get_resources()
+        """
+        Append the responses from other to self
+
+        :param other: list of FhirGetResponse objects
+        :return: self
+        """
+        bundle_entries: List[BundleEntry] = self.get_bundle_entries()
         for other_response in other:
             if other_response.responses:
-                other_resources = other_response.get_resources()
-                resources.extend(other_resources)
+                other_bundle_entries: List[
+                    BundleEntry
+                ] = other_response.get_bundle_entries()
+                bundle_entries.extend(other_bundle_entries)
         bundle = {
             "resourceType": "Bundle",
-            "entry": [{"resource": r for r in resources}],
+            "entry": bundle_entries,
         }
         self.responses = json.dumps(bundle)
         return self
 
     def get_resources(self) -> List[Dict[str, Any]]:
+        """
+        Gets the resources from the response
+
+
+        :return: list of resources
+        """
         if not self.responses:
             return []
         # THis is either a list of resources or a Bundle resource containing a list of resources
@@ -87,6 +107,52 @@ class FhirGetResponse:
             return child_response_resources
         else:
             return [child_response_resources]
+
+    def get_bundle_entries(self) -> List[BundleEntry]:
+        """
+        Gets the Bundle entries from the response
+
+
+        :return: list of bundle entries
+        """
+        if not self.responses:
+            return []
+        # THis is either a list of resources or a Bundle resource containing a list of resources
+        child_response_resources: Union[
+            Dict[str, Any], List[Dict[str, Any]]
+        ] = self.parse_json(self.responses)
+        # if it is a list of resources then wrap them in a bundle entry and return them
+        if isinstance(child_response_resources, list):
+            return [
+                BundleEntry(resource=r, request=None, response=None)
+                for r in child_response_resources
+            ]
+        # otherwise it is a bundle so parse out the resources
+        if "entry" in child_response_resources:
+            bundle_entries: List[Dict[str, Any]] = child_response_resources["entry"]
+            return [
+                BundleEntry(
+                    resource=entry["resource"],
+                    request=BundleEntryRequest.from_dict(
+                        cast(Dict[str, Any], entry.get("request"))
+                    )
+                    if entry.get("request") and isinstance(entry.get("request"), dict)
+                    else None,
+                    response=BundleEntryResponse.from_dict(
+                        cast(Dict[str, Any], entry.get("response"))
+                    )
+                    if entry.get("response") and isinstance(entry.get("response"), dict)
+                    else None,
+                    fullUrl=entry.get("fullUrl"),
+                )
+                for entry in bundle_entries
+            ]
+        else:
+            return [
+                BundleEntry(
+                    resource=child_response_resources, request=None, response=None
+                )
+            ]
 
     @staticmethod
     def parse_json(responses: str) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
