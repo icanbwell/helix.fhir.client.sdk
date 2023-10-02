@@ -1,5 +1,8 @@
 import json
 from datetime import datetime
+
+# noinspection PyPackageRequirements
+from dateutil import parser
 from typing import Optional, Dict, Any, List, Union, cast
 
 from helix_fhir_client_sdk.fhir_bundle import (
@@ -224,10 +227,11 @@ class FhirGetResponse:
                 last_modified_str: Optional[str] = header_value
                 if last_modified_str is None:
                     return None
-                last_modified_datetime: datetime = datetime.strptime(
-                    last_modified_str, "%a, %d %b %Y %H:%M:%S %Z"
-                )
-                return last_modified_datetime
+                try:
+                    last_modified_datetime: datetime = parser.parse(last_modified_str)
+                    return last_modified_datetime
+                except ValueError:
+                    return None
         return None
 
     @property
@@ -236,6 +240,8 @@ class FhirGetResponse:
             return None
         header: str
         for header in self.response_headers:
+            if ":" not in header:
+                continue
             header_name: str = header.split(":")[0].strip()
             header_value: str = header.split(":")[1].strip()
             if header_name == "ETag":

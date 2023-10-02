@@ -9,6 +9,7 @@ requests = "*"
 urllib3 = "*"
 chardet = "*"
 aiohttp = "*"
+python-dateutil = "*"
 
 [dev-packages]
 setuptools=">=68.0.0"
@@ -23,6 +24,7 @@ pipenv-setup = ">=3.2.0"
 vistir="==0.6.1" # https://github.com/Madoshakalaka/pipenv-setup/issues/138
 pytest-asyncio = ">=0.21.1"
 types-requests = ">=2.27.11"
+types-python-dateutil = ">=2.8.19.14"
 Sphinx="==4.1.2"
 sphinx-autoapi="==1.8.4"
 sphinx-rtd-theme="==0.5.2"
