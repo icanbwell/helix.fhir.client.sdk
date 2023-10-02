@@ -50,7 +50,11 @@ from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderExc
 from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
     FhirValidationException,
 )
-from helix_fhir_client_sdk.fhir_bundle import Bundle, BundleEntry
+from helix_fhir_client_sdk.fhir_bundle import (
+    Bundle,
+    BundleEntry,
+)
+from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
 from helix_fhir_client_sdk.filters.last_updated_filter import LastUpdatedFilter
 from helix_fhir_client_sdk.filters.sort_field import SortField
@@ -777,6 +781,9 @@ class FhirClient:
                     http, full_url, headers, payload
                 )
                 last_status_code = response.status
+                response_headers: List[str] = [
+                    f"{key}:{value}" for key, value in response.headers.items()
+                ]
                 # retries_left
                 retries_left = retries_left - 1
                 if self._log_level == "DEBUG":
@@ -899,6 +906,7 @@ class FhirClient:
                         extra_context_to_return=self._extra_context_to_return,
                         resource_type=self._resource,
                         id_=self._id,
+                        response_headers=response_headers,
                     )
                 elif response.status == 404:  # not found
                     last_response_text = await self.get_safe_response_text_async(
@@ -917,6 +925,7 @@ class FhirClient:
                         extra_context_to_return=self._extra_context_to_return,
                         resource_type=self._resource,
                         id_=self._id,
+                        response_headers=response_headers,
                     )
                 elif response.status == 502 or response.status == 504:  # time out
                     last_response_text = await self.get_safe_response_text_async(
@@ -942,6 +951,7 @@ class FhirClient:
                         extra_context_to_return=self._extra_context_to_return,
                         resource_type=self._resource,
                         id_=self._id,
+                        response_headers=response_headers,
                     )
                 elif response.status == 401:  # unauthorized
                     last_response_text = await self.get_safe_response_text_async(
@@ -964,6 +974,7 @@ class FhirClient:
                                 extra_context_to_return=self._extra_context_to_return,
                                 resource_type=self._resource,
                                 id_=self._id,
+                                response_headers=response_headers,
                             )
                         assert (
                             self._auth_server_url
@@ -992,6 +1003,7 @@ class FhirClient:
                             extra_context_to_return=self._extra_context_to_return,
                             resource_type=self._resource,
                             id_=self._id,
+                            response_headers=response_headers,
                         )
                 elif response.status == 429:  # too many calls
                     last_response_text = await self.get_safe_response_text_async(
@@ -1012,6 +1024,7 @@ class FhirClient:
                             extra_context_to_return=self._extra_context_to_return,
                             resource_type=self._resource,
                             id_=self._id,
+                            response_headers=response_headers,
                         )
                     # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
                     # read the Retry-After header
@@ -1066,6 +1079,7 @@ class FhirClient:
                         extra_context_to_return=self._extra_context_to_return,
                         resource_type=self._resource,
                         id_=self._id,
+                        response_headers=response_headers,
                     )
 
                 if self._logger:
@@ -1089,6 +1103,7 @@ class FhirClient:
                 extra_context_to_return=self._extra_context_to_return,
                 resource_type=self._resource,
                 id_=self._id,
+                response_headers=None,
             )
         except Exception as ex:
             raise FhirSenderException(
@@ -1306,8 +1321,16 @@ class FhirClient:
                 )
                 if handle_batch_result is False:
                     self._stop_processing = True
-            return GetResult(request_id=result.request_id, resources=result_list)
-        return GetResult(request_id=result.request_id, resources=[])
+            return GetResult(
+                request_id=result.request_id,
+                resources=result_list,
+                response_headers=result.response_headers,
+            )
+        return GetResult(
+            request_id=result.request_id,
+            resources=[],
+            response_headers=result.response_headers,
+        )
 
     async def get_page_by_query_async(
         self,
@@ -1352,6 +1375,7 @@ class FhirClient:
                     request_id=result_for_page.request_id,
                     resources=result_for_page.resources,
                     page_number=page_number,
+                    response_headers=result_for_page.response_headers,
                 )
                 await output_queue.put(paging_result)
                 result.append(paging_result)
@@ -1464,6 +1488,9 @@ class FhirClient:
                 extra_context_to_return=self._extra_context_to_return,
                 resource_type=self._resource,
                 id_=self._id,
+                response_headers=result_list[0].response_headers
+                if len(result_list) > 0
+                else None,
             )
 
     @staticmethod
@@ -2234,7 +2261,7 @@ class FhirClient:
         :param fn_handle_streaming_ids: Optional function to execute when we get ids in streaming
         :param fn_handle_streaming_chunk: Optional function to execute when we get a chunk in streaming
         :param fn_handle_ids: Optional function to execute when we get a page of ids
-        :param last_updated_start_date: find resources updated after this datetime
+        :param last_updated_start_date: Find the resources updated after this datetime
         :param last_updated_end_date: find resources updated before this datetime
         :param concurrent_requests: number of concurrent requests to make to the server
         :param page_size_for_retrieving_resources: number of resources to download in one batch
@@ -2543,6 +2570,7 @@ class FhirClient:
             )
         )
 
+    # noinspection PyPep8Naming
     async def simulate_graph_async(
         self,
         *,
@@ -2551,6 +2579,12 @@ class FhirClient:
         contained: bool,
         concurrent_requests: int = 1,
         separate_bundle_resources: bool = False,
+        restrict_to_scope: Optional[str] = None,
+        restrict_to_resources: Optional[List[str]] = None,
+        restrict_to_capability_statement: Optional[str] = None,
+        retrieve_and_restrict_to_capability_statement: Optional[bool] = None,
+        ifModifiedSince: Optional[datetime] = None,
+        eTag: Optional[str] = None,
     ) -> FhirGetResponse:
         """
         Simulates the $graph query on the FHIR server
@@ -2562,6 +2596,13 @@ class FhirClient:
         :param graph_json: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
                             parent resources in a contained property
+        :param restrict_to_scope: Optional scope to restrict to
+        :param restrict_to_resources: Optional list of resources to restrict to
+        :param restrict_to_capability_statement: Optional capability statement to restrict to
+        :param retrieve_and_restrict_to_capability_statement: Optional capability statement to retrieve and restrict to
+        :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
+        :param eTag: Optional ETag to use for If-None-Match header
+        :return: FhirGetResponse
         """
         assert graph_json
         graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
@@ -2594,27 +2635,30 @@ class FhirClient:
             )
             if not response.responses:
                 return response
-            parent_resources = response.get_resources()
+            parent_bundle_entries: List[BundleEntry] = response.get_bundle_entries()
 
             if self._logger:
                 self._logger.info(
                     f"FhirClient.simulate_graph_async() got parent resources: {len(response.get_resources())}"
                 )
             # turn into a bundle if not already a bundle
-            bundle = Bundle(entry=[BundleEntry(resource=r) for r in parent_resources])
+            bundle = Bundle(entry=parent_bundle_entries)
 
             # now process the graph links
             responses: List[FhirGetResponse] = []
             if graph_definition.link and len(graph_definition.link) > 0:
                 link: GraphDefinitionLink
                 for link in graph_definition.link:
-                    for parent in parent_resources:
+                    parent_bundle_entry: BundleEntry
+                    for parent_bundle_entry in parent_bundle_entries:
                         responses.extend(
                             await self._process_link_async(
-                                session=session, link=link, parent=parent
+                                session=session,
+                                link=link,
+                                parent_bundle_entry=parent_bundle_entry,
                             )
                         )
-            bundle.append_responses(responses)
+            FhirBundleAppender.append_responses(responses=responses, bundle=bundle)
 
             # token, url, service_slug
             if separate_bundle_resources:
@@ -2650,7 +2694,7 @@ class FhirClient:
         *,
         session: ClientSession,
         link: GraphDefinitionLink,
-        parent: Optional[Dict[str, Any]],
+        parent_bundle_entry: Optional[BundleEntry],
     ) -> List[FhirGetResponse]:
         assert session
         assert link
@@ -2660,7 +2704,10 @@ class FhirClient:
         for target in targets:
             responses.extend(
                 await self._process_target_async(
-                    session=session, target=target, path=link.path, parent=parent
+                    session=session,
+                    target=target,
+                    path=link.path,
+                    parent_bundle_entry=parent_bundle_entry,
                 )
             )
         return responses
@@ -2671,24 +2718,27 @@ class FhirClient:
         session: ClientSession,
         target: GraphDefinitionTarget,
         path: Optional[str],
-        parent: Optional[Dict[str, Any]],
+        parent_bundle_entry: Optional[BundleEntry],
     ) -> List[FhirGetResponse]:
         responses: List[FhirGetResponse] = []
-        children: List[Dict[str, Any]] = []
+        children: List[BundleEntry] = []
         child_response: FhirGetResponse
         child_response_resources: Union[Dict[str, Any], List[Dict[str, Any]]]
         target_type: Optional[str] = target.type_
+        parent_resource: Optional[Dict[str, Any]] = (
+            parent_bundle_entry.resource if parent_bundle_entry else None
+        )
         if path:  # forward link
             if path.endswith("[x]"):  # a list
                 path = path.replace("[x]", "")
                 # find references
                 references: Union[List[Dict[str, Any]], Dict[str, Any], str, None] = (
-                    DictionaryParser.get_nested_property(parent, path)
-                    if parent and path
+                    DictionaryParser.get_nested_property(parent_resource, path)
+                    if parent_resource and path
                     else None
                 )
                 # iterate through all references
-                if parent and references and target_type:
+                if parent_resource and references and target_type:
                     reference_ids: List[str] = [
                         cast(str, r.get("reference"))
                         for r in references
@@ -2706,16 +2756,16 @@ class FhirClient:
                                 )
                             )
                             responses.append(child_response)
+                            children = child_response.get_bundle_entries()
                             if self._logger:
                                 self._logger.info(
                                     f"FhirClient.simulate_graph_async() got child resources with path:{path} "
                                     + f"from parent {target_type}/{child_id}: "
-                                    + f"{len(child_response.get_resources())}"
+                                    + f"{len(children)}"
                                 )
-                            children = child_response.get_resources()
             else:  # single reference
-                if parent and parent.get(path) and target_type:
-                    reference = parent.get(path)
+                if parent_resource and parent_resource.get(path) and target_type:
+                    reference = parent_resource.get(path)
                     if reference and "reference" in reference:
                         reference_id = reference["reference"]
                         reference_parts = reference_id.split("/")
@@ -2729,13 +2779,13 @@ class FhirClient:
                                 )
                             )
                             responses.append(child_response)
+                            children = child_response.get_bundle_entries()
                             if self._logger:
                                 self._logger.info(
                                     f"FhirClient.simulate_graph_async() got child resources with path:{path} "
                                     + f"from parent {target_type}/{child_id}: "
-                                    + f"{len(child_response.get_resources())}"
+                                    + f"{len(children)}"
                                 )
-                            children = child_response.get_resources()
         elif target.params:  # reverse path
             # for a reverse link, get the ids of the current resource, put in a view and
             # add a stage to get that
@@ -2743,8 +2793,13 @@ class FhirClient:
             ref_param = [p for p in param_list if p.endswith("{ref}")][0]
             additional_parameters = [p for p in param_list if not p.endswith("{ref}")]
             property_name: str = ref_param.split("=")[0]
-            if parent and property_name and parent.get("id") and target_type:
-                parent_id = parent.get("id")
+            if (
+                parent_resource
+                and property_name
+                and parent_resource.get("id")
+                and target_type
+            ):
+                parent_id = parent_resource.get("id")
                 child_response = await self._get_resources_by_parameters_async(
                     session=session,
                     resource_type=target_type,
@@ -2757,14 +2812,16 @@ class FhirClient:
                         + f"from parent {target_type} with {property_name}={parent_id}: "
                         + f"{child_response.responses}"
                     )
-                children = child_response.get_resources()
+                children = child_response.get_bundle_entries()
 
         if target.link:
+            child_link: GraphDefinitionLink
             for child_link in target.link:
+                child: BundleEntry
                 for child in children:
                     responses.extend(
                         await self._process_link_async(
-                            session=session, link=child_link, parent=child
+                            session=session, link=child_link, parent_bundle_entry=child
                         )
                     )
         return responses

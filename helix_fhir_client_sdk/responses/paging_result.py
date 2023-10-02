@@ -7,3 +7,4 @@ class PagingResult:
     request_id: Optional[str]
     resources: List[Dict[str, Any]]
     page_number: int
+    response_headers: Optional[List[str]]

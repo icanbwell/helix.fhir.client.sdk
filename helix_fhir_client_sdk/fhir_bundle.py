@@ -1,165 +1,120 @@
-import json
-from typing import Any, Dict, List, Optional, Union
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.utilities.json_helpers import FhirClientJsonHelpers
+
+class BundleEntryRequest:
+    # noinspection PyPep8Naming
+    def __init__(
+        self,
+        *,
+        url: str,
+        method: str = "GET",
+        ifNoneMatch: Optional[str] = None,
+        ifModifiedSince: Optional[datetime] = None,
+    ) -> None:
+        self.url: str = url
+        self.method: str = method
+        self.ifModifiedSince: Optional[datetime] = ifModifiedSince
+        self.ifNoneMatch: Optional[str] = ifNoneMatch
+
+    def to_dict(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {"url": self.url, "method": self.method}
+        if self.ifModifiedSince is not None:
+            result["ifModifiedSince"] = self.ifModifiedSince.isoformat()
+        if self.ifNoneMatch is not None:
+            result["ifNoneMatch"] = self.ifNoneMatch
+        return result
+
+    @staticmethod
+    def from_dict(d: Dict[str, Any]) -> "BundleEntryRequest":
+        return BundleEntryRequest(
+            url=d["url"],
+            method=d["method"],
+            ifModifiedSince=datetime.fromisoformat(d["ifModifiedSince"])
+            if "ifModifiedSince" in d
+            else None,
+            ifNoneMatch=d["ifNoneMatch"] if "ifNoneMatch" in d else None,
+        )
+
+
+class BundleEntryResponse:
+    # noinspection PyPep8Naming
+    def __init__(
+        self,
+        *,
+        status: str,
+        etag: Optional[str],
+        lastModified: Optional[datetime],
+    ) -> None:
+        self.status: str = status
+        if isinstance(status, int):
+            self.status = str(status)
+        self.lastModified: Optional[datetime] = lastModified
+        self.etag: Optional[str] = etag
+
+    def to_dict(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {"status": self.status}
+        if self.lastModified is not None:
+            result["lastModified"] = self.lastModified.isoformat()
+        if self.etag is not None:
+            result["etag"] = self.etag
+        return result
+
+    @staticmethod
+    def from_dict(d: Dict[str, Any]) -> "BundleEntryResponse":
+        return BundleEntryResponse(
+            status=d["status"],
+            lastModified=datetime.fromisoformat(d["lastModified"])
+            if "lastModified" in d
+            else None,
+            etag=d["etag"] if "etag" in d else None,
+        )
 
 
 class BundleEntry:
-    def __init__(self, resource: Optional[Dict[str, Any]] = None) -> None:
+    # noinspection PyPep8Naming
+    def __init__(
+        self,
+        *,
+        fullUrl: Optional[str] = None,
+        resource: Optional[Dict[str, Any]],
+        request: Optional[BundleEntryRequest],
+        response: Optional[BundleEntryResponse],
+    ) -> None:
         self.resource: Optional[Dict[str, Any]] = resource
+        self.request: Optional[BundleEntryRequest] = request
+        self.response: Optional[BundleEntryResponse] = response
+        self.fullUrl: Optional[str] = fullUrl
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"resource": self.resource}
+        result: Dict[str, Any] = {}
+        if self.fullUrl is not None:
+            result["fullUrl"] = self.fullUrl
+        if self.resource is not None:
+            result["resource"] = self.resource
+        if self.request is not None:
+            result["request"] = self.request.to_dict()
+        if self.response is not None:
+            result["response"] = self.response.to_dict()
+        return result
+
+    @staticmethod
+    def from_dict(d: Dict[str, Any]) -> "BundleEntry":
+        return BundleEntry(
+            fullUrl=d["fullUrl"] if "fullUrl" in d else None,
+            resource=d["resource"] if "resource" in d else None,
+            request=BundleEntryRequest.from_dict(d["request"])
+            if "request" in d
+            else None,
+            response=BundleEntryResponse.from_dict(d["response"])
+            if "response" in d
+            else None,
+        )
 
 
 class Bundle:
-    def __init__(self, entry: Optional[List[BundleEntry]] = None) -> None:
+    def __init__(self, *, entry: Optional[List[BundleEntry]] = None) -> None:
         self.entry: Optional[List[BundleEntry]] = entry
-
-    def append_responses(self, responses: List[FhirGetResponse]) -> "Bundle":
-        """
-        Appends responses to the bundle.  If there was an error then it appends OperationOutcome resources to the bundle
-
-
-        :param responses: The responses to append
-        :return: The bundle with the responses appended
-        """
-        response: FhirGetResponse
-        for response in responses:
-            response_text = response.responses
-            if response_text or response.error:
-                if not self.entry:
-                    self.entry = []
-                diagnostics_coding_nullable: List[Optional[Dict[str, Any]]] = [
-                    {
-                        "system": "https://www.icanbwell.com/url",
-                        "code": response.url,
-                    }
-                    if response.url
-                    else None,
-                    {
-                        "system": "https://www.icanbwell.com/resourceType",
-                        "code": response.resource_type,
-                    }
-                    if response.resource_type
-                    else None,
-                    {
-                        "system": "https://www.icanbwell.com/id",
-                        "code": ",".join(response.id_)
-                        if isinstance(response.id_, list)
-                        else response.id_,
-                    }
-                    if response.id_
-                    else None,
-                    {
-                        "system": "https://www.icanbwell.com/statuscode",
-                        "code": response.status,
-                    },
-                    {
-                        "system": "https://www.icanbwell.com/accessToken",
-                        "code": response.access_token,
-                    }
-                    if response.access_token
-                    else None,
-                ]
-                diagnostics_coding: List[Dict[str, Any]] = [
-                    c for c in diagnostics_coding_nullable if c is not None
-                ]
-                # Now either use the response we received or if we received an error, create an OperationOutcome
-                response_json: Union[List[Dict[str, Any]], Dict[str, Any]] = (
-                    json.loads(response_text)
-                    if not response.error
-                    else {
-                        "resourceType": "OperationOutcome",
-                        "issue": [
-                            {
-                                "severity": "error",
-                                "code": (
-                                    "expired"
-                                    if response.status == 401
-                                    else "not-found"
-                                    if response.status == 404
-                                    else "exception"
-                                ),
-                                "details": {"coding": diagnostics_coding},
-                                "diagnostics": json.dumps(
-                                    {
-                                        "url": response.url,
-                                        "error": response.error,
-                                        "status": response.status,
-                                        "extra_context_to_return": response.extra_context_to_return,
-                                        "accessToken": response.access_token,
-                                        "requestId": response.request_id,
-                                        "resourceType": response.resource_type,
-                                        "id": response.id_,
-                                    }
-                                ),
-                            }
-                        ],
-                    }
-                )
-
-                if isinstance(response_json, str):
-                    response_json = {
-                        "resourceType": "OperationOutcome",
-                        "issue": [
-                            {
-                                "severity": "error",
-                                "code": (
-                                    "expired"
-                                    if response.status == 401
-                                    else "not-found"
-                                    if response.status == 404
-                                    else "exception"
-                                ),
-                                "details": {"coding": diagnostics_coding},
-                                "diagnostics": json.dumps(
-                                    {
-                                        "url": response.url,
-                                        "error": response.error,
-                                        "status": response.status,
-                                        "extra_context_to_return": response.extra_context_to_return,
-                                        "accessToken": response.access_token,
-                                        "requestId": response.request_id,
-                                        "resourceType": response.resource_type,
-                                        "id": response.id_,
-                                        "response_text": response_json,
-                                    }
-                                ),
-                            }
-                        ],
-                    }
-
-                response_json = FhirClientJsonHelpers.remove_empty_elements(
-                    response_json
-                )
-                if isinstance(response_json, list):
-                    self.entry.extend(
-                        [
-                            BundleEntry(
-                                resource=self.add_diagnostics_to_operation_outcomes(
-                                    resource=r, diagnostics_coding=diagnostics_coding
-                                )
-                            )
-                            for r in response_json
-                        ]
-                    )
-                elif response_json.get("entry"):
-                    self.entry.extend(
-                        [
-                            BundleEntry(
-                                resource=self.add_diagnostics_to_operation_outcomes(
-                                    resource=entry["resource"],
-                                    diagnostics_coding=diagnostics_coding,
-                                )
-                            )
-                            for entry in response_json["entry"]
-                        ]
-                    )
-                else:
-                    self.entry.append(BundleEntry(resource=response_json))
-        return self
 
     def to_dict(self) -> Dict[str, Any]:
         if self.entry:
