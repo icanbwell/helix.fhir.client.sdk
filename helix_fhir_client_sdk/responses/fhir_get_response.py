@@ -227,6 +227,9 @@ class FhirGetResponse:
                 last_modified_str: Optional[str] = header_value
                 if last_modified_str is None:
                     return None
+                if isinstance(last_modified_str, datetime):
+                    return last_modified_str
+
                 try:
                     last_modified_datetime: datetime = parser.parse(last_modified_str)
                     return last_modified_datetime
