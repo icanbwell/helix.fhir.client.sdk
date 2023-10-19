@@ -42,7 +42,9 @@ async def test_fhir_client_patient_merge_with_validate_async() -> None:
     fhir_client = FhirClient()
     fhir_client = fhir_client.validation_server_url("http://fhir:3000/4_0_0")
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
-    response: FhirMergeResponse = await fhir_client.merge_async([json.dumps(resource)])
+    response: FhirMergeResponse = await fhir_client.merge_async(
+        json_data_list=[json.dumps(resource)]
+    )
 
     print(response.responses)
     assert response.responses == [

@@ -41,7 +41,9 @@ def test_fhir_client_patient_merge() -> None:
 
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
-    response: FhirMergeResponse = fhir_client.merge([json.dumps(resource)])
+    response: FhirMergeResponse = fhir_client.merge(
+        json_data_list=[json.dumps(resource)]
+    )
 
     print(response.responses)
     assert response.responses == response_text_1

@@ -29,7 +29,7 @@ async def test_dev_server_get_patients() -> None:
         },
     }
     merge_response: FhirMergeResponse = await fhir_client.merge_async(
-        [json.dumps(resource)]
+        json_data_list=[json.dumps(resource)]
     )
     print(merge_response.responses)
     assert merge_response.status == 200, merge_response.responses
