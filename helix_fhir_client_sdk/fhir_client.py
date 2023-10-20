@@ -1651,6 +1651,8 @@ class FhirClient:
 
     async def merge_async(
         self,
+        *,
+        id_: Optional[str] = None,
         json_data_list: List[str],
     ) -> FhirMergeResponse:
         """
@@ -1658,6 +1660,8 @@ class FhirClient:
 
 
         :param json_data_list: list of resources to send
+        :param id_: id of the resource to merge
+        :return: response
         """
         assert self._url, "No FHIR server url was set"
         assert isinstance(json_data_list, list), "This function requires a list"
@@ -1726,7 +1730,9 @@ class FhirClient:
                         json_payload: str = json.dumps(resource_json_list_clean)
                         # json_payload_bytes: str = json_payload
                         json_payload_bytes: bytes = json_payload.encode("utf-8")
-                        obj_id = 1  # TODO: remove this once the node fhir accepts merge without a parameter
+                        obj_id = (
+                            id_ or 1
+                        )  # TODO: remove this once the node fhir accepts merge without a parameter
                         assert obj_id
 
                         resource_uri /= parse.quote(str(obj_id), safe="")
@@ -1882,6 +1888,8 @@ class FhirClient:
 
     def merge(
         self,
+        *,
+        id_: Optional[str] = None,
         json_data_list: List[str],
     ) -> FhirMergeResponse:
         """
@@ -1889,8 +1897,12 @@ class FhirClient:
 
 
         :param json_data_list: list of resources to send
+        :param id_: id of the resource to merge
+        :return: response
         """
-        result: FhirMergeResponse = asyncio.run(self.merge_async(json_data_list))
+        result: FhirMergeResponse = asyncio.run(
+            self.merge_async(id_=id_, json_data_list=json_data_list)
+        )
         return result
 
     async def _get_auth_server_url_from_well_known_configuration_async(
@@ -1949,6 +1961,7 @@ class FhirClient:
     async def graph_async(
         self,
         *,
+        id_: Optional[str] = None,
         graph_definition: GraphDefinition,
         contained: bool,
         process_in_batches: Optional[bool] = None,
@@ -1972,6 +1985,8 @@ class FhirClient:
                                 return the resources in the response anymore.  If this function returns false then we
                                 stop processing any further batches.
         :param fn_handle_error: function that is called when there is an error
+        :param id_: id of the resource to start the graph from
+        :return: response containing all the resources received
         """
         assert graph_definition
         assert isinstance(graph_definition, GraphDefinition)
@@ -1983,7 +1998,9 @@ class FhirClient:
         self.action_payload(graph_definition.to_dict())
         self.resource(graph_definition.start)
         self.action("$graph")
-        self._obj_id = "1"  # this is needed because the $graph endpoint requires an id
+        self._obj_id = (
+            id_ or "1"
+        )  # this is needed because the $graph endpoint requires an id
         output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
         async with self.create_http_session() as http:
             return (
