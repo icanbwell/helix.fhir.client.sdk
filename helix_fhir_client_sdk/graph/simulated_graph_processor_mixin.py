@@ -361,32 +361,35 @@ class SimulatedGraphProcessorMixin(ABC):
 
         non_cached_id_list: List[str] = []
         # get any cached resources
-        cached_resources: List[Dict[str, Any]] = []
+        cached_bundle_entries: List[BundleEntry] = []
         cached_response: Optional[FhirGetResponse] = None
         cache_hits: int = 0
         if id_list:
             for resource_id in id_list:
-                cached_resource: Optional[Dict[str, Any]] = cache.get(
+                cached_bundle_entry: Optional[BundleEntry] = cache.get(
                     resource_type=resource_type, resource_id=resource_id
                 )
-                if cached_resource:
-                    cached_resources.append(cached_resource)
+                if cached_bundle_entry:
+                    cached_bundle_entries.append(cached_bundle_entry)
                     cache_hits += 1
                 else:
                     non_cached_id_list.append(resource_id)
 
-        if cached_resources:
+        if cached_bundle_entries and len(cached_bundle_entries) > 0:
+            cached_bundle: Bundle = Bundle(entry=cached_bundle_entries)
             cached_response = FhirGetResponse(
                 request_id=None,
-                url="",
+                url=cached_bundle_entries[0].request.url
+                if cached_bundle_entries[0].request
+                else "",
                 id_=None,
                 resource_type=resource_type,
-                responses=json.dumps(cached_resources),
+                responses=json.dumps(cached_bundle.to_dict(), cls=FhirJSONEncoder),
                 response_headers=None,
                 status=200,
                 access_token=None,
                 next_url=None,
-                total_count=len(cached_resources),
+                total_count=len(cached_bundle_entries),
                 extra_context_to_return=None,
                 error=None,
             )
@@ -399,14 +402,21 @@ class SimulatedGraphProcessorMixin(ABC):
                 ids=non_cached_id_list,
                 additional_parameters=parameters,
             )
-            for non_cached_resource in result.get_resources():
-                non_cached_resource_id: Optional[str] = non_cached_resource.get("id")
-                if non_cached_resource_id:
-                    cache.add(
-                        resource_type=resource_type,
-                        resource_id=non_cached_resource_id,
-                        data=non_cached_resource,
+            non_cached_bundle_entry: BundleEntry
+            for non_cached_bundle_entry in result.get_bundle_entries():
+                if non_cached_bundle_entry.resource:
+                    non_cached_resource: Dict[
+                        str, Any
+                    ] = non_cached_bundle_entry.resource
+                    non_cached_resource_id: Optional[str] = non_cached_resource.get(
+                        "id"
                     )
+                    if non_cached_resource_id:
+                        cache.add(
+                            resource_type=resource_type,
+                            resource_id=non_cached_resource_id,
+                            bundle_entry=non_cached_bundle_entry,
+                        )
 
             if cached_response:
                 result.append([cached_response])
