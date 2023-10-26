@@ -232,6 +232,9 @@ class SimulatedGraphProcessorMixin(ABC):
                     if parent_resource and path
                     else None
                 )
+                # remove null references
+                if references and isinstance(references, list):
+                    references = [r for r in references if r is not None]
                 # iterate through all references
                 if parent_resource and references and target_type:
                     reference_ids: List[str] = [
