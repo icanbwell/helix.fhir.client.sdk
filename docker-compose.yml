@@ -24,7 +24,7 @@ services:
   fhir:
     depends_on:
       - mongo
-    image: imranq2/node-fhir-server-mongo:3.2.46
+    image: imranq2/node-fhir-server-mongo:3.2.53
     # To use local fhir code, comment above line and uncomment below
 #    build:
 #      dockerfile: Dockerfile

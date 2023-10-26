@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 import asyncio
 import base64
 import json
 import logging
+import time
 import uuid
 from asyncio import Future
 from datetime import datetime, timedelta
@@ -17,13 +19,10 @@ from typing import (
     List,
     Union,
     Any,
-    Callable,
     Generator,
     AsyncGenerator,
     Coroutine,
-    Awaitable,
     Tuple,
-    cast,
 )
 from urllib import parse
 
@@ -44,24 +43,27 @@ from aiohttp import (
 # noinspection PyPackageRequirements
 from furl import furl
 
-from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
+# noinspection PyPackageRequirements
+from requests.adapters import BaseAdapter
+
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
     FhirValidationException,
 )
-from helix_fhir_client_sdk.fhir_bundle import (
-    Bundle,
-    BundleEntry,
-)
-from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
 from helix_fhir_client_sdk.filters.last_updated_filter import LastUpdatedFilter
 from helix_fhir_client_sdk.filters.sort_field import SortField
+from helix_fhir_client_sdk.function_types import (
+    HandleStreamingChunkFunction,
+    HandleBatchFunction,
+    HandleErrorFunction,
+)
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,
-    GraphDefinitionLink,
-    GraphDefinitionTarget,
+)
+from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
+    SimulatedGraphProcessorMixin,
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_delete_response import FhirDeleteResponse
@@ -75,19 +77,11 @@ from helix_fhir_client_sdk.well_known_configuration import (
     WellKnownConfigurationCacheEntry,
 )
 
-import time
-
-# noinspection PyPackageRequirements
-from requests.adapters import BaseAdapter
 
 # from urllib3 import Retry  # type: ignore
 
-HandleBatchFunction = Callable[[List[Dict[str, Any]], Optional[int]], Awaitable[bool]]
-HandleStreamingChunkFunction = Callable[[bytes, Optional[int]], Awaitable[bool]]
-HandleErrorFunction = Callable[[str, str, Optional[int]], Awaitable[bool]]
 
-
-class FhirClient:
+class FhirClient(SimulatedGraphProcessorMixin):
     """
     Class used to call FHIR server (uses async and parallel execution to speed up)
     """
@@ -632,6 +626,7 @@ class FhirClient:
         ids: Optional[List[str]] = None,
         id_above: Optional[str] = None,
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
+        additional_parameters: Optional[List[str]] = None,
     ) -> FhirGetResponse:
         """
         issues a GET call with the specified session, page_number and ids
@@ -641,6 +636,8 @@ class FhirClient:
         :param page_number:
         :param ids:
         :param id_above: return ids greater than this
+        :param fn_handle_streaming_chunk: function to call for each chunk of data
+        :param additional_parameters: additional parameters to add to the request
         :return: response
         """
         assert self._url, "No FHIR server url was set"
@@ -698,7 +695,13 @@ class FhirClient:
 
         # create full url by adding on any query parameters
         full_url: str = full_uri.url
-        if self._additional_parameters:
+        if additional_parameters:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += "&".join(additional_parameters)
+        elif self._additional_parameters:
             if len(full_uri.args) > 0:
                 full_url += "&"
             else:
@@ -2278,7 +2281,7 @@ class FhirClient:
         :param fn_handle_streaming_ids: Optional function to execute when we get ids in streaming
         :param fn_handle_streaming_chunk: Optional function to execute when we get a chunk in streaming
         :param fn_handle_ids: Optional function to execute when we get a page of ids
-        :param last_updated_start_date: Find the resources updated after this datetime
+        :param last_updated_start_date: Finds the resources updated after this datetime
         :param last_updated_end_date: find resources updated before this datetime
         :param concurrent_requests: number of concurrent requests to make to the server
         :param page_size_for_retrieving_resources: number of resources to download in one batch
@@ -2358,7 +2361,7 @@ class FhirClient:
         :param fn_handle_streaming_ids: Optional function to execute when we get ids in streaming
         :param fn_handle_streaming_chunk: Optional function to execute when we get a chunk in streaming
         :param fn_handle_ids: Optional function to execute when we get a page of ids
-        :param last_updated_start_date: find resources updated after this datetime
+        :param last_updated_start_date: finds resources updated after this datetime
         :param last_updated_end_date: find resources updated before this datetime
         :param concurrent_requests: number of concurrent requests to make to the server
         :param page_size_for_retrieving_resources: number of resources to download in one batch
@@ -2621,250 +2624,24 @@ class FhirClient:
         :param eTag: Optional ETag to use for If-None-Match header
         :return: FhirGetResponse
         """
-        assert graph_json
-        graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
-        assert isinstance(graph_definition, GraphDefinition)
-        assert graph_definition.start
-
-        # we handle separate resources differently below
-        self.separate_bundle_resources(False)
-
-        if self._logger:
-            self._logger.info(
-                f"FhirClient.simulate_graph_async() id_=${id_}, contained={contained}, "
-                + f"separate_bundle_resources={separate_bundle_resources}"
-            )
-
-        if not isinstance(id_, list):
-            id_ = id_.split(",")
-
         if contained:
             if not self._additional_parameters:
                 self._additional_parameters = []
             self._additional_parameters.append("contained=true")
 
-        output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
-        async with self.create_http_session() as session:
-            # first load the start resource
-            start: str = graph_definition.start
-            response: FhirGetResponse = await self._get_resources_by_parameters_async(
-                session=session, resource_type=start, id_=id_
-            )
-            if not response.responses:
-                return response
-            parent_bundle_entries: List[BundleEntry] = response.get_bundle_entries()
-
-            if self._logger:
-                self._logger.info(
-                    f"FhirClient.simulate_graph_async() got parent resources: {len(response.get_resources())}"
-                )
-            # turn into a bundle if not already a bundle
-            bundle = Bundle(entry=parent_bundle_entries)
-
-            # now process the graph links
-            responses: List[FhirGetResponse] = []
-            if graph_definition.link and len(graph_definition.link) > 0:
-                link: GraphDefinitionLink
-                for link in graph_definition.link:
-                    parent_bundle_entry: BundleEntry
-                    for parent_bundle_entry in parent_bundle_entries:
-                        responses.extend(
-                            await self._process_link_async(
-                                session=session,
-                                link=link,
-                                parent_bundle_entry=parent_bundle_entry,
-                            )
-                        )
-            FhirBundleAppender.append_responses(responses=responses, bundle=bundle)
-
-            # token, url, service_slug
-            if separate_bundle_resources:
-                resources: Dict[str, Union[str, List[Dict[str, Any]]]] = {}
-                if bundle.entry:
-                    entry: BundleEntry
-                    for entry in bundle.entry:
-                        resource: Optional[Dict[str, Any]] = entry.resource
-                        if resource:
-                            resource_type = resource.get("resourceType")
-                            assert (
-                                resource_type
-                            ), f"No resourceType in {json.dumps(resource)}"
-                            if resource_type not in resources:
-                                resources[resource_type] = []
-                            if isinstance(resources[resource_type], list):
-                                resources[resource_type].append(resource)  # type: ignore
-                response.responses = json.dumps(resources)
-            elif self._expand_fhir_bundle:
-                if bundle.entry:
-                    response.responses = json.dumps([e.resource for e in bundle.entry])
-                else:
-                    response.responses = ""
-            else:
-                bundle_dict: Dict[str, Any] = bundle.to_dict()
-                response.responses = json.dumps(bundle_dict)
-
-            response.url = self._url or response.url  # set url to top level url
-            return response
-
-    async def _process_link_async(
-        self,
-        *,
-        session: ClientSession,
-        link: GraphDefinitionLink,
-        parent_bundle_entry: Optional[BundleEntry],
-    ) -> List[FhirGetResponse]:
-        assert session
-        assert link
-        responses: List[FhirGetResponse] = []
-        targets: List[GraphDefinitionTarget] = link.target
-        target: GraphDefinitionTarget
-        for target in targets:
-            responses.extend(
-                await self._process_target_async(
-                    session=session,
-                    target=target,
-                    path=link.path,
-                    parent_bundle_entry=parent_bundle_entry,
-                )
-            )
-        return responses
-
-    async def _process_target_async(
-        self,
-        *,
-        session: ClientSession,
-        target: GraphDefinitionTarget,
-        path: Optional[str],
-        parent_bundle_entry: Optional[BundleEntry],
-    ) -> List[FhirGetResponse]:
-        responses: List[FhirGetResponse] = []
-        children: List[BundleEntry] = []
-        child_response: FhirGetResponse
-        child_response_resources: Union[Dict[str, Any], List[Dict[str, Any]]]
-        target_type: Optional[str] = target.type_
-        parent_resource: Optional[Dict[str, Any]] = (
-            parent_bundle_entry.resource if parent_bundle_entry else None
+        return await self.process_simulate_graph_async(
+            id_=id_,
+            graph_json=graph_json,
+            contained=contained,
+            concurrent_requests=concurrent_requests,
+            separate_bundle_resources=separate_bundle_resources,
+            restrict_to_scope=restrict_to_scope,
+            restrict_to_resources=restrict_to_resources,
+            restrict_to_capability_statement=restrict_to_capability_statement,
+            retrieve_and_restrict_to_capability_statement=retrieve_and_restrict_to_capability_statement,
+            ifModifiedSince=ifModifiedSince,
+            eTag=eTag,
+            url=self._url,
+            expand_fhir_bundle=self._expand_fhir_bundle,
+            logger=self._logger,
         )
-        if path:  # forward link
-            if path.endswith("[x]"):  # a list
-                path = path.replace("[x]", "")
-                # find references
-                references: Union[List[Dict[str, Any]], Dict[str, Any], str, None] = (
-                    DictionaryParser.get_nested_property(parent_resource, path)
-                    if parent_resource and path
-                    else None
-                )
-                # iterate through all references
-                if parent_resource and references and target_type:
-                    reference_ids: List[str] = [
-                        cast(str, r.get("reference"))
-                        for r in references
-                        if "reference" in r and isinstance(r, dict)
-                    ]
-                    for reference_id in reference_ids:
-                        reference_parts = reference_id.split("/")
-                        if reference_parts[0] == target_type:
-                            child_id = reference_parts[1]
-                            child_response = (
-                                await self._get_resources_by_parameters_async(
-                                    session=session,
-                                    resource_type=target_type,
-                                    id_=child_id,
-                                )
-                            )
-                            responses.append(child_response)
-                            children = child_response.get_bundle_entries()
-                            if self._logger:
-                                self._logger.info(
-                                    f"FhirClient.simulate_graph_async() got child resources with path:{path} "
-                                    + f"from parent {target_type}/{child_id}: "
-                                    + f"{len(children)}"
-                                )
-            else:  # single reference
-                if parent_resource and parent_resource.get(path) and target_type:
-                    reference = parent_resource.get(path)
-                    if reference and "reference" in reference:
-                        reference_id = reference["reference"]
-                        reference_parts = reference_id.split("/")
-                        if reference_parts[0] == target_type:
-                            child_id = reference_parts[1]
-                            child_response = (
-                                await self._get_resources_by_parameters_async(
-                                    session=session,
-                                    resource_type=target_type,
-                                    id_=child_id,
-                                )
-                            )
-                            responses.append(child_response)
-                            children = child_response.get_bundle_entries()
-                            if self._logger:
-                                self._logger.info(
-                                    f"FhirClient.simulate_graph_async() got child resources with path:{path} "
-                                    + f"from parent {target_type}/{child_id}: "
-                                    + f"{len(children)}"
-                                )
-        elif target.params:  # reverse path
-            # for a reverse link, get the ids of the current resource, put in a view and
-            # add a stage to get that
-            param_list: List[str] = target.params.split("&")
-            ref_param = [p for p in param_list if p.endswith("{ref}")][0]
-            additional_parameters = [p for p in param_list if not p.endswith("{ref}")]
-            property_name: str = ref_param.split("=")[0]
-            if (
-                parent_resource
-                and property_name
-                and parent_resource.get("id")
-                and target_type
-            ):
-                parent_id = parent_resource.get("id")
-                child_response = await self._get_resources_by_parameters_async(
-                    session=session,
-                    resource_type=target_type,
-                    parameters=[f"{property_name}={parent_id}"] + additional_parameters,
-                )
-                responses.append(child_response)
-                if self._logger:
-                    self._logger.debug(
-                        f"FhirClient.simulate_graph_async() got child resources with params:{target.params} "
-                        + f"from parent {target_type} with {property_name}={parent_id}: "
-                        + f"{child_response.responses}"
-                    )
-                children = child_response.get_bundle_entries()
-
-        if target.link:
-            child_link: GraphDefinitionLink
-            for child_link in target.link:
-                child: BundleEntry
-                for child in children:
-                    responses.extend(
-                        await self._process_link_async(
-                            session=session, link=child_link, parent_bundle_entry=child
-                        )
-                    )
-        return responses
-
-    async def _get_resources_by_parameters_async(
-        self,
-        *,
-        id_: Optional[Union[List[str], str]] = None,
-        session: ClientSession,
-        resource_type: str,
-        parameters: Optional[List[str]] = None,
-    ) -> FhirGetResponse:
-        assert session
-        assert resource_type
-        self.resource(resource=resource_type)
-        if parameters:
-            self.additional_parameters(parameters)
-        else:
-            self.additional_parameters([])  # clear any previous parameters
-
-        id_list: Optional[List[str]]
-        if id_ and not isinstance(id_, list):
-            id_list = [id_]
-        else:
-            id_list = cast(Optional[List[str]], id_)
-        result: FhirGetResponse = await self._get_with_session_async(
-            session=session, ids=id_list
-        )
-        return result
