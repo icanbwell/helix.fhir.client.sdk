@@ -18,6 +18,7 @@ from helix_fhir_client_sdk.graph.graph_definition import (
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
+from helix_fhir_client_sdk.utilities.request_cache import RequestCache
 
 
 class SimulatedGraphProcessorMixin(ABC):
@@ -78,69 +79,83 @@ class SimulatedGraphProcessorMixin(ABC):
         if not isinstance(id_, list):
             id_ = id_.split(",")
 
-        output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
-        async with self.create_http_session() as session:
-            # first load the start resource
-            start: str = graph_definition.start
-            response: FhirGetResponse = await self._get_resources_by_parameters_async(
-                session=session, resource_type=start, id_=id_
-            )
-            if not response.responses:
-                return response
-            parent_bundle_entries: List[BundleEntry] = response.get_bundle_entries()
-
-            if logger:
-                logger.info(
-                    f"FhirClient.simulate_graph_async() got parent resources: {len(response.get_resources())}"
+        cache: RequestCache
+        with RequestCache() as cache:
+            output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
+            async with self.create_http_session() as session:
+                # first load the start resource
+                start: str = graph_definition.start
+                response: FhirGetResponse = (
+                    await self._get_resources_by_parameters_async(
+                        session=session,
+                        resource_type=start,
+                        id_=id_,
+                        cache=cache,
+                    )
                 )
-            # turn into a bundle if not already a bundle
-            bundle = Bundle(entry=parent_bundle_entries)
+                if not response.responses:
+                    return response
+                parent_bundle_entries: List[BundleEntry] = response.get_bundle_entries()
 
-            # now process the graph links
-            responses: List[FhirGetResponse] = []
-            if graph_definition.link and len(graph_definition.link) > 0:
-                link: GraphDefinitionLink
-                for link in graph_definition.link:
-                    parent_bundle_entry: BundleEntry
-                    for parent_bundle_entry in parent_bundle_entries:
-                        responses.extend(
-                            await self._process_link_async(
-                                session=session,
-                                link=link,
-                                parent_bundle_entry=parent_bundle_entry,
-                                logger=logger,
+                if logger:
+                    logger.info(
+                        f"FhirClient.simulate_graph_async() got parent resources: {len(response.get_resources())}"
+                    )
+                # turn into a bundle if not already a bundle
+                bundle = Bundle(entry=parent_bundle_entries)
+
+                # now process the graph links
+                responses: List[FhirGetResponse] = []
+                if graph_definition.link and len(graph_definition.link) > 0:
+                    link: GraphDefinitionLink
+                    for link in graph_definition.link:
+                        parent_bundle_entry: BundleEntry
+                        for parent_bundle_entry in parent_bundle_entries:
+                            responses.extend(
+                                await self._process_link_async(
+                                    session=session,
+                                    link=link,
+                                    parent_bundle_entry=parent_bundle_entry,
+                                    logger=logger,
+                                    cache=cache,
+                                )
                             )
+                FhirBundleAppender.append_responses(responses=responses, bundle=bundle)
+
+                # token, url, service_slug
+                if separate_bundle_resources:
+                    resources: Dict[str, Union[str, List[Dict[str, Any]]]] = {}
+                    if bundle.entry:
+                        entry: BundleEntry
+                        for entry in bundle.entry:
+                            resource: Optional[Dict[str, Any]] = entry.resource
+                            if resource:
+                                resource_type = resource.get("resourceType")
+                                assert (
+                                    resource_type
+                                ), f"No resourceType in {json.dumps(resource)}"
+                                if resource_type not in resources:
+                                    resources[resource_type] = []
+                                if isinstance(resources[resource_type], list):
+                                    resources[resource_type].append(resource)  # type: ignore
+                    response.responses = json.dumps(resources)
+                elif expand_fhir_bundle:
+                    if bundle.entry:
+                        response.responses = json.dumps(
+                            [e.resource for e in bundle.entry]
                         )
-            FhirBundleAppender.append_responses(responses=responses, bundle=bundle)
-
-            # token, url, service_slug
-            if separate_bundle_resources:
-                resources: Dict[str, Union[str, List[Dict[str, Any]]]] = {}
-                if bundle.entry:
-                    entry: BundleEntry
-                    for entry in bundle.entry:
-                        resource: Optional[Dict[str, Any]] = entry.resource
-                        if resource:
-                            resource_type = resource.get("resourceType")
-                            assert (
-                                resource_type
-                            ), f"No resourceType in {json.dumps(resource)}"
-                            if resource_type not in resources:
-                                resources[resource_type] = []
-                            if isinstance(resources[resource_type], list):
-                                resources[resource_type].append(resource)  # type: ignore
-                response.responses = json.dumps(resources)
-            elif expand_fhir_bundle:
-                if bundle.entry:
-                    response.responses = json.dumps([e.resource for e in bundle.entry])
+                    else:
+                        response.responses = ""
                 else:
-                    response.responses = ""
-            else:
-                bundle_dict: Dict[str, Any] = bundle.to_dict()
-                response.responses = json.dumps(bundle_dict)
+                    bundle_dict: Dict[str, Any] = bundle.to_dict()
+                    response.responses = json.dumps(bundle_dict)
 
-            response.url = url or response.url  # set url to top level url
-            return response
+                response.url = url or response.url  # set url to top level url
+                if logger:
+                    logger.info(
+                        f"Request Cache hits: {cache.cache_hits}, misses: {cache.cache_misses}"
+                    )
+                return response
 
     async def _process_link_async(
         self,
@@ -149,7 +164,18 @@ class SimulatedGraphProcessorMixin(ABC):
         link: GraphDefinitionLink,
         parent_bundle_entry: Optional[BundleEntry],
         logger: Optional[FhirLogger],
+        cache: RequestCache,
     ) -> List[FhirGetResponse]:
+        """
+        Process a GraphDefinition link object
+
+
+        :param session: aiohttp session
+        :param link: link to process
+        :param parent_bundle_entry: parent bundle entry
+        :param logger: logger to use
+        :return: list of FhirGetResponse objects
+        """
         assert session
         assert link
         responses: List[FhirGetResponse] = []
@@ -163,6 +189,7 @@ class SimulatedGraphProcessorMixin(ABC):
                     path=link.path,
                     parent_bundle_entry=parent_bundle_entry,
                     logger=logger,
+                    cache=cache,
                 )
             )
         return responses
@@ -175,7 +202,19 @@ class SimulatedGraphProcessorMixin(ABC):
         path: Optional[str],
         parent_bundle_entry: Optional[BundleEntry],
         logger: Optional[FhirLogger],
+        cache: RequestCache,
     ) -> List[FhirGetResponse]:
+        """
+        Process a GraphDefinition target
+
+
+        :param session: aiohttp session
+        :param target: target to process
+        :param path: path to process
+        :param parent_bundle_entry: parent bundle entry
+        :param logger: logger to use
+        :return: list of FhirGetResponse objects
+        """
         responses: List[FhirGetResponse] = []
         children: List[BundleEntry] = []
         child_response: FhirGetResponse
@@ -209,6 +248,7 @@ class SimulatedGraphProcessorMixin(ABC):
                                     session=session,
                                     resource_type=target_type,
                                     id_=child_id,
+                                    cache=cache,
                                 )
                             )
                             responses.append(child_response)
@@ -232,6 +272,7 @@ class SimulatedGraphProcessorMixin(ABC):
                                     session=session,
                                     resource_type=target_type,
                                     id_=child_id,
+                                    cache=cache,
                                 )
                             )
                             responses.append(child_response)
@@ -260,6 +301,7 @@ class SimulatedGraphProcessorMixin(ABC):
                     session=session,
                     resource_type=target_type,
                     parameters=[f"{property_name}={parent_id}"] + additional_parameters,
+                    cache=cache,
                 )
                 responses.append(child_response)
                 if logger:
@@ -281,6 +323,7 @@ class SimulatedGraphProcessorMixin(ABC):
                             link=child_link,
                             parent_bundle_entry=child,
                             logger=logger,
+                            cache=cache,
                         )
                     )
         return responses
@@ -292,6 +335,7 @@ class SimulatedGraphProcessorMixin(ABC):
         session: ClientSession,
         resource_type: str,
         parameters: Optional[List[str]] = None,
+        cache: RequestCache,
     ) -> FhirGetResponse:
         assert session
         assert resource_type
@@ -306,9 +350,52 @@ class SimulatedGraphProcessorMixin(ABC):
             id_list = [id_]
         else:
             id_list = cast(Optional[List[str]], id_)
+
+        non_cached_id_list: List[str] = []
+        # get any cached resources
+        cached_resources: List[Dict[str, Any]] = []
+        cached_response: Optional[FhirGetResponse] = None
+        if id_list:
+            for id_ in id_list:
+                cached_resource: Optional[Dict[str, Any]] = cache.get(
+                    resource_type=resource_type, resource_id=id_
+                )
+                if cached_resource:
+                    cached_resources.append(cached_resource)
+                else:
+                    non_cached_id_list.append(id_)
+
+        if cached_resources:
+            cached_response = FhirGetResponse(
+                request_id=None,
+                url="",
+                id_=None,
+                resource_type=resource_type,
+                responses=json.dumps(cached_resources),
+                response_headers=None,
+                status=200,
+                access_token=None,
+                next_url=None,
+                total_count=len(cached_resources),
+                extra_context_to_return=None,
+                error=None,
+            )
+
         result: FhirGetResponse = await self._get_with_session_async(
-            session=session, ids=id_list
+            session=session, ids=non_cached_id_list
         )
+        for non_cached_resource in result.get_resources():
+            non_cached_resource_id: Optional[str] = non_cached_resource.get("id")
+            if non_cached_resource_id:
+                cache.add(
+                    resource_type=resource_type,
+                    resource_id=non_cached_resource_id,
+                    data=non_cached_resource,
+                )
+
+        if cached_response:
+            result.append([cached_response])
+
         return result
 
     @abstractmethod
