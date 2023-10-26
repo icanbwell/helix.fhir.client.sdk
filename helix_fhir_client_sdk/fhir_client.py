@@ -626,6 +626,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
         ids: Optional[List[str]] = None,
         id_above: Optional[str] = None,
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
+        additional_parameters: Optional[List[str]] = None,
     ) -> FhirGetResponse:
         """
         issues a GET call with the specified session, page_number and ids
@@ -635,6 +636,8 @@ class FhirClient(SimulatedGraphProcessorMixin):
         :param page_number:
         :param ids:
         :param id_above: return ids greater than this
+        :param fn_handle_streaming_chunk: function to call for each chunk of data
+        :param additional_parameters: additional parameters to add to the request
         :return: response
         """
         assert self._url, "No FHIR server url was set"
@@ -692,7 +695,13 @@ class FhirClient(SimulatedGraphProcessorMixin):
 
         # create full url by adding on any query parameters
         full_url: str = full_uri.url
-        if self._additional_parameters:
+        if additional_parameters:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += "&".join(additional_parameters)
+        elif self._additional_parameters:
             if len(full_uri.args) > 0:
                 full_url += "&"
             else:

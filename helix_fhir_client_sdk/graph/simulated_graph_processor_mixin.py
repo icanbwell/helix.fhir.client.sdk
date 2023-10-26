@@ -340,10 +340,6 @@ class SimulatedGraphProcessorMixin(ABC):
         assert session
         assert resource_type
         self.resource(resource=resource_type)
-        if parameters:
-            self.additional_parameters(parameters)
-        else:
-            self.additional_parameters([])  # clear any previous parameters
 
         id_list: Optional[List[str]]
         if id_ and not isinstance(id_, list):
@@ -356,14 +352,14 @@ class SimulatedGraphProcessorMixin(ABC):
         cached_resources: List[Dict[str, Any]] = []
         cached_response: Optional[FhirGetResponse] = None
         if id_list:
-            for id_ in id_list:
+            for resource_id in id_list:
                 cached_resource: Optional[Dict[str, Any]] = cache.get(
-                    resource_type=resource_type, resource_id=id_
+                    resource_type=resource_type, resource_id=resource_id
                 )
                 if cached_resource:
                     cached_resources.append(cached_resource)
                 else:
-                    non_cached_id_list.append(id_)
+                    non_cached_id_list.append(resource_id)
 
         if cached_resources:
             cached_response = FhirGetResponse(
@@ -381,21 +377,28 @@ class SimulatedGraphProcessorMixin(ABC):
                 error=None,
             )
 
-        result: FhirGetResponse = await self._get_with_session_async(
-            session=session, ids=non_cached_id_list
-        )
-        for non_cached_resource in result.get_resources():
-            non_cached_resource_id: Optional[str] = non_cached_resource.get("id")
-            if non_cached_resource_id:
-                cache.add(
-                    resource_type=resource_type,
-                    resource_id=non_cached_resource_id,
-                    data=non_cached_resource,
-                )
+        result: Optional[FhirGetResponse] = None
+        # either we have non-cached ids or this is a query without id but has other parameters
+        if len(non_cached_id_list) > 0 or not id_:
+            result = await self._get_with_session_async(
+                session=session,
+                ids=non_cached_id_list,
+                additional_parameters=parameters,
+            )
+            for non_cached_resource in result.get_resources():
+                non_cached_resource_id: Optional[str] = non_cached_resource.get("id")
+                if non_cached_resource_id:
+                    cache.add(
+                        resource_type=resource_type,
+                        resource_id=non_cached_resource_id,
+                        data=non_cached_resource,
+                    )
 
-        if cached_response:
-            result.append([cached_response])
-
+            if cached_response:
+                result.append([cached_response])
+        elif cached_response:
+            result = cached_response
+        assert result
         return result
 
     @abstractmethod
@@ -407,10 +410,6 @@ class SimulatedGraphProcessorMixin(ABC):
         pass
 
     @abstractmethod
-    def additional_parameters(self, additional_parameters: List[str]):  # type: ignore[no-untyped-def]
-        pass
-
-    @abstractmethod
     async def _get_with_session_async(
         self,
         *,
@@ -419,6 +418,7 @@ class SimulatedGraphProcessorMixin(ABC):
         ids: Optional[List[str]] = None,
         id_above: Optional[str] = None,
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
+        additional_parameters: Optional[List[str]] = None,
     ) -> FhirGetResponse:
         pass
 

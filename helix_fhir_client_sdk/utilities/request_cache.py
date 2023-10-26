@@ -29,7 +29,7 @@ class RequestCache:
         self._cache.clear()
         if exc_type is not None:
             print(f"An exception of type {exc_type} occurred with message {exc_value}")
-            return False  # Propagate any exception that occurred
+            raise
         else:
             return True
 

@@ -10,6 +10,7 @@ from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntryRequest,
     BundleEntryResponse,
 )
+from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
 class FhirGetResponse:
@@ -99,7 +100,7 @@ class FhirGetResponse:
             "resourceType": "Bundle",
             "entry": bundle_entries,
         }
-        self.responses = json.dumps(bundle)
+        self.responses = json.dumps(bundle, cls=FhirJSONEncoder)
         return self
 
     def get_resources(self) -> List[Dict[str, Any]]:
