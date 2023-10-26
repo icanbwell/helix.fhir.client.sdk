@@ -12,6 +12,7 @@ from mockserver_client.mockserver_client import (
 from helix_fhir_client_sdk.fhir_client import FhirClient
 
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from tests.test_logger import TestLogger
 
 
 async def test_fhir_simulated_graph_caching_async() -> None:
@@ -133,8 +134,10 @@ async def test_fhir_simulated_graph_caching_async() -> None:
         timing=times(1),
     )
 
+    logger = TestLogger()
     fhir_client = FhirClient()
     fhir_client = fhir_client.expand_fhir_bundle(False)
+    fhir_client.logger(logger=logger)
 
     fhir_client.extra_context_to_return({"service_slug": "medstar"})
 
