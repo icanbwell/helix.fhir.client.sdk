@@ -173,6 +173,14 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
             {
                 "request": {
                     "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/Observation?patient=1&category=vital-signs,social-history,laboratory",
+                },
+                "resource": {"id": "8", "resourceType": "Observation"},
+                "response": {"status": "200"},
+            },
+            {
+                "request": {
+                    "method": "GET",
                     "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/ExplanationOfBenefit?patient=1",
                 },
                 "resource": {
@@ -217,14 +225,6 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
                     "resourceType": "OperationOutcome",
                 },
                 "response": {"status": "404"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/Observation?patient=1&category=vital-signs,social-history,laboratory",
-                },
-                "resource": {"id": "8", "resourceType": "Observation"},
-                "response": {"status": "200"},
             },
             {
                 "request": {
