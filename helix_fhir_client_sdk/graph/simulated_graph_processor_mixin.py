@@ -18,6 +18,7 @@ from helix_fhir_client_sdk.graph.graph_definition import (
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
+from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.request_cache import RequestCache
 
 
@@ -99,7 +100,8 @@ class SimulatedGraphProcessorMixin(ABC):
 
                 if logger:
                     logger.info(
-                        f"FhirClient.simulate_graph_async() got parent resources: {len(response.get_resources())} cached:{cache_hits}"
+                        f"FhirClient.simulate_graph_async() got parent resources: {len(response.get_resources())} "
+                        + f"cached:{cache_hits}"
                     )
                 # turn into a bundle if not already a bundle
                 bundle = Bundle(entry=parent_bundle_entries)
@@ -122,6 +124,8 @@ class SimulatedGraphProcessorMixin(ABC):
                             )
                 FhirBundleAppender.append_responses(responses=responses, bundle=bundle)
 
+                bundle = FhirBundleAppender.remove_duplicate_resources(bundle=bundle)
+
                 # token, url, service_slug
                 if separate_bundle_resources:
                     resources: Dict[str, Union[str, List[Dict[str, Any]]]] = {}
@@ -138,17 +142,17 @@ class SimulatedGraphProcessorMixin(ABC):
                                     resources[resource_type] = []
                                 if isinstance(resources[resource_type], list):
                                     resources[resource_type].append(resource)  # type: ignore
-                    response.responses = json.dumps(resources)
+                    response.responses = json.dumps(resources, cls=FhirJSONEncoder)
                 elif expand_fhir_bundle:
                     if bundle.entry:
                         response.responses = json.dumps(
-                            [e.resource for e in bundle.entry]
+                            [e.resource for e in bundle.entry], cls=FhirJSONEncoder
                         )
                     else:
                         response.responses = ""
                 else:
                     bundle_dict: Dict[str, Any] = bundle.to_dict()
-                    response.responses = json.dumps(bundle_dict)
+                    response.responses = json.dumps(bundle_dict, cls=FhirJSONEncoder)
 
                 response.url = url or response.url  # set url to top level url
                 if logger:

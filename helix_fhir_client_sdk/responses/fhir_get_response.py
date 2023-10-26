@@ -187,6 +187,16 @@ class FhirGetResponse:
 
     @staticmethod
     def parse_json(responses: str) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        """
+        Parses the json response from the fhir server
+
+
+        :param responses: response from the fhir server
+        :return: one of:
+        1. response_resources is a list of resources
+        2. response_resources is a bundle with a list of resources
+        3. response_resources is a single resource
+        """
         if responses is None or len(responses) == 0:
             return {
                 "resourceType": "OperationOutcome",
@@ -218,6 +228,11 @@ class FhirGetResponse:
     # noinspection PyPep8Naming
     @property
     def lastModified(self) -> Optional[datetime]:
+        """
+        Returns the last modified date from the response headers
+
+        :return: last modified date
+        """
         if self.response_headers is None:
             return None
         header: str
@@ -240,6 +255,11 @@ class FhirGetResponse:
 
     @property
     def etag(self) -> Optional[str]:
+        """
+        Returns the etag from the response headers
+
+        :return: etag
+        """
         if self.response_headers is None:
             return None
         header: str
@@ -251,3 +271,55 @@ class FhirGetResponse:
             if header_name == "ETag":
                 return header_value
         return None
+
+    def remove_duplicates(self) -> None:
+        """
+        removes duplicate resources from the response i.e., resources with same resourceType and id
+
+        """
+        response_resources: Union[
+            Dict[str, Any], List[Dict[str, Any]]
+        ] = self.parse_json(self.responses)
+
+        # there are three cases:
+        # 1. response_resources is a list of resources
+        # 2. response_resources is a bundle with a list of resources
+        # 3. response_resources is a single resource
+
+        if isinstance(response_resources, list):
+            # if it is a list of resources then find unique resources
+            unique_resources: List[Dict[str, Any]] = list(
+                {
+                    f'{r.get("resourceType")}/{r.get("id")}': r
+                    for r in response_resources
+                    if r.get("resourceType") and r.get("id")
+                }.values()
+            )
+            null_id_resources: List[Dict[str, Any]] = [
+                r for r in response_resources if not r.get("id")
+            ]
+            unique_resources.extend(null_id_resources)
+            self.responses = json.dumps(unique_resources, cls=FhirJSONEncoder)
+        elif "entry" in response_resources:
+            # otherwise it is a bundle so parse out the resources
+            bundle_entries: List[Dict[str, Any]] = response_resources["entry"]
+            unique_bundle_entries = list(
+                {
+                    f'{e["resource"]["resourceType"]}/{e["resource"]["id"]}': e
+                    for e in bundle_entries
+                    if e.get("resource")
+                    and e["resource"].get("resourceType")
+                    and e["resource"].get("id")
+                }.values()
+            )
+            null_id_bundle_entries: List[Dict[str, Any]] = [
+                e
+                for e in bundle_entries
+                if not e.get("resource") or not e["resource"].get("id")
+            ]
+            unique_bundle_entries.extend(null_id_bundle_entries)
+            response_resources["entry"] = unique_bundle_entries
+            self.responses = json.dumps(response_resources, cls=FhirJSONEncoder)
+        else:
+            # since this is a single resource there is no need to find duplicates
+            return

@@ -186,3 +186,31 @@ class FhirBundleAppender:
                         )
                     )
         return bundle
+
+    @staticmethod
+    def remove_duplicate_resources(*, bundle: Bundle) -> Bundle:
+        """
+        Removes duplicate resources from the bundle
+
+        :param bundle: The bundle to remove duplicates from
+        :return: The bundle with duplicates removed
+        """
+        if not bundle.entry:
+            return bundle
+        bundle_entries: List[BundleEntry] = bundle.entry
+        unique_bundle_entries: List[BundleEntry] = list(
+            {
+                f'{e.resource["resourceType"]}/{e.resource["id"]}': e
+                for e in bundle_entries
+                if e.resource
+                and e.resource.get("resourceType")
+                and e.resource.get("id")
+            }.values()
+        )
+        null_id_bundle_entries: List[BundleEntry] = [
+            e for e in bundle_entries if not e.resource or not e.resource.get("id")
+        ]
+        unique_bundle_entries.extend(null_id_bundle_entries)
+        bundle.entry = unique_bundle_entries
+
+        return bundle
