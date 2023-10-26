@@ -2,7 +2,7 @@ import asyncio
 import json
 from abc import abstractmethod, ABC
 from datetime import datetime
-from typing import Union, List, Dict, Any, Optional, cast
+from typing import Union, List, Dict, Any, Optional, cast, Tuple
 
 from aiohttp import ClientSession
 
@@ -85,13 +85,13 @@ class SimulatedGraphProcessorMixin(ABC):
             async with self.create_http_session() as session:
                 # first load the start resource
                 start: str = graph_definition.start
-                response: FhirGetResponse = (
-                    await self._get_resources_by_parameters_async(
-                        session=session,
-                        resource_type=start,
-                        id_=id_,
-                        cache=cache,
-                    )
+                response: FhirGetResponse
+                cache_hits: int
+                response, cache_hits = await self._get_resources_by_parameters_async(
+                    session=session,
+                    resource_type=start,
+                    id_=id_,
+                    cache=cache,
                 )
                 if not response.responses:
                     return response
@@ -99,7 +99,7 @@ class SimulatedGraphProcessorMixin(ABC):
 
                 if logger:
                     logger.info(
-                        f"FhirClient.simulate_graph_async() got parent resources: {len(response.get_resources())}"
+                        f"FhirClient.simulate_graph_async() got parent resources: {len(response.get_resources())} cached:{cache_hits}"
                     )
                 # turn into a bundle if not already a bundle
                 bundle = Bundle(entry=parent_bundle_entries)
@@ -243,13 +243,14 @@ class SimulatedGraphProcessorMixin(ABC):
                         reference_parts = reference_id.split("/")
                         if reference_parts[0] == target_type:
                             child_id = reference_parts[1]
-                            child_response = (
-                                await self._get_resources_by_parameters_async(
-                                    session=session,
-                                    resource_type=target_type,
-                                    id_=child_id,
-                                    cache=cache,
-                                )
+                            (
+                                child_response,
+                                cache_hits,
+                            ) = await self._get_resources_by_parameters_async(
+                                session=session,
+                                resource_type=target_type,
+                                id_=child_id,
+                                cache=cache,
                             )
                             responses.append(child_response)
                             children = child_response.get_bundle_entries()
@@ -257,7 +258,7 @@ class SimulatedGraphProcessorMixin(ABC):
                                 logger.info(
                                     f"FhirClient.simulate_graph_async() got child resources with path:{path} "
                                     + f"from parent {target_type}/{child_id}: "
-                                    + f"{len(children)}"
+                                    + f"{len(children)} cached:{cache_hits}"
                                 )
             else:  # single reference
                 if parent_resource and parent_resource.get(path) and target_type:
@@ -267,13 +268,14 @@ class SimulatedGraphProcessorMixin(ABC):
                         reference_parts = reference_id.split("/")
                         if reference_parts[0] == target_type:
                             child_id = reference_parts[1]
-                            child_response = (
-                                await self._get_resources_by_parameters_async(
-                                    session=session,
-                                    resource_type=target_type,
-                                    id_=child_id,
-                                    cache=cache,
-                                )
+                            (
+                                child_response,
+                                cache_hits,
+                            ) = await self._get_resources_by_parameters_async(
+                                session=session,
+                                resource_type=target_type,
+                                id_=child_id,
+                                cache=cache,
                             )
                             responses.append(child_response)
                             children = child_response.get_bundle_entries()
@@ -281,7 +283,7 @@ class SimulatedGraphProcessorMixin(ABC):
                                 logger.info(
                                     f"FhirClient.simulate_graph_async() got child resources with path:{path} "
                                     + f"from parent {target_type}/{child_id}: "
-                                    + f"{len(children)}"
+                                    + f"{len(children)}. cached:{cache_hits}"
                                 )
         elif target.params:  # reverse path
             # for a reverse link, get the ids of the current resource, put in a view and
@@ -297,7 +299,10 @@ class SimulatedGraphProcessorMixin(ABC):
                 and target_type
             ):
                 parent_id = parent_resource.get("id")
-                child_response = await self._get_resources_by_parameters_async(
+                (
+                    child_response,
+                    cache_hits,
+                ) = await self._get_resources_by_parameters_async(
                     session=session,
                     resource_type=target_type,
                     parameters=[f"{property_name}={parent_id}"] + additional_parameters,
@@ -308,7 +313,7 @@ class SimulatedGraphProcessorMixin(ABC):
                     logger.debug(
                         f"FhirClient.simulate_graph_async() got child resources with params:{target.params} "
                         + f"from parent {target_type} with {property_name}={parent_id}: "
-                        + f"{child_response.responses}"
+                        + f"{child_response.responses}.  cached:{cache_hits}"
                     )
                 children = child_response.get_bundle_entries()
 
@@ -336,7 +341,7 @@ class SimulatedGraphProcessorMixin(ABC):
         resource_type: str,
         parameters: Optional[List[str]] = None,
         cache: RequestCache,
-    ) -> FhirGetResponse:
+    ) -> Tuple[FhirGetResponse, int]:
         assert session
         assert resource_type
         self.resource(resource=resource_type)
@@ -351,6 +356,7 @@ class SimulatedGraphProcessorMixin(ABC):
         # get any cached resources
         cached_resources: List[Dict[str, Any]] = []
         cached_response: Optional[FhirGetResponse] = None
+        cache_hits: int = 0
         if id_list:
             for resource_id in id_list:
                 cached_resource: Optional[Dict[str, Any]] = cache.get(
@@ -358,6 +364,7 @@ class SimulatedGraphProcessorMixin(ABC):
                 )
                 if cached_resource:
                     cached_resources.append(cached_resource)
+                    cache_hits += 1
                 else:
                     non_cached_id_list.append(resource_id)
 
@@ -399,7 +406,7 @@ class SimulatedGraphProcessorMixin(ABC):
         elif cached_response:
             result = cached_response
         assert result
-        return result
+        return result, cache_hits
 
     @abstractmethod
     def separate_bundle_resources(self, separate_bundle_resources: bool):  # type: ignore[no-untyped-def]
