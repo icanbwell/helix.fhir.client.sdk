@@ -1730,7 +1730,12 @@ class FhirClient(SimulatedGraphProcessorMixin):
 
                     resource_uri: furl = full_uri.copy()
                     if len(resource_json_list_clean) > 0:
-                        json_payload: str = json.dumps(resource_json_list_clean)
+                        # if there is only item in the list then send it instead of having it in a list
+                        json_payload: str = (
+                            json.dumps(resource_json_list_clean[0])
+                            if len(resource_json_list_clean) == 1
+                            else json.dumps(resource_json_list_clean)
+                        )
                         # json_payload_bytes: str = json_payload
                         json_payload_bytes: bytes = json_payload.encode("utf-8")
                         obj_id = (
@@ -1761,7 +1766,13 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                 response_text = await response.text()
                                 if response_text:
                                     try:
-                                        responses = json.loads(response_text)
+                                        raw_response: Union[
+                                            List[Dict[str, Any]], Dict[str, Any]
+                                        ] = json.loads(response_text)
+                                        if isinstance(raw_response, list):
+                                            responses = raw_response
+                                        else:
+                                            responses = [raw_response]
                                     except ValueError as e:
                                         responses = [{"issue": str(e)}]
                                 else:
