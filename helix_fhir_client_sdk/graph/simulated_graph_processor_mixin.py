@@ -264,7 +264,8 @@ class SimulatedGraphProcessorMixin(ABC):
                             if logger:
                                 logger.info(
                                     f"Received child resources"
-                                    + f" from parent {target_type}/{child_id} [{path}]"
+                                    + f" from parent {parent_resource.get('resourceType')}/{parent_resource.get('id')}"
+                                    + f" [{path}]"
                                     + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
                                     + f", {','.join(child_response.get_resource_type_and_ids())}"
                                 )
@@ -290,7 +291,8 @@ class SimulatedGraphProcessorMixin(ABC):
                             if logger:
                                 logger.info(
                                     f"Received child resources"
-                                    + f" from parent {target_type}/{child_id} [{path}]"
+                                    + f" from parent {parent_resource.get('resourceType')}/{parent_resource.get('id')}"
+                                    + f" [{path}]"
                                     + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
                                     + f", {','.join(child_response.get_resource_type_and_ids())}"
                                 )
@@ -308,20 +310,24 @@ class SimulatedGraphProcessorMixin(ABC):
                 and target_type
             ):
                 parent_id = parent_resource.get("id")
+                request_parameters: List[str] = [
+                    f"{property_name}={parent_id}"
+                ] + additional_parameters
                 (
                     child_response,
                     cache_hits,
                 ) = await self._get_resources_by_parameters_async(
                     session=session,
                     resource_type=target_type,
-                    parameters=[f"{property_name}={parent_id}"] + additional_parameters,
+                    parameters=request_parameters,
                     cache=cache,
                 )
                 responses.append(child_response)
                 if logger:
                     logger.debug(
                         f"Received child resources with params:{target.params} "
-                        + f"from parent {target_type} with {property_name}={parent_id}"
+                        + f" from parent {parent_resource.get('resourceType')}/{parent_resource.get('id')}"
+                        + f" [{'&'.join(request_parameters)}]"
                         + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
                         + f", {','.join(child_response.get_resource_type_and_ids())}"
                     )
