@@ -323,3 +323,10 @@ class FhirGetResponse:
         else:
             # since this is a single resource there is no need to find duplicates
             return
+
+    def get_resource_type_and_ids(self) -> List[str]:
+        """
+        Gets the ids of the resources from the response
+        """
+        resources: List[Dict[str, Any]] = self.get_resources()
+        return [f"{r.get('resourceType')}/{r.get('id')}" for r in resources]

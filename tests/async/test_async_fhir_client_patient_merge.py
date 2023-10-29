@@ -33,7 +33,7 @@ async def test_fhir_client_patient_merge_async() -> None:
         mock_request(
             path=f"/{relative_url}/Patient/1/$merge",
             method="POST",
-            body=json.dumps([resource]),
+            body=json.dumps(resource),
         ),
         mock_response(body=json.dumps(response_text_1)),
         timing=times(1),

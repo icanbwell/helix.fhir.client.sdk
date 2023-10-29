@@ -1705,8 +1705,10 @@ class FhirClient(SimulatedGraphProcessorMixin):
                     errors: List[Dict[str, Any]] = []
                     if self._validation_server_url:
                         resource_json: Dict[str, Any]
-                        for resource_json in resource_json_list_incoming:
+                        # if there is only resource then just validate that individually
+                        if len(resource_json_list_incoming) == 1:
                             try:
+                                resource_json = resource_json_list_incoming[0]
                                 await AsyncFhirValidator.validate_fhir_resource(
                                     http=http,
                                     json_data=json.dumps(resource_json),
@@ -1725,12 +1727,38 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                         "issue": e.issue,
                                     }
                                 )
+                        else:
+                            for resource_json in resource_json_list_incoming:
+                                try:
+                                    await AsyncFhirValidator.validate_fhir_resource(
+                                        http=http,
+                                        json_data=json.dumps(resource_json),
+                                        resource_name=resource_json.get("resourceType")
+                                        or self._resource,
+                                        validation_server_url=self._validation_server_url,
+                                    )
+                                    resource_json_list_clean.append(resource_json)
+                                except FhirValidationException as e:
+                                    errors.append(
+                                        {
+                                            "id": resource_json.get("id"),
+                                            "resourceType": resource_json.get(
+                                                "resourceType"
+                                            ),
+                                            "issue": e.issue,
+                                        }
+                                    )
                     else:
                         resource_json_list_clean = resource_json_list_incoming
 
                     resource_uri: furl = full_uri.copy()
                     if len(resource_json_list_clean) > 0:
-                        json_payload: str = json.dumps(resource_json_list_clean)
+                        # if there is only item in the list then send it instead of having it in a list
+                        json_payload: str = (
+                            json.dumps(resource_json_list_clean[0])
+                            if len(resource_json_list_clean) == 1
+                            else json.dumps(resource_json_list_clean)
+                        )
                         # json_payload_bytes: str = json_payload
                         json_payload_bytes: bytes = json_payload.encode("utf-8")
                         obj_id = (
@@ -1761,7 +1789,13 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                 response_text = await response.text()
                                 if response_text:
                                     try:
-                                        responses = json.loads(response_text)
+                                        raw_response: Union[
+                                            List[Dict[str, Any]], Dict[str, Any]
+                                        ] = json.loads(response_text)
+                                        if isinstance(raw_response, list):
+                                            responses = raw_response
+                                        else:
+                                            responses = [raw_response]
                                     except ValueError as e:
                                         responses = [{"issue": str(e)}]
                                 else:
