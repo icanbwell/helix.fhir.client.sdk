@@ -263,9 +263,10 @@ class SimulatedGraphProcessorMixin(ABC):
                             children = child_response.get_bundle_entries()
                             if logger:
                                 logger.info(
-                                    f"FhirClient.simulate_graph_async() got child resources with path:{path} "
-                                    + f"from parent {target_type}/{child_id}: "
-                                    + f"{len(children)} cached:{cache_hits}"
+                                    f"Received child resources"
+                                    + f" from parent {target_type}/{child_id} [{path}]: "
+                                    + f": {len(child_response.get_resource_type_and_ids())}. cached:{cache_hits}"
+                                    + f", {','.join(child_response.get_resource_type_and_ids())}"
                                 )
             else:  # single reference
                 if parent_resource and parent_resource.get(path) and target_type:
@@ -288,9 +289,10 @@ class SimulatedGraphProcessorMixin(ABC):
                             children = child_response.get_bundle_entries()
                             if logger:
                                 logger.info(
-                                    f"FhirClient.simulate_graph_async() got child resources with path:{path} "
-                                    + f"from parent {target_type}/{child_id}: "
-                                    + f"{len(children)}. cached:{cache_hits}"
+                                    f"Received child resources"
+                                    + f" from parent {target_type}/{child_id} [{path}]: "
+                                    + f": {len(child_response.get_resource_type_and_ids())}. cached:{cache_hits}"
+                                    + f", {','.join(child_response.get_resource_type_and_ids())}"
                                 )
         elif target.params:  # reverse path
             # for a reverse link, get the ids of the current resource, put in a view and
@@ -318,9 +320,10 @@ class SimulatedGraphProcessorMixin(ABC):
                 responses.append(child_response)
                 if logger:
                     logger.debug(
-                        f"FhirClient.simulate_graph_async() got child resources with params:{target.params} "
+                        f"Received child resources with params:{target.params} "
                         + f"from parent {target_type} with {property_name}={parent_id}: "
-                        + f"{child_response.responses}.  cached:{cache_hits}"
+                        + f": {len(child_response.get_resource_type_and_ids())}. cached:{cache_hits}"
+                        + f", {','.join(child_response.get_resource_type_and_ids())}"
                     )
                 children = child_response.get_bundle_entries()
 
