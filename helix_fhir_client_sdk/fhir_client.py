@@ -1705,8 +1705,10 @@ class FhirClient(SimulatedGraphProcessorMixin):
                     errors: List[Dict[str, Any]] = []
                     if self._validation_server_url:
                         resource_json: Dict[str, Any]
-                        for resource_json in resource_json_list_incoming:
+                        # if there is only resource then just validate that individually
+                        if len(resource_json_list_incoming) == 1:
                             try:
+                                resource_json = resource_json_list_incoming[0]
                                 await AsyncFhirValidator.validate_fhir_resource(
                                     http=http,
                                     json_data=json.dumps(resource_json),
@@ -1725,6 +1727,27 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                         "issue": e.issue,
                                     }
                                 )
+                        else:
+                            for resource_json in resource_json_list_incoming:
+                                try:
+                                    await AsyncFhirValidator.validate_fhir_resource(
+                                        http=http,
+                                        json_data=json.dumps(resource_json),
+                                        resource_name=resource_json.get("resourceType")
+                                        or self._resource,
+                                        validation_server_url=self._validation_server_url,
+                                    )
+                                    resource_json_list_clean.append(resource_json)
+                                except FhirValidationException as e:
+                                    errors.append(
+                                        {
+                                            "id": resource_json.get("id"),
+                                            "resourceType": resource_json.get(
+                                                "resourceType"
+                                            ),
+                                            "issue": e.issue,
+                                        }
+                                    )
                     else:
                         resource_json_list_clean = resource_json_list_incoming
 
