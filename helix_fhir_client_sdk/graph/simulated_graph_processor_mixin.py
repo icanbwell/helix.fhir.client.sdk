@@ -264,8 +264,8 @@ class SimulatedGraphProcessorMixin(ABC):
                             if logger:
                                 logger.info(
                                     f"Received child resources"
-                                    + f" from parent {target_type}/{child_id} [{path}]: "
-                                    + f": {len(child_response.get_resource_type_and_ids())}. cached:{cache_hits}"
+                                    + f" from parent {target_type}/{child_id} [{path}]"
+                                    + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
                                     + f", {','.join(child_response.get_resource_type_and_ids())}"
                                 )
             else:  # single reference
@@ -290,8 +290,8 @@ class SimulatedGraphProcessorMixin(ABC):
                             if logger:
                                 logger.info(
                                     f"Received child resources"
-                                    + f" from parent {target_type}/{child_id} [{path}]: "
-                                    + f": {len(child_response.get_resource_type_and_ids())}. cached:{cache_hits}"
+                                    + f" from parent {target_type}/{child_id} [{path}]"
+                                    + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
                                     + f", {','.join(child_response.get_resource_type_and_ids())}"
                                 )
         elif target.params:  # reverse path
@@ -321,8 +321,8 @@ class SimulatedGraphProcessorMixin(ABC):
                 if logger:
                     logger.debug(
                         f"Received child resources with params:{target.params} "
-                        + f"from parent {target_type} with {property_name}={parent_id}: "
-                        + f": {len(child_response.get_resource_type_and_ids())}. cached:{cache_hits}"
+                        + f"from parent {target_type} with {property_name}={parent_id}"
+                        + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
                         + f", {','.join(child_response.get_resource_type_and_ids())}"
                     )
                 children = child_response.get_bundle_entries()
