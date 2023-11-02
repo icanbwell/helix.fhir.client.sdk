@@ -19,6 +19,7 @@ from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
+from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.request_cache import RequestCache
 
 
@@ -41,6 +42,7 @@ class SimulatedGraphProcessorMixin(ABC):
         logger: Optional[FhirLogger],
         url: Optional[str],
         expand_fhir_bundle: Optional[bool],
+        auth_scopes: Optional[List[str]],
     ) -> FhirGetResponse:
         """
         Simulates the $graph query on the FHIR server
@@ -61,12 +63,16 @@ class SimulatedGraphProcessorMixin(ABC):
         :param logger: Optional logger to use
         :param url: Optional url to use
         :param expand_fhir_bundle: Optional flag to expand the FHIR bundle
+        :param auth_scopes: Optional list of scopes to use
         :return: FhirGetResponse
         """
         assert graph_json
         graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
         assert isinstance(graph_definition, GraphDefinition)
         assert graph_definition.start
+
+        # parse the scopes
+        scope_parser: FhirScopeParser = FhirScopeParser(scopes=auth_scopes)
 
         # we handle separate resources differently below
         self.separate_bundle_resources(False)
@@ -93,6 +99,7 @@ class SimulatedGraphProcessorMixin(ABC):
                     resource_type=start,
                     id_=id_,
                     cache=cache,
+                    scope_parser=scope_parser,
                 )
                 if not response.responses:
                     return response
@@ -120,6 +127,7 @@ class SimulatedGraphProcessorMixin(ABC):
                                     parent_bundle_entry=parent_bundle_entry,
                                     logger=logger,
                                     cache=cache,
+                                    scope_parser=scope_parser,
                                 )
                             )
                 FhirBundleAppender.append_responses(responses=responses, bundle=bundle)
@@ -169,6 +177,7 @@ class SimulatedGraphProcessorMixin(ABC):
         parent_bundle_entry: Optional[BundleEntry],
         logger: Optional[FhirLogger],
         cache: RequestCache,
+        scope_parser: FhirScopeParser,
     ) -> List[FhirGetResponse]:
         """
         Process a GraphDefinition link object
@@ -178,6 +187,8 @@ class SimulatedGraphProcessorMixin(ABC):
         :param link: link to process
         :param parent_bundle_entry: parent bundle entry
         :param logger: logger to use
+        :param cache: cache to use
+        :param scope_parser: scope parser to use
         :return: list of FhirGetResponse objects
         """
         assert session
@@ -194,6 +205,7 @@ class SimulatedGraphProcessorMixin(ABC):
                     parent_bundle_entry=parent_bundle_entry,
                     logger=logger,
                     cache=cache,
+                    scope_parser=scope_parser,
                 )
             )
         return responses
@@ -207,6 +219,7 @@ class SimulatedGraphProcessorMixin(ABC):
         parent_bundle_entry: Optional[BundleEntry],
         logger: Optional[FhirLogger],
         cache: RequestCache,
+        scope_parser: FhirScopeParser,
     ) -> List[FhirGetResponse]:
         """
         Process a GraphDefinition target
@@ -217,6 +230,8 @@ class SimulatedGraphProcessorMixin(ABC):
         :param path: path to process
         :param parent_bundle_entry: parent bundle entry
         :param logger: logger to use
+        :param cache: cache to use
+        :param scope_parser: scope parser to use
         :return: list of FhirGetResponse objects
         """
         responses: List[FhirGetResponse] = []
@@ -258,6 +273,7 @@ class SimulatedGraphProcessorMixin(ABC):
                                 resource_type=target_type,
                                 id_=child_id,
                                 cache=cache,
+                                scope_parser=scope_parser,
                             )
                             responses.append(child_response)
                             children = child_response.get_bundle_entries()
@@ -285,6 +301,7 @@ class SimulatedGraphProcessorMixin(ABC):
                                 resource_type=target_type,
                                 id_=child_id,
                                 cache=cache,
+                                scope_parser=scope_parser,
                             )
                             responses.append(child_response)
                             children = child_response.get_bundle_entries()
@@ -321,6 +338,7 @@ class SimulatedGraphProcessorMixin(ABC):
                     resource_type=target_type,
                     parameters=request_parameters,
                     cache=cache,
+                    scope_parser=scope_parser,
                 )
                 responses.append(child_response)
                 if logger:
@@ -345,6 +363,7 @@ class SimulatedGraphProcessorMixin(ABC):
                             parent_bundle_entry=child,
                             logger=logger,
                             cache=cache,
+                            scope_parser=scope_parser,
                         )
                     )
         return responses
@@ -357,9 +376,30 @@ class SimulatedGraphProcessorMixin(ABC):
         resource_type: str,
         parameters: Optional[List[str]] = None,
         cache: RequestCache,
+        scope_parser: FhirScopeParser,
     ) -> Tuple[FhirGetResponse, int]:
         assert session
         assert resource_type
+
+        if not scope_parser.scope_allows(resource_type=resource_type):
+            return (
+                FhirGetResponse(
+                    request_id=None,
+                    url="",
+                    id_=None,
+                    resource_type=resource_type,
+                    responses="",
+                    response_headers=None,
+                    status=200,
+                    access_token=None,
+                    next_url=None,
+                    total_count=0,
+                    extra_context_to_return=None,
+                    error=None,
+                ),
+                0,
+            )
+
         self.resource(resource=resource_type)
 
         id_list: Optional[List[str]]

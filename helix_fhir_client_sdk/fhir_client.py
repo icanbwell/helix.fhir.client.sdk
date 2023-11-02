@@ -2678,4 +2678,5 @@ class FhirClient(SimulatedGraphProcessorMixin):
             url=self._url,
             expand_fhir_bundle=self._expand_fhir_bundle,
             logger=self._logger,
+            auth_scopes=self._auth_scopes,
         )
