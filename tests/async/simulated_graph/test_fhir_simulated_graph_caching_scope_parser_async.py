@@ -139,7 +139,7 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
     fhir_client = fhir_client.expand_fhir_bundle(False)
     fhir_client.logger(logger=logger)
     fhir_client.auth_scopes(
-        # include other resources but skip Observation
+        # include other resources but skip Observation and Encounter
         auth_scopes=[
             "patient/Patient.read",
             "patient/AllergyIntolerance.read",
