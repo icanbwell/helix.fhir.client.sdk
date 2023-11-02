@@ -6,10 +6,12 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser_result import (
 
 
 class FhirScopeParser:
-    def __init__(self, scopes: Optional[str]) -> None:
-        self.scopes = scopes
+    def __init__(self, scopes: Optional[List[str]]) -> None:
+        self.scopes: Optional[List[str]] = scopes
         self.parsed_scopes: Optional[List[FhirScopeParserResult]] = (
-            self.parse_scopes(scopes) if scopes else None
+            self.parse_scopes(" ".join([s for s in scopes if s]))
+            if scopes and len([s for s in scopes if s])
+            else None
         )
 
     @staticmethod
