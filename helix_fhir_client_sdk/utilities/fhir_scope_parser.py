@@ -7,6 +7,12 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser_result import (
 
 class FhirScopeParser:
     def __init__(self, scopes: Optional[List[str]]) -> None:
+        """
+        This class parses SMART on FHIR scopes and can answer whether a resource is allowed to be downloaded
+        https://build.fhir.org/ig/HL7/smart-app-launch/scopes-and-launch-context.html
+
+        :param scopes: The scopes to parse.
+        """
         self.scopes: Optional[List[str]] = scopes
         self.parsed_scopes: Optional[List[FhirScopeParserResult]] = (
             self.parse_scopes(" ".join([s for s in scopes if s]))
@@ -16,6 +22,12 @@ class FhirScopeParser:
 
     @staticmethod
     def parse_scopes(scopes: Optional[str]) -> List[FhirScopeParserResult]:
+        """
+        Parses the given scopes into a list of FhirScopeParserResult objects.
+
+        :param scopes: The scopes to parse.
+        :return: A list of FhirScopeParserResult objects.
+        """
         if not scopes:
             return []
         parsed_scopes: List[FhirScopeParserResult] = []
@@ -62,8 +74,11 @@ class FhirScopeParser:
         :param interaction: The interaction to check.
         :return: True if the scope allows the given resource type and interaction, False otherwise.
         """
+
+        # if there are no scopes then allow everything
         if not self.parsed_scopes:
             return True
+
         assert resource_type
         assert interaction
 
