@@ -145,6 +145,7 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
             "patient/AllergyIntolerance.read",
             "patient/Practitioner.read patient/Organization.read",
             "patient/Coverage.read",
+            "launch/patient",
         ]
     )
 

@@ -79,6 +79,10 @@ class FhirScopeParser:
         if not self.parsed_scopes:
             return True
 
+        # check if this is a valid SMART on FHIR scope
+        if not any([s for s in self.parsed_scopes if s.resource_type == "launch"]):
+            return True
+
         assert resource_type
         assert interaction
 
