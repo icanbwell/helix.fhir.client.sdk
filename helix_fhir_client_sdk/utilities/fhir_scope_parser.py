@@ -83,6 +83,10 @@ class FhirScopeParser:
         if not any([s for s in self.parsed_scopes if s.resource_type == "launch"]):
             return True
 
+        # These resources are always allowed
+        if resource_type in ["OperationOutcome", "Bundle"]:
+            return True
+
         assert resource_type
         assert interaction
 
