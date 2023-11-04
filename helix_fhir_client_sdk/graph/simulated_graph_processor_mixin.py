@@ -100,6 +100,7 @@ class SimulatedGraphProcessorMixin(ABC):
                     id_=id_,
                     cache=cache,
                     scope_parser=scope_parser,
+                    logger=logger,
                 )
                 if not response.responses:
                     return response
@@ -274,6 +275,7 @@ class SimulatedGraphProcessorMixin(ABC):
                                 id_=child_id,
                                 cache=cache,
                                 scope_parser=scope_parser,
+                                logger=logger,
                             )
                             responses.append(child_response)
                             children = child_response.get_bundle_entries()
@@ -302,6 +304,7 @@ class SimulatedGraphProcessorMixin(ABC):
                                 id_=child_id,
                                 cache=cache,
                                 scope_parser=scope_parser,
+                                logger=logger,
                             )
                             responses.append(child_response)
                             children = child_response.get_bundle_entries()
@@ -339,6 +342,7 @@ class SimulatedGraphProcessorMixin(ABC):
                     parameters=request_parameters,
                     cache=cache,
                     scope_parser=scope_parser,
+                    logger=logger,
                 )
                 responses.append(child_response)
                 if logger:
@@ -377,11 +381,14 @@ class SimulatedGraphProcessorMixin(ABC):
         parameters: Optional[List[str]] = None,
         cache: RequestCache,
         scope_parser: FhirScopeParser,
+        logger: Optional[FhirLogger],
     ) -> Tuple[FhirGetResponse, int]:
         assert session
         assert resource_type
 
         if not scope_parser.scope_allows(resource_type=resource_type):
+            if logger:
+                logger.debug(f"Skipping resource {resource_type} due to scope")
             return (
                 FhirGetResponse(
                     request_id=None,
@@ -425,6 +432,8 @@ class SimulatedGraphProcessorMixin(ABC):
                     non_cached_id_list.append(resource_id)
 
         if cached_bundle_entries and len(cached_bundle_entries) > 0:
+            if logger:
+                logger.debug(f"Returning resource {resource_type} from cache")
             cached_bundle: Bundle = Bundle(entry=cached_bundle_entries)
             cached_response = FhirGetResponse(
                 request_id=None,
