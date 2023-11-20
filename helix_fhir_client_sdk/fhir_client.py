@@ -817,18 +817,20 @@ class FhirClient(SimulatedGraphProcessorMixin):
                     next_url: Optional[str] = None
                     if self._use_data_streaming:
                         chunk_number = 0
-                        line: bytes
-                        async for line in response.content:
+                        complete_resource = b''
+                        async for data in response.content.iter_chunks():
+                            complete_resource += data[0]
+                            end_of_http_chunk = data[1]
                             # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
                             await asyncio.sleep(0)
                             chunk_number += 1
-                            if fn_handle_streaming_chunk:
-                                await fn_handle_streaming_chunk(line, chunk_number)
+                            if end_of_http_chunk and fn_handle_streaming_chunk:
+                                await fn_handle_streaming_chunk(complete_resource, chunk_number)
                             if self._logger:
                                 self._logger.debug(
                                     f"Successfully retrieved chunk {chunk_number}: {full_url}"
                                 )
-                            resources_json += line.decode("utf-8")
+                            resources_json += data[0].decode("utf-8")
                     else:
                         if self._logger:
                             self._logger.debug(f"Successfully retrieved: {full_url}")
