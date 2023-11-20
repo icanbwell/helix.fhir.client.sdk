@@ -817,7 +817,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                     next_url: Optional[str] = None
                     if self._use_data_streaming:
                         chunk_number = 0
-                        complete_resource = b''
+                        complete_resource: bytes = b""
                         async for data in response.content.iter_chunks():
                             complete_resource += data[0]
                             end_of_http_chunk = data[1]
@@ -825,7 +825,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
                             await asyncio.sleep(0)
                             chunk_number += 1
                             if end_of_http_chunk and fn_handle_streaming_chunk:
-                                await fn_handle_streaming_chunk(complete_resource, chunk_number)
+                                await fn_handle_streaming_chunk(
+                                    complete_resource, chunk_number
+                                )
                             if self._logger:
                                 self._logger.debug(
                                     f"Successfully retrieved chunk {chunk_number}: {full_url}"
