@@ -1,5 +1,4 @@
 import json
-from typing import Optional, List
 
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
@@ -10,6 +9,7 @@ from mockserver_client.mockserver_client import (
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from unittest.mock import AsyncMock
 
 
 async def test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_function() -> None:
@@ -50,18 +50,18 @@ async def test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_fun
         ["user/*.ready"]
     )
 
-    async def my_authenticate_async(
-        auth_server_url: str,
-        auth_scopes: Optional[List[str]],
-        login_token: Optional[str],
-    ) -> Optional[str]:
-        assert auth_server_url
-        assert auth_scopes
-        assert login_token
-        return "my_access_token"
+    mocked_authenticate_async = AsyncMock()
+    mocked_authenticate_async.return_value = "my_access_token"
 
-    fhir_client = fhir_client.refresh_token_function(my_authenticate_async)
+    # noinspection PyTypeChecker
+    fhir_client = fhir_client.refresh_token_function(mocked_authenticate_async)
     response: FhirGetResponse = await fhir_client.get_async()
 
+    mocked_authenticate_async.assert_called()
+    mocked_authenticate_async.assert_called_with(
+        auth_server_url=absolute_url + "/" + "auth",
+        auth_scopes=["user/*.ready"],
+        login_token="Y2xpZW50X2lkOmNsaWVudF9zZWNyZXQ=",
+    )
     print(response.responses)
     assert response.responses == response_text
