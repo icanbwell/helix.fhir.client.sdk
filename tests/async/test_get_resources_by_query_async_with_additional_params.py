@@ -27,7 +27,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
     mock_client.reset()
 
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Location",
             method="GET",
             querystring={
@@ -37,7 +37,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
                 "identifier": "http://thedacare.org/epic|222126",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -57,7 +57,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
     )
 
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Location",
             method="GET",
             querystring={
@@ -67,7 +67,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
                 "identifier": "http://thedacare.org/epic|222126",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -80,7 +80,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
     )
 
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Location",
             method="GET",
             querystring={
@@ -90,7 +90,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
                 "identifier": "http://thedacare.org/epic|222126",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -103,7 +103,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
     )
 
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Location",
             method="GET",
             querystring={
@@ -113,7 +113,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
                 "identifier": "http://thedacare.org/epic|222126",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -126,7 +126,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
     )
 
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Location",
             method="GET",
             querystring={
@@ -136,7 +136,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
                 "identifier": "http://thedacare.org/epic|222126",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -149,7 +149,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
     )
 
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Location",
             method="GET",
             querystring={
@@ -159,7 +159,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
                 "identifier": "http://thedacare.org/epic|222126",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -172,7 +172,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
     )
 
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Location",
             method="GET",
             querystring={
@@ -182,7 +182,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
                 "identifier": "http://thedacare.org/epic|222126",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -195,7 +195,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
     )
 
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Location",
             method="GET",
             querystring={
@@ -205,7 +205,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
                 "identifier": "http://thedacare.org/epic|222126",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -218,7 +218,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
     )
 
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Location",
             method="GET",
             querystring={
@@ -228,7 +228,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
                 "identifier": "http://thedacare.org/epic|222126",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -241,7 +241,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
     )
 
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Location",
             method="GET",
             querystring={
@@ -251,7 +251,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
                 "identifier": "http://thedacare.org/epic|222126",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -266,7 +266,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
     # now mock the actual calls to get resources
     response_text: Dict[str, Any] = {"resourceType": "Location", "id": "tc-epic-222126"}
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Location/tc-epic-222126",
             method="GET",
             querystring={
@@ -275,7 +275,7 @@ async def test_get_resources_by_query_async_with_additional_params() -> None:
                 "identifier": "http://thedacare.org/epic|222126",
             },
         ),
-        mock_response(body=json.dumps(response_text)),
+        response=mock_response(body=json.dumps(response_text)),
         timing=times(1),
     )
 

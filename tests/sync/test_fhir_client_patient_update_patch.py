@@ -30,12 +30,12 @@ async def test_fhir_client_patient_update() -> None:
     resource = [{"op": "replace", "path": "/gender", "value": "male"}]
 
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient/1234",
             method="PATCH",
             body=json.dumps(resource),
         ),
-        mock_response(body=json.dumps(response_text_1)),
+        response=mock_response(body=json.dumps(response_text_1)),
         timing=times(1),
     )
     fhir_client = FhirClient()

@@ -28,7 +28,7 @@ async def test_fhir_client_filter_async() -> None:
 
     # this is the first call made by the first concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={
@@ -39,7 +39,7 @@ async def test_fhir_client_filter_async() -> None:
                 "identifier": "http://hl7.org/fhir/sid/us-npi|1487831681",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -53,7 +53,7 @@ async def test_fhir_client_filter_async() -> None:
 
     # this is the second call made by first concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={
@@ -65,7 +65,7 @@ async def test_fhir_client_filter_async() -> None:
                 "identifier": "http://hl7.org/fhir/sid/us-npi|1487831681",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -79,7 +79,7 @@ async def test_fhir_client_filter_async() -> None:
 
     # this is the first call made by the second concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={
@@ -90,7 +90,7 @@ async def test_fhir_client_filter_async() -> None:
                 "identifier": "http://hl7.org/fhir/sid/us-npi|1487831681",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -104,7 +104,7 @@ async def test_fhir_client_filter_async() -> None:
 
     # this is the second call made by second concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={
@@ -116,7 +116,7 @@ async def test_fhir_client_filter_async() -> None:
                 "identifier": "http://hl7.org/fhir/sid/us-npi|1487831681",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -130,7 +130,7 @@ async def test_fhir_client_filter_async() -> None:
 
     # this is the call made by the third concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={
@@ -141,7 +141,7 @@ async def test_fhir_client_filter_async() -> None:
                 "identifier": "http://hl7.org/fhir/sid/us-npi|1487831681",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -163,7 +163,7 @@ async def test_fhir_client_filter_async() -> None:
         ],
     }
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={
@@ -173,7 +173,7 @@ async def test_fhir_client_filter_async() -> None:
                 "_total": "accurate",
             },
         ),
-        mock_response(body=json.dumps(response_text_1)),
+        response=mock_response(body=json.dumps(response_text_1)),
         timing=times(1),
     )
 

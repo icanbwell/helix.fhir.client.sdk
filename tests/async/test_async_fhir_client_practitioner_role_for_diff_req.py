@@ -20,7 +20,7 @@ def mock_calls_to_get_response(
     """
     # this is the first call made by the first concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/PractitionerRole",
             method="GET",
             querystring={
@@ -30,7 +30,7 @@ def mock_calls_to_get_response(
                 "_getpagesoffset": "0",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 [
                     {"resourceType": "PractitionerRole", "id": "111"},
@@ -43,7 +43,7 @@ def mock_calls_to_get_response(
 
     # this is the first call made by the second concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/PractitionerRole",
             method="GET",
             querystring={
@@ -53,7 +53,7 @@ def mock_calls_to_get_response(
                 "_getpagesoffset": "1",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 [
                     {"resourceType": "PractitionerRole", "id": "113"},
@@ -84,7 +84,7 @@ async def test_async_fhir_client_practitioner_role_for_diff_req() -> None:
 
     # this is the second call made by the first concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/PractitionerRole",
             method="GET",
             querystring={
@@ -95,7 +95,7 @@ async def test_async_fhir_client_practitioner_role_for_diff_req() -> None:
                 "id:above": "112",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps([{"resourceType": "PractitionerRole", "id": "115"}])
         ),
         timing=times(1),
@@ -103,7 +103,7 @@ async def test_async_fhir_client_practitioner_role_for_diff_req() -> None:
 
     # this is the third call made by the first concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/PractitionerRole",
             method="GET",
             querystring={
@@ -114,13 +114,13 @@ async def test_async_fhir_client_practitioner_role_for_diff_req() -> None:
                 "id:above": "115",
             },
         ),
-        mock_response(body=json.dumps([])),
+        response=mock_response(body=json.dumps([])),
         timing=times(1),
     )
 
     # this is the second call made by the second concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/PractitionerRole",
             method="GET",
             querystring={
@@ -131,7 +131,7 @@ async def test_async_fhir_client_practitioner_role_for_diff_req() -> None:
                 "id:above": "114",
             },
         ),
-        mock_response(body=json.dumps([])),
+        response=mock_response(body=json.dumps([])),
         timing=times(1),
     )
 
@@ -148,7 +148,7 @@ async def test_async_fhir_client_practitioner_role_for_diff_req() -> None:
     mock_client.reset()
     # this is the second call made by the first concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/PractitionerRole",
             method="GET",
             querystring={
@@ -159,13 +159,13 @@ async def test_async_fhir_client_practitioner_role_for_diff_req() -> None:
                 "id:above": "112",
             },
         ),
-        mock_response(body=json.dumps([])),
+        response=mock_response(body=json.dumps([])),
         timing=times(1),
     )
 
     # this is the second call made by the second concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/PractitionerRole",
             method="GET",
             querystring={
@@ -176,13 +176,13 @@ async def test_async_fhir_client_practitioner_role_for_diff_req() -> None:
                 "id:above": "114",
             },
         ),
-        mock_response(body=json.dumps([])),
+        response=mock_response(body=json.dumps([])),
         timing=times(1),
     )
 
     # First call made by the third concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/PractitionerRole",
             method="GET",
             querystring={
@@ -192,7 +192,7 @@ async def test_async_fhir_client_practitioner_role_for_diff_req() -> None:
                 "_getpagesoffset": "2",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps([{"resourceType": "PractitionerRole", "id": "115"}])
         ),
         timing=times(1),
@@ -200,7 +200,7 @@ async def test_async_fhir_client_practitioner_role_for_diff_req() -> None:
 
     # this is the second call made by the third concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/PractitionerRole",
             method="GET",
             querystring={
@@ -211,7 +211,7 @@ async def test_async_fhir_client_practitioner_role_for_diff_req() -> None:
                 "id:above": "115",
             },
         ),
-        mock_response(body=json.dumps([])),
+        response=mock_response(body=json.dumps([])),
         timing=times(1),
     )
 

@@ -68,7 +68,7 @@ async def test_fhir_graph_async() -> None:
         request=mock_request(path=f"/{relative_url}/Patient/1/$graph", method="POST"),
         response=mock_response(body=response_text),
         timing=times(1),
-        file_path=None
+        file_path=None,
     )
 
     fhir_client = FhirClient()

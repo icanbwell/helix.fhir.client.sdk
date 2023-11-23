@@ -28,12 +28,12 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
 
     response_text: str = json.dumps({"resourceType": "Patient", "id": "12355"})
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             headers={"Accept": "application/fhir+ndjson"},
         ),
-        mock_response(body=response_text),
+        response=mock_response(body=response_text),
         timing=times(2),
     )
 

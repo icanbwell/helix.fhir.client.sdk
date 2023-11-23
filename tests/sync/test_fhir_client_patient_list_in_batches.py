@@ -27,7 +27,7 @@ def test_fhir_client_patient_list_in_batches() -> None:
 
     # this is the first call made by the first concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={
@@ -37,7 +37,7 @@ def test_fhir_client_patient_list_in_batches() -> None:
                 "_total": "accurate",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -51,7 +51,7 @@ def test_fhir_client_patient_list_in_batches() -> None:
 
     # this is the second call made by first concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={
@@ -62,7 +62,7 @@ def test_fhir_client_patient_list_in_batches() -> None:
                 "id:above": "1",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -76,7 +76,7 @@ def test_fhir_client_patient_list_in_batches() -> None:
 
     # this is the first call made by the second concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={
@@ -86,7 +86,7 @@ def test_fhir_client_patient_list_in_batches() -> None:
                 "_total": "accurate",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -100,7 +100,7 @@ def test_fhir_client_patient_list_in_batches() -> None:
 
     # this is the second call made by second concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={
@@ -111,7 +111,7 @@ def test_fhir_client_patient_list_in_batches() -> None:
                 "id:above": "2",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -125,7 +125,7 @@ def test_fhir_client_patient_list_in_batches() -> None:
 
     # this is the call made by the third concurrent request
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={
@@ -135,7 +135,7 @@ def test_fhir_client_patient_list_in_batches() -> None:
                 "_total": "accurate",
             },
         ),
-        mock_response(
+        response=mock_response(
             body=json.dumps(
                 {
                     "resourceType": "Bundle",
@@ -157,12 +157,12 @@ def test_fhir_client_patient_list_in_batches() -> None:
         ],
     }
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={"_count": "1", "_getpagesoffset": "0", "_total": "accurate"},
         ),
-        mock_response(body=json.dumps(response_text_1)),
+        response=mock_response(body=json.dumps(response_text_1)),
         timing=times(1),
     )
 
