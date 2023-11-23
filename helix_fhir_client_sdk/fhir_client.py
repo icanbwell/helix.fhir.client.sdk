@@ -159,7 +159,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
         self._uuid = uuid.uuid4()
         self._log_level: Optional[str] = environ.get("LOGLEVEL")
         # default to built-in function to refresh token
-        self._refresh_token_function: RefreshTokenFunction = self.authenticate_async
+        self._refresh_token_function: RefreshTokenFunction = (
+            self.authenticate_async_wrapper()
+        )
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -1518,56 +1520,75 @@ class FhirClient(SimulatedGraphProcessorMixin):
         ).decode("ascii")
         return token
 
+    @staticmethod
     async def authenticate_async(
-        self,
+        *,
+        session: ClientSession,
         auth_server_url: str,
         auth_scopes: Optional[List[str]],
         login_token: Optional[str],
     ) -> Optional[str]:
-        """
-        Authenticates with an OAuth Provider
-
-
-        :param auth_server_url: url to auth server /token endpoint
-        :param auth_scopes: list of scopes to request
-        :param login_token: login token to use for authenticating
-        :return: access token
-        """
         assert auth_server_url
         assert auth_scopes
         assert login_token
-        async with self.create_http_session() as session:
-            with self._authentication_token_lock:
-                payload: str = (
-                    "grant_type=client_credentials&scope=" + "%20".join(auth_scopes)
-                    if auth_scopes
-                    else ""
-                )
-                # noinspection SpellCheckingInspection
-                headers: Dict[str, str] = {
-                    "Accept": "application/json",
-                    "Authorization": "Basic " + login_token,
-                    "Content-Type": "application/x-www-form-urlencoded",
-                }
+        payload: str = (
+            "grant_type=client_credentials&scope=" + "%20".join(auth_scopes)
+            if auth_scopes
+            else ""
+        )
+        # noinspection SpellCheckingInspection
+        headers: Dict[str, str] = {
+            "Accept": "application/json",
+            "Authorization": "Basic " + login_token,
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
 
-                self._internal_logger.debug(
-                    f"Authenticating with {auth_server_url} with client_id={self._client_id} for scopes={auth_scopes}"
-                )
+        response: ClientResponse = await session.request(
+            "POST", auth_server_url, headers=headers, data=payload
+        )
 
-                response: ClientResponse = await session.request(
-                    "POST", auth_server_url, headers=headers, data=payload
-                )
+        # token = response.text.encode('utf8')
+        token_text: str = await response.text()
+        if not token_text:
+            return None
+        token_json: Dict[str, Any] = json.loads(token_text)
 
-                # token = response.text.encode('utf8')
-                token_text: str = await response.text()
-                if not token_text:
-                    return None
-                token_json: Dict[str, Any] = json.loads(token_text)
+        if "access_token" not in token_json:
+            raise Exception(f"No access token found in {token_json}")
+        access_token: str = token_json["access_token"]
+        return access_token
 
-                if "access_token" not in token_json:
-                    raise Exception(f"No access token found in {token_json}")
-                access_token: str = token_json["access_token"]
-                return access_token
+    def authenticate_async_wrapper(self) -> RefreshTokenFunction:
+        """
+        Returns a function that authenticates with auth server
+
+
+        :return: refresh token function
+        """
+
+        async def refresh_token(
+            auth_server_url: str,
+            auth_scopes: Optional[List[str]],
+            login_token: Optional[str],
+        ) -> Optional[str]:
+            """
+            This function creates the session and then calls authenticate_async()
+
+            :param auth_server_url: auth server url
+            :param auth_scopes: auth scopes
+            :param login_token: login token
+            :return: access token
+            """
+            async with self.create_http_session() as session:
+                with self._authentication_token_lock:
+                    return await self.authenticate_async(
+                        session=session,
+                        auth_server_url=auth_server_url,
+                        auth_scopes=auth_scopes,
+                        login_token=login_token,
+                    )
+
+        return refresh_token
 
     async def send_patch_request_async(self, data: str) -> FhirUpdateResponse:
         """
