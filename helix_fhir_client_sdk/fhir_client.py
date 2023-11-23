@@ -58,6 +58,7 @@ from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
     HandleBatchFunction,
     HandleErrorFunction,
+    RefreshTokenFunction,
 )
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,
@@ -157,6 +158,8 @@ class FhirClient(SimulatedGraphProcessorMixin):
 
         self._uuid = uuid.uuid4()
         self._log_level: Optional[str] = environ.get("LOGLEVEL")
+        # default to built-in function to refresh token
+        self._refresh_token_function: RefreshTokenFunction = self.authenticate_async
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -456,6 +459,15 @@ class FhirClient(SimulatedGraphProcessorMixin):
         self._log_level = level
         return self
 
+    def refresh_token_function(self, fn: RefreshTokenFunction) -> "FhirClient":
+        """
+        Sets the function to call to refresh the token
+
+        :param fn: function to call to refresh the token
+        """
+        self._refresh_token_function = fn
+        return self
+
     # noinspection PyUnusedLocal
     @staticmethod
     async def on_request_end(
@@ -492,13 +504,11 @@ class FhirClient(SimulatedGraphProcessorMixin):
             assert (
                 self._login_token
             ), "login token must be present if auth_server_url is set"
-            async with self.create_http_session() as http:
-                self._access_token = await self.authenticate_async(
-                    http=http,
-                    auth_server_url=self._auth_server_url,
-                    auth_scopes=self._auth_scopes,
-                    login_token=self._login_token,
-                )
+            self._access_token = await self._refresh_token_function(
+                auth_server_url=self._auth_server_url,
+                auth_scopes=self._auth_scopes,
+                login_token=self._login_token,
+            )
         return self._access_token
 
     def get_access_token(self) -> Optional[str]:
@@ -985,8 +995,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                         assert (
                             self._login_token
                         ), f"{response.status} received from server but no login_token was specified to use"
-                        self._access_token = await self.authenticate_async(
-                            http=http,
+                        self._access_token = await self._refresh_token_function(
                             auth_server_url=self._auth_server_url,
                             auth_scopes=self._auth_scopes,
                             login_token=self._login_token,
@@ -1511,16 +1520,14 @@ class FhirClient(SimulatedGraphProcessorMixin):
 
     async def authenticate_async(
         self,
-        http: ClientSession,
         auth_server_url: str,
         auth_scopes: Optional[List[str]],
-        login_token: str,
+        login_token: Optional[str],
     ) -> Optional[str]:
         """
         Authenticates with an OAuth Provider
 
 
-        :param http: http session
         :param auth_server_url: url to auth server /token endpoint
         :param auth_scopes: list of scopes to request
         :param login_token: login token to use for authenticating
@@ -1528,37 +1535,38 @@ class FhirClient(SimulatedGraphProcessorMixin):
         """
         assert auth_server_url
         assert auth_scopes
-        with self._authentication_token_lock:
-            payload: str = (
-                "grant_type=client_credentials&scope=" + "%20".join(auth_scopes)
-                if auth_scopes
-                else ""
-            )
-            # noinspection SpellCheckingInspection
-            headers: Dict[str, str] = {
-                "Accept": "application/json",
-                "Authorization": "Basic " + login_token,
-                "Content-Type": "application/x-www-form-urlencoded",
-            }
+        async with self.create_http_session() as session:
+            with self._authentication_token_lock:
+                payload: str = (
+                    "grant_type=client_credentials&scope=" + "%20".join(auth_scopes)
+                    if auth_scopes
+                    else ""
+                )
+                # noinspection SpellCheckingInspection
+                headers: Dict[str, str] = {
+                    "Accept": "application/json",
+                    "Authorization": "Basic " + login_token,
+                    "Content-Type": "application/x-www-form-urlencoded",
+                }
 
-            self._internal_logger.debug(
-                f"Authenticating with {auth_server_url} with client_id={self._client_id} for scopes={auth_scopes}"
-            )
+                self._internal_logger.debug(
+                    f"Authenticating with {auth_server_url} with client_id={self._client_id} for scopes={auth_scopes}"
+                )
 
-            response: ClientResponse = await http.request(
-                "POST", auth_server_url, headers=headers, data=payload
-            )
+                response: ClientResponse = await session.request(
+                    "POST", auth_server_url, headers=headers, data=payload
+                )
 
-            # token = response.text.encode('utf8')
-            token_text: str = await response.text()
-            if not token_text:
-                return None
-            token_json: Dict[str, Any] = json.loads(token_text)
+                # token = response.text.encode('utf8')
+                token_text: str = await response.text()
+                if not token_text:
+                    return None
+                token_json: Dict[str, Any] = json.loads(token_text)
 
-            if "access_token" not in token_json:
-                raise Exception(f"No access token found in {token_json}")
-            access_token: str = token_json["access_token"]
-            return access_token
+                if "access_token" not in token_json:
+                    raise Exception(f"No access token found in {token_json}")
+                access_token: str = token_json["access_token"]
+                return access_token
 
     async def send_patch_request_async(self, data: str) -> FhirUpdateResponse:
         """
@@ -1811,11 +1819,12 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                     assert (
                                         self._login_token
                                     ), f"{response.status} received from server but no login_token was specified to use"
-                                    self._access_token = await self.authenticate_async(
-                                        http=http,
-                                        auth_server_url=self._auth_server_url,
-                                        auth_scopes=self._auth_scopes,
-                                        login_token=self._login_token,
+                                    self._access_token = (
+                                        await self._refresh_token_function(
+                                            auth_server_url=self._auth_server_url,
+                                            auth_scopes=self._auth_scopes,
+                                            login_token=self._login_token,
+                                        )
                                     )
                                     # try again
                                     continue
