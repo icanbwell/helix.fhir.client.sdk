@@ -2302,23 +2302,23 @@ class FhirClient(SimulatedGraphProcessorMixin):
         for i in range(0, len(array), chunk_size):
             yield array[i : i + chunk_size]
 
-    async def handle_error(
-        self, error: str, response: str, page_number: Optional[int]
-    ) -> bool:
+    def handle_error_wrapper(self) -> HandleErrorFunction:
         """
         Default handler for errors.  Can be replaced by passing in fnError to functions
 
 
-        :param error:  error text
-        :param response: response text
-        :param page_number:
-        :return: whether to continue processing
         """
-        if self._logger:
-            self._logger.error(f"page: {page_number} {error}: {response}")
-        if self._internal_logger:
-            self._internal_logger.error(f"page: {page_number} {error}: {response}")
-        return True
+
+        async def handle_error_async(
+            error: str, response: str, page_number: Optional[int]
+        ) -> bool:
+            if self._logger:
+                self._logger.error(f"page: {page_number} {error}: {response}")
+            if self._internal_logger:
+                self._internal_logger.error(f"page: {page_number} {error}: {response}")
+            return True
+
+        return handle_error_async
 
     async def get_resources_by_query_and_last_updated_async(
         self,
@@ -2479,7 +2479,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
             concurrent_requests=concurrent_requests,
             chunks=chunks,
             fn_handle_batch=fn_handle_batch or add_resources_to_list,
-            fn_handle_error=fn_handle_error or self.handle_error,
+            fn_handle_error=fn_handle_error or self.handle_error_wrapper(),
             fn_handle_ids=fn_handle_ids,
             fn_handle_streaming_chunk=fn_handle_streaming_chunk,
         )
@@ -2560,7 +2560,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                     concurrent_requests=concurrent_requests,
                     output_queue=output_queue,
                     fn_handle_batch=add_to_list,
-                    fn_handle_error=fn_handle_error or self.handle_error,
+                    fn_handle_error=fn_handle_error or self.handle_error_wrapper(),
                     fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                 )
                 fhir_client._last_page = None  # clean any previous setting
@@ -2576,7 +2576,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                 concurrent_requests=concurrent_requests,
                 output_queue=output_queue,
                 fn_handle_batch=add_to_list,
-                fn_handle_error=self.handle_error,
+                fn_handle_error=self.handle_error_wrapper(),
                 fn_handle_streaming_chunk=fn_handle_streaming_chunk,
             )
             fhir_client._last_page = None  # clean any previous setting

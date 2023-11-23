@@ -1,8 +1,50 @@
-from typing import Callable, List, Dict, Any, Optional, Awaitable, Protocol
+from typing import List, Dict, Any, Optional, Protocol
 
-HandleBatchFunction = Callable[[List[Dict[str, Any]], Optional[int]], Awaitable[bool]]
-HandleStreamingChunkFunction = Callable[[bytes, Optional[int]], Awaitable[bool]]
-HandleErrorFunction = Callable[[str, str, Optional[int]], Awaitable[bool]]
+
+# This file contains contracts for callback functions
+class HandleBatchFunction(Protocol):
+    async def __call__(
+        self, resources_: List[Dict[str, Any]], page_number: Optional[int]
+    ) -> bool:
+        """
+        Handle a batch of data
+
+        :param resources_: resources to handle
+        :param page_number: page number
+        :return: True if successful
+        """
+        ...
+
+
+class HandleStreamingChunkFunction(Protocol):
+    async def __call__(
+        self,
+        line: bytes,
+        chunk_number: Optional[int] = None,
+    ) -> bool:
+        """
+        Handle a streaming result
+
+        :param line: line to handle
+        :param chunk_number: chunk number
+        :return: True if successful
+        """
+        ...
+
+
+class HandleErrorFunction(Protocol):
+    async def __call__(
+        self, error: str, response: str, page_number: Optional[int]
+    ) -> bool:
+        """
+        Handle an error
+
+        :param error: error message
+        :param response: error details
+        :param page_number: page number
+        :return: True if successful
+        """
+        ...
 
 
 class RefreshTokenFunction(Protocol):

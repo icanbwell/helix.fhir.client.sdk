@@ -177,10 +177,10 @@ async def test_fhir_client_patient_list_in_batches_async() -> None:
     fhir_client = fhir_client.include_total(True)
 
     async def handle_batch(
-        x: Optional[List[Dict[str, Any]]], page_number: Optional[int]
+        resources_: List[Dict[str, Any]], page_number: Optional[int]
     ) -> bool:
-        if x:
-            resources_list.extend(x)
+        if resources_:
+            resources_list.extend(resources_)
         return True
 
     resources_list: List[Dict[str, Any]] = []

@@ -41,8 +41,8 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     fhir_client = fhir_client.use_data_streaming(True)
 
-    async def on_chunk(data: bytes, chunk_number: Optional[int]) -> bool:
-        print(f"Got chunk {chunk_number}: {data.decode('utf-8')}")
+    async def on_chunk(line: bytes, chunk_number: Optional[int] = None) -> bool:
+        print(f"Got chunk {chunk_number}: {line.decode('utf-8')}")
         return True
 
     response: FhirGetResponse = await fhir_client.get_async(data_chunk_handler=on_chunk)
