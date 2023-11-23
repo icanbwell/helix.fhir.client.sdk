@@ -1535,6 +1535,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
         """
         assert auth_server_url
         assert auth_scopes
+        assert login_token
         async with self.create_http_session() as session:
             with self._authentication_token_lock:
                 payload: str = (
