@@ -976,11 +976,27 @@ class FhirClient(SimulatedGraphProcessorMixin):
                         not self._exclude_status_codes_from_retry
                         or response.status not in self._exclude_status_codes_from_retry
                     ):
-                        self._access_token = await self._refresh_token_function(
-                            auth_server_url=self._auth_server_url,
-                            auth_scopes=self._auth_scopes,
-                            login_token=self._login_token,
-                        )
+                        try:
+                            self._access_token = await self._refresh_token_function(
+                                auth_server_url=self._auth_server_url,
+                                auth_scopes=self._auth_scopes,
+                                login_token=self._login_token,
+                            )
+                        except Exception as ex:
+                            # no ability to refresh auth token
+                            return FhirGetResponse(
+                                request_id=request_id,
+                                url=full_url,
+                                responses="",
+                                error=str(ex),
+                                access_token=self._access_token,
+                                total_count=0,
+                                status=response.status,
+                                extra_context_to_return=self._extra_context_to_return,
+                                resource_type=self._resource,
+                                id_=self._id,
+                                response_headers=response_headers,
+                            )
                         # try again
                         continue
                     else:
