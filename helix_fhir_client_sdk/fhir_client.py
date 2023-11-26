@@ -976,27 +976,6 @@ class FhirClient(SimulatedGraphProcessorMixin):
                         not self._exclude_status_codes_from_retry
                         or response.status not in self._exclude_status_codes_from_retry
                     ):
-                        if not self._auth_server_url or not self._login_token:
-                            # no ability to refresh auth token
-                            return FhirGetResponse(
-                                request_id=request_id,
-                                url=full_url,
-                                responses="",
-                                error=last_response_text or "UnAuthorized",
-                                access_token=self._access_token,
-                                total_count=0,
-                                status=response.status,
-                                extra_context_to_return=self._extra_context_to_return,
-                                resource_type=self._resource,
-                                id_=self._id,
-                                response_headers=response_headers,
-                            )
-                        assert (
-                            self._auth_server_url
-                        ), f"{response.status} received from server but no auth_server_url was specified to use"
-                        assert (
-                            self._login_token
-                        ), f"{response.status} received from server but no login_token was specified to use"
                         self._access_token = await self._refresh_token_function(
                             auth_server_url=self._auth_server_url,
                             auth_scopes=self._auth_scopes,
@@ -1524,7 +1503,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
     async def authenticate_async(
         *,
         session: ClientSession,
-        auth_server_url: str,
+        auth_server_url: Optional[str],
         auth_scopes: Optional[List[str]],
         login_token: Optional[str],
     ) -> Optional[str]:
@@ -1567,7 +1546,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
         """
 
         async def refresh_token(
-            auth_server_url: str,
+            auth_server_url: Optional[str],
             auth_scopes: Optional[List[str]],
             login_token: Optional[str],
         ) -> Optional[str]:

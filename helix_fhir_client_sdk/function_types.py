@@ -50,7 +50,7 @@ class HandleErrorFunction(Protocol):
 class RefreshTokenFunction(Protocol):
     async def __call__(
         self,
-        auth_server_url: str,
+        auth_server_url: Optional[str],
         auth_scopes: Optional[List[str]],
         login_token: Optional[str],
     ) -> Optional[str]:
