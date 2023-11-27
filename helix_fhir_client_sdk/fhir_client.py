@@ -502,15 +502,11 @@ class FhirClient(SimulatedGraphProcessorMixin):
                 logging.info(
                     f"Received {self._auth_server_url} from well_known configuration of server: {self._url}"
                 )
-        if self._auth_server_url and not self._access_token:
-            assert (
-                self._login_token
-            ), "login token must be present if auth_server_url is set"
-            self._access_token = await self._refresh_token_function(
-                auth_server_url=self._auth_server_url,
-                auth_scopes=self._auth_scopes,
-                login_token=self._login_token,
-            )
+        self._access_token = await self._refresh_token_function(
+            auth_server_url=self._auth_server_url,
+            auth_scopes=self._auth_scopes,
+            login_token=self._login_token,
+        )
         return self._access_token
 
     def get_access_token(self) -> Optional[str]:
@@ -982,6 +978,21 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                 auth_scopes=self._auth_scopes,
                                 login_token=self._login_token,
                             )
+                            if not self._access_token:
+                                # no ability to refresh auth token
+                                return FhirGetResponse(
+                                    request_id=request_id,
+                                    url=full_url,
+                                    responses="",
+                                    error=last_response_text or "UnAuthorized",
+                                    access_token=self._access_token,
+                                    total_count=0,
+                                    status=response.status,
+                                    extra_context_to_return=self._extra_context_to_return,
+                                    resource_type=self._resource,
+                                    id_=self._id,
+                                    response_headers=response_headers,
+                                )
                         except Exception as ex:
                             # no ability to refresh auth token
                             return FhirGetResponse(
@@ -1005,7 +1016,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                             request_id=request_id,
                             url=full_url,
                             responses=await response.text(),
-                            error=None,
+                            error=last_response_text or "UnAuthorized",
                             access_token=self._access_token,
                             total_count=0,
                             status=response.status,
@@ -1523,9 +1534,10 @@ class FhirClient(SimulatedGraphProcessorMixin):
         auth_scopes: Optional[List[str]],
         login_token: Optional[str],
     ) -> Optional[str]:
-        assert auth_server_url
-        assert auth_scopes
-        assert login_token
+        if not auth_server_url or not login_token:
+            return None
+        assert auth_server_url, "No auth server url was set"
+        assert login_token, "No login token was set"
         payload: str = (
             "grant_type=client_credentials&scope=" + "%20".join(auth_scopes)
             if auth_scopes
@@ -1833,9 +1845,6 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                         f"{response.status} received from server but no auth_server_url"
                                         " was specified to use"
                                     )
-                                    assert (
-                                        self._login_token
-                                    ), f"{response.status} received from server but no login_token was specified to use"
                                     self._access_token = (
                                         await self._refresh_token_function(
                                             auth_server_url=self._auth_server_url,
