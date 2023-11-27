@@ -39,7 +39,9 @@ def test_fhir_client_patient_list_auth_fail_retry() -> None:
     mock_client.expect(
         request=mock_request(path=f"/{relative_url}/auth", method="POST"),
         response=mock_response(code=200, body=auth_response_text),
-        timing=times(1),
+        timing=times(
+            2
+        ),  # called twice.  first for initial auth token and second when we return 401 above
     )
 
     response_text: str = json.dumps({"resourceType": "Patient", "id": "12355"})

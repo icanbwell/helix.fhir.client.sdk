@@ -492,6 +492,8 @@ class FhirClient(SimulatedGraphProcessorMixin):
 
         :return: access token if any
         """
+        if self._access_token:
+            return self._access_token
         # if we have an auth server url but no access token then get access token
         if self._login_token and not self._auth_server_url:
             # try to get auth_server_url from well known configuration
@@ -972,6 +974,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                         not self._exclude_status_codes_from_retry
                         or response.status not in self._exclude_status_codes_from_retry
                     ):
+                        current_access_token: Optional[str] = self._access_token
                         try:
                             self._access_token = await self._refresh_token_function(
                                 auth_server_url=self._auth_server_url,
@@ -985,7 +988,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                     url=full_url,
                                     responses="",
                                     error=last_response_text or "UnAuthorized",
-                                    access_token=self._access_token,
+                                    access_token=current_access_token,
                                     total_count=0,
                                     status=response.status,
                                     extra_context_to_return=self._extra_context_to_return,
@@ -1000,7 +1003,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                 url=full_url,
                                 responses="",
                                 error=str(ex),
-                                access_token=self._access_token,
+                                access_token=current_access_token,
                                 total_count=0,
                                 status=response.status,
                                 extra_context_to_return=self._extra_context_to_return,
@@ -1841,10 +1844,6 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                 response.status == 403 or response.status == 401
                             ):  # forbidden or unauthorized
                                 if retries >= 0:
-                                    assert self._auth_server_url, (
-                                        f"{response.status} received from server but no auth_server_url"
-                                        " was specified to use"
-                                    )
                                     self._access_token = (
                                         await self._refresh_token_function(
                                             auth_server_url=self._auth_server_url,
@@ -1852,8 +1851,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                             login_token=self._login_token,
                                         )
                                     )
-                                    # try again
-                                    continue
+                                    if self._access_token:
+                                        # try again
+                                        continue
                                 else:
                                     # out of retries so just fail now
                                     response.raise_for_status()
