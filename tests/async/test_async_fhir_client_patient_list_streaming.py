@@ -28,12 +28,12 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
 
     response_text: str = json.dumps({"resourceType": "Patient", "id": "12355"})
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             headers={"Accept": "application/fhir+ndjson"},
         ),
-        mock_response(body=response_text),
+        response=mock_response(body=response_text),
         timing=times(2),
     )
 
@@ -41,8 +41,8 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     fhir_client = fhir_client.use_data_streaming(True)
 
-    async def on_chunk(data: bytes, chunk_number: Optional[int]) -> bool:
-        print(f"Got chunk {chunk_number}: {data.decode('utf-8')}")
+    async def on_chunk(line: bytes, chunk_number: Optional[int] = None) -> bool:
+        print(f"Got chunk {chunk_number}: {line.decode('utf-8')}")
         return True
 
     response: FhirGetResponse = await fhir_client.get_async(data_chunk_handler=on_chunk)

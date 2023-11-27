@@ -26,8 +26,8 @@ async def test_fhir_client_patient_list_auth_fail_retry_async() -> None:
     mock_client.reset()
 
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/Patient", method="GET"),
-        mock_response(code=401),
+        request=mock_request(path=f"/{relative_url}/Patient", method="GET"),
+        response=mock_response(code=401),
         timing=times(1),
     )
 
@@ -37,15 +37,17 @@ async def test_fhir_client_patient_list_auth_fail_retry_async() -> None:
         "token_type": "Bearer",
     }
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/auth", method="POST"),
-        mock_response(code=200, body=auth_response_text),
-        timing=times(1),
+        request=mock_request(path=f"/{relative_url}/auth", method="POST"),
+        response=mock_response(code=200, body=auth_response_text),
+        timing=times(
+            2
+        ),  # called twice.  first for initial auth token and second when we return 401 above
     )
 
     response_text: str = json.dumps({"resourceType": "Patient", "id": "12355"})
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/Patient", method="GET"),
-        mock_response(body=response_text),
+        request=mock_request(path=f"/{relative_url}/Patient", method="GET"),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 

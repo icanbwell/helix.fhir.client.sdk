@@ -24,8 +24,8 @@ async def test_fhir_client_patient_delete_async() -> None:
     mock_client.reset()
 
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/Patient/12345", method="DELETE"),
-        mock_response(code=204),
+        request=mock_request(path=f"/{relative_url}/Patient/12345", method="DELETE"),
+        response=mock_response(code=204),
         timing=times(1),
     )
 

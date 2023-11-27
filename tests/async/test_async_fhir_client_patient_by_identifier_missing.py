@@ -29,12 +29,12 @@ async def test_async_fhir_client_patient_by_identifier_missing_false() -> None:
 
     response_text: str = json.dumps({"resourceType": "Patient", "id": "12355"})
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={"identifier:missing": "false"},
         ),
-        mock_response(body=response_text),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
@@ -69,12 +69,12 @@ async def test_async_fhir_client_patient_by_identifier_missing_true() -> None:
 
     response_text: str = json.dumps({"resourceType": "Patient", "id": "12355"})
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={"identifier:missing": "true"},
         ),
-        mock_response(body=response_text),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 

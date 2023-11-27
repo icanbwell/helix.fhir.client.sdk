@@ -35,7 +35,7 @@ def test_fhir_client_patient_list_ids() -> None:
         ]
     )
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
             querystring={
@@ -45,7 +45,7 @@ def test_fhir_client_patient_list_ids() -> None:
                 "_lastUpdated": "ge2022-01-10T00:00:00Z",
             },
         ),
-        mock_response(body=response_text),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 

@@ -78,7 +78,7 @@ class FhirGetResponse:
         """ Extra context to return with every row (separate_bundle_resources is set) or with FhirGetResponse"""
         self.extra_context_to_return: Optional[Dict[str, Any]] = extra_context_to_return
         """ True if the request was successful """
-        self.successful: bool = status != 200
+        self.successful: bool = status == 200
         """ Headers returned by the server (can have duplicate header names) """ ""
         self.response_headers: Optional[List[str]] = response_headers
 
