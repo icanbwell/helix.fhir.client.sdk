@@ -1253,7 +1253,7 @@
                 "sha256:42d68ce8c6b966874b68758d87d7f20fcff2eff0d861903eea1062126be4d98f"
             ],
             "markers": "python_version >= '3.7'",
-            "version": "==0.4.4"
+            "version": "==1.0.0"
         },
         "pluggy": {
             "hashes": [
