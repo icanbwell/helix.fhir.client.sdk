@@ -6,7 +6,6 @@ import json
 import logging
 import time
 import uuid
-import sys
 from asyncio import Future
 from datetime import datetime, timedelta
 from logging import Logger
@@ -449,14 +448,14 @@ class FhirClient(SimulatedGraphProcessorMixin):
         self._content_type = type_
         return self
 
-    def additional_request_headers(self, type_: Dict[str, str]) -> "FhirClient":
+    def additional_request_headers(self, headers: Dict[str, str]) -> "FhirClient":
         """
         Additional headers to send to server in the request header
 
-        :param type_:
+        :param headers: Request headers dictionary
         :return:
         """
-        self._additional_request_headers = type_
+        self._additional_request_headers = headers
         return self
 
     def accept_encoding(self, encoding: str) -> "FhirClient":
@@ -552,7 +551,8 @@ class FhirClient(SimulatedGraphProcessorMixin):
         async with self.create_http_session() as http:
             # set up headers
             headers: Dict[str, str] = {}
-            self.add_additional_request_headers(headers)
+            headers.update(self._additional_request_headers)
+            self._internal_logger.debug(f"Additional request headers: {headers}")
 
             access_token = await self.get_access_token_async()
             # set access token in request if present
@@ -775,7 +775,8 @@ class FhirClient(SimulatedGraphProcessorMixin):
             "Content-Type": self._content_type,
             "Accept-Encoding": self._accept_encoding,
         }
-        self.add_additional_request_headers(headers)
+        headers.update(self._additional_request_headers)
+        self._internal_logger.debug(f"Additional request headers: {headers}")
 
         start_time: float = time.time()
         last_status_code: Optional[int] = None
@@ -1486,7 +1487,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
         :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
                                     resource is a dictionary. If this is specified then we don't return
                                     the resources anymore.  If this function returns False then we stop
-                                    processing batches.
+                                    processing batches
         :return response containing all the resources received
         """
         # if paging is requested then iterate through the pages until the response is empty
@@ -1640,7 +1641,8 @@ class FhirClient(SimulatedGraphProcessorMixin):
         async with self.create_http_session() as http:
             # Set up headers
             headers = {"Content-Type": "application/json-patch+json"}
-            self.add_additional_request_headers(headers)
+            headers.update(self._additional_request_headers)
+            self._internal_logger.debug(f"Additional request headers: {headers}")
             access_token = await self.get_access_token_async()
             # set access token in request if present
             if access_token:
@@ -1744,7 +1746,8 @@ class FhirClient(SimulatedGraphProcessorMixin):
             assert self._resource
             full_uri /= self._resource
             headers = {"Content-Type": "application/fhir+json"}
-            self.add_additional_request_headers(headers)
+            headers.update(self._additional_request_headers)
+            self._internal_logger.debug(f"Additional request headers: {headers}")
 
             responses: List[Dict[str, Any]] = []
             start_time: float = time.time()
@@ -2168,7 +2171,8 @@ class FhirClient(SimulatedGraphProcessorMixin):
         async with self.create_http_session() as http:
             # set up headers
             headers = {"Content-Type": "application/fhir+json"}
-            self.add_additional_request_headers(headers)
+            headers.update(self._additional_request_headers)
+            self._internal_logger.debug(f"Additional request headers: {headers}")
 
             access_token = await self.get_access_token_async()
             # set access token in request if present
@@ -2734,17 +2738,3 @@ class FhirClient(SimulatedGraphProcessorMixin):
             logger=self._logger,
             auth_scopes=self._auth_scopes,
         )
-
-    def add_additional_request_headers(self, headers: Dict[str, str]) -> None:
-        """
-        Add additional request headers while making any request
-        """
-        additional_headers: Dict[str, str] = self._additional_request_headers
-        if additional_headers:
-            if "User-Agent" in self._additional_request_headers.keys():
-                self._additional_request_headers["User-Agent"] = (
-                    f"Python/{sys.version_info.major}.{sys.version_info.minor}; "
-                    + f"aiohttp/{aiohttp.__version__}; "
-                    + additional_headers["User-Agent"]
-                )
-            headers.update(additional_headers)
