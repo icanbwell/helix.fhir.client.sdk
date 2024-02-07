@@ -552,7 +552,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
             # set up headers
             headers: Dict[str, str] = {}
             headers.update(self._additional_request_headers)
-            self._internal_logger.debug(f"Additional request headers: {headers}")
+            self._internal_logger.debug(f"Request headers: {headers}")
 
             access_token = await self.get_access_token_async()
             # set access token in request if present
@@ -776,7 +776,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
             "Accept-Encoding": self._accept_encoding,
         }
         headers.update(self._additional_request_headers)
-        self._internal_logger.debug(f"Additional request headers: {headers}")
+        self._internal_logger.debug(f"Request headers: {headers}")
 
         start_time: float = time.time()
         last_status_code: Optional[int] = None
@@ -1642,7 +1642,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
             # Set up headers
             headers = {"Content-Type": "application/json-patch+json"}
             headers.update(self._additional_request_headers)
-            self._internal_logger.debug(f"Additional request headers: {headers}")
+            self._internal_logger.debug(f"Request headers: {headers}")
             access_token = await self.get_access_token_async()
             # set access token in request if present
             if access_token:
@@ -1747,7 +1747,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
             full_uri /= self._resource
             headers = {"Content-Type": "application/fhir+json"}
             headers.update(self._additional_request_headers)
-            self._internal_logger.debug(f"Additional request headers: {headers}")
+            self._internal_logger.debug(f"Request headers: {headers}")
 
             responses: List[Dict[str, Any]] = []
             start_time: float = time.time()
@@ -2172,7 +2172,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
             # set up headers
             headers = {"Content-Type": "application/fhir+json"}
             headers.update(self._additional_request_headers)
-            self._internal_logger.debug(f"Additional request headers: {headers}")
+            self._internal_logger.debug(f"Request headers: {headers}")
 
             access_token = await self.get_access_token_async()
             # set access token in request if present
