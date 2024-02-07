@@ -38,9 +38,14 @@ async def test_fhir_client_patient_merge_async() -> None:
         response=mock_response(body=json.dumps(response_text_1)),
         timing=times(1),
     )
+    additional_request_headers = {
+        "TestHeaderOne": "abcdtest",
+        "User-Agent": "TestPipelineName",
+    }
 
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
+    fhir_client = fhir_client.additional_request_headers(additional_request_headers)
     response: FhirMergeResponse = await fhir_client.merge_async(
         json_data_list=[json.dumps(resource)]
     )

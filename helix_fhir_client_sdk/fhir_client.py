@@ -147,6 +147,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
 
         self._accept: str = "application/fhir+json"
         self._content_type: str = "application/fhir+json"
+        self._additional_request_headers: Dict[str, str] = {}
         self._accept_encoding: str = "gzip,deflate"
 
         self._maximum_time_to_retry_on_429: int = 60 * 60
@@ -447,6 +448,16 @@ class FhirClient(SimulatedGraphProcessorMixin):
         self._content_type = type_
         return self
 
+    def additional_request_headers(self, headers: Dict[str, str]) -> "FhirClient":
+        """
+        Additional headers to send to server in the request header
+
+        :param headers: Request headers dictionary
+        :return:
+        """
+        self._additional_request_headers = headers
+        return self
+
     def accept_encoding(self, encoding: str) -> "FhirClient":
         """
         Type to send to server in the request header Accept-Encoding
@@ -540,6 +551,8 @@ class FhirClient(SimulatedGraphProcessorMixin):
         async with self.create_http_session() as http:
             # set up headers
             headers: Dict[str, str] = {}
+            headers.update(self._additional_request_headers)
+            self._internal_logger.debug(f"Request headers: {headers}")
 
             access_token = await self.get_access_token_async()
             # set access token in request if present
@@ -762,6 +775,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
             "Content-Type": self._content_type,
             "Accept-Encoding": self._accept_encoding,
         }
+        headers.update(self._additional_request_headers)
+        self._internal_logger.debug(f"Request headers: {headers}")
+
         start_time: float = time.time()
         last_status_code: Optional[int] = None
         last_response_text: Optional[str] = None
@@ -1471,7 +1487,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
         :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
                                     resource is a dictionary. If this is specified then we don't return
                                     the resources anymore.  If this function returns False then we stop
-                                    processing batches.
+                                    processing batches
         :return response containing all the resources received
         """
         # if paging is requested then iterate through the pages until the response is empty
@@ -1625,6 +1641,8 @@ class FhirClient(SimulatedGraphProcessorMixin):
         async with self.create_http_session() as http:
             # Set up headers
             headers = {"Content-Type": "application/json-patch+json"}
+            headers.update(self._additional_request_headers)
+            self._internal_logger.debug(f"Request headers: {headers}")
             access_token = await self.get_access_token_async()
             # set access token in request if present
             if access_token:
@@ -1728,6 +1746,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
             assert self._resource
             full_uri /= self._resource
             headers = {"Content-Type": "application/fhir+json"}
+            headers.update(self._additional_request_headers)
+            self._internal_logger.debug(f"Request headers: {headers}")
+
             responses: List[Dict[str, Any]] = []
             start_time: float = time.time()
             async with self.create_http_session() as http:
@@ -2150,6 +2171,8 @@ class FhirClient(SimulatedGraphProcessorMixin):
         async with self.create_http_session() as http:
             # set up headers
             headers = {"Content-Type": "application/fhir+json"}
+            headers.update(self._additional_request_headers)
+            self._internal_logger.debug(f"Request headers: {headers}")
 
             access_token = await self.get_access_token_async()
             # set access token in request if present
