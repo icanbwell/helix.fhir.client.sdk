@@ -1,5 +1,5 @@
 import json
-from typing import Optional
+from typing import AsyncGenerator, Optional, Any, Tuple, Dict, List
 
 from mockserver_client.mockserver_client import (
     mock_request,
@@ -27,7 +27,9 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
     mock_client.clear(f"/{test_name}/*.*")
     mock_client.reset()
 
-    response_text: str = json.dumps({"resourceType": "Patient", "id": "12355", "first_name": "test"})
+    response_text: str = json.dumps(
+        {"resourceType": "Patient", "id": "12355", "first_name": "test"}
+    )
     mock_client.expect(
         request=mock_request(
             path=f"/{relative_url}/Patient",
@@ -50,49 +52,65 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
         """
         Mocked ClientResponse class of aiohttp module.
         """
-        def __init__(self, status, headers, content):
+
+        def __init__(
+            self,
+            status: int,
+            headers: Dict[str, str],
+            content: List[Tuple[bytes, bool]],
+        ) -> None:
             self.status = status
             self._headers = headers
             self._content = content
 
         @property
-        def content(self):
+        def content(self) -> Any:
             return ContentIterator(self._content)
 
         @property
-        def headers(self):
+        def headers(self) -> Any:
             return GetHeader(self._headers)
 
     class ContentIterator:
         """
         Mocked stream reader class of aiohttp module. This class was mocked to mock the behaviour of iter_chunks method.
         """
-        def __init__(self, content):
+
+        def __init__(self, content: List[Tuple[bytes, bool]]) -> None:
             self._content = content
 
-        async def iter_chunks(self):
+        async def iter_chunks(self) -> AsyncGenerator[Tuple[bytes, bool], None]:
             for content in self._content:
                 yield content
 
-    class GetHeader(dict):
+    class GetHeader(dict[str, Any]):
         """
         Mocked CIMultiDictProxy class of multidict module. This class was mocked to mock the behaviour of getone method.
         """
-        def __init__(self, header):
+
+        def __init__(self, header: Dict[str, str]) -> None:
             super().__init__()
             self._header = header
 
-        def getone(self, key, *args, **kwargs):
+        def getone(self, key: str, *args: Any, **kwargs: Any) -> Any:
             return self._header.get(key, None)
 
     # Mocking send_fhir_request_async method of fhir client class
-    with patch.object(fhir_client, '_send_fhir_request_async', new_callable=AsyncMock) as mock_send_fhir_request_async:
+    with patch.object(
+        fhir_client, "_send_fhir_request_async", new_callable=AsyncMock
+    ) as mock_send_fhir_request_async:
         mocked_response = ClientResponse(
-            200, {"Accept": "application/fhir+ndjson"},
-            [(b'{"resourceType": "Patient", "id": "12355"', False), (b', "first_name": "test"}', True)]
+            200,
+            {"Accept": "application/fhir+ndjson"},
+            [
+                (b'{"resourceType": "Patient", "id": "12355"', False),
+                (b', "first_name": "test"}', True),
+            ],
         )
         mock_send_fhir_request_async.return_value = mocked_response
-        response: FhirGetResponse = await fhir_client.get_async(data_chunk_handler=on_chunk)
+        response: FhirGetResponse = await fhir_client.get_async(
+            data_chunk_handler=on_chunk
+        )
 
     print(response.responses)
     assert response.responses == response_text
