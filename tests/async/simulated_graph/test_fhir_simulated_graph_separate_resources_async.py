@@ -43,22 +43,22 @@ async def test_fhir_simulated_graph_async() -> None:
     }
 
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/Patient/1", method="GET"),
-        mock_response(body=response_text),
+        request=mock_request(path=f"/{relative_url}/Patient/1", method="GET"),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
     response_text = {"resourceType": "Practitioner", "id": "5"}
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/Practitioner/5", method="GET"),
-        mock_response(body=response_text),
+        request=mock_request(path=f"/{relative_url}/Practitioner/5", method="GET"),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
     response_text = {"resourceType": "Organization", "id": "6"}
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/Organization/6", method="GET"),
-        mock_response(body=response_text),
+        request=mock_request(path=f"/{relative_url}/Organization/6", method="GET"),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
@@ -74,19 +74,21 @@ async def test_fhir_simulated_graph_async() -> None:
         ]
     }
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Coverage",
             querystring={"patient": "1"},
             method="GET",
         ),
-        mock_response(body=response_text),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
     response_text = {"resourceType": "Organization", "id": "CoveragePayor"}
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/Organization/CoveragePayor", method="GET"),
-        mock_response(body=response_text),
+        request=mock_request(
+            path=f"/{relative_url}/Organization/CoveragePayor", method="GET"
+        ),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
@@ -94,7 +96,7 @@ async def test_fhir_simulated_graph_async() -> None:
         "entry": [{"resource": {"resourceType": "Observation", "id": "8"}}]
     }
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Observation",
             querystring={
                 "patient": "1",
@@ -102,7 +104,7 @@ async def test_fhir_simulated_graph_async() -> None:
             },
             method="GET",
         ),
-        mock_response(body=response_text),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 

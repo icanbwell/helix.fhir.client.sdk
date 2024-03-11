@@ -24,8 +24,8 @@ async def test_fhir_client_patient_list_auth_fail_async() -> None:
     mock_client.reset()
 
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/Patient", method="GET"),
-        mock_response(code=403),
+        request=mock_request(path=f"/{relative_url}/Patient", method="GET"),
+        response=mock_response(code=403),
         timing=times(1),
     )
 

@@ -30,12 +30,12 @@ def test_fhir_client_patient_update() -> None:
     resource = {"resourceType": "Patient", "id": "12355"}
     # request_body = {"resourceType": "Bundle", "entry": [{"resource": resource}]}
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Patient/12355",
             method="PUT",
             body=json.dumps(resource),
         ),
-        mock_response(body=json.dumps(response_text_1)),
+        response=mock_response(body=json.dumps(response_text_1)),
         timing=times(1),
     )
 

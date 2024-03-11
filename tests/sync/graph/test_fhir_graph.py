@@ -65,8 +65,8 @@ def test_fhir_graph() -> None:
     )
 
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/Patient/1/$graph", method="POST"),
-        mock_response(body=response_text),
+        request=mock_request(path=f"/{relative_url}/Patient/1/$graph", method="POST"),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 

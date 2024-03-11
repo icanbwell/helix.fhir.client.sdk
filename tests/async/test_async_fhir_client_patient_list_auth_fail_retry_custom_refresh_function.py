@@ -9,10 +9,13 @@ from mockserver_client.mockserver_client import (
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from unittest.mock import AsyncMock
 
 
-def test_fhir_client_patient_list_auth_fail_retry() -> None:
-    test_name = "test_fhir_client_patient_list_auth_fail_retry"
+async def test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_function() -> None:
+    test_name = (
+        "test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_function"
+    )
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
@@ -31,19 +34,6 @@ def test_fhir_client_patient_list_auth_fail_retry() -> None:
         timing=times(1),
     )
 
-    auth_response_text = {
-        "access_token": "my_access_token",
-        "expires_in": 86400,
-        "token_type": "Bearer",
-    }
-    mock_client.expect(
-        request=mock_request(path=f"/{relative_url}/auth", method="POST"),
-        response=mock_response(code=200, body=auth_response_text),
-        timing=times(
-            2
-        ),  # called twice.  first for initial auth token and second when we return 401 above
-    )
-
     response_text: str = json.dumps({"resourceType": "Patient", "id": "12355"})
     mock_client.expect(
         request=mock_request(path=f"/{relative_url}/Patient", method="GET"),
@@ -59,7 +49,19 @@ def test_fhir_client_patient_list_auth_fail_retry() -> None:
     fhir_client = fhir_client.auth_server_url(absolute_url + "/" + "auth").auth_scopes(
         ["user/*.ready"]
     )
-    response: FhirGetResponse = fhir_client.get()
 
+    mocked_authenticate_async = AsyncMock()
+    mocked_authenticate_async.return_value = "my_access_token"
+
+    # noinspection PyTypeChecker
+    fhir_client = fhir_client.refresh_token_function(mocked_authenticate_async)
+    response: FhirGetResponse = await fhir_client.get_async()
+
+    mocked_authenticate_async.assert_called()
+    mocked_authenticate_async.assert_called_with(
+        auth_server_url=absolute_url + "/" + "auth",
+        auth_scopes=["user/*.ready"],
+        login_token="Y2xpZW50X2lkOmNsaWVudF9zZWNyZXQ=",
+    )
     print(response.responses)
     assert response.responses == response_text

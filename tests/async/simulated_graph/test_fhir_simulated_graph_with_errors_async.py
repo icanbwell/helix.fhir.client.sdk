@@ -43,38 +43,38 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
     }
 
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/Patient/1", method="GET"),
-        mock_response(body=response_text),
+        request=mock_request(path=f"/{relative_url}/Patient/1", method="GET"),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
     response_text = {"resourceType": "Practitioner", "id": "5"}
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/Practitioner/5", method="GET"),
-        mock_response(body=response_text),
+        request=mock_request(path=f"/{relative_url}/Practitioner/5", method="GET"),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
     response_text = {"resourceType": "Organization", "id": "6"}
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/Organization/6", method="GET"),
-        mock_response(body=response_text),
+        request=mock_request(path=f"/{relative_url}/Organization/6", method="GET"),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
     response_text = {"entry": [{"resource": {"resourceType": "Coverage", "id": "7"}}]}
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Coverage",
             querystring={"patient": "1"},
             method="GET",
         ),
-        mock_response(body=response_text),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Observation",
             querystring={
                 "patient": "1",
@@ -82,7 +82,7 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
             },
             method="GET",
         ),
-        mock_response(code=401),
+        response=mock_response(code=401),
         timing=times(1),
     )
 
@@ -90,6 +90,9 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
     fhir_client = fhir_client.expand_fhir_bundle(False)
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     fhir_client = fhir_client.extra_context_to_return({"slug": "1234"})
+
+    fhir_client = fhir_client.exclude_status_codes_from_retry([401])
+
     response: FhirGetResponse = await fhir_client.simulate_graph_async(
         id_="1",
         graph_json=graph_json,

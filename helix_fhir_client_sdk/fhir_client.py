@@ -58,6 +58,7 @@ from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
     HandleBatchFunction,
     HandleErrorFunction,
+    RefreshTokenFunction,
 )
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,
@@ -146,6 +147,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
 
         self._accept: str = "application/fhir+json"
         self._content_type: str = "application/fhir+json"
+        self._additional_request_headers: Dict[str, str] = {}
         self._accept_encoding: str = "gzip,deflate"
 
         self._maximum_time_to_retry_on_429: int = 60 * 60
@@ -157,6 +159,10 @@ class FhirClient(SimulatedGraphProcessorMixin):
 
         self._uuid = uuid.uuid4()
         self._log_level: Optional[str] = environ.get("LOGLEVEL")
+        # default to built-in function to refresh token
+        self._refresh_token_function: RefreshTokenFunction = (
+            self.authenticate_async_wrapper()
+        )
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -442,6 +448,16 @@ class FhirClient(SimulatedGraphProcessorMixin):
         self._content_type = type_
         return self
 
+    def additional_request_headers(self, headers: Dict[str, str]) -> "FhirClient":
+        """
+        Additional headers to send to server in the request header
+
+        :param headers: Request headers dictionary
+        :return:
+        """
+        self._additional_request_headers = headers
+        return self
+
     def accept_encoding(self, encoding: str) -> "FhirClient":
         """
         Type to send to server in the request header Accept-Encoding
@@ -454,6 +470,15 @@ class FhirClient(SimulatedGraphProcessorMixin):
 
     def log_level(self, level: Optional[str]) -> "FhirClient":
         self._log_level = level
+        return self
+
+    def refresh_token_function(self, fn: RefreshTokenFunction) -> "FhirClient":
+        """
+        Sets the function to call to refresh the token
+
+        :param fn: function to call to refresh the token
+        """
+        self._refresh_token_function = fn
         return self
 
     # noinspection PyUnusedLocal
@@ -478,6 +503,8 @@ class FhirClient(SimulatedGraphProcessorMixin):
 
         :return: access token if any
         """
+        if self._access_token:
+            return self._access_token
         # if we have an auth server url but no access token then get access token
         if self._login_token and not self._auth_server_url:
             # try to get auth_server_url from well known configuration
@@ -488,17 +515,11 @@ class FhirClient(SimulatedGraphProcessorMixin):
                 logging.info(
                     f"Received {self._auth_server_url} from well_known configuration of server: {self._url}"
                 )
-        if self._auth_server_url and not self._access_token:
-            assert (
-                self._login_token
-            ), "login token must be present if auth_server_url is set"
-            async with self.create_http_session() as http:
-                self._access_token = await self.authenticate_async(
-                    http=http,
-                    auth_server_url=self._auth_server_url,
-                    auth_scopes=self._auth_scopes,
-                    login_token=self._login_token,
-                )
+        self._access_token = await self._refresh_token_function(
+            auth_server_url=self._auth_server_url,
+            auth_scopes=self._auth_scopes,
+            login_token=self._login_token,
+        )
         return self._access_token
 
     def get_access_token(self) -> Optional[str]:
@@ -530,6 +551,8 @@ class FhirClient(SimulatedGraphProcessorMixin):
         async with self.create_http_session() as http:
             # set up headers
             headers: Dict[str, str] = {}
+            headers.update(self._additional_request_headers)
+            self._internal_logger.debug(f"Request headers: {headers}")
 
             access_token = await self.get_access_token_async()
             # set access token in request if present
@@ -752,6 +775,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
             "Content-Type": self._content_type,
             "Accept-Encoding": self._accept_encoding,
         }
+        headers.update(self._additional_request_headers)
+        self._internal_logger.debug(f"Request headers: {headers}")
+
         start_time: float = time.time()
         last_status_code: Optional[int] = None
         last_response_text: Optional[str] = None
@@ -968,14 +994,36 @@ class FhirClient(SimulatedGraphProcessorMixin):
                         not self._exclude_status_codes_from_retry
                         or response.status not in self._exclude_status_codes_from_retry
                     ):
-                        if not self._auth_server_url or not self._login_token:
+                        current_access_token: Optional[str] = self._access_token
+                        try:
+                            self._access_token = await self._refresh_token_function(
+                                auth_server_url=self._auth_server_url,
+                                auth_scopes=self._auth_scopes,
+                                login_token=self._login_token,
+                            )
+                            if not self._access_token:
+                                # no ability to refresh auth token
+                                return FhirGetResponse(
+                                    request_id=request_id,
+                                    url=full_url,
+                                    responses="",
+                                    error=last_response_text or "UnAuthorized",
+                                    access_token=current_access_token,
+                                    total_count=0,
+                                    status=response.status,
+                                    extra_context_to_return=self._extra_context_to_return,
+                                    resource_type=self._resource,
+                                    id_=self._id,
+                                    response_headers=response_headers,
+                                )
+                        except Exception as ex:
                             # no ability to refresh auth token
                             return FhirGetResponse(
                                 request_id=request_id,
                                 url=full_url,
                                 responses="",
-                                error=last_response_text or "UnAuthorized",
-                                access_token=self._access_token,
+                                error=str(ex),
+                                access_token=current_access_token,
                                 total_count=0,
                                 status=response.status,
                                 extra_context_to_return=self._extra_context_to_return,
@@ -983,18 +1031,6 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                 id_=self._id,
                                 response_headers=response_headers,
                             )
-                        assert (
-                            self._auth_server_url
-                        ), f"{response.status} received from server but no auth_server_url was specified to use"
-                        assert (
-                            self._login_token
-                        ), f"{response.status} received from server but no login_token was specified to use"
-                        self._access_token = await self.authenticate_async(
-                            http=http,
-                            auth_server_url=self._auth_server_url,
-                            auth_scopes=self._auth_scopes,
-                            login_token=self._login_token,
-                        )
                         # try again
                         continue
                     else:
@@ -1003,7 +1039,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                             request_id=request_id,
                             url=full_url,
                             responses=await response.text(),
-                            error=None,
+                            error=last_response_text or "UnAuthorized",
                             access_token=self._access_token,
                             total_count=0,
                             status=response.status,
@@ -1455,7 +1491,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
         :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
                                     resource is a dictionary. If this is specified then we don't return
                                     the resources anymore.  If this function returns False then we stop
-                                    processing batches.
+                                    processing batches
         :return response containing all the resources received
         """
         # if paging is requested then iterate through the pages until the response is empty
@@ -1513,56 +1549,76 @@ class FhirClient(SimulatedGraphProcessorMixin):
         ).decode("ascii")
         return token
 
+    @staticmethod
     async def authenticate_async(
-        self,
-        http: ClientSession,
-        auth_server_url: str,
+        *,
+        session: ClientSession,
+        auth_server_url: Optional[str],
         auth_scopes: Optional[List[str]],
-        login_token: str,
+        login_token: Optional[str],
     ) -> Optional[str]:
+        if not auth_server_url or not login_token:
+            return None
+        assert auth_server_url, "No auth server url was set"
+        assert login_token, "No login token was set"
+        payload: str = (
+            "grant_type=client_credentials&scope=" + "%20".join(auth_scopes)
+            if auth_scopes
+            else ""
+        )
+        # noinspection SpellCheckingInspection
+        headers: Dict[str, str] = {
+            "Accept": "application/json",
+            "Authorization": "Basic " + login_token,
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+
+        response: ClientResponse = await session.request(
+            "POST", auth_server_url, headers=headers, data=payload
+        )
+
+        # token = response.text.encode('utf8')
+        token_text: str = await response.text()
+        if not token_text:
+            return None
+        token_json: Dict[str, Any] = json.loads(token_text)
+
+        if "access_token" not in token_json:
+            raise Exception(f"No access token found in {token_json}")
+        access_token: str = token_json["access_token"]
+        return access_token
+
+    def authenticate_async_wrapper(self) -> RefreshTokenFunction:
         """
-        Authenticates with an OAuth Provider
+        Returns a function that authenticates with auth server
 
 
-        :param http: http session
-        :param auth_server_url: url to auth server /token endpoint
-        :param auth_scopes: list of scopes to request
-        :param login_token: login token to use for authenticating
-        :return: access token
+        :return: refresh token function
         """
-        assert auth_server_url
-        assert auth_scopes
-        with self._authentication_token_lock:
-            payload: str = (
-                "grant_type=client_credentials&scope=" + "%20".join(auth_scopes)
-                if auth_scopes
-                else ""
-            )
-            # noinspection SpellCheckingInspection
-            headers: Dict[str, str] = {
-                "Accept": "application/json",
-                "Authorization": "Basic " + login_token,
-                "Content-Type": "application/x-www-form-urlencoded",
-            }
 
-            self._internal_logger.debug(
-                f"Authenticating with {auth_server_url} with client_id={self._client_id} for scopes={auth_scopes}"
-            )
+        async def refresh_token(
+            auth_server_url: Optional[str],
+            auth_scopes: Optional[List[str]],
+            login_token: Optional[str],
+        ) -> Optional[str]:
+            """
+            This function creates the session and then calls authenticate_async()
 
-            response: ClientResponse = await http.request(
-                "POST", auth_server_url, headers=headers, data=payload
-            )
+            :param auth_server_url: auth server url
+            :param auth_scopes: auth scopes
+            :param login_token: login token
+            :return: access token
+            """
+            async with self.create_http_session() as session:
+                with self._authentication_token_lock:
+                    return await self.authenticate_async(
+                        session=session,
+                        auth_server_url=auth_server_url,
+                        auth_scopes=auth_scopes,
+                        login_token=login_token,
+                    )
 
-            # token = response.text.encode('utf8')
-            token_text: str = await response.text()
-            if not token_text:
-                return None
-            token_json: Dict[str, Any] = json.loads(token_text)
-
-            if "access_token" not in token_json:
-                raise Exception(f"No access token found in {token_json}")
-            access_token: str = token_json["access_token"]
-            return access_token
+        return refresh_token
 
     async def send_patch_request_async(self, data: str) -> FhirUpdateResponse:
         """
@@ -1589,6 +1645,8 @@ class FhirClient(SimulatedGraphProcessorMixin):
         async with self.create_http_session() as http:
             # Set up headers
             headers = {"Content-Type": "application/json-patch+json"}
+            headers.update(self._additional_request_headers)
+            self._internal_logger.debug(f"Request headers: {headers}")
             access_token = await self.get_access_token_async()
             # set access token in request if present
             if access_token:
@@ -1692,6 +1750,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
             assert self._resource
             full_uri /= self._resource
             headers = {"Content-Type": "application/fhir+json"}
+            headers.update(self._additional_request_headers)
+            self._internal_logger.debug(f"Request headers: {headers}")
+
             responses: List[Dict[str, Any]] = []
             start_time: float = time.time()
             async with self.create_http_session() as http:
@@ -1808,21 +1869,16 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                 response.status == 403 or response.status == 401
                             ):  # forbidden or unauthorized
                                 if retries >= 0:
-                                    assert self._auth_server_url, (
-                                        f"{response.status} received from server but no auth_server_url"
-                                        " was specified to use"
+                                    self._access_token = (
+                                        await self._refresh_token_function(
+                                            auth_server_url=self._auth_server_url,
+                                            auth_scopes=self._auth_scopes,
+                                            login_token=self._login_token,
+                                        )
                                     )
-                                    assert (
-                                        self._login_token
-                                    ), f"{response.status} received from server but no login_token was specified to use"
-                                    self._access_token = await self.authenticate_async(
-                                        http=http,
-                                        auth_server_url=self._auth_server_url,
-                                        auth_scopes=self._auth_scopes,
-                                        login_token=self._login_token,
-                                    )
-                                    # try again
-                                    continue
+                                    if self._access_token:
+                                        # try again
+                                        continue
                                 else:
                                     # out of retries so just fail now
                                     response.raise_for_status()
@@ -2119,6 +2175,8 @@ class FhirClient(SimulatedGraphProcessorMixin):
         async with self.create_http_session() as http:
             # set up headers
             headers = {"Content-Type": "application/fhir+json"}
+            headers.update(self._additional_request_headers)
+            self._internal_logger.debug(f"Request headers: {headers}")
 
             access_token = await self.get_access_token_async()
             # set access token in request if present
@@ -2275,23 +2333,23 @@ class FhirClient(SimulatedGraphProcessorMixin):
         for i in range(0, len(array), chunk_size):
             yield array[i : i + chunk_size]
 
-    async def handle_error(
-        self, error: str, response: str, page_number: Optional[int]
-    ) -> bool:
+    def handle_error_wrapper(self) -> HandleErrorFunction:
         """
         Default handler for errors.  Can be replaced by passing in fnError to functions
 
 
-        :param error:  error text
-        :param response: response text
-        :param page_number:
-        :return: whether to continue processing
         """
-        if self._logger:
-            self._logger.error(f"page: {page_number} {error}: {response}")
-        if self._internal_logger:
-            self._internal_logger.error(f"page: {page_number} {error}: {response}")
-        return True
+
+        async def handle_error_async(
+            error: str, response: str, page_number: Optional[int]
+        ) -> bool:
+            if self._logger:
+                self._logger.error(f"page: {page_number} {error}: {response}")
+            if self._internal_logger:
+                self._internal_logger.error(f"page: {page_number} {error}: {response}")
+            return True
+
+        return handle_error_async
 
     async def get_resources_by_query_and_last_updated_async(
         self,
@@ -2452,7 +2510,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
             concurrent_requests=concurrent_requests,
             chunks=chunks,
             fn_handle_batch=fn_handle_batch or add_resources_to_list,
-            fn_handle_error=fn_handle_error or self.handle_error,
+            fn_handle_error=fn_handle_error or self.handle_error_wrapper(),
             fn_handle_ids=fn_handle_ids,
             fn_handle_streaming_chunk=fn_handle_streaming_chunk,
         )
@@ -2533,7 +2591,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                     concurrent_requests=concurrent_requests,
                     output_queue=output_queue,
                     fn_handle_batch=add_to_list,
-                    fn_handle_error=fn_handle_error or self.handle_error,
+                    fn_handle_error=fn_handle_error or self.handle_error_wrapper(),
                     fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                 )
                 fhir_client._last_page = None  # clean any previous setting
@@ -2549,7 +2607,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                 concurrent_requests=concurrent_requests,
                 output_queue=output_queue,
                 fn_handle_batch=add_to_list,
-                fn_handle_error=self.handle_error,
+                fn_handle_error=self.handle_error_wrapper(),
                 fn_handle_streaming_chunk=fn_handle_streaming_chunk,
             )
             fhir_client._last_page = None  # clean any previous setting

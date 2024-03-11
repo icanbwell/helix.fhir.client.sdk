@@ -27,13 +27,18 @@ async def test_fhir_client_patient_list_async() -> None:
 
     response_text: str = json.dumps({"resourceType": "Patient", "id": "12355"})
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/Patient", method="GET"),
-        mock_response(body=response_text),
+        request=mock_request(path=f"/{relative_url}/Patient", method="GET"),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
+    additional_request_headers = {
+        "TestHeaderOne": "abcdtest",
+        "User-Agent": "TestPipelineName",
+    }
 
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
+    fhir_client = fhir_client.additional_request_headers(additional_request_headers)
     response: FhirGetResponse = await fhir_client.get_async()
 
     print(response.responses)

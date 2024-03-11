@@ -47,12 +47,12 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
     }
 
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Practitioner",
             method="GET",
             querystring={"id": "1,2"},
         ),
-        mock_response(body=response_text),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
@@ -62,12 +62,12 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
         "practitioner": {"reference": "Practitioner/1"},
     }
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/PractitionerRole",
             method="GET",
             querystring={"practitioner": "1"},
         ),
-        mock_response(body=response_text),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
@@ -77,12 +77,12 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
         "practitioner": {"reference": "Practitioner/2"},
     }
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/PractitionerRole",
             method="GET",
             querystring={"practitioner": "2"},
         ),
-        mock_response(body=response_text),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
@@ -92,12 +92,12 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
         "actor": {"reference": "PractitionerRole/10"},
     }
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Schedule",
             method="GET",
             querystring={"actor": "10"},
         ),
-        mock_response(body=response_text),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
@@ -107,12 +107,12 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
         "actor": {"reference": "PractitionerRole/12"},
     }
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Schedule",
             method="GET",
             querystring={"actor": "12"},
         ),
-        mock_response(body=response_text),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
@@ -122,12 +122,12 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
         "schedule": {"reference": "Schedule/100"},
     }
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Slot",
             method="GET",
             querystring={"schedule": "100"},
         ),
-        mock_response(body=response_text),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
@@ -137,12 +137,12 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
         "schedule": {"reference": "Schedule/120"},
     }
     mock_client.expect(
-        mock_request(
+        request=mock_request(
             path=f"/{relative_url}/Slot",
             method="GET",
             querystring={"schedule": "120"},
         ),
-        mock_response(body=response_text),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 

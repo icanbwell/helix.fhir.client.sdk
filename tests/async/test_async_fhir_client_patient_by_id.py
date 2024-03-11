@@ -27,8 +27,8 @@ async def test_fhir_client_patient_by_id_async() -> None:
 
     response_text: str = json.dumps({"resourceType": "Patient", "id": "12355"})
     mock_client.expect(
-        mock_request(path=f"/{relative_url}/Patient/12355", method="GET"),
-        mock_response(body=response_text),
+        request=mock_request(path=f"/{relative_url}/Patient/12355", method="GET"),
+        response=mock_response(body=response_text),
         timing=times(1),
     )
 
