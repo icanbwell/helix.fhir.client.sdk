@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, List
 
 from helix_fhir_client_sdk.utilities.fhir_scope_parser_result import (
@@ -13,6 +14,7 @@ class FhirScopeParser:
 
         :param scopes: The scopes to parse.
         """
+        self.logger = logging.getLogger(__name__)
         self.scopes: Optional[List[str]] = scopes
         self.parsed_scopes: Optional[List[FhirScopeParserResult]] = (
             self.parse_scopes(" ".join([s for s in scopes if s]))
@@ -21,7 +23,20 @@ class FhirScopeParser:
         )
 
     @staticmethod
-    def parse_scopes(scopes: Optional[str]) -> List[FhirScopeParserResult]:
+    def _get_patient_demographic_read_scopes() -> List[FhirScopeParserResult]:
+        """
+        Returns a list of scopes as FhirScopeParserResult objects that allow patient demographics to be read
+
+        :return: A list of FhirScopeParserResult objects that allow patient demographics to be read
+        """
+        patient_patient_read = FhirScopeParserResult(resource_type="patient", operation="Patient", interaction="read")
+        patient_star_read = FhirScopeParserResult(resource_type="Patient", operation="*", interaction="read")
+        user_patient_read = FhirScopeParserResult(resource_type="user", operation="Patient", interaction="read")
+        user_star_read = FhirScopeParserResult(resource_type="user", operation="*", interaction="read")
+
+        return [patient_patient_read, patient_star_read, user_patient_read, user_star_read]
+
+    def parse_scopes(self, scopes: Optional[str]) -> List[FhirScopeParserResult]:
         """
         Parses the given scopes into a list of FhirScopeParserResult objects.
 
@@ -63,6 +78,11 @@ class FhirScopeParser:
                     )
                 )
 
+        # log warning in event that parsed_scopes does not include a scope that allows patient demographics to be read
+        if not any([demographic_scope in parsed_scopes for demographic_scope in
+                    self._get_patient_demographic_read_scopes()]):
+            self.logger.warning(f"Missing patient demographic read scopes in: {scope_list}")
+
         return parsed_scopes
 
     def scope_allows(self, resource_type: str, interaction: str = "read") -> bool:
@@ -74,7 +94,6 @@ class FhirScopeParser:
         :param interaction: The interaction to check.
         :return: True if the scope allows the given resource type and interaction, False otherwise.
         """
-
         # if there are no scopes then allow everything
         if not self.parsed_scopes:
             return True
