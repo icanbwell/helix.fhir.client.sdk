@@ -78,6 +78,17 @@ class FhirScopeParser:
                     )
                 )
 
+        # ensure launch/patient scope only included if patient/xxx scopes are also present
+        if FhirScopeParserResult(resource_type='launch', operation=None, interaction='patient',
+                                 scope=None) in parsed_scopes:
+            if not any([scope for scope in parsed_scopes if scope.resource_type == "patient"]):
+                self.logger.warning(
+                    "No corresponding 'patient/xxx' scope detected for 'launch/patient', removing 'launch/patient'")
+                parsed_scopes = [scope for scope in parsed_scopes if
+                                 scope != FhirScopeParserResult(resource_type='launch', operation=None,
+                                                                interaction='patient',
+                                                                scope=None)]
+
         # log warning in event that parsed_scopes does not include a scope that allows patient demographics to be read
         if not any([demographic_scope in parsed_scopes for demographic_scope in
                     self._get_patient_demographic_read_scopes()]):
@@ -115,16 +126,16 @@ class FhirScopeParser:
         scope: FhirScopeParserResult
         for scope in self.parsed_scopes:
             if (
-                scope.operation
-                and scope.interaction
-                and (
+                    scope.operation
+                    and scope.interaction
+                    and (
                     scope.operation == "*"
                     or scope.operation.lower() == resource_type.lower()
-                )
-                and (
+            )
+                    and (
                     scope.interaction == "*"
                     or scope.interaction.lower() == interaction.lower()
-                )
+            )
             ):
                 return True
         return False
