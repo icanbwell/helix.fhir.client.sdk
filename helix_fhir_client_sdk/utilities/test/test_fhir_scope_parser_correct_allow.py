@@ -15,22 +15,22 @@ patient/AllergyIntolerance.read patient/Binary.read patient/CarePlan.read patien
     )
 
     assert (
-            scope_parser.scope_allows(resource_type="Patient", interaction="read") is True
+        scope_parser.scope_allows(resource_type="Patient", interaction="read") is True
     )
 
     assert (
-            scope_parser.scope_allows(resource_type="Condition", interaction="read") is True
+        scope_parser.scope_allows(resource_type="Condition", interaction="read") is True
     )
 
     assert (
-            scope_parser.scope_allows(
-                resource_type="MedicationDispense", interaction="read"
-            )
-            is False
+        scope_parser.scope_allows(
+            resource_type="MedicationDispense", interaction="read"
+        )
+        is False
     )
 
     assert (
-            scope_parser.scope_allows(resource_type="Patient", interaction="write") is False
+        scope_parser.scope_allows(resource_type="Patient", interaction="write") is False
     )
 
 
@@ -42,5 +42,10 @@ launch/patient offline_access openid profile user/AllergyIntolerance.read user/A
         ]
     )
 
-    assert (FhirScopeParserResult(resource_type='launch', operation=None, interaction='patient',
-                                  scope=None) not in no_patient_scope_parser.parsed_scopes)
+    assert no_patient_scope_parser.parsed_scopes is not None
+    assert (
+        FhirScopeParserResult(
+            resource_type="launch", operation=None, interaction="patient", scope=None
+        )
+        not in no_patient_scope_parser.parsed_scopes
+    )
