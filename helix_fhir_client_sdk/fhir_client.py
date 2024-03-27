@@ -46,7 +46,6 @@ from furl import furl
 # noinspection PyPackageRequirements
 from requests.adapters import BaseAdapter
 
-from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
     FhirValidationException,

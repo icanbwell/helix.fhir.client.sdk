@@ -15,8 +15,8 @@ class FhirSenderException(Exception):
         response_text: Optional[str],
         response_status_code: Optional[int],
         message: str,
-        variables: Optional[Dict[str, Any]],
         elapsed_time: float,
+        variables: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Creates an exception when sending data
@@ -34,7 +34,7 @@ class FhirSenderException(Exception):
         self.url: str = url
         self.data: str = json_data
         self.headers = headers
-        self.variables: Dict[str, Any] = variables
+        self.variables: Optional[Dict[str, Any]] = variables
         self.elapsed_time: float = elapsed_time
         self.response_text: Optional[str] = response_text
         self.response_status_code: Optional[int] = response_status_code
