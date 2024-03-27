@@ -146,7 +146,9 @@ class FhirScopeParser:
             return True
 
         # check if this is a valid SMART on FHIR scope
-        if not any([s for s in self.parsed_scopes if s.resource_type == "patient"]):
+        if (
+            not any([s for s in self.parsed_scopes if s.resource_type == "patient"])
+        ) and (not any([s for s in self.parsed_scopes if s.resource_type == "user"])):
             return True
 
         # These resources are always allowed
