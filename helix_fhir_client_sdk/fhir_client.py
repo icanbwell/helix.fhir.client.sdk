@@ -2724,25 +2724,3 @@ class FhirClient(SimulatedGraphProcessorMixin):
             logger=self._logger,
             auth_scopes=self._auth_scopes,
         )
-
-import json
-import logging
-import os
-import requests
-from constance import config
-from helix_fhir_client_sdk.fhir_client import FhirClient
-auth_client_id = "24bqfp48el84t3siffbaegm269"
-auth_client_secret = "10v0irl8u5pk9g51ne3k3qnihil1d4hp6ccekqigiu1bvvi84rd3"
-base_auth_url = "https://fhir.staging.bwell.zone/4_0_0"
-fhir_client = FhirClient()
-fhir_client = fhir_client.url(base_auth_url)
-fhir_client = fhir_client.client_credentials(
-    auth_client_id, auth_client_secret
-).auth_scopes(["user/*.read","access/*.*"])
-fhir_client.additional_parameters(['_security=https://www.icanbwell.com/owner%7Cmedstar'])
-fhir_client.page_size(2000)
-fhir_client.page_number(0)
-r = fhir_client.resource('PractitionerRole/1275501447-UHG-MMMA').get()
-r.error
-rr = json.loads(r.responses)
-len(rr)
