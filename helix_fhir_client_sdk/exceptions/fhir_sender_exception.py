@@ -15,7 +15,7 @@ class FhirSenderException(Exception):
         response_text: Optional[str],
         response_status_code: Optional[int],
         message: str,
-        variables: Dict[str, Any],
+        variables: Optional[Dict[str, Any]],
         elapsed_time: float,
     ) -> None:
         """
