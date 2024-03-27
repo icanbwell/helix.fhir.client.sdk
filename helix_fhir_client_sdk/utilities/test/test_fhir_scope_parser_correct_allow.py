@@ -1,5 +1,6 @@
-from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
+from typing import List
 
+from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.fhir_scope_parser_result import (
     FhirScopeParserResult,
 )
@@ -42,7 +43,7 @@ launch/patient offline_access openid profile user/AllergyIntolerance.read user/A
         ]
     )
     # list of scopes to validate against, notably excluding parsed "launch/patient"
-    valid_parsed_scopes = [
+    valid_parsed_scopes: List[FhirScopeParserResult] = [
         FhirScopeParserResult(
             resource_type=None, operation=None, interaction=None, scope="offline_access"
         ),
