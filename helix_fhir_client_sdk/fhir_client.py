@@ -46,7 +46,6 @@ from furl import furl
 # noinspection PyPackageRequirements
 from requests.adapters import BaseAdapter
 
-from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
     FhirValidationException,
@@ -616,13 +615,6 @@ class FhirClient(SimulatedGraphProcessorMixin):
 
         :return: response
         """
-        instance_variables_text = convert_dict_to_str(vars(self))
-        if self._logger:
-            # self._logger.info(f"LOGLEVEL: {self._log_level}")
-            self._logger.info(f"parameters: {instance_variables_text}")
-        else:
-            self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
-            self._internal_logger.info(f"parameters: {instance_variables_text}")
         ids: Optional[List[str]] = None
         if self._id:
             ids = self._id if isinstance(self._id, list) else [self._id]
@@ -1155,7 +1147,6 @@ class FhirClient(SimulatedGraphProcessorMixin):
                 url=full_url,
                 headers=headers,
                 json_data="",
-                variables=vars(self),
                 response_text=last_response_text,
                 response_status_code=last_status_code,
                 message="",
@@ -1684,7 +1675,6 @@ class FhirClient(SimulatedGraphProcessorMixin):
                     ),
                     response_status_code=response.status if response else None,
                     exception=e,
-                    variables=vars(self),
                     message=f"Error: {e}",
                     elapsed_time=time.time() - start_time,
                 ) from e
@@ -1734,12 +1724,6 @@ class FhirClient(SimulatedGraphProcessorMixin):
         self._internal_logger.debug(
             f"Calling $merge on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
         )
-        instance_variables_text = convert_dict_to_str(vars(self))
-        if self._internal_logger:
-            self._internal_logger.info(f"parameters: {instance_variables_text}")
-        else:
-            self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
-            self._internal_logger.info(f"parameters: {instance_variables_text}")
 
         request_id: Optional[str] = None
         response_status: Optional[int] = None
@@ -1923,7 +1907,6 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                 if response
                                 else None,
                                 exception=e,
-                                variables=vars(self),
                                 message=f"HttpError: {e}",
                                 elapsed_time=time.time() - start_time,
                             ) from e
@@ -1940,7 +1923,6 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                 if response
                                 else None,
                                 exception=e,
-                                variables=vars(self),
                                 message=f"Unknown Error: {e}",
                                 elapsed_time=time.time() - start_time,
                             ) from e
@@ -1952,7 +1934,6 @@ class FhirClient(SimulatedGraphProcessorMixin):
                         self._logger.error(
                             Exception(
                                 f"Assertion: FHIR send failed: {str(e)} for resource: {json_data_list}. "
-                                + f"variables={convert_dict_to_str(vars(self))}"
                             )
                         )
 

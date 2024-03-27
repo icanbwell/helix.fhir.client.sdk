@@ -233,7 +233,7 @@ class FhirGetResponse:
             }
 
     def __repr__(self) -> str:
-        instance_variables_text = str(vars(self))
+        instance_variables_text = str(vars(self).pop("access_token"))
         return f"FhirGetResponse: {instance_variables_text}"
 
     # noinspection PyPep8Naming
