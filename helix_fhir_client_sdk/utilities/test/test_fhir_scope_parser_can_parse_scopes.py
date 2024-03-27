@@ -7,7 +7,9 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser_result import (
 
 
 def test_fhir_scope_parser_can_parse_scopes() -> None:
-    scope_parser_result: List[FhirScopeParserResult] = FhirScopeParser.parse_scopes(
+    scope_parser_result: List[FhirScopeParserResult] = FhirScopeParser(
+        None
+    ).parse_scopes(
         scopes="""
 patient/AllergyIntolerance.read patient/Binary.read patient/CarePlan.read patient/CareTeam.read patient/Condition.read patient/Device.read patient/DiagnosticReport.read patient/DocumentReference.read patient/Encounter.read patient/Goal.read patient/Immunization.read patient/Location.read patient/Medication.read patient/MedicationRequest.read patient/Observation.read patient/Organization.read patient/Patient.read patient/Practitioner.read patient/PractitionerRole.read patient/Procedure.read patient/Provenance.read patient/RelatedPerson.Read launch/patient        
         """
