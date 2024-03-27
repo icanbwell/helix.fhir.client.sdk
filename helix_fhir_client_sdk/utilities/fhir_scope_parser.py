@@ -29,12 +29,25 @@ class FhirScopeParser:
 
         :return: A list of FhirScopeParserResult objects that allow patient demographics to be read
         """
-        patient_patient_read = FhirScopeParserResult(resource_type="patient", operation="Patient", interaction="read")
-        patient_star_read = FhirScopeParserResult(resource_type="Patient", operation="*", interaction="read")
-        user_patient_read = FhirScopeParserResult(resource_type="user", operation="Patient", interaction="read")
-        user_star_read = FhirScopeParserResult(resource_type="user", operation="*", interaction="read")
+        patient_patient_read = FhirScopeParserResult(
+            resource_type="patient", operation="Patient", interaction="read"
+        )
+        patient_star_read = FhirScopeParserResult(
+            resource_type="Patient", operation="*", interaction="read"
+        )
+        user_patient_read = FhirScopeParserResult(
+            resource_type="user", operation="Patient", interaction="read"
+        )
+        user_star_read = FhirScopeParserResult(
+            resource_type="user", operation="*", interaction="read"
+        )
 
-        return [patient_patient_read, patient_star_read, user_patient_read, user_star_read]
+        return [
+            patient_patient_read,
+            patient_star_read,
+            user_patient_read,
+            user_star_read,
+        ]
 
     def parse_scopes(self, scopes: Optional[str]) -> List[FhirScopeParserResult]:
         """
@@ -79,20 +92,43 @@ class FhirScopeParser:
                 )
 
         # ensure launch/patient scope only included if patient/xxx scopes are also present
-        if FhirScopeParserResult(resource_type='launch', operation=None, interaction='patient',
-                                 scope=None) in parsed_scopes:
-            if not any([scope for scope in parsed_scopes if scope.resource_type == "patient"]):
+        if (
+            FhirScopeParserResult(
+                resource_type="launch",
+                operation=None,
+                interaction="patient",
+                scope=None,
+            )
+            in parsed_scopes
+        ):
+            if not any(
+                [scope for scope in parsed_scopes if scope.resource_type == "patient"]
+            ):
                 self.logger.warning(
-                    "No corresponding 'patient/xxx' scope detected for 'launch/patient', removing 'launch/patient'")
-                parsed_scopes = [scope for scope in parsed_scopes if
-                                 scope != FhirScopeParserResult(resource_type='launch', operation=None,
-                                                                interaction='patient',
-                                                                scope=None)]
+                    "No corresponding 'patient/xxx' scope detected for 'launch/patient', removing 'launch/patient'"
+                )
+                parsed_scopes = [
+                    scope
+                    for scope in parsed_scopes
+                    if scope
+                    != FhirScopeParserResult(
+                        resource_type="launch",
+                        operation=None,
+                        interaction="patient",
+                        scope=None,
+                    )
+                ]
 
         # log warning in event that parsed_scopes does not include a scope that allows patient demographics to be read
-        if not any([demographic_scope in parsed_scopes for demographic_scope in
-                    self._get_patient_demographic_read_scopes()]):
-            self.logger.warning(f"Missing patient demographic read scopes in: {scope_list}")
+        if not any(
+            [
+                demographic_scope in parsed_scopes
+                for demographic_scope in self._get_patient_demographic_read_scopes()
+            ]
+        ):
+            self.logger.warning(
+                f"Missing patient demographic read scopes in: {scope_list}"
+            )
 
         return parsed_scopes
 
@@ -126,16 +162,16 @@ class FhirScopeParser:
         scope: FhirScopeParserResult
         for scope in self.parsed_scopes:
             if (
-                    scope.operation
-                    and scope.interaction
-                    and (
+                scope.operation
+                and scope.interaction
+                and (
                     scope.operation == "*"
                     or scope.operation.lower() == resource_type.lower()
-            )
-                    and (
+                )
+                and (
                     scope.interaction == "*"
                     or scope.interaction.lower() == interaction.lower()
-            )
+                )
             ):
                 return True
         return False
