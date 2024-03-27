@@ -41,11 +41,72 @@ def test_fhir_scope_parser_remove_invalid_launch_patient() -> None:
 launch/patient offline_access openid profile user/AllergyIntolerance.read user/Appointment.read user/CarePlan.read user/Encounter.read user/Immunization.read user/MedicationAdministration.read user/MedicationRequest.read user/Organization.read user/Practitioner.read user/Schedule.read user/Slot.read"""
         ]
     )
+    # list of scopes to validate against, notably excluding parsed "launch/patient"
+    valid_parsed_scopes = [
+        FhirScopeParserResult(
+            resource_type=None, operation=None, interaction=None, scope="offline_access"
+        ),
+        FhirScopeParserResult(
+            resource_type=None, operation=None, interaction=None, scope="openid"
+        ),
+        FhirScopeParserResult(
+            resource_type=None, operation=None, interaction=None, scope="profile"
+        ),
+        FhirScopeParserResult(
+            resource_type="user",
+            operation="AllergyIntolerance",
+            interaction="read",
+            scope=None,
+        ),
+        FhirScopeParserResult(
+            resource_type="user",
+            operation="Appointment",
+            interaction="read",
+            scope=None,
+        ),
+        FhirScopeParserResult(
+            resource_type="user", operation="CarePlan", interaction="read", scope=None
+        ),
+        FhirScopeParserResult(
+            resource_type="user", operation="Encounter", interaction="read", scope=None
+        ),
+        FhirScopeParserResult(
+            resource_type="user",
+            operation="Immunization",
+            interaction="read",
+            scope=None,
+        ),
+        FhirScopeParserResult(
+            resource_type="user",
+            operation="MedicationAdministration",
+            interaction="read",
+            scope=None,
+        ),
+        FhirScopeParserResult(
+            resource_type="user",
+            operation="MedicationRequest",
+            interaction="read",
+            scope=None,
+        ),
+        FhirScopeParserResult(
+            resource_type="user",
+            operation="Organization",
+            interaction="read",
+            scope=None,
+        ),
+        FhirScopeParserResult(
+            resource_type="user",
+            operation="Practitioner",
+            interaction="read",
+            scope=None,
+        ),
+        FhirScopeParserResult(
+            resource_type="user", operation="Schedule", interaction="read", scope=None
+        ),
+        FhirScopeParserResult(
+            resource_type="user", operation="Slot", interaction="read", scope=None
+        ),
+    ]
 
     assert no_patient_scope_parser.parsed_scopes is not None
-    assert (
-        FhirScopeParserResult(
-            resource_type="launch", operation=None, interaction="patient", scope=None
-        )
-        not in no_patient_scope_parser.parsed_scopes
-    )
+    assert no_patient_scope_parser.parsed_scopes == valid_parsed_scopes
