@@ -119,17 +119,6 @@ class FhirScopeParser:
                     )
                 ]
 
-        # log warning in event that parsed_scopes does not include a scope that allows patient demographics to be read
-        if not any(
-            [
-                demographic_scope in parsed_scopes
-                for demographic_scope in self._get_patient_demographic_read_scopes()
-            ]
-        ):
-            self.logger.warning(
-                f"Missing patient demographic read scopes in: {scope_list}"
-            )
-
         return parsed_scopes
 
     def scope_allows(self, resource_type: str, interaction: str = "read") -> bool:
