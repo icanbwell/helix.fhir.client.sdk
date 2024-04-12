@@ -22,33 +22,6 @@ class FhirScopeParser:
             else None
         )
 
-    @staticmethod
-    def _get_patient_demographic_read_scopes() -> List[FhirScopeParserResult]:
-        """
-        Returns a list of scopes as FhirScopeParserResult objects that allow patient demographics to be read
-
-        :return: A list of FhirScopeParserResult objects that allow patient demographics to be read
-        """
-        patient_patient_read = FhirScopeParserResult(
-            resource_type="patient", operation="Patient", interaction="read"
-        )
-        patient_star_read = FhirScopeParserResult(
-            resource_type="Patient", operation="*", interaction="read"
-        )
-        user_patient_read = FhirScopeParserResult(
-            resource_type="user", operation="Patient", interaction="read"
-        )
-        user_star_read = FhirScopeParserResult(
-            resource_type="user", operation="*", interaction="read"
-        )
-
-        return [
-            patient_patient_read,
-            patient_star_read,
-            user_patient_read,
-            user_star_read,
-        ]
-
     def parse_scopes(self, scopes: Optional[str]) -> List[FhirScopeParserResult]:
         """
         Parses the given scopes into a list of FhirScopeParserResult objects.
@@ -134,10 +107,14 @@ class FhirScopeParser:
         if not self.parsed_scopes:
             return True
 
-        # check if this is a valid SMART on FHIR scope
-        if (
-            not any([s for s in self.parsed_scopes if s.resource_type == "patient"])
-        ) and (not any([s for s in self.parsed_scopes if s.resource_type == "user"])):
+        # default to True if vendor/client/server/etc. not using "patient", "user", or "system" based scopes
+        if not any(
+            [
+                s
+                for s in self.parsed_scopes
+                if s.resource_type in ["patient", "user", "system"]
+            ]
+        ):
             return True
 
         # These resources are always allowed
