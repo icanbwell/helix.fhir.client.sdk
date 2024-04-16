@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, List
 
 from helix_fhir_client_sdk.utilities.fhir_scope_parser_result import (
@@ -13,6 +14,7 @@ class FhirScopeParser:
 
         :param scopes: The scopes to parse.
         """
+        self.logger = logging.getLogger(__name__)
         self.scopes: Optional[List[str]] = scopes
         self.parsed_scopes: Optional[List[FhirScopeParserResult]] = (
             self.parse_scopes(" ".join([s for s in scopes if s]))
@@ -20,8 +22,7 @@ class FhirScopeParser:
             else None
         )
 
-    @staticmethod
-    def parse_scopes(scopes: Optional[str]) -> List[FhirScopeParserResult]:
+    def parse_scopes(self, scopes: Optional[str]) -> List[FhirScopeParserResult]:
         """
         Parses the given scopes into a list of FhirScopeParserResult objects.
 
@@ -63,6 +64,34 @@ class FhirScopeParser:
                     )
                 )
 
+        # ensure launch/patient scope only included if patient/xxx scopes are also present
+        if (
+            FhirScopeParserResult(
+                resource_type="launch",
+                operation=None,
+                interaction="patient",
+                scope=None,
+            )
+            in parsed_scopes
+        ):
+            if not any(
+                [scope for scope in parsed_scopes if scope.resource_type == "patient"]
+            ):
+                self.logger.warning(
+                    "No corresponding 'patient/xxx' scope detected for 'launch/patient', removing 'launch/patient'"
+                )
+                parsed_scopes = [
+                    scope
+                    for scope in parsed_scopes
+                    if scope
+                    != FhirScopeParserResult(
+                        resource_type="launch",
+                        operation=None,
+                        interaction="patient",
+                        scope=None,
+                    )
+                ]
+
         return parsed_scopes
 
     def scope_allows(self, resource_type: str, interaction: str = "read") -> bool:
@@ -74,13 +103,18 @@ class FhirScopeParser:
         :param interaction: The interaction to check.
         :return: True if the scope allows the given resource type and interaction, False otherwise.
         """
-
         # if there are no scopes then allow everything
         if not self.parsed_scopes:
             return True
 
-        # check if this is a valid SMART on FHIR scope
-        if not any([s for s in self.parsed_scopes if s.resource_type == "patient"]):
+        # default to True if vendor/client/server/etc. not using "patient", "user", or "system" based scopes
+        if not any(
+            [
+                s
+                for s in self.parsed_scopes
+                if s.resource_type in ["patient", "user", "system"]
+            ]
+        ):
             return True
 
         # These resources are always allowed
