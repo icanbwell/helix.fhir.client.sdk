@@ -1633,9 +1633,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
         for key, value in vars_dict.items():
             if not isinstance(value, type(threading.Lock)):
                 variables_to_log[key] = value
-        variables_to_log.pop("_access_token")
-        variables_to_log.pop("_login_token")
-        variables_to_log.pop("_client_id")
+        variables_to_log.pop("_access_token", None)
+        variables_to_log.pop("_login_token", None)
+        variables_to_log.pop("_client_id", None)
         return variables_to_log
 
     async def send_patch_request_async(self, data: str) -> FhirUpdateResponse:

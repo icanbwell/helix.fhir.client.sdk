@@ -40,8 +40,7 @@ class FhirSenderException(Exception):
         self.response_text: Optional[str] = response_text
         self.response_status_code: Optional[int] = response_status_code
         headers_to_log = copy.deepcopy(self.headers)
-        if headers_to_log.get("Authorization"):
-            headers_to_log.pop("Authorization")
+        headers_to_log.pop("Authorization", None)
         json = {
             "message": f"FHIR send failed: {message}",
             "request_id": request_id,
