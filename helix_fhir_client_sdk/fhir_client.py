@@ -1564,7 +1564,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
         payload: str = (
             "grant_type=client_credentials&scope=" + "%20".join(auth_scopes)
             if auth_scopes
-            else ""
+            else "grant_type=client_credentials"
         )
         # noinspection SpellCheckingInspection
         headers: Dict[str, str] = {
