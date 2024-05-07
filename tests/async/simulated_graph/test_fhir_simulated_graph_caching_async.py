@@ -94,6 +94,45 @@ async def test_fhir_simulated_graph_caching_async() -> None:
         "entry": [
             {
                 "resource": {
+                    "resourceType": "DocumentReference",
+                    "id": "11",
+                    "content": [
+                        {"attachment": {"url": "Binary/12"}},
+                        {"attachment": {"url": "Binary/13"}},
+                    ],
+                }
+            }
+        ]
+    }
+    mock_client.expect(
+        request=mock_request(
+            path=f"/{relative_url}/DocumentReference",
+            querystring={
+                "patient": "1",
+            },
+            method="GET",
+        ),
+        response=mock_response(body=response_text),
+        timing=times(1),
+    )
+
+    response_text = {"entry": [{"resource": {"resourceType": "Binary", "id": "12"}}]}
+    mock_client.expect(
+        request=mock_request(path=f"/{relative_url}/Binary/12", method="GET"),
+        response=mock_response(body=response_text),
+        timing=times(1),
+    )
+    response_text = {"entry": [{"resource": {"resourceType": "Binary", "id": "13"}}]}
+    mock_client.expect(
+        request=mock_request(path=f"/{relative_url}/Binary/13", method="GET"),
+        response=mock_response(body=response_text),
+        timing=times(1),
+    )
+
+    response_text = {
+        "entry": [
+            {
+                "resource": {
                     "resourceType": "Encounter",
                     "id": "8",
                     "participant": [
@@ -219,6 +258,37 @@ async def test_fhir_simulated_graph_caching_async() -> None:
                     "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Practitioner/12345",
                 },
                 "resource": {"id": "12345", "resourceType": "Practitioner"},
+                "response": {"status": "200"},
+            },
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/DocumentReference?patient=1",
+                },
+                "resource": {
+                    "id": "11",
+                    "resourceType": "DocumentReference",
+                    "content": [
+                        {"attachment": {"url": "Binary/12"}},
+                        {"attachment": {"url": "Binary/13"}},
+                    ],
+                },
+                "response": {"status": "200"},
+            },
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/12",
+                },
+                "resource": {"id": "12", "resourceType": "Binary"},
+                "response": {"status": "200"},
+            },
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/13",
+                },
+                "resource": {"id": "13", "resourceType": "Binary"},
                 "response": {"status": "200"},
             },
         ]

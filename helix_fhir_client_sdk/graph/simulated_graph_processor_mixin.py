@@ -243,79 +243,83 @@ class SimulatedGraphProcessorMixin(ABC):
         parent_resource: Optional[Dict[str, Any]] = (
             parent_bundle_entry.resource if parent_bundle_entry else None
         )
-        if path:  # forward link
-            if path.endswith("[x]"):  # a list
-                path = path.replace("[x]", "")
-                # find references
-                references: Union[List[Dict[str, Any]], Dict[str, Any], str, None] = (
-                    DictionaryParser.get_nested_property(parent_resource, path)
-                    if parent_resource and path
-                    else None
+
+        # forward link and iterate over list
+        if path and "[x]" in path:
+            references: Union[List[Dict[str, Any]], Dict[str, Any], str, None] = (
+                DictionaryParser.get_nested_property(parent_resource, path)
+                if parent_resource
+                else None
+            )
+            # remove null references
+            if references and isinstance(references, list):
+                references = [r for r in references if r is not None]
+
+            if parent_resource and references and target_type:
+                reference_ids = []
+                for r in references:
+                    # TODO: consider removing assumption of "reference" and require as part of path instead
+                    if isinstance(r, dict) and "reference" in r:
+                        reference_ids.append(r["reference"])
+                    elif isinstance(r, str) and r.startswith("Binary/"):
+                        reference_ids.append(r)
+                for reference_id in reference_ids:
+                    reference_parts = reference_id.split("/")
+                    if reference_parts[0] == target_type:
+                        child_id = reference_parts[1]
+                        (
+                            child_response,
+                            cache_hits,
+                        ) = await self._get_resources_by_parameters_async(
+                            session=session,
+                            resource_type=target_type,
+                            id_=child_id,
+                            cache=cache,
+                            scope_parser=scope_parser,
+                            logger=logger,
+                        )
+                        responses.append(child_response)
+                        children = child_response.get_bundle_entries()
+                        if logger:
+                            logger.info(
+                                f"Received child resources"
+                                + f" from parent {parent_resource.get('resourceType')}/{parent_resource.get('id')}"
+                                + f" [{path}]"
+                                + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
+                                + f", {','.join(child_response.get_resource_type_and_ids())}"
+                            )
+        elif (
+            path
+            and parent_resource
+            and (reference := parent_resource.get(path))
+            and "reference" in reference
+            and target_type
+        ):
+            reference_id = reference["reference"]
+            reference_parts = reference_id.split("/")
+            if reference_parts[0] == target_type:
+                child_id = reference_parts[1]
+                (
+                    child_response,
+                    cache_hits,
+                ) = await self._get_resources_by_parameters_async(
+                    session=session,
+                    resource_type=target_type,
+                    id_=child_id,
+                    cache=cache,
+                    scope_parser=scope_parser,
+                    logger=logger,
                 )
-                # remove null references
-                if references and isinstance(references, list):
-                    references = [r for r in references if r is not None]
-                # iterate through all references
-                if parent_resource and references and target_type:
-                    reference_ids: List[str] = [
-                        cast(str, r.get("reference"))
-                        for r in references
-                        if "reference" in r and isinstance(r, dict)
-                    ]
-                    for reference_id in reference_ids:
-                        reference_parts = reference_id.split("/")
-                        if reference_parts[0] == target_type:
-                            child_id = reference_parts[1]
-                            (
-                                child_response,
-                                cache_hits,
-                            ) = await self._get_resources_by_parameters_async(
-                                session=session,
-                                resource_type=target_type,
-                                id_=child_id,
-                                cache=cache,
-                                scope_parser=scope_parser,
-                                logger=logger,
-                            )
-                            responses.append(child_response)
-                            children = child_response.get_bundle_entries()
-                            if logger:
-                                logger.info(
-                                    f"Received child resources"
-                                    + f" from parent {parent_resource.get('resourceType')}/{parent_resource.get('id')}"
-                                    + f" [{path}]"
-                                    + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
-                                    + f", {','.join(child_response.get_resource_type_and_ids())}"
-                                )
-            else:  # single reference
-                if parent_resource and parent_resource.get(path) and target_type:
-                    reference = parent_resource.get(path)
-                    if reference and "reference" in reference:
-                        reference_id = reference["reference"]
-                        reference_parts = reference_id.split("/")
-                        if reference_parts[0] == target_type:
-                            child_id = reference_parts[1]
-                            (
-                                child_response,
-                                cache_hits,
-                            ) = await self._get_resources_by_parameters_async(
-                                session=session,
-                                resource_type=target_type,
-                                id_=child_id,
-                                cache=cache,
-                                scope_parser=scope_parser,
-                                logger=logger,
-                            )
-                            responses.append(child_response)
-                            children = child_response.get_bundle_entries()
-                            if logger:
-                                logger.info(
-                                    f"Received child resources"
-                                    + f" from parent {parent_resource.get('resourceType')}/{parent_resource.get('id')}"
-                                    + f" [{path}]"
-                                    + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
-                                    + f", {','.join(child_response.get_resource_type_and_ids())}"
-                                )
+                responses.append(child_response)
+                children = child_response.get_bundle_entries()
+                if logger:
+                    logger.info(
+                        f"Received child resources"
+                        + f" from parent {parent_resource.get('resourceType')}/{parent_resource.get('id')}"
+                        + f" [{path}]"
+                        + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
+                        + f", {','.join(child_response.get_resource_type_and_ids())}"
+                    )
         elif target.params:  # reverse path
             # for a reverse link, get the ids of the current resource, put in a view and
             # add a stage to get that
