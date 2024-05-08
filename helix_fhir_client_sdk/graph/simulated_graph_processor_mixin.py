@@ -291,7 +291,7 @@ class SimulatedGraphProcessorMixin(ABC):
         elif (
             path
             and parent_resource
-            and (reference := parent_resource.get(path))
+            and (reference := parent_resource.get(path, {}))
             and "reference" in reference
             and target_type
         ):
