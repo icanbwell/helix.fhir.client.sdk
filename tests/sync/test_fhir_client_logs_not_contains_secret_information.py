@@ -64,5 +64,5 @@ class TestRemoveSecretInformationFromLogs(unittest.TestCase):
         response: FhirGetResponse = fhir_client.get()
 
         assert response.responses == response_text
-        self.assertNotIn("_login_token", log_output)
-        self.assertNotIn("_access_token", log_output)
+        self.assertNotIn("_login_token", str(log_output))
+        self.assertNotIn("_access_token", str(log_output))
