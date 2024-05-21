@@ -4,6 +4,7 @@ import asyncio
 import base64
 import json
 import logging
+import threading
 import time
 import uuid
 from asyncio import Future
@@ -616,7 +617,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
 
         :return: response
         """
-        instance_variables_text = convert_dict_to_str(vars(self))
+        instance_variables_text = convert_dict_to_str(
+            self.get_variables_to_log(vars(self))
+        )
         if self._logger:
             # self._logger.info(f"LOGLEVEL: {self._log_level}")
             self._logger.info(f"parameters: {instance_variables_text}")
@@ -1155,7 +1158,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                 url=full_url,
                 headers=headers,
                 json_data="",
-                variables=vars(self),
+                variables=self.get_variables_to_log(vars(self)),
                 response_text=last_response_text,
                 response_status_code=last_status_code,
                 message="",
@@ -1620,6 +1623,20 @@ class FhirClient(SimulatedGraphProcessorMixin):
 
         return refresh_token
 
+    @staticmethod
+    def get_variables_to_log(vars_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Method to return the variables which we need to log
+        :param vars_dict: (dict) dictionary of variables names with their values
+        """
+        variables_to_log = {}
+        for key, value in vars_dict.items():
+            if not isinstance(value, type(threading.Lock)):
+                variables_to_log[key] = value
+        variables_to_log.pop("_access_token", None)
+        variables_to_log.pop("_login_token", None)
+        return variables_to_log
+
     async def send_patch_request_async(self, data: str) -> FhirUpdateResponse:
         """
         Update the resource.  This will partially update an existing resource with changes specified in the request.
@@ -1684,7 +1701,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                     ),
                     response_status_code=response.status if response else None,
                     exception=e,
-                    variables=vars(self),
+                    variables=self.get_variables_to_log(vars(self)),
                     message=f"Error: {e}",
                     elapsed_time=time.time() - start_time,
                 ) from e
@@ -1734,7 +1751,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
         self._internal_logger.debug(
             f"Calling $merge on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
         )
-        instance_variables_text = convert_dict_to_str(vars(self))
+        instance_variables_text = convert_dict_to_str(
+            self.get_variables_to_log(vars(self))
+        )
         if self._internal_logger:
             self._internal_logger.info(f"parameters: {instance_variables_text}")
         else:
@@ -1923,7 +1942,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                 if response
                                 else None,
                                 exception=e,
-                                variables=vars(self),
+                                variables=self.get_variables_to_log(vars(self)),
                                 message=f"HttpError: {e}",
                                 elapsed_time=time.time() - start_time,
                             ) from e
@@ -1940,7 +1959,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                 if response
                                 else None,
                                 exception=e,
-                                variables=vars(self),
+                                variables=self.get_variables_to_log(vars(self)),
                                 message=f"Unknown Error: {e}",
                                 elapsed_time=time.time() - start_time,
                             ) from e
@@ -1952,7 +1971,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                         self._logger.error(
                             Exception(
                                 f"Assertion: FHIR send failed: {str(e)} for resource: {json_data_list}. "
-                                + f"variables={convert_dict_to_str(vars(self))}"
+                                + f"variables={convert_dict_to_str(self.get_variables_to_log(vars(self)))}"
                             )
                         )
 
