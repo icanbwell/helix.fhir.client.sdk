@@ -240,7 +240,7 @@
           "params": "patient={ref}",
           "link": [
             {
-              "path": "content.attachment[x].url",
+              "path": "content[x].attachment.url",
               "target": [
                 {
                   "type": "Binary"
