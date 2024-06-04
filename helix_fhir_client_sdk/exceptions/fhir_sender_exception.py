@@ -1,3 +1,4 @@
+import copy
 import traceback
 from typing import Optional, Dict, Any
 
@@ -38,12 +39,14 @@ class FhirSenderException(Exception):
         self.elapsed_time: float = elapsed_time
         self.response_text: Optional[str] = response_text
         self.response_status_code: Optional[int] = response_status_code
+        headers_to_log = copy.deepcopy(self.headers)
+        headers_to_log.pop("Authorization", None)
         json = {
             "message": f"FHIR send failed: {message}",
             "request_id": request_id,
             "url": url,
             "status_code": response_status_code,
-            "headers": headers,
+            "headers": headers_to_log,
             "variables": variables,
             "elapsed_time": elapsed_time,
             "response_text": response_text,
