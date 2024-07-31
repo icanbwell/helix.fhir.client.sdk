@@ -1,22 +1,37 @@
 import json
+from os import environ
 from typing import Any, List
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
-from tests_integration.common import clean_fhir_server
+from helix_fhir_client_sdk.utilities.fhir_server_helpers import FhirServerHelpers
 
 
-async def test_dev_server_get_patients() -> None:
-    clean_fhir_server()
+async def test_async_real_fhir_server_get_patients() -> None:
+    await FhirServerHelpers.clean_fhir_server_async(resource_type="Patient")
 
-    url = "http://fhir:3000/4_0_0"
+    fhir_server_url: str = environ["FHIR_SERVER_URL"]
+    auth_client_id = environ["FHIR_CLIENT_ID"]
+    auth_client_secret = environ["FHIR_CLIENT_SECRET"]
+    auth_well_known_url = environ["AUTH_CONFIGURATION_URI"]
+
     fhir_client = FhirClient()
-    fhir_client = fhir_client.url(url).resource("Patient")
+    fhir_client = fhir_client.url(fhir_server_url).resource("Patient")
+    fhir_client = fhir_client.client_credentials(
+        client_id=auth_client_id, client_secret=auth_client_secret
+    )
+    fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
     await fhir_client.id_("12355").delete_async()
 
     fhir_client = FhirClient()
-    fhir_client = fhir_client.url(url).use_data_streaming(True).resource("Patient")
+    fhir_client = (
+        fhir_client.url(fhir_server_url).use_data_streaming(True).resource("Patient")
+    )
+    fhir_client = fhir_client.client_credentials(
+        client_id=auth_client_id, client_secret=auth_client_secret
+    )
+    fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
     resource = {
         "resourceType": "Patient",
         "id": "12355",
@@ -34,10 +49,19 @@ async def test_dev_server_get_patients() -> None:
     print(merge_response.responses)
     assert merge_response.status == 200, merge_response.responses
     assert merge_response.responses[0]["created"] is True, merge_response.responses
-    fhir_client = fhir_client.url(url).resource("Patient")
+
+    fhir_client = FhirClient()
+    fhir_client = (
+        fhir_client.url(fhir_server_url).use_data_streaming(True).resource("Patient")
+    )
+    fhir_client = fhir_client.client_credentials(
+        client_id=auth_client_id, client_secret=auth_client_secret
+    )
+    fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
     response: FhirGetResponse = await fhir_client.get_async()
     response_text = response.responses
     bundle = json.loads(response_text)
+    assert "entry" in bundle, bundle
     responses_: List[Any] = [r["resource"] for r in bundle["entry"]]
     assert len(responses_) == 1
     assert responses_[0]["id"] == resource["id"]

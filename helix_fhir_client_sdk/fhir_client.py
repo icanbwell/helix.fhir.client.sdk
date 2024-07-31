@@ -125,6 +125,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
         self._last_updated_before: Optional[datetime] = None
         self._sort_fields: Optional[List[SortField]] = None
         self._auth_server_url: Optional[str] = None
+        self._auth_wellknown_url: Optional[str] = None
         self._auth_scopes: Optional[List[str]] = None
         self._login_token: Optional[str] = None
         self._client_id: Optional[str] = None
@@ -324,6 +325,15 @@ class FhirClient(SimulatedGraphProcessorMixin):
         :param auth_server_url: server url to call to get the authentication token
         """
         self._auth_server_url = auth_server_url
+        return self
+
+    def auth_wellknown_url(self, auth_wellknown_url: str) -> "FhirClient":
+        """
+        Specify the well known configuration url to get the auth server url
+
+        :param auth_wellknown_url: well known configuration url
+        """
+        self._auth_wellknown_url = auth_wellknown_url
         return self
 
     def auth_scopes(self, auth_scopes: List[str]) -> "FhirClient":
@@ -2080,50 +2090,91 @@ class FhirClient(SimulatedGraphProcessorMixin):
 
         :return: auth server url or None
         """
-        full_uri: furl = furl(furl(self._url).origin)
-        host_name: str = full_uri.tostr()
-        if host_name in self._well_known_configuration_cache:
-            entry: Optional[WellKnownConfigurationCacheEntry] = (
-                self._well_known_configuration_cache.get(host_name)
-            )
-            if entry and (
-                (datetime.utcnow() - entry.last_updated_utc).seconds
-                < self._time_to_live_in_secs_for_cache
-            ):
-                cached_endpoint: Optional[str] = entry.auth_url
-                # self._internal_logger.info(
-                #     f"Returning auth_url from cache for {host_name}: {cached_endpoint}"
-                # )
-                return cached_endpoint
-        full_uri /= ".well-known/smart-configuration"
-        self._internal_logger.info(f"Calling {full_uri.tostr()}")
-        async with self.create_http_session() as http:
-            try:
-                response: ClientResponse = await http.get(full_uri.tostr())
-                text_ = await response.text()
-                if response and response.status == 200 and text_:
-                    content: Dict[str, Any] = json.loads(text_)
-                    token_endpoint: Optional[str] = str(content["token_endpoint"])
-                    with self._well_known_configuration_cache_lock:
-                        self._well_known_configuration_cache[host_name] = (
-                            WellKnownConfigurationCacheEntry(
-                                auth_url=token_endpoint,
-                                last_updated_utc=datetime.utcnow(),
+        if self._auth_wellknown_url:
+            host_name: str = furl(self._auth_wellknown_url).host
+            if host_name in self._well_known_configuration_cache:
+                entry: Optional[WellKnownConfigurationCacheEntry] = (
+                    self._well_known_configuration_cache.get(host_name)
+                )
+                if entry and (
+                    (datetime.utcnow() - entry.last_updated_utc).seconds
+                    < self._time_to_live_in_secs_for_cache
+                ):
+                    cached_endpoint: Optional[str] = entry.auth_url
+                    # self._internal_logger.info(
+                    #     f"Returning auth_url from cache for {host_name}: {cached_endpoint}"
+                    # )
+                    return cached_endpoint
+            async with self.create_http_session() as http:
+                try:
+                    response: ClientResponse = await http.get(self._auth_wellknown_url)
+                    text_ = await response.text()
+                    if response and response.status == 200 and text_:
+                        content: Dict[str, Any] = json.loads(text_)
+                        token_endpoint: Optional[str] = str(content["token_endpoint"])
+                        with self._well_known_configuration_cache_lock:
+                            self._well_known_configuration_cache[host_name] = (
+                                WellKnownConfigurationCacheEntry(
+                                    auth_url=token_endpoint,
+                                    last_updated_utc=datetime.utcnow(),
+                                )
                             )
-                        )
-                    return token_endpoint
-                else:
-                    with self._well_known_configuration_cache_lock:
-                        self._well_known_configuration_cache[host_name] = (
-                            WellKnownConfigurationCacheEntry(
-                                auth_url=None, last_updated_utc=datetime.utcnow()
+                        return token_endpoint
+                    else:
+                        with self._well_known_configuration_cache_lock:
+                            self._well_known_configuration_cache[host_name] = (
+                                WellKnownConfigurationCacheEntry(
+                                    auth_url=None, last_updated_utc=datetime.utcnow()
+                                )
                             )
-                        )
-                    return None
-            except Exception as e:
-                raise Exception(
-                    f"Error getting well known configuration from {full_uri.tostr()}"
-                ) from e
+                        return None
+                except Exception as e:
+                    raise Exception(
+                        f"Error getting well known configuration from {self._auth_wellknown_url}"
+                    ) from e
+        else:
+            full_uri: furl = furl(furl(self._url).origin)
+            host_name = full_uri.tostr()
+            if host_name in self._well_known_configuration_cache:
+                entry = self._well_known_configuration_cache.get(host_name)
+                if entry and (
+                    (datetime.utcnow() - entry.last_updated_utc).seconds
+                    < self._time_to_live_in_secs_for_cache
+                ):
+                    cached_endpoint = entry.auth_url
+                    # self._internal_logger.info(
+                    #     f"Returning auth_url from cache for {host_name}: {cached_endpoint}"
+                    # )
+                    return cached_endpoint
+            full_uri /= ".well-known/smart-configuration"
+            self._internal_logger.info(f"Calling {full_uri.tostr()}")
+            async with self.create_http_session() as http:
+                try:
+                    response = await http.get(full_uri.tostr())
+                    text_ = await response.text()
+                    if response and response.status == 200 and text_:
+                        content = json.loads(text_)
+                        token_endpoint = str(content["token_endpoint"])
+                        with self._well_known_configuration_cache_lock:
+                            self._well_known_configuration_cache[host_name] = (
+                                WellKnownConfigurationCacheEntry(
+                                    auth_url=token_endpoint,
+                                    last_updated_utc=datetime.utcnow(),
+                                )
+                            )
+                        return token_endpoint
+                    else:
+                        with self._well_known_configuration_cache_lock:
+                            self._well_known_configuration_cache[host_name] = (
+                                WellKnownConfigurationCacheEntry(
+                                    auth_url=None, last_updated_utc=datetime.utcnow()
+                                )
+                            )
+                        return None
+                except Exception as e:
+                    raise Exception(
+                        f"Error getting well known configuration from {full_uri.tostr()}"
+                    ) from e
 
     async def graph_async(
         self,
@@ -2812,3 +2863,43 @@ class FhirClient(SimulatedGraphProcessorMixin):
             logger=self._logger,
             auth_scopes=self._auth_scopes,
         )
+
+    async def delete_by_query_async(self) -> FhirDeleteResponse:
+        """
+        Delete the resources
+
+        """
+        if not self._resource:
+            raise ValueError("delete requires a FHIR resource type")
+        full_uri: furl = furl(self._url)
+        full_uri /= self._resource
+        # setup retry
+        async with self.create_http_session() as http:
+            # set up headers
+            headers: Dict[str, str] = {}
+            headers.update(self._additional_request_headers)
+            self._internal_logger.debug(f"Request headers: {headers}")
+
+            access_token = await self.get_access_token_async()
+            # set access token in request if present
+            if access_token:
+                headers["Authorization"] = f"Bearer {access_token}"
+
+            # actually make the request
+            response: ClientResponse = await http.delete(
+                full_uri.tostr(), headers=headers
+            )
+            request_id = response.headers.getone("X-Request-ID", None)
+            self._internal_logger.info(f"X-Request-ID={request_id}")
+            if response.status == 200:
+                if self._logger:
+                    self._logger.info(f"Successfully deleted: {full_uri}")
+
+            return FhirDeleteResponse(
+                request_id=request_id,
+                url=full_uri.tostr(),
+                responses=await response.text(),
+                error=f"{response.status}" if not response.status == 200 else None,
+                access_token=access_token,
+                status=response.status,
+            )

@@ -11,6 +11,13 @@ services:
     working_dir: /src
     env_file:
       - docker.env
+    environment:
+      # configuration for local testing
+        FHIR_SERVER_URL: 'http://fhir:3000/4_0_0/'
+        AUTH_CONFIGURATION_URI: 'http://keycloak:8080/realms/bwell-realm/.well-known/openid-configuration'
+        FHIR_CLIENT_ID: bwell-client-id
+        FHIR_CLIENT_SECRET: bwell-secret
+        ELASTICSEARCH_HOST: https://elasticsearch:9200
 
   mock-server:
     image: mockserver/mockserver:mockserver-5.15.0
