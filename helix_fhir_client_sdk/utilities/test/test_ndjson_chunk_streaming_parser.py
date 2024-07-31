@@ -10,7 +10,8 @@ def test_ndjson_chunk_streaming_parser() -> None:
     data_chunks = [
         '{"name": "John", "age": 30}\n{"name": "Jane", "a',
         'ge": 25}\n{"name": "Doe", "age": 40}\n{"name":',
-        ' "Smith", "age": 35}\n',
+        ' "Smith", "age',
+        '": 35}\n',
     ]
 
     parser = NdJsonChunkStreamingParser()
@@ -30,7 +31,8 @@ def test_ndjson_chunk_streaming_parser() -> None:
     remaining_objects = parser.finalize()
     print("Remaining JSON objects from buffer:", remaining_objects)
     all_objects.extend(remaining_objects)
-    all_objects_by_chunk.append(remaining_objects)
+    if remaining_objects:
+        all_objects_by_chunk.append(remaining_objects)
 
     print("All JSON objects:", all_objects)
     assert len(all_objects) == 4
@@ -45,6 +47,6 @@ def test_ndjson_chunk_streaming_parser() -> None:
     assert len(all_objects_by_chunk[1]) == 2
     assert all_objects_by_chunk[1][0] == {"name": "Jane", "age": 25}
     assert all_objects_by_chunk[1][1] == {"name": "Doe", "age": 40}
-    assert len(all_objects_by_chunk[2]) == 1
-    assert all_objects_by_chunk[2][0] == {"name": "Smith", "age": 35}
-    assert len(all_objects_by_chunk[3]) == 0
+    assert len(all_objects_by_chunk[2]) == 0
+    assert len(all_objects_by_chunk[3]) == 1
+    assert all_objects_by_chunk[3][0] == {"name": "Smith", "age": 35}
