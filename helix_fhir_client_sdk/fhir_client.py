@@ -60,6 +60,7 @@ from helix_fhir_client_sdk.function_types import (
     HandleBatchFunction,
     HandleErrorFunction,
     RefreshTokenFunction,
+    HandleStreamingResourcesFunction,
 )
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,
@@ -74,6 +75,9 @@ from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeRespons
 from helix_fhir_client_sdk.responses.fhir_update_response import FhirUpdateResponse
 from helix_fhir_client_sdk.responses.get_result import GetResult
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
+from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
+    NdJsonChunkStreamingParser,
+)
 from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValidator
 from helix_fhir_client_sdk.well_known_configuration import (
     WellKnownConfigurationCacheEntry,
@@ -164,6 +168,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
         self._refresh_token_function: RefreshTokenFunction = (
             self.authenticate_async_wrapper()
         )
+        self._chunk_size: int = 1024
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -482,6 +487,15 @@ class FhirClient(SimulatedGraphProcessorMixin):
         self._refresh_token_function = fn
         return self
 
+    def chunk_size(self, size: int) -> "FhirClient":
+        """
+        Sets the chunk size for streaming
+
+        :param size: size of the chunk
+        """
+        self._chunk_size = size
+        return self
+
     # noinspection PyUnusedLocal
     @staticmethod
     async def on_request_end(
@@ -610,10 +624,15 @@ class FhirClient(SimulatedGraphProcessorMixin):
         return self
 
     async def get_async(
-        self, data_chunk_handler: Optional[HandleStreamingChunkFunction] = None
+        self,
+        data_chunk_handler: Optional[HandleStreamingChunkFunction] = None,
+        resource_chunk_handler: Optional[HandleStreamingResourcesFunction] = None,
     ) -> FhirGetResponse:
         """
         Issues a GET call
+
+        :param data_chunk_handler: function to call for each chunk of data
+        :param resource_chunk_handler: function to call for each chunk of resources
 
         :return: response
         """
@@ -632,7 +651,10 @@ class FhirClient(SimulatedGraphProcessorMixin):
         # actually make the request
         async with self.create_http_session() as http:
             return await self._get_with_session_async(
-                session=http, ids=ids, fn_handle_streaming_chunk=data_chunk_handler
+                session=http,
+                ids=ids,
+                fn_handle_streaming_chunk=data_chunk_handler,
+                fn_resource_chunk_handler=resource_chunk_handler,
             )
 
     def get(self) -> FhirGetResponse:
@@ -653,6 +675,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
         id_above: Optional[str] = None,
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
         additional_parameters: Optional[List[str]] = None,
+        fn_resource_chunk_handler: Optional[HandleStreamingResourcesFunction] = None,
     ) -> FhirGetResponse:
         """
         issues a GET call with the specified session, page_number and ids
@@ -670,6 +693,12 @@ class FhirClient(SimulatedGraphProcessorMixin):
         assert self._resource, "No Resource was set"
         request_id: Optional[str] = None
         retries_left: int = self._retry_count + 1
+
+        # used to parse the ndjson response for streaming
+        nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser = (
+            NdJsonChunkStreamingParser()
+        )
+
         # create url and query to request from FHIR server
         resources_json: str = ""
         full_uri: furl = furl(self._url)
@@ -846,22 +875,35 @@ class FhirClient(SimulatedGraphProcessorMixin):
                     next_url: Optional[str] = None
                     if self._use_data_streaming:
                         chunk_number = 0
-                        complete_resource: bytes = b""
-                        async for data in response.content.iter_chunks():
-                            complete_resource += data[0]
-                            end_of_http_chunk = data[1]
+                        chunk_bytes: bytes = b""
+                        async for chunk_bytes in response.content.iter_chunked(
+                            self._chunk_size
+                        ):
                             # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
                             await asyncio.sleep(0)
                             chunk_number += 1
-                            if end_of_http_chunk and fn_handle_streaming_chunk:
+                            if fn_handle_streaming_chunk:
                                 await fn_handle_streaming_chunk(
-                                    complete_resource, chunk_number
+                                    chunk_bytes, chunk_number
                                 )
+                            if fn_resource_chunk_handler:
+                                completed_resources: List[
+                                    Dict[str, Any]
+                                ] = nd_json_chunk_streaming_parser.add_chunk(
+                                    chunk=chunk_bytes.decode("utf-8")
+                                )
+                                if completed_resources:
+                                    await fn_resource_chunk_handler(
+                                        resources=completed_resources,
+                                        chunk_number=chunk_number,
+                                    )
+                            else:
+                                resources_json += chunk_bytes.decode("utf-8")
+
                             if self._logger:
                                 self._logger.debug(
                                     f"Successfully retrieved chunk {chunk_number}: {full_url}"
                                 )
-                            resources_json += data[0].decode("utf-8")
                     else:
                         if self._logger:
                             self._logger.debug(f"Successfully retrieved: {full_url}")

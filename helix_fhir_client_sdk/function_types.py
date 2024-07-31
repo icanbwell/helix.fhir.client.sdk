@@ -63,3 +63,19 @@ class RefreshTokenFunction(Protocol):
         :return: new token or None
         """
         ...
+
+
+class HandleStreamingResourcesFunction(Protocol):
+    async def __call__(
+        self,
+        resources: Optional[List[Dict[str, Any]]],
+        chunk_number: Optional[int] = None,
+    ) -> bool:
+        """
+        Handle a streaming result
+
+        :param resources: complete resources we've received so far
+        :param chunk_number: chunk number
+        :return: True if successful
+        """
+        ...
