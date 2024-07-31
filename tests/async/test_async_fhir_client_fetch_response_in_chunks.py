@@ -83,6 +83,10 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
             for content in self._content:
                 yield content
 
+        async def iter_chunked(self, chunk_size: int) -> AsyncGenerator[bytes, None]:
+            for content, chunk_number in self._content:
+                yield content
+
     class GetHeader(dict[str, Any]):
         """
         Mocked CIMultiDictProxy class of multidict module. This class was mocked to mock the behaviour of getone method.
