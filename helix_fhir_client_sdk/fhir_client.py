@@ -1855,6 +1855,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                     resource_name=resource_json.get("resourceType")
                                     or self._resource,
                                     validation_server_url=self._validation_server_url,
+                                    access_token=await self.get_access_token_async(),
                                 )
                                 resource_json_list_clean.append(resource_json)
                             except FhirValidationException as e:
@@ -1876,6 +1877,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                         resource_name=resource_json.get("resourceType")
                                         or self._resource,
                                         validation_server_url=self._validation_server_url,
+                                        access_token=await self.get_access_token_async(),
                                     )
                                     resource_json_list_clean.append(resource_json)
                                 except FhirValidationException as e:
@@ -2310,6 +2312,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                     json_data=json_data,
                     resource_name=self._resource,
                     validation_server_url=self._validation_server_url,
+                    access_token=access_token,
                 )
 
             json_payload_bytes: bytes = json_data.encode("utf-8")
