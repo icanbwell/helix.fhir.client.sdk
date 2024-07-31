@@ -92,9 +92,9 @@ class FhirGetResponse:
         bundle_entries: List[BundleEntry] = self.get_bundle_entries()
         for other_response in other:
             if other_response.responses:
-                other_bundle_entries: List[
-                    BundleEntry
-                ] = other_response.get_bundle_entries()
+                other_bundle_entries: List[BundleEntry] = (
+                    other_response.get_bundle_entries()
+                )
                 bundle_entries.extend(other_bundle_entries)
         bundle = {
             "resourceType": "Bundle",
@@ -115,9 +115,9 @@ class FhirGetResponse:
 
         try:
             # THis is either a list of resources or a Bundle resource containing a list of resources
-            child_response_resources: Union[
-                Dict[str, Any], List[Dict[str, Any]]
-            ] = self.parse_json(self.responses)
+            child_response_resources: Union[Dict[str, Any], List[Dict[str, Any]]] = (
+                self.parse_json(self.responses)
+            )
             # if it is a list of resources then return it
             if isinstance(child_response_resources, list):
                 return child_response_resources
@@ -144,9 +144,9 @@ class FhirGetResponse:
             return []
         try:
             # THis is either a list of resources or a Bundle resource containing a list of resources
-            child_response_resources: Union[
-                Dict[str, Any], List[Dict[str, Any]]
-            ] = self.parse_json(self.responses)
+            child_response_resources: Union[Dict[str, Any], List[Dict[str, Any]]] = (
+                self.parse_json(self.responses)
+            )
 
             # use these if the bundle entry does not have them
             request: BundleEntryRequest = BundleEntryRequest(url=self.url)
@@ -167,18 +167,22 @@ class FhirGetResponse:
                 return [
                     BundleEntry(
                         resource=entry["resource"],
-                        request=BundleEntryRequest.from_dict(
-                            cast(Dict[str, Any], entry.get("request"))
-                        )
-                        if entry.get("request")
-                        and isinstance(entry.get("request"), dict)
-                        else request,
-                        response=BundleEntryResponse.from_dict(
-                            cast(Dict[str, Any], entry.get("response"))
-                        )
-                        if entry.get("response")
-                        and isinstance(entry.get("response"), dict)
-                        else response,
+                        request=(
+                            BundleEntryRequest.from_dict(
+                                cast(Dict[str, Any], entry.get("request"))
+                            )
+                            if entry.get("request")
+                            and isinstance(entry.get("request"), dict)
+                            else request
+                        ),
+                        response=(
+                            BundleEntryResponse.from_dict(
+                                cast(Dict[str, Any], entry.get("response"))
+                            )
+                            if entry.get("response")
+                            and isinstance(entry.get("response"), dict)
+                            else response
+                        ),
                         fullUrl=entry.get("fullUrl"),
                     )
                     for entry in bundle_entries
@@ -289,9 +293,9 @@ class FhirGetResponse:
 
         """
         try:
-            response_resources: Union[
-                Dict[str, Any], List[Dict[str, Any]]
-            ] = self.parse_json(self.responses)
+            response_resources: Union[Dict[str, Any], List[Dict[str, Any]]] = (
+                self.parse_json(self.responses)
+            )
 
             # there are three cases:
             # 1. response_resources is a list of resources

@@ -887,10 +887,10 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                     chunk_bytes, chunk_number
                                 )
                             if fn_resource_chunk_handler:
-                                completed_resources: List[
-                                    Dict[str, Any]
-                                ] = nd_json_chunk_streaming_parser.add_chunk(
-                                    chunk=chunk_bytes.decode("utf-8")
+                                completed_resources: List[Dict[str, Any]] = (
+                                    nd_json_chunk_streaming_parser.add_chunk(
+                                        chunk=chunk_bytes.decode("utf-8")
+                                    )
                                 )
                                 if completed_resources:
                                     await fn_resource_chunk_handler(
@@ -1249,9 +1249,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
         #         "only $graph action with _separate_bundle_resources=True"
         #         " is supported at this moment"
         #     )
-        resources_dict: Dict[
-            str, Union[Optional[str], List[Any]]
-        ] = {}  # {resource type: [data]}}
+        resources_dict: Dict[str, Union[Optional[str], List[Any]]] = (
+            {}
+        )  # {resource type: [data]}}
         # iterate through the entry list
         # have to split these here otherwise when Spark loads them
         # it can't handle
@@ -1576,9 +1576,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
                 extra_context_to_return=self._extra_context_to_return,
                 resource_type=self._resource,
                 id_=self._id,
-                response_headers=result_list[0].response_headers
-                if len(result_list) > 0
-                else None,
+                response_headers=(
+                    result_list[0].response_headers if len(result_list) > 0 else None
+                ),
             )
 
     @staticmethod
@@ -1823,9 +1823,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
             async with self.create_http_session() as http:
                 # set access token in request if present
                 if await self.get_access_token_async():
-                    headers[
-                        "Authorization"
-                    ] = f"Bearer {await self.get_access_token_async()}"
+                    headers["Authorization"] = (
+                        f"Bearer {await self.get_access_token_async()}"
+                    )
 
                 try:
                     resource_json_list_incoming: List[Dict[str, Any]] = [
@@ -1969,9 +1969,11 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                             ]
                                         }
                                     ],
-                                    error=json.dumps(response_text)
-                                    if response_text
-                                    else None,
+                                    error=(
+                                        json.dumps(response_text)
+                                        if response_text
+                                        else None
+                                    ),
                                     access_token=self._access_token,
                                     status=response.status if response.status else 500,
                                 )
@@ -1984,9 +1986,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                 response_text=await self.get_safe_response_text_async(
                                     response=response
                                 ),
-                                response_status_code=response.status
-                                if response
-                                else None,
+                                response_status_code=(
+                                    response.status if response else None
+                                ),
                                 exception=e,
                                 variables=self.get_variables_to_log(vars(self)),
                                 message=f"HttpError: {e}",
@@ -2001,9 +2003,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                 response_text=await self.get_safe_response_text_async(
                                     response=response
                                 ),
-                                response_status_code=response.status
-                                if response
-                                else None,
+                                response_status_code=(
+                                    response.status if response else None
+                                ),
                                 exception=e,
                                 variables=self.get_variables_to_log(vars(self)),
                                 message=f"Unknown Error: {e}",
@@ -2025,9 +2027,11 @@ class FhirClient(SimulatedGraphProcessorMixin):
                     request_id=request_id,
                     url=resource_uri.url,
                     responses=responses + errors,
-                    error=json.dumps(responses + errors)
-                    if response_status != 200
-                    else None,
+                    error=(
+                        json.dumps(responses + errors)
+                        if response_status != 200
+                        else None
+                    ),
                     access_token=self._access_token,
                     status=response_status if response_status else 500,
                     json_data=json_payload,
@@ -2079,9 +2083,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
         full_uri: furl = furl(furl(self._url).origin)
         host_name: str = full_uri.tostr()
         if host_name in self._well_known_configuration_cache:
-            entry: Optional[
-                WellKnownConfigurationCacheEntry
-            ] = self._well_known_configuration_cache.get(host_name)
+            entry: Optional[WellKnownConfigurationCacheEntry] = (
+                self._well_known_configuration_cache.get(host_name)
+            )
             if entry and (
                 (datetime.utcnow() - entry.last_updated_utc).seconds
                 < self._time_to_live_in_secs_for_cache
@@ -2101,18 +2105,19 @@ class FhirClient(SimulatedGraphProcessorMixin):
                     content: Dict[str, Any] = json.loads(text_)
                     token_endpoint: Optional[str] = str(content["token_endpoint"])
                     with self._well_known_configuration_cache_lock:
-                        self._well_known_configuration_cache[
-                            host_name
-                        ] = WellKnownConfigurationCacheEntry(
-                            auth_url=token_endpoint, last_updated_utc=datetime.utcnow()
+                        self._well_known_configuration_cache[host_name] = (
+                            WellKnownConfigurationCacheEntry(
+                                auth_url=token_endpoint,
+                                last_updated_utc=datetime.utcnow(),
+                            )
                         )
                     return token_endpoint
                 else:
                     with self._well_known_configuration_cache_lock:
-                        self._well_known_configuration_cache[
-                            host_name
-                        ] = WellKnownConfigurationCacheEntry(
-                            auth_url=None, last_updated_utc=datetime.utcnow()
+                        self._well_known_configuration_cache[host_name] = (
+                            WellKnownConfigurationCacheEntry(
+                                auth_url=None, last_updated_utc=datetime.utcnow()
+                            )
                         )
                     return None
             except Exception as e:

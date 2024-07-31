@@ -437,9 +437,11 @@ class SimulatedGraphProcessorMixin(ABC):
             cached_bundle: Bundle = Bundle(entry=cached_bundle_entries)
             cached_response = FhirGetResponse(
                 request_id=None,
-                url=cached_bundle_entries[0].request.url
-                if cached_bundle_entries[0].request
-                else "",
+                url=(
+                    cached_bundle_entries[0].request.url
+                    if cached_bundle_entries[0].request
+                    else ""
+                ),
                 id_=None,
                 resource_type=resource_type,
                 responses=json.dumps(cached_bundle.to_dict(), cls=FhirJSONEncoder),
@@ -463,9 +465,9 @@ class SimulatedGraphProcessorMixin(ABC):
             non_cached_bundle_entry: BundleEntry
             for non_cached_bundle_entry in result.get_bundle_entries():
                 if non_cached_bundle_entry.resource:
-                    non_cached_resource: Dict[
-                        str, Any
-                    ] = non_cached_bundle_entry.resource
+                    non_cached_resource: Dict[str, Any] = (
+                        non_cached_bundle_entry.resource
+                    )
                     non_cached_resource_id: Optional[str] = non_cached_resource.get(
                         "id"
                     )

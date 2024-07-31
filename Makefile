@@ -95,7 +95,8 @@ console_test:  ## runs the test via console to download resources from FHIR serv
 
 .PHONY:pipenv-setup
 pipenv-setup:devdocker ## Brings up the bash shell in dev docker
-	docker compose run --rm --name helix.fhir.client.sdk dev pipenv-setup sync --pipfile
+	docker compose run --rm --name helix.fhir.client.sdk dev sh -c "pipenv run pipenv install --skip-lock --categories \"pipenvsetup\" && pipenv run pipenv-setup sync --pipfile" && \
+	make run-pre-commit
 
 .PHONY:clean
 clean: down
@@ -125,4 +126,3 @@ show_dependency_graph:
 .PHONY:qodana
 qodana:
 	docker run --rm -it --name qodana --mount type=bind,source="$(pwd)",target=/data/project -p 8080:8080 jetbrains/qodana-python:2023.2 --show-report
-

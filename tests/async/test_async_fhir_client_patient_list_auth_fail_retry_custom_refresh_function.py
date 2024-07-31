@@ -12,7 +12,9 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from unittest.mock import AsyncMock
 
 
-async def test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_function() -> None:
+async def test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_function() -> (
+    None
+):
     test_name = (
         "test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_function"
     )
