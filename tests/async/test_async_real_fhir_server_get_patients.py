@@ -51,13 +51,12 @@ async def test_async_real_fhir_server_get_patients() -> None:
     assert merge_response.responses[0]["created"] is True, merge_response.responses
 
     fhir_client = FhirClient()
-    fhir_client = (
-        fhir_client.url(fhir_server_url).use_data_streaming(True).resource("Patient")
-    )
+    fhir_client = fhir_client.url(fhir_server_url).resource("Patient")
     fhir_client = fhir_client.client_credentials(
         client_id=auth_client_id, client_secret=auth_client_secret
     )
     fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
+    fhir_client = fhir_client.expand_fhir_bundle(False)
     response: FhirGetResponse = await fhir_client.get_async()
     response_text = response.responses
     bundle = json.loads(response_text)

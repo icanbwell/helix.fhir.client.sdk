@@ -2864,15 +2864,33 @@ class FhirClient(SimulatedGraphProcessorMixin):
             auth_scopes=self._auth_scopes,
         )
 
-    async def delete_by_query_async(self) -> FhirDeleteResponse:
+    async def delete_by_query_async(
+        self, *, additional_parameters: Optional[List[str]] = None
+    ) -> FhirDeleteResponse:
         """
-        Delete the resources
+        Delete the resources using the specified query if any
 
+
+        :param additional_parameters: additional parameters to add to the query
+        :return: response
         """
         if not self._resource:
             raise ValueError("delete requires a FHIR resource type")
         full_uri: furl = furl(self._url)
         full_uri /= self._resource
+        full_url: str = full_uri.url
+        if additional_parameters:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += "&".join(additional_parameters)
+        elif self._additional_parameters:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += "&".join(self._additional_parameters)
         # setup retry
         async with self.create_http_session() as http:
             # set up headers
