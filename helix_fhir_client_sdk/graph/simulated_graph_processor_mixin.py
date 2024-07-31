@@ -2,14 +2,26 @@ import asyncio
 import json
 from abc import abstractmethod, ABC
 from datetime import datetime
-from typing import Union, List, Dict, Any, Optional, cast, Tuple
+from typing import (
+    Dict,
+    Optional,
+    List,
+    Union,
+    Any,
+    AsyncGenerator,
+    Tuple,
+    cast,
+)
 
 from aiohttp import ClientSession
 
 from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
 from helix_fhir_client_sdk.fhir_bundle import BundleEntry, Bundle
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
-from helix_fhir_client_sdk.function_types import HandleStreamingChunkFunction
+from helix_fhir_client_sdk.function_types import (
+    HandleStreamingChunkFunction,
+    HandleStreamingResourcesFunction,
+)
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,
     GraphDefinitionLink,
@@ -457,11 +469,15 @@ class SimulatedGraphProcessorMixin(ABC):
         result: Optional[FhirGetResponse] = None
         # either we have non-cached ids or this is a query without id but has other parameters
         if len(non_cached_id_list) > 0 or not id_:
-            result = await self._get_with_session_async(
+            async for (
+                result1
+            ) in self._get_with_session_async(  # type:ignore[attr-defined]
                 session=session,
                 ids=non_cached_id_list,
                 additional_parameters=parameters,
-            )
+            ):
+                result = result1
+            assert result
             non_cached_bundle_entry: BundleEntry
             for non_cached_bundle_entry in result.get_bundle_entries():
                 if non_cached_bundle_entry.resource:
@@ -503,7 +519,8 @@ class SimulatedGraphProcessorMixin(ABC):
         id_above: Optional[str] = None,
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
         additional_parameters: Optional[List[str]] = None,
-    ) -> FhirGetResponse:
+        fn_resource_chunk_handler: Optional[HandleStreamingResourcesFunction] = None,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
         pass
 
     @abstractmethod

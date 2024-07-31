@@ -660,12 +660,16 @@ class FhirClient(SimulatedGraphProcessorMixin):
             ids = self._id if isinstance(self._id, list) else [self._id]
         # actually make the request
         async with self.create_http_session() as http:
-            return await self._get_with_session_async(
+            full_response: Optional[FhirGetResponse]
+            async for response in self._get_with_session_async(
                 session=http,
                 ids=ids,
                 fn_handle_streaming_chunk=data_chunk_handler,
                 fn_resource_chunk_handler=resource_chunk_handler,
-            )
+            ):
+                full_response = response
+            assert full_response
+            return full_response
 
     def get(self) -> FhirGetResponse:
         """
@@ -676,7 +680,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
         result: FhirGetResponse = asyncio.run(self.get_async())
         return result
 
-    async def _get_with_session_async(
+    async def _get_with_session_async(  # type: ignore[override]
         self,
         *,
         session: Optional[ClientSession],
@@ -686,7 +690,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
         additional_parameters: Optional[List[str]] = None,
         fn_resource_chunk_handler: Optional[HandleStreamingResourcesFunction] = None,
-    ) -> FhirGetResponse:
+    ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         issues a GET call with the specified session, page_number and ids
 
@@ -982,7 +986,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                 resources_json = json.dumps(resources_dict)
                             else:
                                 resources_json = text
-                    return FhirGetResponse(
+                    yield FhirGetResponse(
                         request_id=request_id,
                         url=full_url,
                         responses=resources_json,
@@ -1002,7 +1006,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                     )
                     if self._logger:
                         self._logger.error(f"resource not found! {full_url}")
-                    return FhirGetResponse(
+                    yield FhirGetResponse(
                         request_id=request_id,
                         url=full_url,
                         responses=await response.text(),
@@ -1028,7 +1032,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                     last_response_text = await self.get_safe_response_text_async(
                         response=response
                     )
-                    return FhirGetResponse(
+                    yield FhirGetResponse(
                         request_id=request_id,
                         url=full_url,
                         responses=await response.text(),
@@ -1058,7 +1062,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                             )
                             if not self._access_token:
                                 # no ability to refresh auth token
-                                return FhirGetResponse(
+                                yield FhirGetResponse(
                                     request_id=request_id,
                                     url=full_url,
                                     responses="",
@@ -1073,7 +1077,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                 )
                         except Exception as ex:
                             # no ability to refresh auth token
-                            return FhirGetResponse(
+                            yield FhirGetResponse(
                                 request_id=request_id,
                                 url=full_url,
                                 responses="",
@@ -1090,7 +1094,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                         continue
                     else:
                         # out of retries_left so just fail now
-                        return FhirGetResponse(
+                        yield FhirGetResponse(
                             request_id=request_id,
                             url=full_url,
                             responses=await response.text(),
@@ -1111,7 +1115,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                         not self._exclude_status_codes_from_retry
                         or response.status not in self._exclude_status_codes_from_retry
                     ):
-                        return FhirGetResponse(
+                        yield FhirGetResponse(
                             request_id=request_id,
                             url=full_url,
                             responses=await response.text(),
@@ -1166,7 +1170,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                     if self._internal_logger:
                         self._internal_logger.error(error_text)
 
-                    return FhirGetResponse(
+                    yield FhirGetResponse(
                         request_id=request_id,
                         url=full_url,
                         responses=error_text,
@@ -1190,7 +1194,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                     )
 
             # if after retries_left we still fail then show it here
-            return FhirGetResponse(
+            yield FhirGetResponse(
                 request_id=request_id,
                 url=full_url,
                 responses="",
@@ -1387,13 +1391,18 @@ class FhirClient(SimulatedGraphProcessorMixin):
         :param id_above:
         :return: list of resources
         """
-        result: FhirGetResponse = await self._get_with_session_async(
+        result: Optional[FhirGetResponse] = None
+        async for result1 in self._get_with_session_async(
             session=session,
             page_number=page_number,
             ids=ids,
             id_above=id_above,
             fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-        )
+        ):
+            result = result1
+
+        assert result
+
         if result.error:
             if fn_handle_error:
                 await fn_handle_error(result.error, result.responses, page_number)
@@ -2223,19 +2232,22 @@ class FhirClient(SimulatedGraphProcessorMixin):
         )  # this is needed because the $graph endpoint requires an id
         output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
         async with self.create_http_session() as http:
-            return (
-                await self._get_with_session_async(
+            if not process_in_batches:
+                result: Optional[FhirGetResponse]
+                async for result1 in self._get_with_session_async(
                     session=http, fn_handle_streaming_chunk=fn_handle_streaming_chunk
-                )
-                if not process_in_batches
-                else await self.get_by_query_in_pages_async(
+                ):
+                    result = result1
+                assert result
+                return result
+            else:
+                return await self.get_by_query_in_pages_async(
                     concurrent_requests=concurrent_requests,
                     output_queue=output_queue,
                     fn_handle_error=fn_handle_error,
                     fn_handle_batch=fn_handle_batch,
                     fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                 )
-            )
 
     def graph(
         self,
