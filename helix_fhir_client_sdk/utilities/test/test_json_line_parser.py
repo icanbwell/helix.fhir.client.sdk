@@ -95,3 +95,10 @@ def test_fhir_resources_one_line() -> None:
             results.append(result)
         else:
             print(f"{line_number}: None")
+
+
+def test_ndjson() -> None:
+    chunks = [
+        '{"name": "John", "age": 30}\n{"name": "Jane", "a',
+        'ge": 25}\n{"name": "Doe", "age": 40}\n{"name": "Smith", "age": 35}\n',
+    ]
