@@ -66,3 +66,32 @@ def test_fhir_resources() -> None:
             results.append(result)
         else:
             print(f"{line_number}: None")
+
+
+def test_fhir_resources_one_line() -> None:
+    fhir: Dict[str, Any] = {
+        "resourceType": "Bundle",
+        "total": 2,
+        "entry": [
+            {"resource": {"resourceType": "Patient", "id": "1"}},
+            {"resource": {"resourceType": "Patient", "id": "2"}},
+        ],
+    }
+
+    fhir_json: str = ""
+    for e in fhir["entry"]:
+        fhir_json += json.dumps(e) + "\n"
+    print(fhir_json)
+    fhir_json_lines: List[str] = fhir_json.split("\n")
+    processor = JsonLineParser()
+    results = []
+    line_number = 0
+    for line in fhir_json_lines:
+        line_number += 1
+        print(f"Line {line_number}: {line}")
+        result: Optional[Dict[str, Any]] = processor.add_line(line)
+        if result:
+            print(f"Resource: {line_number}: {result}")
+            results.append(result)
+        else:
+            print(f"{line_number}: None")
