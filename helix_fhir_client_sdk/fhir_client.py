@@ -1673,7 +1673,11 @@ class FhirClient(SimulatedGraphProcessorMixin):
         """
         variables_to_log = {}
         for key, value in vars_dict.items():
-            if not isinstance(value, type(threading.Lock)):
+            if not value or (
+                not callable(value)
+                and not isinstance(value, type(threading.Lock))
+                and not str(type(value)) == "<class '_thread.lock'>"
+            ):
                 variables_to_log[key] = value
         variables_to_log.pop("_access_token", None)
         variables_to_log.pop("_login_token", None)
