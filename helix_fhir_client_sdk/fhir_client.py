@@ -888,14 +888,7 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                     ):
                         yield r
 
-                if self._logger:
-                    self._logger.info(
-                        f"Got status_code= {response.status}, Retries left={retries_left}"
-                    )
-                if self._internal_logger:
-                    self._internal_logger.info(
-                        f"Got status_code= {response.status}, Retries left={retries_left}"
-                    )
+                await self._log_retry(response=response, retries_left=retries_left)
 
             # if after retries_left we still fail then show it here
             yield FhirGetResponse(
@@ -923,6 +916,16 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                 response_status_code=last_status_code,
                 message="",
                 elapsed_time=time.time() - start_time,
+            )
+
+    async def _log_retry(self, *, response: ClientResponse, retries_left: int) -> None:
+        if self._logger:
+            self._logger.info(
+                f"Got status_code= {response.status}, Retries left={retries_left}"
+            )
+        if self._internal_logger:
+            self._internal_logger.info(
+                f"Got status_code= {response.status}, Retries left={retries_left}"
             )
 
     async def _handle_response_unknown(
