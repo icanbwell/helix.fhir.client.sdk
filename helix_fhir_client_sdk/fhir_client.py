@@ -23,7 +23,6 @@ from typing import (
     Generator,
     AsyncGenerator,
     Coroutine,
-    Tuple,
 )
 from urllib import parse
 
@@ -38,7 +37,6 @@ from aiohttp import (
     ClientSession,
     ClientResponse,
     TraceRequestEndParams,
-    ClientPayloadError,
 )
 
 # noinspection PyPackageRequirements
@@ -73,6 +71,9 @@ from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProto
 from helix_fhir_client_sdk.responses.fhir_delete_response import FhirDeleteResponse
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
+from helix_fhir_client_sdk.responses.fhir_response_processor import (
+    FhirResponseProcessor,
+)
 from helix_fhir_client_sdk.responses.fhir_update_response import FhirUpdateResponse
 from helix_fhir_client_sdk.responses.get_result import GetResult
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
@@ -634,13 +635,11 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
     async def get_async(
         self,
         data_chunk_handler: Optional[HandleStreamingChunkFunction] = None,
-        resource_chunk_handler: Optional[HandleStreamingResourcesFunction] = None,
     ) -> FhirGetResponse:
         """
         Issues a GET call
 
         :param data_chunk_handler: function to call for each chunk of data
-        :param resource_chunk_handler: function to call for each chunk of resources
 
         :return: response
         """
@@ -783,7 +782,16 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
                 else:
                     http = session
 
-                await self._log_request(full_url=full_url, retries_left=retries_left)
+                await FhirResponseProcessor.log_request(
+                    full_url=full_url,
+                    retries_left=retries_left,
+                    client_id=self._client_id,
+                    auth_scopes=self._auth_scopes,
+                    log_level=self._log_level,
+                    uuid=self._uuid,
+                    logger=self._logger,
+                    internal_logger=self._internal_logger,
+                )
 
                 response: ClientResponse = await self._send_fhir_request_async(
                     http=http, full_url=full_url, headers=headers, payload=payload
@@ -794,82 +802,43 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
                 ]
                 # retries_left
                 retries_left = retries_left - 1
-                await self._log_response(
+                await FhirResponseProcessor.log_response(
                     full_url=full_url,
                     response_status=response.status,
                     retries_left=retries_left,
+                    client_id=self._client_id,
+                    internal_logger=self._internal_logger,
+                    log_level=self._log_level,
+                    logger=self._logger,
+                    auth_scopes=self._auth_scopes,
+                    uuid=self._uuid,
                 )
 
                 request_id = response.headers.getone("X-Request-ID", None)
                 self._internal_logger.info(f"X-Request-ID={request_id}")
-                # if using streams, use ndjson content type:
-                # async for data, _ in response.content.iter_chunks():
-                #     print(data)
 
-                # if request is ok (200) then return the data
-                if response.status == 200:
-                    async for r in self._handle_response_200(
-                        full_url=full_url,
-                        request_id=request_id,
-                        response=response,
-                        response_headers=response_headers,
-                        fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                        access_token=access_token,
-                        retries_left=retries_left,
-                        nd_json_chunk_streaming_parser=nd_json_chunk_streaming_parser,
-                        resources_json=resources_json,
-                    ):
-                        yield r
-                elif response.status == 404:  # not found
-                    async for r in self._handle_response_404(
-                        full_url=full_url,
-                        request_id=request_id,
-                        response=response,
-                        response_headers=response_headers,
-                    ):
-                        yield r
-                elif response.status == 502 or response.status == 504:  # time out
-                    last_response_text = await self.get_safe_response_text_async(
-                        response=response
-                    )
-                    if retries_left > 0 and (
-                        not self._exclude_status_codes_from_retry
-                        or response.status not in self._exclude_status_codes_from_retry
-                    ):
-                        continue
-                elif response.status == 403:  # forbidden
-                    async for r in self._handle_response_403(
-                        full_url=full_url,
-                        request_id=request_id,
-                        response=response,
-                        response_headers=response_headers,
-                    ):
-                        yield r
-                elif response.status == 401:  # unauthorized
-                    async for r in self._handle_response_401(
-                        full_url=full_url,
-                        response=response,
-                        retries_left=retries_left,
-                        request_id=request_id,
-                        response_headers=response_headers,
-                    ):
-                        yield r
-                elif response.status == 429:  # too many calls
-                    async for r in self._handle_response_429(
-                        response=response,
-                        full_url=full_url,
-                        request_id=request_id,
-                        response_headers=response_headers,
-                    ):
-                        yield r
-                else:  # unknown response
-                    async for r in self._handle_response_unknown(
-                        full_url=full_url,
-                        request_id=request_id,
-                        response=response,
-                        response_headers=response_headers,
-                    ):
-                        yield r
+                async for r in FhirResponseProcessor.handle_response(
+                    auth_scopes=self._auth_scopes,
+                    internal_logger=self._internal_logger,
+                    access_token=access_token,
+                    response_headers=response_headers,
+                    response=response,
+                    logger=self._logger,
+                    resources_json=resources_json,
+                    retries_left=retries_left,
+                    nd_json_chunk_streaming_parser=nd_json_chunk_streaming_parser,
+                    full_url=full_url,
+                    request_id=request_id,
+                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+                    login_token=self._login_token,
+                    resource=self._resource,
+                    id_=self._id,
+                    auth_server_url=self._auth_server_url,
+                    refresh_token_function=self._refresh_token_function,
+                    exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
+                    chunk_size=self._chunk_size,
+                ):
+                    yield r
 
                 await self._log_retry(response=response, retries_left=retries_left)
                 if (
@@ -918,420 +887,6 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
             self._internal_logger.info(
                 f"Got status_code= {response.status}, Retries left={retries_left}"
             )
-
-    async def _handle_response_unknown(
-        self,
-        *,
-        full_url: str,
-        request_id: Optional[str],
-        response: ClientResponse,
-        response_headers: List[str],
-    ) -> AsyncGenerator[FhirGetResponse, None]:
-        # some unexpected error
-        if self._logger:
-            self._logger.error(f"Fhir Receive failed [{response.status}]: {full_url} ")
-        if self._internal_logger:
-            self._internal_logger.error(
-                f"Fhir Receive failed [{response.status}]: {full_url} "
-            )
-        error_text: str = await self.get_safe_response_text_async(response=response)
-        if self._logger:
-            self._logger.error(error_text)
-        if self._internal_logger:
-            self._internal_logger.error(error_text)
-        yield FhirGetResponse(
-            request_id=request_id,
-            url=full_url,
-            responses=error_text,
-            access_token=self._access_token,
-            error=error_text,
-            total_count=0,
-            status=response.status,
-            extra_context_to_return=self._extra_context_to_return,
-            resource_type=self._resource,
-            id_=self._id,
-            response_headers=response_headers,
-        )
-
-    async def _handle_response_429(
-        self,
-        *,
-        response: ClientResponse,
-        full_url: str,
-        request_id: Optional[str],
-        response_headers: List[str],
-    ) -> AsyncGenerator[FhirGetResponse, None]:
-        last_response_text = await self.get_safe_response_text_async(response=response)
-        if (
-            not self._exclude_status_codes_from_retry
-            or response.status not in self._exclude_status_codes_from_retry
-        ):
-            yield FhirGetResponse(
-                request_id=request_id,
-                url=full_url,
-                responses=last_response_text,
-                error=None,
-                access_token=self._access_token,
-                total_count=0,
-                status=response.status,
-                extra_context_to_return=self._extra_context_to_return,
-                resource_type=self._resource,
-                id_=self._id,
-                response_headers=response_headers,
-            )
-        # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
-        # read the Retry-After header
-        # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
-        retry_after_text: str = str(response.headers.getone("Retry-After"))
-        if self._logger:
-            self._logger.info(
-                f"Server {full_url} sent a 429 with retry-after: {retry_after_text}"
-            )
-        if retry_after_text:
-            if retry_after_text.isnumeric():  # it is number of seconds
-                time.sleep(int(retry_after_text))
-            else:
-                wait_till: datetime = datetime.strptime(
-                    retry_after_text, "%a, %d %b %Y %H:%M:%S GMT"
-                )
-                while datetime.utcnow() < wait_till:
-                    time.sleep(10)
-        else:
-            time.sleep(60)
-        if self._logger:
-            self._logger.info(
-                f"Finished waiting after a 429 with retry-after: {retry_after_text}"
-            )
-
-    async def _handle_response_401(
-        self,
-        *,
-        full_url: str,
-        response: ClientResponse,
-        retries_left: int,
-        request_id: Optional[str],
-        response_headers: List[str],
-    ) -> AsyncGenerator[FhirGetResponse, None]:
-        last_response_text = await self.get_safe_response_text_async(response=response)
-        if retries_left > 0 and (
-            not self._exclude_status_codes_from_retry
-            or response.status not in self._exclude_status_codes_from_retry
-        ):
-            current_access_token: Optional[str] = self._access_token
-            try:
-                self._access_token = await self._refresh_token_function(
-                    auth_server_url=self._auth_server_url,
-                    auth_scopes=self._auth_scopes,
-                    login_token=self._login_token,
-                )
-                if not self._access_token:
-                    # no ability to refresh auth token
-                    yield FhirGetResponse(
-                        request_id=request_id,
-                        url=full_url,
-                        responses="",
-                        error=last_response_text or "UnAuthorized",
-                        access_token=current_access_token,
-                        total_count=0,
-                        status=response.status,
-                        extra_context_to_return=self._extra_context_to_return,
-                        resource_type=self._resource,
-                        id_=self._id,
-                        response_headers=response_headers,
-                    )
-            except Exception as ex:
-                # no ability to refresh auth token
-                yield FhirGetResponse(
-                    request_id=request_id,
-                    url=full_url,
-                    responses="",
-                    error=str(ex),
-                    access_token=current_access_token,
-                    total_count=0,
-                    status=response.status,
-                    extra_context_to_return=self._extra_context_to_return,
-                    resource_type=self._resource,
-                    id_=self._id,
-                    response_headers=response_headers,
-                )
-            # try again
-        else:
-            # out of retries_left so just fail now
-            yield FhirGetResponse(
-                request_id=request_id,
-                url=full_url,
-                responses=await response.text(),
-                error=last_response_text or "UnAuthorized",
-                access_token=self._access_token,
-                total_count=0,
-                status=response.status,
-                extra_context_to_return=self._extra_context_to_return,
-                resource_type=self._resource,
-                id_=self._id,
-                response_headers=response_headers,
-            )
-
-    async def _handle_response_403(
-        self,
-        *,
-        full_url: str,
-        request_id: Optional[str],
-        response: ClientResponse,
-        response_headers: List[str],
-    ) -> AsyncGenerator[FhirGetResponse, None]:
-        last_response_text = await self.get_safe_response_text_async(response=response)
-        yield FhirGetResponse(
-            request_id=request_id,
-            url=full_url,
-            responses=last_response_text,
-            error=None,
-            access_token=self._access_token,
-            total_count=0,
-            status=response.status,
-            extra_context_to_return=self._extra_context_to_return,
-            resource_type=self._resource,
-            id_=self._id,
-            response_headers=response_headers,
-        )
-
-    async def _handle_response_404(
-        self,
-        *,
-        full_url: str,
-        request_id: Optional[str],
-        response: ClientResponse,
-        response_headers: List[str],
-    ) -> AsyncGenerator[FhirGetResponse, None]:
-        last_response_text = await self.get_safe_response_text_async(response=response)
-        if self._logger:
-            self._logger.error(f"resource not found! {full_url}")
-        yield FhirGetResponse(
-            request_id=request_id,
-            url=full_url,
-            responses=last_response_text,
-            error="NotFound",
-            access_token=self._access_token,
-            total_count=0,
-            status=response.status,
-            extra_context_to_return=self._extra_context_to_return,
-            resource_type=self._resource,
-            id_=self._id,
-            response_headers=response_headers,
-        )
-
-    async def _handle_response_200(
-        self,
-        *,
-        access_token: Optional[str],
-        full_url: str,
-        response: ClientResponse,
-        retries_left: int,
-        request_id: Optional[str],
-        response_headers: List[str],
-        resources_json: str,
-        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
-        nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser,
-    ) -> AsyncGenerator[FhirGetResponse, None]:
-        total_count: int = 0
-        next_url: Optional[str] = None
-        if self._use_data_streaming:
-            async for r in self._handle_response_200_streaming(
-                access_token=access_token,
-                fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                full_url=full_url,
-                nd_json_chunk_streaming_parser=nd_json_chunk_streaming_parser,
-                next_url=next_url,
-                request_id=request_id,
-                response_headers=response_headers,
-                total_count=total_count,
-                response=response,
-            ):
-                yield r
-        else:
-            async for r in self._handle_response_200_non_streaming(
-                full_url=full_url,
-                response=response,
-                request_id=request_id,
-                access_token=access_token,
-                response_headers=response_headers,
-                retries_left=retries_left,
-                next_url=next_url,
-                total_count=total_count,
-                resources_json=resources_json,
-            ):
-                yield r
-
-    async def _handle_response_200_non_streaming(
-        self,
-        *,
-        full_url: str,
-        response: ClientResponse,
-        retries_left: int,
-        request_id: Optional[str],
-        access_token: Optional[str],
-        response_headers: List[str],
-        resources_json: str,
-        next_url: Optional[str],
-        total_count: int,
-    ) -> AsyncGenerator[FhirGetResponse, None]:
-        if self._logger:
-            self._logger.debug(f"Successfully retrieved: {full_url}")
-        # noinspection PyBroadException
-        try:
-            text = await response.text()
-            if len(text) > 0:
-                response_json: Dict[str, Any] = json.loads(text)
-                if (
-                    "resourceType" in response_json
-                    and response_json["resourceType"] == "Bundle"
-                ):
-                    # get next url if present
-                    if "link" in response_json:
-                        links: List[Dict[str, Any]] = response_json.get("link", [])
-                        next_links = [
-                            link for link in links if link.get("relation") == "next"
-                        ]
-                        if len(next_links) > 0:
-                            next_link: Dict[str, Any] = next_links[0]
-                            next_url = next_link.get("url")
-
-                # see if this is a Resource Bundle and un-bundle it
-                if (
-                    self._expand_fhir_bundle
-                    and "resourceType" in response_json
-                    and response_json["resourceType"] == "Bundle"
-                ):
-                    (
-                        resources_json,
-                        total_count,
-                    ) = await self._expand_bundle_async(
-                        resources_json,
-                        response_json,
-                        total_count,
-                        access_token=access_token,
-                        url=self._url or "",
-                    )
-                elif (
-                    self._separate_bundle_resources
-                    and "resourceType" in response_json
-                    and response_json["resourceType"] != "Bundle"
-                ):
-                    # single resource was returned
-                    resources_dict = {
-                        f'{response_json["resourceType"].lower()}': [response_json],
-                        "token": access_token,
-                        "url": self._url,
-                    }
-                    if self._extra_context_to_return:
-                        resources_dict.update(self._extra_context_to_return)
-
-                    resources_json = json.dumps(resources_dict)
-                else:
-                    resources_json = text
-            yield FhirGetResponse(
-                request_id=request_id,
-                url=full_url,
-                responses=resources_json,
-                error=None,
-                access_token=self._access_token,
-                total_count=total_count,
-                status=response.status,
-                next_url=next_url,
-                extra_context_to_return=self._extra_context_to_return,
-                resource_type=self._resource,
-                id_=self._id,
-                response_headers=response_headers,
-            )
-        except ClientPayloadError as e:
-            # do a retry
-            if self._logger:
-                self._logger.error(
-                    f"{e}: {full_url}: retries_left={retries_left} headers={response.headers}"
-                )
-
-    async def _handle_response_200_streaming(
-        self,
-        *,
-        access_token: Optional[str],
-        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
-        full_url: str,
-        nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser,
-        next_url: Optional[str],
-        request_id: Optional[str],
-        response: ClientResponse,
-        response_headers: List[str],
-        total_count: int,
-    ) -> AsyncGenerator[FhirGetResponse, None]:
-        chunk_number = 0
-        chunk_bytes: bytes = b""
-        async for chunk_bytes in response.content.iter_chunked(self._chunk_size):
-            # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
-            await asyncio.sleep(0)
-            chunk_number += 1
-            if fn_handle_streaming_chunk:
-                await fn_handle_streaming_chunk(chunk_bytes, chunk_number)
-            completed_resources: List[Dict[str, Any]] = (
-                nd_json_chunk_streaming_parser.add_chunk(
-                    chunk=chunk_bytes.decode("utf-8")
-                )
-            )
-            if completed_resources:
-                yield FhirGetResponse(
-                    request_id=request_id,
-                    url=full_url,
-                    responses=(
-                        json.dumps(completed_resources[0])
-                        if len(completed_resources) == 1
-                        else json.dumps(completed_resources)
-                    ),
-                    error=None,
-                    access_token=access_token,
-                    total_count=total_count,
-                    status=response.status,
-                    next_url=next_url,
-                    extra_context_to_return=self._extra_context_to_return,
-                    resource_type=self._resource,
-                    id_=self._id,
-                    response_headers=response_headers,
-                    chunk_number=chunk_number,
-                )
-
-            if self._logger:
-                self._logger.debug(
-                    f"Successfully retrieved chunk {chunk_number}: {full_url}"
-                )
-
-    async def _log_response(
-        self, *, full_url: str, response_status: int, retries_left: int
-    ) -> None:
-        if self._log_level == "DEBUG":
-            if self._logger:
-                self._logger.info(
-                    f"response from get_with_session_async: {full_url} status_code {response_status} "
-                    + f"with client_id={self._client_id} and scopes={self._auth_scopes} "
-                    + f"instance_id={self._uuid} "
-                    + f"retries_left={retries_left}"
-                )
-            if self._internal_logger:
-                self._internal_logger.info(
-                    f"response from get_with_session_async: {full_url} status_code {response_status} "
-                    + f"with client_id={self._client_id} and scopes={self._auth_scopes} "
-                    + f"instance_id={self._uuid} "
-                    + f"retries_left={retries_left}"
-                )
-
-    async def _log_request(self, *, full_url: str, retries_left: int) -> None:
-        if self._log_level == "DEBUG":
-            if self._logger:
-                self._logger.debug(
-                    f"sending a get_with_session_async: {full_url} with client_id={self._client_id} "
-                    + f"and scopes={self._auth_scopes} instance_id={self._uuid} retries_left={retries_left}"
-                )
-            if self._internal_logger:
-                self._internal_logger.info(
-                    f"sending a get_with_session_async: {full_url} with client_id={self._client_id} "
-                    + f"and scopes={self._auth_scopes} instance_id={self._uuid} retries_left={retries_left}"
-                )
 
     async def _build_url(
         self,
@@ -1433,74 +988,6 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
                 full_url += "?"
             full_url += f"id:above={id_above}"
         return full_url
-
-    async def _expand_bundle_async(
-        self,
-        resources: str,
-        response_json: Dict[str, Any],
-        total_count: int,
-        access_token: Optional[str],
-        url: str,
-    ) -> Tuple[str, int]:
-        if "total" in response_json:
-            total_count = int(response_json["total"])
-        if "entry" in response_json:
-            entries: List[Dict[str, Any]] = response_json["entry"]
-            entry: Dict[str, Any]
-            resources_list: List[Dict[str, Any]] = []
-            for entry in entries:
-                if "resource" in entry:
-                    if self._separate_bundle_resources:
-                        await self._separate_contained_resources_async(
-                            entry=entry,
-                            resources_list=resources_list,
-                            access_token=access_token,
-                            url=url,
-                        )
-                    else:
-                        resources_list.append(entry["resource"])
-
-            resources = json.dumps(resources_list)
-        return resources, total_count
-
-    async def _separate_contained_resources_async(
-        self,
-        *,
-        entry: Dict[str, Any],
-        resources_list: List[Dict[str, Any]],
-        access_token: Optional[str],
-        url: str,
-    ) -> None:
-        # if self._action != "$graph":
-        #     raise Exception(
-        #         "only $graph action with _separate_bundle_resources=True"
-        #         " is supported at this moment"
-        #     )
-        resources_dict: Dict[str, Union[Optional[str], List[Any]]] = (
-            {}
-        )  # {resource type: [data]}}
-        # iterate through the entry list
-        # have to split these here otherwise when Spark loads them
-        # it can't handle
-        # that items in the entry array can have different schemas
-        resource_type: str = str(entry["resource"]["resourceType"]).lower()
-        parent_resource: Dict[str, Any] = entry["resource"]
-        resources_dict[resource_type] = [parent_resource]
-        # $graph returns "contained" if there is any related resources
-        if "contained" in entry["resource"]:
-            contained = parent_resource.pop("contained")
-            for contained_entry in contained:
-                resource_type = str(contained_entry["resourceType"]).lower()
-                if resource_type not in resources_dict:
-                    resources_dict[resource_type] = []
-
-                if isinstance(resources_dict[resource_type], list):
-                    resources_dict[resource_type].append(contained_entry)  # type: ignore
-        resources_dict["token"] = access_token
-        resources_dict["url"] = url
-        if self._extra_context_to_return:
-            resources_dict.update(self._extra_context_to_return)
-        resources_list.append(resources_dict)
 
     # noinspection PyProtocol
     async def _send_fhir_request_async(
@@ -1983,7 +1470,7 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
                     url=full_uri.url,
                     headers=headers,
                     json_data=data,
-                    response_text=await self.get_safe_response_text_async(
+                    response_text=await FhirResponseProcessor.get_safe_response_text_async(
                         response=response
                     ),
                     response_status_code=response.status if response else None,
@@ -2194,7 +1681,7 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
                                 self._internal_logger.info(
                                     f"POST response for {resource_uri.url}: {response.status}"
                                 )
-                                response_text = await self.get_safe_response_text_async(
+                                response_text = await FhirResponseProcessor.get_safe_response_text_async(
                                     response=response
                                 )
                                 return FhirMergeResponse(
@@ -2226,7 +1713,7 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
                                 url=resource_uri.url,
                                 headers=headers,
                                 json_data=json_payload,
-                                response_text=await self.get_safe_response_text_async(
+                                response_text=await FhirResponseProcessor.get_safe_response_text_async(
                                     response=response
                                 ),
                                 response_status_code=(
@@ -2243,7 +1730,7 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
                                 url=resource_uri.url,
                                 headers=headers,
                                 json_data=json_payload,
-                                response_text=await self.get_safe_response_text_async(
+                                response_text=await FhirResponseProcessor.get_safe_response_text_async(
                                     response=response
                                 ),
                                 response_status_code=(
@@ -2283,17 +1770,6 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
         raise Exception(
             f"Could not talk to FHIR server after multiple tries: {request_id}"
         )
-
-    # noinspection PyMethodMayBeStatic
-    async def get_safe_response_text_async(
-        self, response: Optional[ClientResponse]
-    ) -> str:
-        try:
-            return (
-                await response.text() if (response and response.status != 504) else ""
-            )
-        except Exception as e:
-            return str(e)
 
     def merge(
         self,
@@ -2910,6 +2386,9 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
         async def add_to_list(
             resources_: List[Dict[str, Any]], page_number: Optional[int]
         ) -> bool:
+            assert isinstance(resources_, list)
+            if len(resources_) > 0:
+                assert isinstance(resources_[0], dict)
             end_batch = time.time()
             assert isinstance(list_of_ids, list)
             assert isinstance(resources_, list)

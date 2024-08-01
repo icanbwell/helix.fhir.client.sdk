@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from threading import Lock
-from typing import Protocol, Optional, Dict, Any, Tuple, List, Union, AsyncGenerator
+from typing import Protocol, Optional, Dict, Any, List, Union, AsyncGenerator
 from aiohttp import ClientSession, ClientResponse
 from requests.adapters import BaseAdapter
 
@@ -84,19 +84,6 @@ class FhirClientProtocol(Protocol):
         headers: Dict[str, str],
         payload: Dict[str, Any] | None,
     ) -> ClientResponse: ...
-
-    async def _expand_bundle_async(
-        self,
-        resources: str,
-        response_json: Dict[str, Any],
-        total_count: int,
-        access_token: Optional[str],
-        url: str,
-    ) -> Tuple[str, int]: ...
-
-    async def get_safe_response_text_async(
-        self, response: Optional[ClientResponse]
-    ) -> str: ...
 
     def create_http_session(self) -> ClientSession: ...
 
