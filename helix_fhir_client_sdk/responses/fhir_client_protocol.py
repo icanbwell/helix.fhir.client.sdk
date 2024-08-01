@@ -3,7 +3,6 @@ from datetime import datetime
 from threading import Lock
 from typing import Protocol, Optional, Dict, Any, Tuple, List, Union, AsyncGenerator
 from aiohttp import ClientSession, ClientResponse
-from furl import furl
 from requests.adapters import BaseAdapter
 
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
@@ -100,17 +99,6 @@ class FhirClientProtocol(Protocol):
     ) -> str: ...
 
     def create_http_session(self) -> ClientSession: ...
-
-    def _add_query_params(
-        self,
-        full_uri: furl,
-        ids: Optional[List[str]],
-        page_number: Optional[int],
-        additional_parameters: Optional[List[str]],
-        id_above: Optional[str],
-    ) -> str: ...
-
-    async def _handle_rate_limiting(self, retry_after_text: str) -> None: ...
 
     async def _get_with_session_async(
         self,

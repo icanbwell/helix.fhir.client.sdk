@@ -73,7 +73,6 @@ from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProto
 from helix_fhir_client_sdk.responses.fhir_delete_response import FhirDeleteResponse
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
-from helix_fhir_client_sdk.responses.fhir_response_mixin import FhirResponseMixin
 from helix_fhir_client_sdk.responses.fhir_update_response import FhirUpdateResponse
 from helix_fhir_client_sdk.responses.get_result import GetResult
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
@@ -86,7 +85,7 @@ from helix_fhir_client_sdk.well_known_configuration import (
 )
 
 
-class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProtocol):
+class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
     """
     Class used to call FHIR server (uses async and parallel execution to speed up)
     """
@@ -878,6 +877,7 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                     or response.status == 404
                     or response.status == 403
                 ):
+                    # for these status codes retry will not solve them
                     break
 
             if retries_left == 0:
