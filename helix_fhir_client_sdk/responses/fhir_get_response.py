@@ -38,6 +38,7 @@ class FhirGetResponse:
         response_headers: Optional[
             List[str]
         ],  # header name and value separated by a colon
+        chunk_number: Optional[int] = None,
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -81,6 +82,8 @@ class FhirGetResponse:
         self.successful: bool = status == 200
         """ Headers returned by the server (can have duplicate header names) """ ""
         self.response_headers: Optional[List[str]] = response_headers
+        self.chunk_number: Optional[int] = chunk_number
+        """ Chunk number for streaming """
 
     def append(self, other: List["FhirGetResponse"]) -> "FhirGetResponse":
         """

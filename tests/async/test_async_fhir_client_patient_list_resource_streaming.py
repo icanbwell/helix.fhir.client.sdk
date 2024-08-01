@@ -56,19 +56,17 @@ async def test_fhir_client_patient_list_async_resource_streaming() -> None:
 
     resource_chunks: List[List[Dict[str, Any]]] = []
 
-    async def on_resource(
-        resources: Optional[List[Dict[str, Any]]], chunk_number: Optional[int] = None
-    ) -> bool:
-        print(f"Got chunk {chunk_number}: {resources}")
-        if resources:
-            resource_chunks.append(resources)
-        return True
+    response: Optional[FhirGetResponse] = None
+    async for response1 in fhir_client.get_streaming_async():
+        print(f"Got response from chunk {response1.chunk_number}: {response1}")
+        resource_chunks.append(response1.get_resources())
+        if not response:
+            response = response1
+        else:
+            response.append([response1])
 
-    response: FhirGetResponse = await fhir_client.get_async(
-        resource_chunk_handler=on_resource
-    )
-
-    assert response.responses == ""
+    assert response
+    # assert response.responses == ""
 
     assert len(resource_chunks) == 2
     assert resource_chunks[0] == [{"resource": {"id": "1", "resourceType": "Patient"}}]

@@ -671,6 +671,42 @@ class FhirClient(SimulatedGraphProcessorMixin):
             assert full_response
             return full_response
 
+    async def get_streaming_async(
+        self,
+        data_chunk_handler: Optional[HandleStreamingChunkFunction] = None,
+        resource_chunk_handler: Optional[HandleStreamingResourcesFunction] = None,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        """
+        Issues a GET call and returns a generator for streaming
+
+        :param data_chunk_handler: function to call for each chunk of data
+        :param resource_chunk_handler: function to call for each chunk of resources
+
+        :return: response
+        """
+        instance_variables_text = convert_dict_to_str(
+            self.get_variables_to_log(vars(self))
+        )
+        if self._logger:
+            # self._logger.info(f"LOGLEVEL: {self._log_level}")
+            self._logger.info(f"parameters: {instance_variables_text}")
+        else:
+            self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
+            self._internal_logger.info(f"parameters: {instance_variables_text}")
+        ids: Optional[List[str]] = None
+        if self._id:
+            ids = self._id if isinstance(self._id, list) else [self._id]
+        # actually make the request
+        async with self.create_http_session() as http:
+            full_response: Optional[FhirGetResponse]
+            async for response in self._get_with_session_async(
+                session=http,
+                ids=ids,
+                fn_handle_streaming_chunk=data_chunk_handler,
+                fn_resource_chunk_handler=resource_chunk_handler,
+            ):
+                yield response
+
     def get(self) -> FhirGetResponse:
         """
         Issues a GET call
@@ -900,24 +936,33 @@ class FhirClient(SimulatedGraphProcessorMixin):
                                 await fn_handle_streaming_chunk(
                                     chunk_bytes, chunk_number
                                 )
-                            if fn_resource_chunk_handler:
-                                completed_resources: List[Dict[str, Any]] = (
-                                    nd_json_chunk_streaming_parser.add_chunk(
-                                        chunk=chunk_bytes.decode("utf-8")
-                                    )
+                            completed_resources: List[Dict[str, Any]] = (
+                                nd_json_chunk_streaming_parser.add_chunk(
+                                    chunk=chunk_bytes.decode("utf-8")
                                 )
-                                if completed_resources:
-                                    await fn_resource_chunk_handler(
-                                        resources=completed_resources,
-                                        chunk_number=chunk_number,
-                                    )
-                            else:
-                                resources_json += chunk_bytes.decode("utf-8")
+                            )
+                            if completed_resources:
+                                yield FhirGetResponse(
+                                    request_id=request_id,
+                                    url=full_url,
+                                    responses=json.dumps(completed_resources),
+                                    error=None,
+                                    access_token=access_token,
+                                    total_count=total_count,
+                                    status=response.status,
+                                    next_url=next_url,
+                                    extra_context_to_return=self._extra_context_to_return,
+                                    resource_type=self._resource,
+                                    id_=self._id,
+                                    response_headers=response_headers,
+                                    chunk_number=chunk_number,
+                                )
 
                             if self._logger:
                                 self._logger.debug(
                                     f"Successfully retrieved chunk {chunk_number}: {full_url}"
                                 )
+                        return  # done with streaming
                     else:
                         if self._logger:
                             self._logger.debug(f"Successfully retrieved: {full_url}")
