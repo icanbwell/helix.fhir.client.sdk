@@ -879,7 +879,7 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                         response_headers=response_headers,
                     ):
                         yield r
-                else:
+                else:  # unknown response
                     async for r in self._handle_response_unknown(
                         full_url=full_url,
                         request_id=request_id,
