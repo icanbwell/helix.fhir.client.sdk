@@ -39,17 +39,21 @@ class FhirResponseProcessor:
         retries_left: int,
         resources_json: str,
         fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
-        logger: Optional[FhirLogger] = None,
-        internal_logger: Optional[Logger] = None,
-        extra_context_to_return: Optional[Dict[str, Any]] = None,
-        resource: Optional[str] = None,
-        id_: Optional[Union[List[str], str]] = None,
-        exclude_status_codes_from_retry: Optional[List[int]] = None,
+        logger: Optional[FhirLogger],
+        internal_logger: Optional[Logger],
+        extra_context_to_return: Optional[Dict[str, Any]],
+        resource: Optional[str],
+        id_: Optional[Union[List[str], str]],
+        exclude_status_codes_from_retry: Optional[List[int]],
         refresh_token_function: RefreshTokenFunction,
         auth_server_url: Optional[str],
         auth_scopes: List[str] | None,
         login_token: Optional[str],
         chunk_size: int,
+        expand_fhir_bundle: bool,
+        url: Optional[str],
+        separate_bundle_resources: bool,
+        use_data_streaming: bool,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         # if request is ok (200) then return the data
         if response.status == 200:
@@ -65,9 +69,12 @@ class FhirResponseProcessor:
                 resource=resource,
                 id_=id_,
                 logger=logger,
-                use_data_streaming=True,
+                use_data_streaming=use_data_streaming,
                 chunk_size=chunk_size,
                 extra_context_to_return=extra_context_to_return,
+                expand_fhir_bundle=expand_fhir_bundle,
+                url=url,
+                separate_bundle_resources=separate_bundle_resources,
             ):
                 yield r
         elif response.status == 404:  # not found
@@ -160,8 +167,8 @@ class FhirResponseProcessor:
         request_id: Optional[str],
         response: ClientResponse,
         response_headers: List[str],
-        logger: Optional[FhirLogger] = None,
-        internal_logger: Optional[Logger] = None,
+        logger: Optional[FhirLogger],
+        internal_logger: Optional[Logger],
         access_token: Optional[str],
         extra_context_to_return: Optional[Dict[str, Any]],
         resource: Optional[str],
@@ -207,7 +214,7 @@ class FhirResponseProcessor:
         extra_context_to_return: Optional[Dict[str, Any]],
         resource: Optional[str],
         id_: Optional[Union[List[str], str]],
-        logger: Optional[FhirLogger] = None,
+        logger: Optional[FhirLogger],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         last_response_text = await FhirResponseProcessor.get_safe_response_text_async(
             response=response
@@ -372,7 +379,7 @@ class FhirResponseProcessor:
         extra_context_to_return: Optional[Dict[str, Any]],
         resource: Optional[str],
         id_: Optional[Union[List[str], str]],
-        logger: Optional[FhirLogger] = None,
+        logger: Optional[FhirLogger],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         last_response_text = await FhirResponseProcessor.get_safe_response_text_async(
             response=response
@@ -409,7 +416,10 @@ class FhirResponseProcessor:
         extra_context_to_return: Optional[Dict[str, Any]],
         resource: Optional[str],
         id_: Optional[Union[List[str], str]],
-        logger: Optional[FhirLogger] = None,
+        logger: Optional[FhirLogger],
+        expand_fhir_bundle: bool,
+        separate_bundle_resources: bool,
+        url: Optional[str],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         total_count: int = 0
         next_url: Optional[str] = None
@@ -446,6 +456,13 @@ class FhirResponseProcessor:
                 next_url=next_url,
                 total_count=total_count,
                 resources_json=resources_json,
+                extra_context_to_return=extra_context_to_return,
+                resource=resource,
+                logger=logger,
+                id_=id_,
+                separate_bundle_resources=separate_bundle_resources,
+                expand_fhir_bundle=expand_fhir_bundle,
+                url=url,
             ):
                 yield r
 
@@ -461,13 +478,13 @@ class FhirResponseProcessor:
         resources_json: str,
         next_url: Optional[str],
         total_count: int,
-        logger: Optional[FhirLogger] = None,
-        expand_fhir_bundle: bool = False,
-        separate_bundle_resources: bool = False,
-        extra_context_to_return: Optional[Dict[str, Any]] = None,
-        resource: Optional[str] = None,
-        id_: Optional[Union[List[str], str]] = None,
-        url: Optional[str] = None,
+        logger: Optional[FhirLogger],
+        expand_fhir_bundle: bool,
+        separate_bundle_resources: bool,
+        extra_context_to_return: Optional[Dict[str, Any]],
+        resource: Optional[str],
+        id_: Optional[Union[List[str], str]],
+        url: Optional[str],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         if logger:
             logger.debug(f"Successfully retrieved: {full_url}")
@@ -506,6 +523,7 @@ class FhirResponseProcessor:
                         response_json=response_json,
                         url=url or "",
                         separate_bundle_resources=separate_bundle_resources,
+                        extra_context_to_return=extra_context_to_return,
                     )
                 elif (
                     separate_bundle_resources
@@ -561,7 +579,7 @@ class FhirResponseProcessor:
         extra_context_to_return: Optional[Dict[str, Any]],
         resource: Optional[str],
         id_: Optional[Union[List[str], str]],
-        logger: Optional[FhirLogger] = None,
+        logger: Optional[FhirLogger],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         chunk_number = 0
         chunk_bytes: bytes
@@ -609,8 +627,8 @@ class FhirResponseProcessor:
         client_id: Optional[str],
         auth_scopes: List[str] | None,
         uuid: UUID,
-        logger: Optional[FhirLogger] = None,
-        internal_logger: Optional[Logger] = None,
+        logger: Optional[FhirLogger],
+        internal_logger: Optional[Logger],
         log_level: Optional[str],
     ) -> None:
         if log_level == "DEBUG":
@@ -637,8 +655,8 @@ class FhirResponseProcessor:
         client_id: Optional[str],
         auth_scopes: List[str] | None,
         uuid: UUID,
-        logger: Optional[FhirLogger] = None,
-        internal_logger: Optional[Logger] = None,
+        logger: Optional[FhirLogger],
+        internal_logger: Optional[Logger],
         log_level: Optional[str],
     ) -> None:
         if log_level == "DEBUG":
@@ -662,6 +680,7 @@ class FhirResponseProcessor:
         access_token: Optional[str],
         url: str,
         separate_bundle_resources: bool,
+        extra_context_to_return: Optional[Dict[str, Any]],
     ) -> Tuple[str, int]:
         if "total" in response_json:
             total_count = int(response_json["total"])
@@ -677,6 +696,7 @@ class FhirResponseProcessor:
                             resources_list=resources_list,
                             access_token=access_token,
                             url=url,
+                            extra_context_to_return=extra_context_to_return,
                         )
                     else:
                         resources_list.append(entry["resource"])
@@ -691,7 +711,7 @@ class FhirResponseProcessor:
         resources_list: List[Dict[str, Any]],
         access_token: Optional[str],
         url: str,
-        extra_context_to_return: Optional[Dict[str, Any]] = None,
+        extra_context_to_return: Optional[Dict[str, Any]],
     ) -> None:
         # if self._action != "$graph":
         #     raise Exception(

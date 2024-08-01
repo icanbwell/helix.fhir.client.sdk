@@ -828,6 +828,11 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
                     refresh_token_function=self._refresh_token_function,
                     exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                     chunk_size=self._chunk_size,
+                    expand_fhir_bundle=self._expand_fhir_bundle,
+                    separate_bundle_resources=self._separate_bundle_resources,
+                    url=self._url,
+                    extra_context_to_return=self._extra_context_to_return,
+                    use_data_streaming=self._use_data_streaming,
                 ):
                     yield r
 
@@ -870,14 +875,13 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
             )
 
     async def _log_retry(self, *, response: ClientResponse, retries_left: int) -> None:
+        message: str = (
+            f"Got status_code= {response.status} from {response.url}, Retries left={retries_left}"
+        )
         if self._logger:
-            self._logger.info(
-                f"Got status_code= {response.status}, Retries left={retries_left}"
-            )
+            self._logger.info(message)
         if self._internal_logger:
-            self._internal_logger.info(
-                f"Got status_code= {response.status}, Retries left={retries_left}"
-            )
+            self._internal_logger.info(message)
 
     async def _build_url(
         self,
@@ -2384,6 +2388,7 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
             assert isinstance(list_of_ids, list)
             assert isinstance(resources_, list)
             for resource_ in resources_:
+                assert resource_.get("resourceType") != "Bundle"
                 list_of_ids.append(resource_["id"])
             if fn_handle_ids:
                 await fn_handle_ids(resources_, page_number)
