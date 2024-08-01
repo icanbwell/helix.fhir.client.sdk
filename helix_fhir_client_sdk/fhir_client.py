@@ -836,7 +836,9 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
                 ):
                     yield r
 
-                await self._log_retry(response=response, retries_left=retries_left)
+                await self._log_retry(
+                    response=response, retries_left=retries_left, url=full_url
+                )
                 if (
                     response.status == 200
                     or response.status == 404
@@ -874,9 +876,11 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
                 elapsed_time=time.time() - start_time,
             )
 
-    async def _log_retry(self, *, response: ClientResponse, retries_left: int) -> None:
+    async def _log_retry(
+        self, *, url: str, response: ClientResponse, retries_left: int
+    ) -> None:
         message: str = (
-            f"Got status_code= {response.status} from {response.url}, Retries left={retries_left}"
+            f"Got status_code= {response.status} from {url}, Retries left={retries_left}"
         )
         if self._logger:
             self._logger.info(message)
