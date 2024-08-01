@@ -728,43 +728,46 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
         headers = self._build_headers()
         status: int = 400
         request_id: Optional[str] = None
+        retries_left: int = self._retry_count + 1
 
         access_token = await self.get_access_token_async()
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
 
         try:
-            async with self.create_http_session() as http:
-                response: ClientResponse = await self._send_fhir_request_async(
-                    http=http,
-                    full_url=full_url,
-                    headers=headers,
-                    payload=self._action_payload or {},
-                )
-                status = response.status
-
-                response_headers: List[str] = [
-                    f"{key}:{value}" for key, value in response.headers.items()
-                ]
-                request_id = response.headers.getone("X-Request-ID", None)
-                self._internal_logger.info(f"X-Request-ID={request_id}")
-
-                if response.status == 200:
-                    chunk: FhirGetResponse
-                    async for chunk in self._handle_successful_response(
-                        response, fn_handle_streaming_chunk, full_url, access_token
-                    ):
-                        yield chunk
-                else:
-                    yield await self._handle_error_response(
-                        request_id=request_id,
-                        response=response,
+            while retries_left > 0:
+                retries_left -= 1
+                async with self.create_http_session() as http:
+                    response: ClientResponse = await self._send_fhir_request_async(
+                        http=http,
                         full_url=full_url,
                         headers=headers,
-                        access_token=access_token,
-                        response_headers=response_headers,
-                        retries_left=self._retry_count,
+                        payload=self._action_payload or {},
                     )
+                    status = response.status
+
+                    response_headers: List[str] = [
+                        f"{key}:{value}" for key, value in response.headers.items()
+                    ]
+                    request_id = response.headers.getone("X-Request-ID", None)
+                    self._internal_logger.info(f"X-Request-ID={request_id}")
+
+                    if response.status == 200:
+                        chunk: FhirGetResponse
+                        async for chunk in self._handle_successful_response(
+                            response, fn_handle_streaming_chunk, full_url, access_token
+                        ):
+                            yield chunk
+                    else:
+                        yield await self._handle_error_response(
+                            request_id=request_id,
+                            response=response,
+                            full_url=full_url,
+                            headers=headers,
+                            access_token=access_token,
+                            response_headers=response_headers,
+                            retries_left=self._retry_count,
+                        )
         except Exception as e:
             # Yield error response in case of exception
             yield FhirGetResponse(
