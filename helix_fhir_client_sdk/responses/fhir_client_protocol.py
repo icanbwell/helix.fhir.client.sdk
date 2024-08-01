@@ -10,7 +10,6 @@ from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.function_types import (
     RefreshTokenFunction,
     HandleStreamingChunkFunction,
-    HandleStreamingResourcesFunction,
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -96,7 +95,6 @@ class FhirClientProtocol(Protocol):
         id_above: Optional[str],
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
         additional_parameters: Optional[List[str]],
-        fn_resource_chunk_handler: Optional[HandleStreamingResourcesFunction],
     ) -> AsyncGenerator[FhirGetResponse, None]: ...
 
     def separate_bundle_resources(self, separate_bundle_resources: bool):  # type: ignore[no-untyped-def]

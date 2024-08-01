@@ -19,8 +19,20 @@ from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
 
 
 class FhirResponseProcessor:
+    """
+    This class is responsible for processing the response from the FHIR server.
+
+    """
+
     @staticmethod
-    async def get_safe_response_text_async(response: Optional[ClientResponse]) -> str:
+    async def get_safe_response_text_async(
+        *, response: Optional[ClientResponse]
+    ) -> str:
+        """
+        This method is responsible for getting the response text from the response object.
+
+        :param response: The response object from the FHIR server.
+        """
         try:
             return (
                 await response.text() if (response and response.status != 504) else ""
@@ -55,6 +67,36 @@ class FhirResponseProcessor:
         separate_bundle_resources: bool,
         use_data_streaming: bool,
     ) -> AsyncGenerator[FhirGetResponse, None]:
+        """
+        This method is responsible for handling the response from the FHIR server.
+        It returns an async generator of FhirGetResponse objects.
+
+        :param response: The response object from the FHIR server.
+        :param full_url: The full URL of the request.
+        :param request_id: The request ID.
+        :param response_headers: The response headers.
+        :param access_token: The access token.
+        :param retries_left: The number of retries left.
+        :param resources_json: The resources in JSON format.
+        :param fn_handle_streaming_chunk: The function to handle the streaming chunk.
+        :param logger: The logger object.
+        :param internal_logger: The internal logger object.
+        :param extra_context_to_return: The extra context to return.
+        :param resource: The resource type.
+        :param id_: The ID of the resource.
+        :param exclude_status_codes_from_retry: The status codes to exclude from retry.
+        :param refresh_token_function: The function to refresh the token.
+        :param auth_server_url: The authorization server URL.
+        :param auth_scopes: The authorization scopes.
+        :param login_token: The login token.
+        :param chunk_size: The chunk size.
+        :param expand_fhir_bundle: Whether to expand the FHIR bundle.
+        :param url: The URL.
+        :param separate_bundle_resources: Whether to separate the bundle resources.
+        :param use_data_streaming: Whether to use data streaming.
+
+        :return: An async generator of FhirGetResponse objects.
+        """
         # if request is ok (200) then return the data
         if response.status == 200:
             async for r in FhirResponseProcessor._handle_response_200(
@@ -174,7 +216,22 @@ class FhirResponseProcessor:
         resource: Optional[str],
         id_: Optional[Union[List[str], str]],
     ) -> AsyncGenerator[FhirGetResponse, None]:
-        # some unexpected error
+        """
+        This method is responsible for handling an unknown response from the FHIR server.
+
+        :param full_url: The full URL of the request.
+        :param request_id: The request ID.
+        :param response: The response object from the FHIR server.
+        :param response_headers: The response headers.
+        :param logger: The logger object.
+        :param internal_logger: The internal logger object.
+        :param access_token: The access token.
+        :param extra_context_to_return: The extra context to return.
+        :param resource: The resource type.
+        :param id_: The ID of the resource.
+
+        :return: An async generator of FhirGetResponse objects.
+        """
         if logger:
             logger.error(f"Fhir Receive failed [{response.status}]: {full_url} ")
         if internal_logger:
@@ -216,6 +273,19 @@ class FhirResponseProcessor:
         id_: Optional[Union[List[str], str]],
         logger: Optional[FhirLogger],
     ) -> AsyncGenerator[FhirGetResponse, None]:
+        """
+        This method is responsible for handling a 429 response from the FHIR server.
+        A 429 response indicates that the server is rate limiting the requests.
+
+        :param response: The response object from the FHIR server.
+        :param full_url: The full URL of the request.
+        :param request_id: The request ID.
+        :param response_headers: The response headers.
+        :param exclude_status_codes_from_retry: The status codes to exclude from retry.
+        :param access_token: The access token.
+
+        :return: An async generator of FhirGetResponse objects.
+        """
         last_response_text = await FhirResponseProcessor.get_safe_response_text_async(
             response=response
         )
@@ -278,6 +348,28 @@ class FhirResponseProcessor:
         auth_scopes: List[str] | None,
         login_token: Optional[str],
     ) -> AsyncGenerator[FhirGetResponse, None]:
+        """
+        This method is responsible for handling a 401 response from the FHIR server.
+        A 401 response indicates that the request is unauthorized.
+
+        :param full_url: The full URL of the request.
+        :param response: The response object from the FHIR server.
+        :param retries_left: The number of retries left.
+        :param request_id: The request ID.
+        :param response_headers: The response headers.
+        :param exclude_status_codes_from_retry: The status codes to exclude from retry.
+        :param access_token: The access token.
+        :param extra_context_to_return: The extra context to return.
+        :param resource: The resource type.
+        :param id_: The ID of the resource.
+        :param refresh_token_function: The function to refresh the token.
+        :param auth_server_url: The authorization server URL.
+        :param auth_scopes: The authorization scopes.
+        :param login_token: The login token.
+
+        :return: An async generator of FhirGetResponse objects.
+
+        """
         last_response_text = await FhirResponseProcessor.get_safe_response_text_async(
             response=response
         )
@@ -351,6 +443,21 @@ class FhirResponseProcessor:
         resource: Optional[str],
         id_: Optional[Union[List[str], str]],
     ) -> AsyncGenerator[FhirGetResponse, None]:
+        """
+        This method is responsible for handling a 403 response from the FHIR server.
+        A 403 response indicates that the request is forbidden.
+
+        :param full_url: The full URL of the request.
+        :param request_id: The request ID.
+        :param response: The response object from the FHIR server.
+        :param response_headers: The response headers.
+        :param access_token: The access token.
+        :param extra_context_to_return: The extra context to return.
+        :param resource: The resource type.
+        :param id_: The ID of the resource.
+
+        :return: An async generator of FhirGetResponse objects.
+        """
         last_response_text = await FhirResponseProcessor.get_safe_response_text_async(
             response=response
         )
@@ -381,6 +488,21 @@ class FhirResponseProcessor:
         id_: Optional[Union[List[str], str]],
         logger: Optional[FhirLogger],
     ) -> AsyncGenerator[FhirGetResponse, None]:
+        """
+        This method is responsible for handling a 404 response from the FHIR server.
+        A 404 response indicates that the resource was not found.
+
+        :param full_url: The full URL of the request.
+        :param request_id: The request ID.
+        :param response: The response object from the FHIR server.
+        :param response_headers: The response headers.
+        :param access_token: The access token.
+        :param extra_context_to_return: The extra context to return.
+        :param resource: The resource type.
+        :param id_: The ID of the resource.
+
+        :return: An async generator of FhirGetResponse objects.
+        """
         last_response_text = await FhirResponseProcessor.get_safe_response_text_async(
             response=response
         )
@@ -421,6 +543,29 @@ class FhirResponseProcessor:
         separate_bundle_resources: bool,
         url: Optional[str],
     ) -> AsyncGenerator[FhirGetResponse, None]:
+        """
+        This method is responsible for handling a 200 response from the FHIR server. A 200 response indicates that the
+        request was successful.
+
+        :param access_token: The access token.
+        :param full_url: The full URL of the request.
+        :param response: The response object from the FHIR server.
+        :param retries_left: The number of retries left.
+        :param request_id: The request ID.
+        :param response_headers: The response headers.
+        :param resources_json: The resources in JSON format.
+        :param use_data_streaming: Whether to use data streaming.
+        :param chunk_size: The chunk size.
+        :param extra_context_to_return: The extra context to return.
+        :param resource: The resource type.
+        :param id_: The ID of the resource.
+        :param logger: The logger object.
+        :param expand_fhir_bundle: Whether to expand the FHIR bundle.
+        :param separate_bundle_resources: Whether to separate the bundle resources.
+        :param url: The URL.
+
+        :return: An async generator of FhirGetResponse objects.
+        """
         total_count: int = 0
         next_url: Optional[str] = None
         if use_data_streaming:
@@ -486,6 +631,29 @@ class FhirResponseProcessor:
         id_: Optional[Union[List[str], str]],
         url: Optional[str],
     ) -> AsyncGenerator[FhirGetResponse, None]:
+        """
+        This method is responsible for handling a 200 response from the FHIR server. A 200 response indicates that the
+        request was successful.  It handles when data streaming is not used.
+
+        :param full_url: The full URL of the request.
+        :param response: The response object from the FHIR server.
+        :param retries_left: The number of retries left.
+        :param request_id: The request ID.
+        :param access_token: The access token.
+        :param response_headers: The response headers.
+        :param resources_json: The resources in JSON format.
+        :param next_url: The next URL.
+        :param total_count: The total count.
+        :param logger: The logger object.
+        :param expand_fhir_bundle: Whether to expand the FHIR bundle.
+        :param separate_bundle_resources: Whether to separate the bundle resources.
+        :param extra_context_to_return: The extra context to return.
+        :param resource: The resource type.
+        :param id_: The ID of the resource.
+        :param url: The URL.
+
+        :return: An async generator of FhirGetResponse objects.
+        """
         if logger:
             logger.debug(f"Successfully retrieved: {full_url}")
         # noinspection PyBroadException
@@ -581,6 +749,27 @@ class FhirResponseProcessor:
         id_: Optional[Union[List[str], str]],
         logger: Optional[FhirLogger],
     ) -> AsyncGenerator[FhirGetResponse, None]:
+        """
+        This method is responsible for handling a 200 response from the FHIR server. A 200 response indicates that the
+        request was successful.  It handles when data streaming is used.
+
+        :param access_token: The access token.
+        :param full_url: The full URL of the request.
+        :param nd_json_chunk_streaming_parser: The ND JSON chunk streaming parser.
+        :param next_url: The next URL.
+        :param request_id: The request ID.
+        :param response: The response object from the FHIR server.
+        :param response_headers: The response headers.
+        :param total_count: The total count.
+        :param chunk_size: The chunk size.
+        :param extra_context_to_return: The extra context to return.
+        :param resource: The resource type.
+        :param id_: The ID of the resource.
+        :param logger: The logger object.
+
+        :return: An async generator of FhirGetResponse objects.
+
+        """
         chunk_number = 0
         chunk_bytes: bytes
         async for chunk_bytes in response.content.iter_chunked(chunk_size):
@@ -631,6 +820,21 @@ class FhirResponseProcessor:
         internal_logger: Optional[Logger],
         log_level: Optional[str],
     ) -> None:
+        """
+        This method is responsible for logging the response from the FHIR server.
+
+        :param full_url: The full URL of the request.
+        :param response_status: The response status.
+        :param retries_left: The number of retries left.
+        :param client_id: The client ID.
+        :param auth_scopes: The authorization scopes.
+        :param uuid: The UUID.
+        :param logger: The logger object.
+        :param internal_logger: The internal logger object.
+        :param log_level: The log level
+
+        :return: None
+        """
         if log_level == "DEBUG":
             if logger:
                 logger.info(
@@ -659,6 +863,20 @@ class FhirResponseProcessor:
         internal_logger: Optional[Logger],
         log_level: Optional[str],
     ) -> None:
+        """
+        This method is responsible for logging the request to the FHIR server.
+
+        :param full_url: The full URL of the request.
+        :param retries_left: The number of retries left.
+        :param client_id: The client ID.
+        :param auth_scopes: The authorization scopes.
+        :param uuid: The UUID.
+        :param logger: The logger object.
+        :param internal_logger: The internal logger object.
+        :param log_level: The log level
+
+        :return: None
+        """
         if log_level == "DEBUG":
             if logger:
                 logger.debug(
@@ -682,6 +900,19 @@ class FhirResponseProcessor:
         separate_bundle_resources: bool,
         extra_context_to_return: Optional[Dict[str, Any]],
     ) -> Tuple[str, int]:
+        """
+        This method is responsible for expanding the FHIR bundle.
+
+        :param resources: The resources in JSON format.
+        :param response_json: The response JSON.
+        :param total_count: The total count.
+        :param access_token: The access token.
+        :param url: The URL.
+        :param separate_bundle_resources: Whether to separate the bundle resources.
+        :param extra_context_to_return: The extra context to return.
+
+        :return: A tuple of the resources in JSON format and the total count.
+        """
         if "total" in response_json:
             total_count = int(response_json["total"])
         if "entry" in response_json:
@@ -713,6 +944,17 @@ class FhirResponseProcessor:
         url: str,
         extra_context_to_return: Optional[Dict[str, Any]],
     ) -> None:
+        """
+        This method is responsible for separating the contained resources.
+
+        :param entry: The entry.
+        :param resources_list: The resources list.
+        :param access_token: The access token.
+        :param url: The URL.
+        :param extra_context_to_return: The extra context to return.
+
+        :return: None
+        """
         # if self._action != "$graph":
         #     raise Exception(
         #         "only $graph action with _separate_bundle_resources=True"

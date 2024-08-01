@@ -58,7 +58,6 @@ from helix_fhir_client_sdk.function_types import (
     HandleBatchFunction,
     HandleErrorFunction,
     RefreshTokenFunction,
-    HandleStreamingResourcesFunction,
 )
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,
@@ -667,16 +666,15 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
 
     async def get_streaming_async(
         self,
+        *,
         data_chunk_handler: Optional[HandleStreamingChunkFunction] = None,
-        resource_chunk_handler: Optional[HandleStreamingResourcesFunction] = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Issues a GET call and returns a generator for streaming
 
         :param data_chunk_handler: function to call for each chunk of data
-        :param resource_chunk_handler: function to call for each chunk of resources
 
-        :return: response
+        :return: async generator of responses
         """
         instance_variables_text = convert_dict_to_str(
             self.get_variables_to_log(vars(self))
@@ -697,7 +695,6 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
                 session=http,
                 ids=ids,
                 fn_handle_streaming_chunk=data_chunk_handler,
-                fn_resource_chunk_handler=resource_chunk_handler,
             ):
                 yield response
 
@@ -719,7 +716,6 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
         id_above: Optional[str] = None,
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
         additional_parameters: Optional[List[str]] = None,
-        fn_resource_chunk_handler: Optional[HandleStreamingResourcesFunction] = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         issues a GET call with the specified session, page_number and ids
@@ -820,7 +816,6 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
                     retries_left=retries_left,
                     full_url=full_url,
                     request_id=request_id,
-                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                     login_token=self._login_token,
                     resource=self._resource,
                     id_=self._id,
@@ -833,6 +828,7 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
                     url=self._url,
                     extra_context_to_return=self._extra_context_to_return,
                     use_data_streaming=self._use_data_streaming,
+                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                 ):
                     yield r
 

@@ -473,7 +473,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 ids=non_cached_id_list,
                 additional_parameters=parameters,
                 id_above=None,
-                fn_resource_chunk_handler=None,
                 fn_handle_streaming_chunk=None,
             ):
                 result = result1
