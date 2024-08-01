@@ -123,7 +123,10 @@ class FhirGetResponse:
             )
             # if it is a list of resources then return it
             if isinstance(child_response_resources, list):
-                return child_response_resources
+                return [
+                    cast(Dict[str, Any], c.get("resource")) if "resource" in c else c
+                    for c in child_response_resources
+                ]
             # otherwise it is a bundle so parse out the resources
             if "entry" in child_response_resources:
                 # bundle

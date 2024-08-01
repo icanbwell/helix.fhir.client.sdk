@@ -1,6 +1,6 @@
 import json
 from os import environ
-from typing import Optional
+from typing import List, Any, Dict
 
 from mockserver_client.mockserver_client import (
     mock_request,
@@ -30,7 +30,19 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
     mock_client.clear(f"/{test_name}/*.*")
     mock_client.reset()
 
-    response_text: str = json.dumps({"resourceType": "Patient", "id": "12355"})
+    fhir: Dict[str, Any] = {
+        "resourceType": "Bundle",
+        "total": 2,
+        "entry": [
+            {"resource": {"resourceType": "Patient", "id": "1"}},
+            {"resource": {"resourceType": "Patient", "id": "2"}},
+        ],
+    }
+
+    response_text: str = ""
+    for e in fhir["entry"]:
+        response_text += json.dumps(e["resource"]) + "\n"
+
     mock_client.expect(
         request=mock_request(
             path=f"/{relative_url}/Patient",
@@ -44,12 +56,15 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     fhir_client = fhir_client.use_data_streaming(True)
+    fhir_client = fhir_client.chunk_size(10)
 
-    async def on_chunk(line: bytes, chunk_number: Optional[int] = None) -> bool:
-        print(f"Got chunk {chunk_number}: {line.decode('utf-8')}")
-        return True
+    responses: List[FhirGetResponse] = []
 
-    response: FhirGetResponse = await fhir_client.get_async()
+    async for response1 in fhir_client.get_streaming_async():
+        responses.append(response1)
 
-    print(response.responses)
-    assert response.responses == response_text
+    assert len(responses) == 2
+    assert responses[0].resource_type == "Patient"
+    assert responses[0].get_resources() == [{"resourceType": "Patient", "id": "1"}]
+    assert responses[1].resource_type == "Patient"
+    assert responses[1].get_resources() == [{"resourceType": "Patient", "id": "2"}]

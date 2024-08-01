@@ -38,7 +38,7 @@ async def test_fhir_client_patient_list_async_resource_streaming() -> None:
 
     response_text: str = ""
     for e in fhir["entry"]:
-        response_text += json.dumps(e) + "\n"
+        response_text += json.dumps(e["resource"]) + "\n"
     mock_client.expect(
         request=mock_request(
             path=f"/{relative_url}/Patient",
@@ -69,5 +69,5 @@ async def test_fhir_client_patient_list_async_resource_streaming() -> None:
     # assert response.responses == ""
 
     assert len(resource_chunks) == 2
-    assert resource_chunks[0] == [{"resource": {"id": "1", "resourceType": "Patient"}}]
-    assert resource_chunks[1] == [{"resource": {"id": "2", "resourceType": "Patient"}}]
+    assert resource_chunks[0] == [{"id": "1", "resourceType": "Patient"}]
+    assert resource_chunks[1] == [{"id": "2", "resourceType": "Patient"}]
