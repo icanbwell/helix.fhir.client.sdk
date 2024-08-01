@@ -741,7 +741,8 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
         assert self._url, "No FHIR server url was set"
         assert self._resource, "No Resource was set"
         request_id: Optional[str] = None
-        retries_left: int = self._retry_count + 1
+        # retries_left: int = self._retry_count + 1
+        retries_left: int = 1
 
         # used to parse the ndjson response for streaming
         nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser = (
@@ -808,35 +809,18 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
 
                 # if request is ok (200) then return the data
                 if response.status == 200:
-                    total_count: int = 0
-                    next_url: Optional[str] = None
-                    if self._use_data_streaming:
-                        async for r in self._handle_response_200_streaming(
-                            access_token=access_token,
-                            fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                            full_url=full_url,
-                            nd_json_chunk_streaming_parser=nd_json_chunk_streaming_parser,
-                            next_url=next_url,
-                            request_id=request_id,
-                            response_headers=response_headers,
-                            total_count=total_count,
-                            response=response,
-                        ):
-                            yield r
-                        return  # done with streaming
-                    else:
-                        async for r in self._handle_response_200(
-                            full_url=full_url,
-                            response=response,
-                            request_id=request_id,
-                            access_token=access_token,
-                            response_headers=response_headers,
-                            retries_left=retries_left,
-                            next_url=next_url,
-                            total_count=total_count,
-                            resources_json=resources_json,
-                        ):
-                            yield r
+                    async for r in self._handle_response_200(
+                        full_url=full_url,
+                        request_id=request_id,
+                        response=response,
+                        response_headers=response_headers,
+                        fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+                        access_token=access_token,
+                        retries_left=retries_left,
+                        nd_json_chunk_streaming_parser=nd_json_chunk_streaming_parser,
+                        resources_json=resources_json,
+                    ):
+                        yield r
                 elif response.status == 404:  # not found
                     async for r in self._handle_response_404(
                         full_url=full_url,
@@ -1129,6 +1113,48 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
         )
 
     async def _handle_response_200(
+        self,
+        *,
+        access_token: Optional[str],
+        full_url: str,
+        response: ClientResponse,
+        retries_left: int,
+        request_id: Optional[str],
+        response_headers: List[str],
+        resources_json: str,
+        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
+        nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        total_count: int = 0
+        next_url: Optional[str] = None
+        if self._use_data_streaming:
+            async for r in self._handle_response_200_streaming(
+                access_token=access_token,
+                fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+                full_url=full_url,
+                nd_json_chunk_streaming_parser=nd_json_chunk_streaming_parser,
+                next_url=next_url,
+                request_id=request_id,
+                response_headers=response_headers,
+                total_count=total_count,
+                response=response,
+            ):
+                yield r
+        else:
+            async for r in self._handle_response_200_non_streaming(
+                full_url=full_url,
+                response=response,
+                request_id=request_id,
+                access_token=access_token,
+                response_headers=response_headers,
+                retries_left=retries_left,
+                next_url=next_url,
+                total_count=total_count,
+                resources_json=resources_json,
+            ):
+                yield r
+
+    async def _handle_response_200_non_streaming(
         self,
         *,
         full_url: str,
