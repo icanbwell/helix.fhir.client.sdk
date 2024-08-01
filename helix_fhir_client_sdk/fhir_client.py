@@ -77,9 +77,6 @@ from helix_fhir_client_sdk.responses.fhir_response_processor import (
 from helix_fhir_client_sdk.responses.fhir_update_response import FhirUpdateResponse
 from helix_fhir_client_sdk.responses.get_result import GetResult
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
-from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
-    NdJsonChunkStreamingParser,
-)
 from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValidator
 from helix_fhir_client_sdk.well_known_configuration import (
     WellKnownConfigurationCacheEntry,
@@ -742,11 +739,6 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
         retries_left: int = self._retry_count + 1
         # retries_left: int = 1
 
-        # used to parse the ndjson response for streaming
-        nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser = (
-            NdJsonChunkStreamingParser()
-        )
-
         # create url and query to request from FHIR server
         resources_json: str = ""
         full_url = await self._build_url(
@@ -826,7 +818,6 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirClientProtocol):
                     logger=self._logger,
                     resources_json=resources_json,
                     retries_left=retries_left,
-                    nd_json_chunk_streaming_parser=nd_json_chunk_streaming_parser,
                     full_url=full_url,
                     request_id=request_id,
                     fn_handle_streaming_chunk=fn_handle_streaming_chunk,

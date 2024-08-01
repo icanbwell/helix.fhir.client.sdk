@@ -37,7 +37,6 @@ class FhirResponseProcessor:
         response_headers: List[str],
         access_token: Optional[str],
         retries_left: int,
-        nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser,
         resources_json: str,
         fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
         logger: Optional[FhirLogger] = None,
@@ -62,7 +61,6 @@ class FhirResponseProcessor:
                 fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                 access_token=access_token,
                 retries_left=retries_left,
-                nd_json_chunk_streaming_parser=nd_json_chunk_streaming_parser,
                 resources_json=resources_json,
                 resource=resource,
                 id_=id_,
@@ -406,7 +404,6 @@ class FhirResponseProcessor:
         response_headers: List[str],
         resources_json: str,
         fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
-        nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser,
         use_data_streaming: bool,
         chunk_size: int,
         extra_context_to_return: Optional[Dict[str, Any]],
@@ -417,6 +414,10 @@ class FhirResponseProcessor:
         total_count: int = 0
         next_url: Optional[str] = None
         if use_data_streaming:
+            # used to parse the ndjson response for streaming
+            nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser = (
+                NdJsonChunkStreamingParser()
+            )
             async for r in FhirResponseProcessor._handle_response_200_streaming(
                 access_token=access_token,
                 fn_handle_streaming_chunk=fn_handle_streaming_chunk,
