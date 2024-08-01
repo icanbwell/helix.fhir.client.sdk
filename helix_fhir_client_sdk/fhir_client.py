@@ -6,11 +6,9 @@ import json
 import logging
 import time
 import uuid
-from asyncio import Future
-from datetime import datetime, timedelta
+from datetime import datetime
 from logging import Logger
 from os import environ
-from queue import Empty
 from threading import Lock
 from types import SimpleNamespace
 from typing import (
@@ -19,16 +17,12 @@ from typing import (
     List,
     Union,
     Any,
-    Generator,
     AsyncGenerator,
-    Coroutine,
 )
 from urllib import parse
 
 # noinspection PyPackageRequirements
 import aiohttp
-
-# noinspection PyPackageRequirements
 
 # noinspection PyPackageRequirements
 from aiohttp import (
@@ -45,9 +39,9 @@ from requests.adapters import BaseAdapter
 
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
+from helix_fhir_client_sdk.fhir_composite_query_mixin import FhirCompositeQueryMixin
 from helix_fhir_client_sdk.fhir_merge_mixin import FhirMergeMixin
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
-from helix_fhir_client_sdk.filters.last_updated_filter import LastUpdatedFilter
 from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
@@ -69,7 +63,6 @@ from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
 )
 from helix_fhir_client_sdk.responses.fhir_update_response import FhirUpdateResponse
-from helix_fhir_client_sdk.responses.get_result import GetResult
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValidator
@@ -78,7 +71,15 @@ from helix_fhir_client_sdk.well_known_configuration import (
 )
 
 
-class FhirClient(SimulatedGraphProcessorMixin, FhirMergeMixin, FhirClientProtocol):
+# noinspection PyPackageRequirements
+
+
+class FhirClient(
+    SimulatedGraphProcessorMixin,
+    FhirMergeMixin,
+    FhirCompositeQueryMixin,
+    FhirClientProtocol,
+):
     """
     Class used to call FHIR server (uses async and parallel execution to speed up)
     """
@@ -246,7 +247,7 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirMergeMixin, FhirClientProtoco
         return self
 
     def include_only_properties(
-        self, include_only_properties: List[str]
+        self, include_only_properties: List[str] | None
     ) -> "FhirClient":
         """
         include only these properties
@@ -495,6 +496,15 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirMergeMixin, FhirClientProtoco
         :param size: size of the chunk
         """
         self._chunk_size = size
+        return self
+
+    def last_page(self, last_page: int) -> "FhirClient":
+        """
+        Sets the last page number
+
+        :param last_page: last page number
+        """
+        self._last_page = last_page
         return self
 
     # noinspection PyUnusedLocal
@@ -1068,238 +1078,6 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirMergeMixin, FhirClientProtoco
         )
         return session
 
-    async def get_with_handler_async(
-        self,
-        session: Optional[ClientSession],
-        page_number: Optional[int],
-        ids: Optional[List[str]],
-        fn_handle_batch: Optional[HandleBatchFunction],
-        fn_handle_error: Optional[HandleErrorFunction],
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
-        id_above: Optional[str] = None,
-    ) -> GetResult:
-        """
-        gets data and calls the handlers as data is received
-
-
-        :param fn_handle_streaming_chunk:
-        :param session:
-        :param page_number:
-        :param ids: ids to retrieve
-        :param fn_handle_batch: function to call when data is received
-        :param fn_handle_error: function to call when there is an error
-        :param id_above:
-        :return: list of resources
-        """
-        result: Optional[FhirGetResponse] = None
-        async for result1 in self._get_with_session_async(
-            session=session,
-            page_number=page_number,
-            ids=ids,
-            id_above=id_above,
-            fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-        ):
-            result = result1
-
-        assert result
-
-        if result.error:
-            if fn_handle_error:
-                await fn_handle_error(result.error, result.responses, page_number)
-        elif not result.error and bool(result.responses):
-            result_list: List[Dict[str, Any]] = []
-            if self._use_data_streaming:
-                # convert ndjson to a list
-                assert isinstance(result.responses, str)
-                ndjson_content = result.responses
-                for ndjson_line in ndjson_content.splitlines():
-                    if not ndjson_line.strip():
-                        continue  # ignore empty lines
-                    json_line = json.loads(ndjson_line)
-                    result_list.append(json_line)
-            else:
-                result_list = json.loads(result.responses)
-                if isinstance(result_list, dict):
-                    result_list = [result_list]
-                assert isinstance(result_list, list)
-            if fn_handle_batch:
-                handle_batch_result: bool = await fn_handle_batch(
-                    result_list, page_number
-                )
-                if handle_batch_result is False:
-                    self._stop_processing = True
-            return GetResult(
-                request_id=result.request_id,
-                resources=result_list,
-                response_headers=result.response_headers,
-            )
-        return GetResult(
-            request_id=result.request_id,
-            resources=[],
-            response_headers=result.response_headers,
-        )
-
-    async def get_page_by_query_async(
-        self,
-        session: Optional[ClientSession],
-        start_page: int,
-        increment: int,
-        output_queue: asyncio.Queue[PagingResult],
-        fn_handle_batch: Optional[HandleBatchFunction],
-        fn_handle_error: Optional[HandleErrorFunction],
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
-    ) -> List[PagingResult]:
-        """
-        Gets the specified page for query
-
-        :param fn_handle_streaming_chunk:
-        :param session:
-        :param start_page:
-        :param increment:
-        :param output_queue: queue to use
-        :param fn_handle_batch: function to call when data is received
-        :param fn_handle_error: function to call when there is an error
-        :return: list of paging results
-        """
-        page_number: int = start_page
-        server_page_number: int = page_number
-        result: List[PagingResult] = []
-        id_above: Optional[str] = None
-        while (
-            not self._last_page and not self._last_page == 0
-        ) or page_number < self._last_page:
-            result_for_page: GetResult = await self.get_with_handler_async(
-                session=session,
-                page_number=server_page_number,
-                ids=None,
-                fn_handle_batch=fn_handle_batch,
-                fn_handle_error=fn_handle_error,
-                fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                id_above=id_above,
-            )
-            if result_for_page and len(result_for_page.resources) > 0:
-                paging_result = PagingResult(
-                    request_id=result_for_page.request_id,
-                    resources=result_for_page.resources,
-                    page_number=page_number,
-                    response_headers=result_for_page.response_headers,
-                )
-                await output_queue.put(paging_result)
-                result.append(paging_result)
-            else:
-                with self._last_page_lock:
-                    if not self._last_page or page_number < self._last_page:
-                        self._last_page = page_number
-                        if self._logger:
-                            self._logger.info(f"Setting last page to {self._last_page}")
-                break
-            # get id of last resource to use as minimum for next page
-            last_json_resource = result_for_page.resources[-1]
-            if "id" in last_json_resource:
-                # use id:above to optimize the next query
-                id_above = last_json_resource["id"]
-            server_page_number = increment - 1
-            page_number = page_number + increment
-        return result
-
-    async def _get_page_by_query_tasks_async(
-        self,
-        concurrent_requests: int,
-        output_queue: asyncio.Queue[PagingResult],
-        fn_handle_batch: Optional[HandleBatchFunction],
-        fn_handle_error: Optional[HandleErrorFunction],
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
-        http: ClientSession,
-    ) -> AsyncGenerator[Coroutine[Any, Any, List[PagingResult]], None]:
-        """
-        Returns tasks to get pages by query
-
-
-        :param concurrent_requests:
-        :param output_queue:
-        :param fn_handle_batch: function to call when data is received
-        :param fn_handle_error: function to call when there is an error
-        :param http: session
-        :return: task
-        """
-        for taskNumber in range(concurrent_requests):
-            yield (
-                self.get_page_by_query_async(
-                    session=http,
-                    start_page=taskNumber,
-                    increment=concurrent_requests,
-                    output_queue=output_queue,
-                    fn_handle_batch=fn_handle_batch,
-                    fn_handle_error=fn_handle_error,
-                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                )
-            )
-
-    async def get_by_query_in_pages_async(
-        self,
-        concurrent_requests: int,
-        output_queue: asyncio.Queue[PagingResult],
-        fn_handle_batch: Optional[HandleBatchFunction],
-        fn_handle_error: Optional[HandleErrorFunction],
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
-    ) -> FhirGetResponse:
-        """
-        Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
-
-
-        :param fn_handle_streaming_chunk:
-        :param output_queue:
-        :type output_queue:
-        :param fn_handle_error:
-        :param concurrent_requests:
-        :param fn_handle_batch: function to call for each batch.  Receives a list of resources where each
-                                    resource is a dictionary. If this is specified then we don't return
-                                    the resources anymore.  If this function returns False then we stop
-                                    processing batches
-        :return response containing all the resources received
-        """
-        # if paging is requested then iterate through the pages until the response is empty
-        assert self._url
-        assert self._page_size
-        self._page_number = 0
-        self._stop_processing = False
-        resources_list: List[Dict[str, Any]] = []
-
-        async with self.create_http_session() as http:
-            first_completed: Future[List[PagingResult]]
-            for first_completed in asyncio.as_completed(
-                [
-                    task
-                    async for task in self._get_page_by_query_tasks_async(
-                        http=http,
-                        output_queue=output_queue,
-                        concurrent_requests=concurrent_requests,
-                        fn_handle_batch=fn_handle_batch,
-                        fn_handle_error=fn_handle_error,
-                        fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                    )
-                ]
-            ):
-                result_list: List[PagingResult] = await first_completed
-                for resources in [r.resources for r in result_list]:
-                    resources_list.extend(resources)
-
-            return FhirGetResponse(
-                request_id=result_list[0].request_id if len(result_list) > 0 else None,
-                url=self._url,
-                responses=json.dumps(resources_list),
-                error=None,
-                access_token=self._access_token,
-                total_count=len(resources_list),
-                status=200,
-                extra_context_to_return=self._extra_context_to_return,
-                resource_type=self._resource,
-                id_=self._id,
-                response_headers=(
-                    result_list[0].response_headers if len(result_list) > 0 else None
-                ),
-            )
-
     @staticmethod
     def _create_login_token(client_id: str, client_secret: str) -> str:
         """
@@ -1748,474 +1526,6 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirMergeMixin, FhirClientProtoco
         result: FhirUpdateResponse = asyncio.run(self.update_async(json_data))
         return result
 
-    async def get_resources_by_id_in_parallel_batches_async(
-        self,
-        concurrent_requests: int,
-        chunks: Generator[List[str], None, None],
-        fn_handle_batch: Optional[HandleBatchFunction],
-        fn_handle_error: Optional[HandleErrorFunction],
-        fn_handle_ids: Optional[HandleBatchFunction] = None,
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
-    ) -> List[Dict[str, Any]]:
-        """
-        Given a list of ids, this function loads them in parallel batches
-
-
-        :param concurrent_requests:
-        :param chunks: a generator that returns a list of ids to load in one batch
-        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
-                                return the resources in the response anymore.  If this function returns false then we
-                                stop processing any further batches.
-        :param fn_handle_error: function that is called when there is an error
-        :param fn_handle_streaming_chunk: Optional function to execute when we get a chunk in streaming
-        :param fn_handle_ids: Optional function to execute when we get a page of ids
-        :return: list of resources
-        """
-        queue: asyncio.Queue[List[str]] = asyncio.Queue()
-        chunk: List[str]
-        for chunk in chunks:
-            await queue.put(chunk)
-
-        async with self.create_http_session() as http:
-            tasks = [
-                self.get_resources_by_id_from_queue_async(
-                    session=http,
-                    queue=queue,
-                    task_number=taskNumber,
-                    fn_handle_batch=fn_handle_batch,
-                    fn_handle_error=fn_handle_error,
-                    fn_handle_ids=fn_handle_ids,
-                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                )
-                for taskNumber in range(concurrent_requests)
-            ]
-            for first_completed in asyncio.as_completed(tasks):
-                result_list: List[Dict[str, Any]] = await first_completed
-            await queue.join()
-            return result_list
-
-    # noinspection PyUnusedLocal
-    async def get_resources_by_id_from_queue_async(
-        self,
-        session: ClientSession,
-        queue: asyncio.Queue[List[str]],
-        task_number: int,
-        fn_handle_batch: Optional[HandleBatchFunction],
-        fn_handle_error: Optional[HandleErrorFunction],
-        fn_handle_ids: Optional[HandleBatchFunction] = None,
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
-    ) -> List[Dict[str, Any]]:
-        """
-        Gets resources given a queue
-
-
-        :param session:
-        :param queue: queue to use
-        :param task_number:
-        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
-                                return the resources in the response anymore.  If this function returns false then we
-                                stop processing any further batches.
-        :param fn_handle_error: function that is called when there is an error
-        :param fn_handle_streaming_chunk: Optional function to execute when we get a chunk in streaming
-        :param fn_handle_ids: Optional function to execute when we get a page of ids
-        :return: list of resources
-        """
-        result: List[Dict[str, Any]] = []
-        while not queue.empty():
-            try:
-                chunk = queue.get_nowait()
-                # Notify the queue that the "work item" has been processed.
-                queue.task_done()
-                if chunk is not None:
-                    result_per_chunk: GetResult = await self.get_with_handler_async(
-                        session=session,
-                        page_number=0,  # this stays at 0 as we're always just loading the first page with id:above
-                        ids=chunk,
-                        fn_handle_batch=fn_handle_batch,
-                        fn_handle_error=fn_handle_error,
-                        fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                    )
-                    if result_per_chunk:
-                        for result_ in result_per_chunk.resources:
-                            result.append(result_)
-            except Empty:
-                break
-        return result
-
-    # Yield successive n-sized chunks from l.
-    @staticmethod
-    def _divide_into_chunks(
-        array: List[Any], chunk_size: int
-    ) -> Generator[List[str], None, None]:
-        """
-        Divides a list into a list of chunks
-
-
-        :param array: array to divide into chunks
-        :param chunk_size: size of each chunk
-        :return: generator that returns a list of strings
-        """
-        # looping till length l
-        for i in range(0, len(array), chunk_size):
-            yield array[i : i + chunk_size]
-
-    def handle_error_wrapper(self) -> HandleErrorFunction:
-        """
-        Default handler for errors.  Can be replaced by passing in fnError to functions
-
-
-        """
-
-        async def handle_error_async(
-            error: str, response: str, page_number: Optional[int]
-        ) -> bool:
-            if self._logger:
-                self._logger.error(f"page: {page_number} {error}: {response}")
-            if self._internal_logger:
-                self._internal_logger.error(f"page: {page_number} {error}: {response}")
-            return True
-
-        return handle_error_async
-
-    async def get_resources_by_query_and_last_updated_async(
-        self,
-        *,
-        last_updated_start_date: datetime,
-        last_updated_end_date: datetime,
-        concurrent_requests: int = 10,
-        page_size_for_retrieving_resources: int = 100,
-        page_size_for_retrieving_ids: int = 10000,
-        fn_handle_batch: Optional[HandleBatchFunction] = None,
-        fn_handle_error: Optional[HandleErrorFunction] = None,
-        fn_handle_ids: Optional[HandleBatchFunction] = None,
-        fn_handle_streaming_ids: Optional[HandleStreamingChunkFunction] = None,
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
-    ) -> List[Dict[str, Any]]:
-        """
-        Gets results for a query by paging through one day at a time,
-            first downloading all the ids and then retrieving resources for each id in parallel
-
-
-        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
-                                return the resources in the response anymore.  If this function returns false then we
-                                stop processing any further batches.
-        :param fn_handle_error: Optional function that is called when there is an error
-        :param fn_handle_streaming_ids: Optional function to execute when we get ids in streaming
-        :param fn_handle_streaming_chunk: Optional function to execute when we get a chunk in streaming
-        :param fn_handle_ids: Optional function to execute when we get a page of ids
-        :param last_updated_start_date: Finds the resources updated after this datetime
-        :param last_updated_end_date: find resources updated before this datetime
-        :param concurrent_requests: number of concurrent requests to make to the server
-        :param page_size_for_retrieving_resources: number of resources to download in one batch
-        :param page_size_for_retrieving_ids:: number of ids to download in one batch
-        """
-        return await self.get_resources_by_query_async(
-            concurrent_requests=concurrent_requests,
-            last_updated_end_date=last_updated_end_date,
-            last_updated_start_date=last_updated_start_date,
-            page_size_for_retrieving_ids=page_size_for_retrieving_ids,
-            page_size_for_retrieving_resources=page_size_for_retrieving_resources,
-            fn_handle_error=fn_handle_error,
-            fn_handle_batch=fn_handle_batch,
-            fn_handle_ids=fn_handle_ids,
-            fn_handle_streaming_ids=fn_handle_streaming_ids,
-            fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-        )
-
-    def get_resources_by_query_and_last_updated(
-        self,
-        last_updated_start_date: datetime,
-        last_updated_end_date: datetime,
-        concurrent_requests: int = 10,
-        page_size_for_retrieving_resources: int = 100,
-        page_size_for_retrieving_ids: int = 10000,
-        fn_handle_batch: Optional[HandleBatchFunction] = None,
-        fn_handle_error: Optional[HandleErrorFunction] = None,
-    ) -> List[Dict[str, Any]]:
-        """
-        Gets results for a query by paging through one day at a time,
-            first downloading all the ids and then retrieving resources for each id in parallel
-
-
-        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
-                                return the resources in the response anymore.  If this function returns false then we
-                                stop processing any further batches.
-        :param fn_handle_error: Optional function that is called when there is an error
-        :param last_updated_start_date: find resources updated after this datetime
-        :param last_updated_end_date: find resources updated before this datetime
-        :param concurrent_requests: number of concurrent requests to make to the server
-        :param page_size_for_retrieving_resources: number of resources to download in one batch
-        :param page_size_for_retrieving_ids:: number of ids to download in one batch
-        """
-        return asyncio.run(
-            self.get_resources_by_query_and_last_updated_async(
-                last_updated_start_date=last_updated_start_date,
-                last_updated_end_date=last_updated_end_date,
-                concurrent_requests=concurrent_requests,
-                page_size_for_retrieving_resources=page_size_for_retrieving_resources,
-                page_size_for_retrieving_ids=page_size_for_retrieving_ids,
-                fn_handle_batch=fn_handle_batch,
-                fn_handle_error=fn_handle_error,
-            )
-        )
-
-    async def get_resources_by_query_async(
-        self,
-        last_updated_start_date: Optional[datetime] = None,
-        last_updated_end_date: Optional[datetime] = None,
-        concurrent_requests: int = 10,
-        page_size_for_retrieving_resources: int = 100,
-        page_size_for_retrieving_ids: int = 10000,
-        fn_handle_batch: Optional[HandleBatchFunction] = None,
-        fn_handle_error: Optional[HandleErrorFunction] = None,
-        fn_handle_ids: Optional[HandleBatchFunction] = None,
-        fn_handle_streaming_ids: Optional[HandleStreamingChunkFunction] = None,
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
-    ) -> List[Dict[str, Any]]:
-        """
-        Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel
-
-
-        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
-                                return the resources in the response anymore.  If this function returns false then we
-                                stop processing any further batches.
-        :param fn_handle_error: function that is called when there is an error
-        :param fn_handle_streaming_ids: Optional function to execute when we get ids in streaming
-        :param fn_handle_streaming_chunk: Optional function to execute when we get a chunk in streaming
-        :param fn_handle_ids: Optional function to execute when we get a page of ids
-        :param last_updated_start_date: finds resources updated after this datetime
-        :param last_updated_end_date: find resources updated before this datetime
-        :param concurrent_requests: number of concurrent requests to make to the server
-        :param page_size_for_retrieving_resources: number of resources to download in one batch
-        :param page_size_for_retrieving_ids:: number of ids to download in one batch
-        """
-        start = time.time()
-        list_of_ids: List[str] = await self.get_ids_for_query_async(
-            concurrent_requests=concurrent_requests,
-            last_updated_end_date=last_updated_end_date,
-            last_updated_start_date=last_updated_start_date,
-            page_size_for_retrieving_ids=page_size_for_retrieving_ids,
-            fn_handle_ids=fn_handle_ids,
-            fn_handle_streaming_chunk=fn_handle_streaming_ids,
-            fn_handle_error=fn_handle_error,
-        )
-        # now split the ids
-        chunks: Generator[List[str], None, None] = self._divide_into_chunks(
-            list_of_ids, page_size_for_retrieving_resources
-        )
-        # chunks_list = list(chunks)
-        resources = []
-
-        async def add_resources_to_list(
-            resources_: List[Dict[str, Any]], page_number: Optional[int]
-        ) -> bool:
-            """
-            adds resources to a list of resources
-
-            :param resources_:
-            :param page_number:
-            :return: whether to continue
-            """
-            end_batch = time.time()
-            for resource_ in resources_:
-                resources.append(resource_)
-            if self._logger:
-                self._logger.info(
-                    f"Received {len(resources_)} resources (total={len(resources)}/{len(list_of_ids)})"
-                    f" in {timedelta(seconds=(end_batch - start))} page={page_number}"
-                    f" starting with resource: {resources_[0]['id'] if len(resources_) > 0 else 'none'}"
-                )
-
-            return True
-
-        # create a new one to reset all the properties
-        self._include_only_properties = None
-        self._filters = []
-
-        await self.get_resources_by_id_in_parallel_batches_async(
-            concurrent_requests=concurrent_requests,
-            chunks=chunks,
-            fn_handle_batch=fn_handle_batch or add_resources_to_list,
-            fn_handle_error=fn_handle_error or self.handle_error_wrapper(),
-            fn_handle_ids=fn_handle_ids,
-            fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-        )
-        return resources
-
-    # noinspection PyUnusedLocal
-    async def get_ids_for_query_async(
-        self,
-        *,
-        last_updated_start_date: Optional[datetime] = None,
-        last_updated_end_date: Optional[datetime] = None,
-        concurrent_requests: int = 10,
-        page_size_for_retrieving_ids: int = 10000,
-        fn_handle_ids: Optional[HandleBatchFunction] = None,
-        fn_handle_batch: Optional[HandleBatchFunction] = None,
-        fn_handle_error: Optional[HandleErrorFunction] = None,
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
-    ) -> List[str]:
-        """
-        Gets just the ids of the resources matching the query
-
-
-        :param fn_handle_error:
-        :param fn_handle_batch:
-        :param last_updated_start_date: (Optional) get ids updated after this date
-        :param last_updated_end_date: (Optional) get ids updated before this date
-        :param concurrent_requests: number of concurrent requests
-        :param page_size_for_retrieving_ids:
-        :param fn_handle_streaming_chunk: Optional function to execute when we get a chunk in streaming
-        :param fn_handle_ids: Optional function to execute when we get a page of ids
-        :return: list of ids
-        """
-        # get only ids first
-        list_of_ids: List[str] = []
-        fhir_client = self.include_only_properties(["id"])
-        fhir_client = fhir_client.page_size(page_size_for_retrieving_ids)
-        output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
-
-        async def add_to_list(
-            resources_: List[Dict[str, Any]], page_number: Optional[int]
-        ) -> bool:
-            assert isinstance(resources_, list)
-            if len(resources_) > 0:
-                assert isinstance(resources_[0], dict)
-            end_batch = time.time()
-            assert isinstance(list_of_ids, list)
-            assert isinstance(resources_, list)
-            for resource_ in resources_:
-                assert resource_.get("resourceType") != "Bundle"
-                list_of_ids.append(resource_["id"])
-            if fn_handle_ids:
-                await fn_handle_ids(resources_, page_number)
-            if self._logger:
-                self._logger.info(
-                    f"Received {len(resources_)} ids from page {page_number}"
-                    f" (total={len(list_of_ids)}) in {timedelta(seconds=end_batch - start)}"
-                    f" starting with id: {resources_[0]['id'] if len(resources_) > 0 else 'none'}"
-                )
-
-            return True
-
-        # get token first
-        await fhir_client.get_access_token_async()
-        if last_updated_start_date is not None and last_updated_end_date is not None:
-            assert last_updated_end_date >= last_updated_start_date
-            greater_than = last_updated_start_date - timedelta(days=1)
-            less_than = greater_than + timedelta(days=1)
-            last_updated_filter = LastUpdatedFilter(
-                less_than=less_than, greater_than=greater_than
-            )
-            fhir_client = fhir_client.filter([last_updated_filter])
-            while greater_than < last_updated_end_date:
-                greater_than = greater_than + timedelta(days=1)
-                less_than = greater_than + timedelta(days=1)
-                if self._logger:
-                    self._logger.info(f"===== Processing date {greater_than} =======")
-                last_updated_filter.less_than = less_than
-                last_updated_filter.greater_than = greater_than
-                start = time.time()
-                fhir_client._last_page = None  # clean any previous setting
-                await fhir_client.get_by_query_in_pages_async(
-                    concurrent_requests=concurrent_requests,
-                    output_queue=output_queue,
-                    fn_handle_batch=add_to_list,
-                    fn_handle_error=fn_handle_error or self.handle_error_wrapper(),
-                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                )
-                fhir_client._last_page = None  # clean any previous setting
-                end = time.time()
-                if self._logger:
-                    self._logger.info(
-                        f"Runtime processing date is {timedelta(seconds=end - start)} for {len(list_of_ids)} ids"
-                    )
-        else:
-            start = time.time()
-            fhir_client._last_page = None  # clean any previous setting
-            await fhir_client.get_by_query_in_pages_async(
-                concurrent_requests=concurrent_requests,
-                output_queue=output_queue,
-                fn_handle_batch=add_to_list,
-                fn_handle_error=self.handle_error_wrapper(),
-                fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-            )
-            fhir_client._last_page = None  # clean any previous setting
-            end = time.time()
-            if self._logger:
-                self._logger.info(
-                    f"Runtime processing date is {timedelta(seconds=end - start)} for {len(list_of_ids)} ids"
-                )
-        if self._logger:
-            self._logger.info(f"====== Received {len(list_of_ids)} ids =======")
-        return list_of_ids
-
-    def get_ids_for_query(
-        self,
-        *,
-        last_updated_start_date: Optional[datetime] = None,
-        last_updated_end_date: Optional[datetime] = None,
-        concurrent_requests: int = 10,
-        page_size_for_retrieving_ids: int = 10000,
-    ) -> List[str]:
-        """
-        Gets just the ids of the resources matching the query
-
-
-        :param last_updated_start_date: (Optional) get ids updated after this date
-        :param last_updated_end_date: (Optional) get ids updated before this date
-        :param concurrent_requests:
-        :param page_size_for_retrieving_ids:
-        :return: list of ids
-        """
-        return asyncio.run(
-            self.get_ids_for_query_async(
-                last_updated_start_date=last_updated_start_date,
-                last_updated_end_date=last_updated_end_date,
-                concurrent_requests=concurrent_requests,
-                page_size_for_retrieving_ids=page_size_for_retrieving_ids,
-            )
-        )
-
-    def get_resources_by_query(
-        self,
-        last_updated_start_date: Optional[datetime] = None,
-        last_updated_end_date: Optional[datetime] = None,
-        concurrent_requests: int = 10,
-        page_size_for_retrieving_resources: int = 100,
-        page_size_for_retrieving_ids: int = 10000,
-        fn_handle_batch: Optional[HandleBatchFunction] = None,
-        fn_handle_error: Optional[HandleErrorFunction] = None,
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
-    ) -> List[Dict[str, Any]]:
-        """
-        Gets results for a query by first downloading all the ids and then retrieving resources for each id in parallel
-
-
-        :param fn_handle_streaming_chunk:
-        :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
-                                return the resources in the response anymore.  If this function returns false then we
-                                stop processing any further batches.
-        :param fn_handle_error: function that is called when there is an error
-        :param last_updated_start_date: (Optional) get ids updated after this date
-        :param last_updated_end_date: (Optional) get ids updated before this date
-        :param concurrent_requests: number of concurrent requests to make to the server
-        :param page_size_for_retrieving_resources: number of resources to download in one batch
-        :param page_size_for_retrieving_ids:: number of ids to download in one batch
-        """
-        return asyncio.run(
-            self.get_resources_by_query_async(
-                last_updated_start_date=last_updated_start_date,
-                last_updated_end_date=last_updated_end_date,
-                concurrent_requests=concurrent_requests,
-                page_size_for_retrieving_resources=page_size_for_retrieving_resources,
-                page_size_for_retrieving_ids=page_size_for_retrieving_ids,
-                fn_handle_batch=fn_handle_batch,
-                fn_handle_error=fn_handle_error,
-                fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-            )
-        )
-
     # noinspection PyPep8Naming
     async def simulate_graph_async(
         self,
@@ -2330,3 +1640,57 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirMergeMixin, FhirClientProtoco
                 access_token=access_token,
                 status=response.status,
             )
+
+    def clone(self) -> "FhirClient":
+        """
+        Clones the current instance
+
+
+        :return: cloned instance
+        """
+        fhir_client = FhirClient()
+        fhir_client._url = self._url
+        fhir_client._resource = self._resource
+        fhir_client._id = self._id
+        fhir_client._obj_id = self._obj_id
+        fhir_client._action = self._action
+        fhir_client._accept = self._accept
+        fhir_client._content_type = self._content_type
+        fhir_client._accept_encoding = self._accept_encoding
+        fhir_client._page_size = self._page_size
+        fhir_client._page_number = self._page_number
+        fhir_client._limit = self._limit
+        fhir_client._sort_fields = self._sort_fields
+        fhir_client._filters = self._filters
+        fhir_client._last_updated_before = self._last_updated_before
+        fhir_client._last_updated_after = self._last_updated_after
+        fhir_client._include_only_properties = self._include_only_properties
+        fhir_client._include_total = self._include_total
+        fhir_client._additional_parameters = self._additional_parameters
+        fhir_client._additional_request_headers = self._additional_request_headers
+        fhir_client._action_payload = self._action_payload
+        fhir_client._logger = self._logger
+        fhir_client._internal_logger = self._internal_logger
+        fhir_client._log_level = self._log_level
+        fhir_client._auth_scopes = self._auth_scopes
+        fhir_client._client_id = self._client_id
+        fhir_client._auth_server_url = self._auth_server_url
+        fhir_client._login_token = self._login_token
+        fhir_client._refresh_token_function = self._refresh_token_function
+        fhir_client._exclude_status_codes_from_retry = (
+            self._exclude_status_codes_from_retry
+        )
+        fhir_client._chunk_size = self._chunk_size
+        fhir_client._expand_fhir_bundle = self._expand_fhir_bundle
+        fhir_client._separate_bundle_resources = self._separate_bundle_resources
+        fhir_client._use_data_streaming = self._use_data_streaming
+        fhir_client._extra_context_to_return = self._extra_context_to_return
+        fhir_client._well_known_configuration_cache = (
+            self._well_known_configuration_cache
+        )
+        fhir_client._auth_wellknown_url = self._auth_wellknown_url
+        fhir_client._time_to_live_in_secs_for_cache = (
+            self._time_to_live_in_secs_for_cache
+        )
+        fhir_client._validation_server_url = self._validation_server_url
+        return fhir_client

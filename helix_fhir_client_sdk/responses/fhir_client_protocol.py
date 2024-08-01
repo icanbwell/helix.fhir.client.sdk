@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import datetime
 from logging import Logger
@@ -11,9 +12,12 @@ from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.function_types import (
     RefreshTokenFunction,
     HandleStreamingChunkFunction,
+    HandleBatchFunction,
+    HandleErrorFunction,
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.responses.paging_result import PagingResult
 
 
 class FhirClientProtocol(Protocol):
@@ -105,4 +109,27 @@ class FhirClientProtocol(Protocol):
     def resource(self, resource: str):  # type: ignore[no-untyped-def]
         ...
 
-    def set_access_token(self, value: str) -> Any: ...
+    def set_access_token(self, value: str) -> "FhirClientProtocol": ...
+
+    def include_only_properties(
+        self, include_only_properties: List[str] | None
+    ) -> "FhirClientProtocol": ...
+
+    def page_size(self, page_size: int) -> "FhirClientProtocol": ...
+
+    def filter(self, filter_: List[BaseFilter]) -> "FhirClientProtocol": ...
+
+    async def get_by_query_in_pages_async(
+        self,
+        concurrent_requests: int,
+        output_queue: asyncio.Queue[PagingResult],
+        fn_handle_batch: Optional[HandleBatchFunction],
+        fn_handle_error: Optional[HandleErrorFunction],
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
+    ) -> FhirGetResponse: ...
+
+    def clone(self) -> "FhirClientProtocol": ...
+
+    def last_page(self, last_page: int) -> "FhirClientProtocol": ...
+
+    def page_number(self, page_number: int) -> "FhirClientProtocol": ...
