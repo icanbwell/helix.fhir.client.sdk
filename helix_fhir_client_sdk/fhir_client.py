@@ -1273,7 +1273,11 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                 yield FhirGetResponse(
                     request_id=request_id,
                     url=full_url,
-                    responses=json.dumps(completed_resources),
+                    responses=(
+                        json.dumps(completed_resources[0])
+                        if len(completed_resources) == 1
+                        else json.dumps(completed_resources)
+                    ),
                     error=None,
                     access_token=access_token,
                     total_count=total_count,
