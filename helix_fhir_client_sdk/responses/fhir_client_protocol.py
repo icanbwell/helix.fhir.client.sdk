@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from logging import Logger
 from threading import Lock
 from typing import Protocol, Optional, Dict, Any, List, Union, AsyncGenerator
 from aiohttp import ClientSession, ClientResponse
@@ -37,6 +38,7 @@ class FhirClientProtocol(Protocol):
     _client_id: Optional[str]
     _access_token: Optional[str]
     _logger: Optional[FhirLogger]
+    _internal_logger: Logger
     _adapter: Optional[BaseAdapter]
     _limit: Optional[int]
     _validation_server_url: Optional[str]
