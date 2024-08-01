@@ -134,6 +134,8 @@ class FhirClientProtocol(Protocol):
 
     def page_number(self, page_number: int) -> "FhirClientProtocol": ...
 
+    def id_(self, id_: Union[List[str], str] | None) -> "FhirClientProtocol": ...
+
     async def get_resources_by_id_in_parallel_batches_async(
         self,
         concurrent_requests: int,
@@ -143,3 +145,7 @@ class FhirClientProtocol(Protocol):
         fn_handle_ids: Optional[HandleBatchFunction] = None,
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
     ) -> List[Dict[str, Any]]: ...
+
+    def additional_parameters(
+        self, additional_parameters: List[str]
+    ) -> "FhirClientProtocol": ...

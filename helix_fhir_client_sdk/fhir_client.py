@@ -190,7 +190,7 @@ class FhirClient(
         self._resource = resource
         return self
 
-    def id_(self, id_: Union[List[str], str]) -> "FhirClient":
+    def id_(self, id_: Union[List[str], str] | None) -> "FhirClient":
         self._id = id_
         return self
 

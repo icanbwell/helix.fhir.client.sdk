@@ -92,6 +92,8 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
         # create a new one to reset all the properties
         fhir_client = self.clone()
         fhir_client.include_only_properties(None)
+        fhir_client.id_(None)
+        fhir_client.additional_parameters([])
         fhir_client._filters = []
 
         await fhir_client.get_resources_by_id_in_parallel_batches_async(
