@@ -838,24 +838,13 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                         ):
                             yield r
                 elif response.status == 404:  # not found
-                    last_response_text = await self.get_safe_response_text_async(
-                        response=response
-                    )
-                    if self._logger:
-                        self._logger.error(f"resource not found! {full_url}")
-                    yield FhirGetResponse(
+                    async for r in self._handle_response_404(
+                        full_url=full_url,
                         request_id=request_id,
-                        url=full_url,
-                        responses=await response.text(),
-                        error="NotFound",
-                        access_token=self._access_token,
-                        total_count=0,
-                        status=response.status,
-                        extra_context_to_return=self._extra_context_to_return,
-                        resource_type=self._resource,
-                        id_=self._id,
+                        response=response,
                         response_headers=response_headers,
-                    )
+                    ):
+                        yield r
                 elif response.status == 502 or response.status == 504:  # time out
                     last_response_text = await self.get_safe_response_text_async(
                         response=response
@@ -866,22 +855,13 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                     ):
                         continue
                 elif response.status == 403:  # forbidden
-                    last_response_text = await self.get_safe_response_text_async(
-                        response=response
-                    )
-                    yield FhirGetResponse(
+                    async for r in self._handle_response_403(
+                        full_url=full_url,
                         request_id=request_id,
-                        url=full_url,
-                        responses=await response.text(),
-                        error=None,
-                        access_token=self._access_token,
-                        total_count=0,
-                        status=response.status,
-                        extra_context_to_return=self._extra_context_to_return,
-                        resource_type=self._resource,
-                        id_=self._id,
+                        response=response,
                         response_headers=response_headers,
-                    )
+                    ):
+                        yield r
                 elif response.status == 401:  # unauthorized
                     last_response_text = await self.get_safe_response_text_async(
                         response=response
@@ -1057,6 +1037,54 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                 message="",
                 elapsed_time=time.time() - start_time,
             )
+
+    async def _handle_response_403(
+        self,
+        *,
+        full_url: str,
+        request_id: Optional[str],
+        response: ClientResponse,
+        response_headers: List[str],
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        last_response_text = await self.get_safe_response_text_async(response=response)
+        yield FhirGetResponse(
+            request_id=request_id,
+            url=full_url,
+            responses=last_response_text,
+            error=None,
+            access_token=self._access_token,
+            total_count=0,
+            status=response.status,
+            extra_context_to_return=self._extra_context_to_return,
+            resource_type=self._resource,
+            id_=self._id,
+            response_headers=response_headers,
+        )
+
+    async def _handle_response_404(
+        self,
+        *,
+        full_url: str,
+        request_id: Optional[str],
+        response: ClientResponse,
+        response_headers: List[str],
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        last_response_text = await self.get_safe_response_text_async(response=response)
+        if self._logger:
+            self._logger.error(f"resource not found! {full_url}")
+        yield FhirGetResponse(
+            request_id=request_id,
+            url=full_url,
+            responses=last_response_text,
+            error="NotFound",
+            access_token=self._access_token,
+            total_count=0,
+            status=response.status,
+            extra_context_to_return=self._extra_context_to_return,
+            resource_type=self._resource,
+            id_=self._id,
+            response_headers=response_headers,
+        )
 
     async def _handle_response_200(
         self,
