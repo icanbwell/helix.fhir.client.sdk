@@ -872,50 +872,13 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                     ):
                         yield r
                 elif response.status == 429:  # too many calls
-                    last_response_text = await self.get_safe_response_text_async(
-                        response=response
-                    )
-                    if (
-                        not self._exclude_status_codes_from_retry
-                        or response.status not in self._exclude_status_codes_from_retry
+                    async for r in self._handle_response_429(
+                        response=response,
+                        full_url=full_url,
+                        request_id=request_id,
+                        response_headers=response_headers,
                     ):
-                        yield FhirGetResponse(
-                            request_id=request_id,
-                            url=full_url,
-                            responses=await response.text(),
-                            error=None,
-                            access_token=self._access_token,
-                            total_count=0,
-                            status=response.status,
-                            extra_context_to_return=self._extra_context_to_return,
-                            resource_type=self._resource,
-                            id_=self._id,
-                            response_headers=response_headers,
-                        )
-                    # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
-                    # read the Retry-After header
-                    # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
-                    retry_after_text: str = str(response.headers.getone("Retry-After"))
-                    if self._logger:
-                        self._logger.info(
-                            f"Server {full_url} sent a 429 with retry-after: {retry_after_text}"
-                        )
-                    if retry_after_text:
-                        if retry_after_text.isnumeric():  # it is number of seconds
-                            time.sleep(int(retry_after_text))
-                        else:
-                            wait_till: datetime = datetime.strptime(
-                                retry_after_text, "%a, %d %b %Y %H:%M:%S GMT"
-                            )
-                            while datetime.utcnow() < wait_till:
-                                time.sleep(10)
-                    else:
-                        time.sleep(60)
-                    if self._logger:
-                        self._logger.info(
-                            f"Finished waiting after a 429 with retry-after: {retry_after_text}"
-                        )
-                    continue
+                        yield r
                 else:
                     # some unexpected error
                     if self._logger:
@@ -983,6 +946,56 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                 response_status_code=last_status_code,
                 message="",
                 elapsed_time=time.time() - start_time,
+            )
+
+    async def _handle_response_429(
+        self,
+        *,
+        response: ClientResponse,
+        full_url: str,
+        request_id: Optional[str],
+        response_headers: List[str],
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        last_response_text = await self.get_safe_response_text_async(response=response)
+        if (
+            not self._exclude_status_codes_from_retry
+            or response.status not in self._exclude_status_codes_from_retry
+        ):
+            yield FhirGetResponse(
+                request_id=request_id,
+                url=full_url,
+                responses=last_response_text,
+                error=None,
+                access_token=self._access_token,
+                total_count=0,
+                status=response.status,
+                extra_context_to_return=self._extra_context_to_return,
+                resource_type=self._resource,
+                id_=self._id,
+                response_headers=response_headers,
+            )
+        # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+        # read the Retry-After header
+        # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
+        retry_after_text: str = str(response.headers.getone("Retry-After"))
+        if self._logger:
+            self._logger.info(
+                f"Server {full_url} sent a 429 with retry-after: {retry_after_text}"
+            )
+        if retry_after_text:
+            if retry_after_text.isnumeric():  # it is number of seconds
+                time.sleep(int(retry_after_text))
+            else:
+                wait_till: datetime = datetime.strptime(
+                    retry_after_text, "%a, %d %b %Y %H:%M:%S GMT"
+                )
+                while datetime.utcnow() < wait_till:
+                    time.sleep(10)
+        else:
+            time.sleep(60)
+        if self._logger:
+            self._logger.info(
+                f"Finished waiting after a 429 with retry-after: {retry_after_text}"
             )
 
     async def _handle_response_401(
