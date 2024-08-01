@@ -1658,7 +1658,7 @@ class FhirClient(
         fhir_client._content_type = self._content_type
         fhir_client._accept_encoding = self._accept_encoding
         fhir_client._page_size = self._page_size
-        fhir_client._page_number = self._page_number
+        fhir_client._page_number = 0  # reset page number to 1
         fhir_client._limit = self._limit
         fhir_client._sort_fields = self._sort_fields
         fhir_client._filters = self._filters

@@ -3,7 +3,6 @@ import json
 import time
 from asyncio import Future
 from datetime import datetime, timedelta
-from queue import Empty
 from typing import Optional, List, Dict, Any, Generator, AsyncGenerator
 
 from aiohttp import ClientSession
@@ -91,10 +90,11 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
             return True
 
         # create a new one to reset all the properties
-        self.include_only_properties(None)
-        self._filters = []
+        fhir_client = self.clone()
+        fhir_client.include_only_properties(None)
+        fhir_client._filters = []
 
-        await self.get_resources_by_id_in_parallel_batches_async(
+        await fhir_client.get_resources_by_id_in_parallel_batches_async(
             concurrent_requests=concurrent_requests,
             chunks=chunks,
             fn_handle_batch=fn_handle_batch or add_resources_to_list,
@@ -382,7 +382,7 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
     async def get_resources_by_id_from_queue_async(
         self,
         session: ClientSession,
-        queue: asyncio.Queue[List[str]],
+        chunk: List[str],
         task_number: int,
         fn_handle_batch: Optional[HandleBatchFunction],
         fn_handle_error: Optional[HandleErrorFunction],
@@ -394,7 +394,7 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
 
 
         :param session:
-        :param queue: queue to use
+        :param chunk: list of ids to load
         :param task_number:
         :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
                                 return the resources in the response anymore.  If this function returns false then we
@@ -404,27 +404,18 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
         :param fn_handle_ids: Optional function to execute when we get a page of ids
         :return: list of resources
         """
-        result: List[Dict[str, Any]] = []
-        while not queue.empty():
-            try:
-                chunk = queue.get_nowait()
-                # Notify the queue that the "work item" has been processed.
-                queue.task_done()
-                if chunk is not None:
-                    result_per_chunk: GetResult
-                    async for result_per_chunk in self.get_with_handler_async(
-                        session=session,
-                        page_number=0,  # this stays at 0 as we're always just loading the first page with id:above
-                        ids=chunk,
-                        fn_handle_batch=fn_handle_batch,
-                        fn_handle_error=fn_handle_error,
-                        fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                    ):
-                        if result_per_chunk:
-                            for result_ in result_per_chunk.resources:
-                                yield result_
-            except Empty:
-                break
+        result_per_chunk: GetResult
+        async for result_per_chunk in self.get_with_handler_async(
+            session=session,
+            page_number=0,  # this stays at 0 as we're always just loading the first page with id:above
+            ids=chunk,
+            fn_handle_batch=fn_handle_batch,
+            fn_handle_error=fn_handle_error,
+            fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+        ):
+            if result_per_chunk:
+                for result_ in result_per_chunk.resources:
+                    yield result_
 
     async def get_resources_by_id_in_parallel_batches_async(
         self,
@@ -449,39 +440,57 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
         :param fn_handle_ids: Optional function to execute when we get a page of ids
         :return: list of resources
         """
-        queue: asyncio.Queue[List[str]] = asyncio.Queue()
         chunk: List[str]
-        for chunk in chunks:
-            await queue.put(chunk)
 
         # Define an asynchronous function to consume the generator and return the values
         async def consume_generator(
             generator: AsyncGenerator[dict[str, Any], None]
         ) -> List[Dict[str, Any]]:
-            results = []
+            results1 = []
             async for value in generator:
-                results.append(value)
-            return results
+                results1.append(value)
+            return results1
 
-        async with self.create_http_session() as http:
-            tasks = [
-                consume_generator(
+        # use a semaphore to control the number of concurrent tasks
+        semaphore = asyncio.Semaphore(concurrent_requests)
+
+        async def run_task(
+            session: ClientSession, task_number: int, ids: List[str]
+        ) -> List[Dict[str, Any]]:
+            """
+            Runs a task to get resources by id from the queue
+
+            :param session: session
+            :param task_number: task number
+            :param ids: ids to load
+
+            :return: list of resources
+            """
+            async with semaphore:
+                return await consume_generator(
                     self.get_resources_by_id_from_queue_async(
-                        session=http,
-                        queue=queue,
-                        task_number=taskNumber,
+                        session=session,
+                        chunk=ids,
+                        task_number=task_number,
                         fn_handle_batch=fn_handle_batch,
                         fn_handle_error=fn_handle_error,
                         fn_handle_ids=fn_handle_ids,
                         fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                     )
                 )
-                for taskNumber in range(concurrent_requests)
+
+        async with self.create_http_session() as http:
+            tasks = [
+                run_task(session=http, task_number=task_number, ids=ids)
+                for task_number, ids in enumerate(chunks)
             ]
-            for first_completed in asyncio.as_completed(tasks):
-                result_list: List[Dict[str, Any]] = await first_completed
-            await queue.join()
-            return result_list
+            results = await asyncio.gather(*tasks)
+
+            # Flatten the list of lists
+            aggregated_results: List[Dict[str, Any]] = [
+                item for sublist in results for item in sublist
+            ]
+            return aggregated_results
 
     def handle_error_wrapper(self) -> HandleErrorFunction:
         """

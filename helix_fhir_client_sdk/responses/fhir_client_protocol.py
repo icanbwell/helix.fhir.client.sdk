@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from logging import Logger
 from threading import Lock
-from typing import Protocol, Optional, Dict, Any, List, Union, AsyncGenerator
+from typing import Protocol, Optional, Dict, Any, List, Union, AsyncGenerator, Generator
 from aiohttp import ClientSession, ClientResponse
 from requests.adapters import BaseAdapter
 
@@ -133,3 +133,13 @@ class FhirClientProtocol(Protocol):
     def last_page(self, last_page: int) -> "FhirClientProtocol": ...
 
     def page_number(self, page_number: int) -> "FhirClientProtocol": ...
+
+    async def get_resources_by_id_in_parallel_batches_async(
+        self,
+        concurrent_requests: int,
+        chunks: Generator[List[str], None, None],
+        fn_handle_batch: Optional[HandleBatchFunction],
+        fn_handle_error: Optional[HandleErrorFunction],
+        fn_handle_ids: Optional[HandleBatchFunction] = None,
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
+    ) -> List[Dict[str, Any]]: ...
