@@ -750,104 +750,12 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
 
         # create url and query to request from FHIR server
         resources_json: str = ""
-        full_uri: furl = furl(self._url)
-        full_uri /= self._resource
-        if self._obj_id:
-            full_uri /= parse.quote(str(self._obj_id), safe="")
-        if ids is not None and len(ids) > 0:
-            if self._filter_by_resource:
-                if self._filter_parameter:
-                    # ?subject:Patient=27384972
-                    full_uri.args[
-                        f"{self._filter_parameter}:{self._filter_by_resource}"
-                    ] = ",".join(sorted(ids))
-                else:
-                    # ?patient=27384972
-                    full_uri.args[self._filter_by_resource.lower()] = ",".join(
-                        sorted(ids)
-                    )
-            else:
-                if len(ids) == 1 and not self._obj_id:
-                    full_uri /= ids
-                else:
-                    full_uri.args["id"] = ",".join(sorted(ids))
-        # add action to url
-        if self._action:
-            full_uri /= self._action
-        # add a query for just desired properties
-        if self._include_only_properties:
-            full_uri.args["_elements"] = ",".join(self._include_only_properties)
-        if self._page_size and (
-            self._page_number is not None or page_number is not None
-        ):
-            # noinspection SpellCheckingInspection
-            full_uri.args["_count"] = self._page_size
-            # noinspection SpellCheckingInspection
-            full_uri.args["_getpagesoffset"] = page_number or self._page_number
-
-        if (
-            not self._obj_id
-            and (ids is None or self._filter_by_resource)
-            and self._limit
-            and self._limit >= 0
-        ):
-            full_uri.args["_count"] = self._limit
-
-        # add any sort fields
-        if self._sort_fields is not None:
-            full_uri.args["_sort"] = ",".join([str(s) for s in self._sort_fields])
-
-        # create full url by adding on any query parameters
-        full_url: str = full_uri.url
-        if additional_parameters:
-            if len(full_uri.args) > 0:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += "&".join(additional_parameters)
-        elif self._additional_parameters:
-            if len(full_uri.args) > 0:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += "&".join(self._additional_parameters)
-
-        if self._include_total:
-            if len(full_uri.args) > 0:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += "_total=accurate"
-
-        if self._filters and len(self._filters) > 0:
-            if len(full_uri.args) > 0:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += "&".join(
-                set([str(f) for f in self._filters])
-            )  # remove any duplicates
-
-        # have to be done here since this arg can be used twice
-        if self._last_updated_before:
-            if len(full_uri.args) > 0:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += f"_lastUpdated=lt{self._last_updated_before.strftime('%Y-%m-%dT%H:%M:%SZ')}"
-        if self._last_updated_after:
-            if len(full_uri.args) > 0:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += f"_lastUpdated=ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
-
-        if id_above is not None:
-            if len(full_uri.args) > 0:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += f"id:above={id_above}"
+        full_url = await self._build_url(
+            ids=ids,
+            id_above=id_above,
+            page_number=page_number,
+            additional_parameters=additional_parameters,
+        )
 
         # set up headers
         payload: Dict[str, str] = self._action_payload if self._action_payload else {}
@@ -875,17 +783,7 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                 else:
                     http = session
 
-                if self._log_level == "DEBUG":
-                    if self._logger:
-                        self._logger.debug(
-                            f"sending a get_with_session_async: {full_url} with client_id={self._client_id} "
-                            + f"and scopes={self._auth_scopes} instance_id={self._uuid} retries_left={retries_left}"
-                        )
-                    if self._internal_logger:
-                        self._internal_logger.info(
-                            f"sending a get_with_session_async: {full_url} with client_id={self._client_id} "
-                            + f"and scopes={self._auth_scopes} instance_id={self._uuid} retries_left={retries_left}"
-                        )
+                await self._log_request(full_url=full_url, retries_left=retries_left)
 
                 response: ClientResponse = await self._send_fhir_request_async(
                     http=http, full_url=full_url, headers=headers, payload=payload
@@ -896,21 +794,11 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                 ]
                 # retries_left
                 retries_left = retries_left - 1
-                if self._log_level == "DEBUG":
-                    if self._logger:
-                        self._logger.info(
-                            f"response from get_with_session_async: {full_url} status_code {response.status} "
-                            + f"with client_id={self._client_id} and scopes={self._auth_scopes} "
-                            + f"instance_id={self._uuid} "
-                            + f"retries_left={retries_left}"
-                        )
-                    if self._internal_logger:
-                        self._internal_logger.info(
-                            f"response from get_with_session_async: {full_url} status_code {response.status} "
-                            + f"with client_id={self._client_id} and scopes={self._auth_scopes} "
-                            + f"instance_id={self._uuid} "
-                            + f"retries_left={retries_left}"
-                        )
+                await self._log_response(
+                    full_url=full_url,
+                    response_status=response.status,
+                    retries_left=retries_left,
+                )
 
                 request_id = response.headers.getone("X-Request-ID", None)
                 self._internal_logger.info(f"X-Request-ID={request_id}")
@@ -923,127 +811,32 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                     total_count: int = 0
                     next_url: Optional[str] = None
                     if self._use_data_streaming:
-                        chunk_number = 0
-                        chunk_bytes: bytes = b""
-                        async for chunk_bytes in response.content.iter_chunked(
-                            self._chunk_size
+                        async for r in self._handle_response_200_streaming(
+                            access_token=access_token,
+                            fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+                            full_url=full_url,
+                            nd_json_chunk_streaming_parser=nd_json_chunk_streaming_parser,
+                            next_url=next_url,
+                            request_id=request_id,
+                            response_headers=response_headers,
+                            total_count=total_count,
+                            response=response,
                         ):
-                            # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
-                            await asyncio.sleep(0)
-                            chunk_number += 1
-                            if fn_handle_streaming_chunk:
-                                await fn_handle_streaming_chunk(
-                                    chunk_bytes, chunk_number
-                                )
-                            completed_resources: List[Dict[str, Any]] = (
-                                nd_json_chunk_streaming_parser.add_chunk(
-                                    chunk=chunk_bytes.decode("utf-8")
-                                )
-                            )
-                            if completed_resources:
-                                yield FhirGetResponse(
-                                    request_id=request_id,
-                                    url=full_url,
-                                    responses=json.dumps(completed_resources),
-                                    error=None,
-                                    access_token=access_token,
-                                    total_count=total_count,
-                                    status=response.status,
-                                    next_url=next_url,
-                                    extra_context_to_return=self._extra_context_to_return,
-                                    resource_type=self._resource,
-                                    id_=self._id,
-                                    response_headers=response_headers,
-                                    chunk_number=chunk_number,
-                                )
-
-                            if self._logger:
-                                self._logger.debug(
-                                    f"Successfully retrieved chunk {chunk_number}: {full_url}"
-                                )
+                            yield r
                         return  # done with streaming
                     else:
-                        if self._logger:
-                            self._logger.debug(f"Successfully retrieved: {full_url}")
-                        # noinspection PyBroadException
-                        try:
-                            text = await response.text()
-                        except ClientPayloadError as e:
-                            # do a retry
-                            if self._logger:
-                                self._logger.error(
-                                    f"{e}: {full_url}: retries_left={retries_left} headers={response.headers}"
-                                )
-                            continue
-                        if len(text) > 0:
-                            response_json: Dict[str, Any] = json.loads(text)
-                            if (
-                                "resourceType" in response_json
-                                and response_json["resourceType"] == "Bundle"
-                            ):
-                                # get next url if present
-                                if "link" in response_json:
-                                    links: List[Dict[str, Any]] = response_json.get(
-                                        "link", []
-                                    )
-                                    next_links = [
-                                        link
-                                        for link in links
-                                        if link.get("relation") == "next"
-                                    ]
-                                    if len(next_links) > 0:
-                                        next_link: Dict[str, Any] = next_links[0]
-                                        next_url = next_link.get("url")
-
-                            # see if this is a Resource Bundle and un-bundle it
-                            if (
-                                self._expand_fhir_bundle
-                                and "resourceType" in response_json
-                                and response_json["resourceType"] == "Bundle"
-                            ):
-                                (
-                                    resources_json,
-                                    total_count,
-                                ) = await self._expand_bundle_async(
-                                    resources_json,
-                                    response_json,
-                                    total_count,
-                                    access_token=access_token,
-                                    url=self._url,
-                                )
-                            elif (
-                                self._separate_bundle_resources
-                                and "resourceType" in response_json
-                                and response_json["resourceType"] != "Bundle"
-                            ):
-                                # single resource was returned
-                                resources_dict = {
-                                    f'{response_json["resourceType"].lower()}': [
-                                        response_json
-                                    ],
-                                    "token": access_token,
-                                    "url": self._url,
-                                }
-                                if self._extra_context_to_return:
-                                    resources_dict.update(self._extra_context_to_return)
-
-                                resources_json = json.dumps(resources_dict)
-                            else:
-                                resources_json = text
-                    yield FhirGetResponse(
-                        request_id=request_id,
-                        url=full_url,
-                        responses=resources_json,
-                        error=None,
-                        access_token=self._access_token,
-                        total_count=total_count,
-                        status=response.status,
-                        next_url=next_url,
-                        extra_context_to_return=self._extra_context_to_return,
-                        resource_type=self._resource,
-                        id_=self._id,
-                        response_headers=response_headers,
-                    )
+                        async for r in self._handle_response_200(
+                            full_url=full_url,
+                            response=response,
+                            request_id=request_id,
+                            access_token=access_token,
+                            response_headers=response_headers,
+                            retries_left=retries_left,
+                            next_url=next_url,
+                            total_count=total_count,
+                            resources_json=resources_json,
+                        ):
+                            yield r
                 elif response.status == 404:  # not found
                     last_response_text = await self.get_safe_response_text_async(
                         response=response
@@ -1264,6 +1057,275 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                 message="",
                 elapsed_time=time.time() - start_time,
             )
+
+    async def _handle_response_200(
+        self,
+        *,
+        full_url: str,
+        response: ClientResponse,
+        retries_left: int,
+        request_id: Optional[str],
+        access_token: Optional[str],
+        response_headers: List[str],
+        resources_json: str,
+        next_url: Optional[str],
+        total_count: int,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        if self._logger:
+            self._logger.debug(f"Successfully retrieved: {full_url}")
+        # noinspection PyBroadException
+        try:
+            text = await response.text()
+            if len(text) > 0:
+                response_json: Dict[str, Any] = json.loads(text)
+                if (
+                    "resourceType" in response_json
+                    and response_json["resourceType"] == "Bundle"
+                ):
+                    # get next url if present
+                    if "link" in response_json:
+                        links: List[Dict[str, Any]] = response_json.get("link", [])
+                        next_links = [
+                            link for link in links if link.get("relation") == "next"
+                        ]
+                        if len(next_links) > 0:
+                            next_link: Dict[str, Any] = next_links[0]
+                            next_url = next_link.get("url")
+
+                # see if this is a Resource Bundle and un-bundle it
+                if (
+                    self._expand_fhir_bundle
+                    and "resourceType" in response_json
+                    and response_json["resourceType"] == "Bundle"
+                ):
+                    (
+                        resources_json,
+                        total_count,
+                    ) = await self._expand_bundle_async(
+                        resources_json,
+                        response_json,
+                        total_count,
+                        access_token=access_token,
+                        url=self._url or "",
+                    )
+                elif (
+                    self._separate_bundle_resources
+                    and "resourceType" in response_json
+                    and response_json["resourceType"] != "Bundle"
+                ):
+                    # single resource was returned
+                    resources_dict = {
+                        f'{response_json["resourceType"].lower()}': [response_json],
+                        "token": access_token,
+                        "url": self._url,
+                    }
+                    if self._extra_context_to_return:
+                        resources_dict.update(self._extra_context_to_return)
+
+                    resources_json = json.dumps(resources_dict)
+                else:
+                    resources_json = text
+            yield FhirGetResponse(
+                request_id=request_id,
+                url=full_url,
+                responses=resources_json,
+                error=None,
+                access_token=self._access_token,
+                total_count=total_count,
+                status=response.status,
+                next_url=next_url,
+                extra_context_to_return=self._extra_context_to_return,
+                resource_type=self._resource,
+                id_=self._id,
+                response_headers=response_headers,
+            )
+        except ClientPayloadError as e:
+            # do a retry
+            if self._logger:
+                self._logger.error(
+                    f"{e}: {full_url}: retries_left={retries_left} headers={response.headers}"
+                )
+
+    async def _handle_response_200_streaming(
+        self,
+        *,
+        access_token: Optional[str],
+        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
+        full_url: str,
+        nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser,
+        next_url: Optional[str],
+        request_id: Optional[str],
+        response: ClientResponse,
+        response_headers: List[str],
+        total_count: int,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        chunk_number = 0
+        chunk_bytes: bytes = b""
+        async for chunk_bytes in response.content.iter_chunked(self._chunk_size):
+            # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
+            await asyncio.sleep(0)
+            chunk_number += 1
+            if fn_handle_streaming_chunk:
+                await fn_handle_streaming_chunk(chunk_bytes, chunk_number)
+            completed_resources: List[Dict[str, Any]] = (
+                nd_json_chunk_streaming_parser.add_chunk(
+                    chunk=chunk_bytes.decode("utf-8")
+                )
+            )
+            if completed_resources:
+                yield FhirGetResponse(
+                    request_id=request_id,
+                    url=full_url,
+                    responses=json.dumps(completed_resources),
+                    error=None,
+                    access_token=access_token,
+                    total_count=total_count,
+                    status=response.status,
+                    next_url=next_url,
+                    extra_context_to_return=self._extra_context_to_return,
+                    resource_type=self._resource,
+                    id_=self._id,
+                    response_headers=response_headers,
+                    chunk_number=chunk_number,
+                )
+
+            if self._logger:
+                self._logger.debug(
+                    f"Successfully retrieved chunk {chunk_number}: {full_url}"
+                )
+
+    async def _log_response(
+        self, *, full_url: str, response_status: int, retries_left: int
+    ) -> None:
+        if self._log_level == "DEBUG":
+            if self._logger:
+                self._logger.info(
+                    f"response from get_with_session_async: {full_url} status_code {response_status} "
+                    + f"with client_id={self._client_id} and scopes={self._auth_scopes} "
+                    + f"instance_id={self._uuid} "
+                    + f"retries_left={retries_left}"
+                )
+            if self._internal_logger:
+                self._internal_logger.info(
+                    f"response from get_with_session_async: {full_url} status_code {response_status} "
+                    + f"with client_id={self._client_id} and scopes={self._auth_scopes} "
+                    + f"instance_id={self._uuid} "
+                    + f"retries_left={retries_left}"
+                )
+
+    async def _log_request(self, *, full_url: str, retries_left: int) -> None:
+        if self._log_level == "DEBUG":
+            if self._logger:
+                self._logger.debug(
+                    f"sending a get_with_session_async: {full_url} with client_id={self._client_id} "
+                    + f"and scopes={self._auth_scopes} instance_id={self._uuid} retries_left={retries_left}"
+                )
+            if self._internal_logger:
+                self._internal_logger.info(
+                    f"sending a get_with_session_async: {full_url} with client_id={self._client_id} "
+                    + f"and scopes={self._auth_scopes} instance_id={self._uuid} retries_left={retries_left}"
+                )
+
+    async def _build_url(
+        self,
+        *,
+        additional_parameters: Optional[List[str]],
+        id_above: Optional[str],
+        ids: Optional[List[str]],
+        page_number: Optional[int],
+    ) -> str:
+        full_uri: furl = furl(self._url)
+        full_uri /= self._resource
+        if self._obj_id:
+            full_uri /= parse.quote(str(self._obj_id), safe="")
+        if ids is not None and len(ids) > 0:
+            if self._filter_by_resource:
+                if self._filter_parameter:
+                    # ?subject:Patient=27384972
+                    full_uri.args[
+                        f"{self._filter_parameter}:{self._filter_by_resource}"
+                    ] = ",".join(sorted(ids))
+                else:
+                    # ?patient=27384972
+                    full_uri.args[self._filter_by_resource.lower()] = ",".join(
+                        sorted(ids)
+                    )
+            else:
+                if len(ids) == 1 and not self._obj_id:
+                    full_uri /= ids
+                else:
+                    full_uri.args["id"] = ",".join(sorted(ids))
+        # add action to url
+        if self._action:
+            full_uri /= self._action
+        # add a query for just desired properties
+        if self._include_only_properties:
+            full_uri.args["_elements"] = ",".join(self._include_only_properties)
+        if self._page_size and (
+            self._page_number is not None or page_number is not None
+        ):
+            # noinspection SpellCheckingInspection
+            full_uri.args["_count"] = self._page_size
+            # noinspection SpellCheckingInspection
+            full_uri.args["_getpagesoffset"] = page_number or self._page_number
+        if (
+            not self._obj_id
+            and (ids is None or self._filter_by_resource)
+            and self._limit
+            and self._limit >= 0
+        ):
+            full_uri.args["_count"] = self._limit
+        # add any sort fields
+        if self._sort_fields is not None:
+            full_uri.args["_sort"] = ",".join([str(s) for s in self._sort_fields])
+        # create full url by adding on any query parameters
+        full_url: str = full_uri.url
+        if additional_parameters:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += "&".join(additional_parameters)
+        elif self._additional_parameters:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += "&".join(self._additional_parameters)
+        if self._include_total:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += "_total=accurate"
+        if self._filters and len(self._filters) > 0:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += "&".join(
+                set([str(f) for f in self._filters])
+            )  # remove any duplicates
+        # have to be done here since this arg can be used twice
+        if self._last_updated_before:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += f"_lastUpdated=lt{self._last_updated_before.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+        if self._last_updated_after:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += f"_lastUpdated=ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+        if id_above is not None:
+            if len(full_uri.args) > 0:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += f"id:above={id_above}"
+        return full_url
 
     async def _expand_bundle_async(
         self,
