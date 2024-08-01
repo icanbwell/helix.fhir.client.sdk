@@ -874,20 +874,21 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
 
                 await self._log_retry(response=response, retries_left=retries_left)
 
-            # if after retries_left we still fail then show it here
-            yield FhirGetResponse(
-                request_id=request_id,
-                url=full_url,
-                responses="",
-                error=last_response_text or "Error after retries",
-                access_token=self._access_token,
-                total_count=0,
-                status=last_status_code or 0,
-                extra_context_to_return=self._extra_context_to_return,
-                resource_type=self._resource,
-                id_=self._id,
-                response_headers=None,
-            )
+            # if retries_left == 0:
+            #     # if after retries_left we still fail then show it here
+            #     yield FhirGetResponse(
+            #         request_id=request_id,
+            #         url=full_url,
+            #         responses="",
+            #         error=last_response_text or "Error after retries",
+            #         access_token=self._access_token,
+            #         total_count=0,
+            #         status=last_status_code or 0,
+            #         extra_context_to_return=self._extra_context_to_return,
+            #         resource_type=self._resource,
+            #         id_=self._id,
+            #         response_headers=None,
+            #     )
         except Exception as ex:
             raise FhirSenderException(
                 request_id=request_id,
