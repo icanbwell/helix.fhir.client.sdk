@@ -1,5 +1,6 @@
 import datetime
 import json
+from os import environ
 from typing import List
 
 from mockserver_client.mockserver_client import (
@@ -14,6 +15,8 @@ from helix_fhir_client_sdk.fhir_client import FhirClient
 
 async def test_fhir_client_patient_list_ids_async() -> None:
     test_name = "test_fhir_client_patient_list_ids_async"
+
+    environ["LOGLEVEL"] = "DEBUG"
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
