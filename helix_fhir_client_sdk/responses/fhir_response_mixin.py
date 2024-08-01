@@ -167,14 +167,36 @@ class FhirResponseMixin:
 
     async def _handle_error_response(
         self: FhirClientProtocol,
+        *,
+        request_id: Optional[str],
         response: ClientResponse,
         full_url: str,
         retries_left: int,
         headers: Dict[str, str],
+        response_headers: List[str],
         access_token: Optional[str],
     ) -> FhirGetResponse:
         last_response_text = await self.get_safe_response_text_async(response)
-        if response.status in (502, 504):
+        if response.status == 404:  # not found
+            last_response_text = await self.get_safe_response_text_async(
+                response=response
+            )
+            if self._logger:
+                self._logger.error(f"resource not found! {full_url}")
+            return FhirGetResponse(
+                request_id=request_id,
+                url=full_url,
+                responses=last_response_text,
+                error="NotFound",
+                access_token=self._access_token,
+                total_count=0,
+                status=response.status,
+                extra_context_to_return=self._extra_context_to_return,
+                resource_type=self._resource,
+                id_=self._id,
+                response_headers=response_headers,
+            )
+        elif response.status in (502, 504):
             if retries_left > 0:
                 return FhirGetResponse(
                     request_id=None,
@@ -205,6 +227,68 @@ class FhirResponseMixin:
                 id_=self._id,
                 response_headers=[],
             )
+        elif response.status == 403:  # forbidden
+            last_response_text = await self.get_safe_response_text_async(
+                response=response
+            )
+            return FhirGetResponse(
+                request_id=request_id,
+                url=full_url,
+                responses=await response.text(),
+                error=None,
+                access_token=self._access_token,
+                total_count=0,
+                status=response.status,
+                extra_context_to_return=self._extra_context_to_return,
+                resource_type=self._resource,
+                id_=self._id,
+                response_headers=response_headers,
+            )
+        elif response.status == 401:  # unauthorized
+            last_response_text = await self.get_safe_response_text_async(
+                response=response
+            )
+            if retries_left > 0 and (
+                not self._exclude_status_codes_from_retry
+                or response.status not in self._exclude_status_codes_from_retry
+            ):
+                current_access_token: Optional[str] = self._access_token
+                try:
+                    self._access_token = await self._refresh_token_function(
+                        auth_server_url=self._auth_server_url,
+                        auth_scopes=self._auth_scopes,
+                        login_token=self._login_token,
+                    )
+                    if not self._access_token:
+                        # no ability to refresh auth token
+                        return FhirGetResponse(
+                            request_id=request_id,
+                            url=full_url,
+                            responses="",
+                            error=last_response_text or "UnAuthorized",
+                            access_token=current_access_token,
+                            total_count=0,
+                            status=response.status,
+                            extra_context_to_return=self._extra_context_to_return,
+                            resource_type=self._resource,
+                            id_=self._id,
+                            response_headers=response_headers,
+                        )
+                except Exception as ex:
+                    # no ability to refresh auth token
+                    return FhirGetResponse(
+                        request_id=request_id,
+                        url=full_url,
+                        responses="",
+                        error=str(ex),
+                        access_token=current_access_token,
+                        total_count=0,
+                        status=response.status,
+                        extra_context_to_return=self._extra_context_to_return,
+                        resource_type=self._resource,
+                        id_=self._id,
+                        response_headers=response_headers,
+                    )
         return FhirGetResponse(
             request_id=None,
             url=full_url,

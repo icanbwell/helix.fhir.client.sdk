@@ -31,6 +31,11 @@ class FhirClientProtocol(Protocol):
     _extra_context_to_return: Optional[Dict[str, Any]]
     _access_token: Optional[str]
     _refresh_token_function: RefreshTokenFunction
+    _exclude_status_codes_from_retry: Optional[List[int]]
+    _auth_server_url: Optional[str]
+    _auth_wellknown_url: Optional[str]
+    _auth_scopes: Optional[List[str]]
+    _login_token: Optional[str]
 
     async def get_access_token_async(self) -> Optional[str]: ...
 

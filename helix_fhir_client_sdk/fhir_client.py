@@ -727,6 +727,7 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
         )
         headers = self._build_headers()
         status: int = 400
+        request_id: Optional[str] = None
 
         access_token = await self.get_access_token_async()
         if access_token:
@@ -742,6 +743,12 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                 )
                 status = response.status
 
+                response_headers: List[str] = [
+                    f"{key}:{value}" for key, value in response.headers.items()
+                ]
+                request_id = response.headers.getone("X-Request-ID", None)
+                self._internal_logger.info(f"X-Request-ID={request_id}")
+
                 if response.status == 200:
                     chunk: FhirGetResponse
                     async for chunk in self._handle_successful_response(
@@ -750,7 +757,13 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                         yield chunk
                 else:
                     yield await self._handle_error_response(
-                        response, full_url, 0, headers, access_token
+                        request_id=request_id,
+                        response=response,
+                        full_url=full_url,
+                        headers=headers,
+                        access_token=access_token,
+                        response_headers=response_headers,
+                        retries_left=self._retry_count,
                     )
         except Exception as e:
             # Yield error response in case of exception
