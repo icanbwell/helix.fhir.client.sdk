@@ -863,67 +863,14 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                     ):
                         yield r
                 elif response.status == 401:  # unauthorized
-                    last_response_text = await self.get_safe_response_text_async(
-                        response=response
-                    )
-                    if retries_left > 0 and (
-                        not self._exclude_status_codes_from_retry
-                        or response.status not in self._exclude_status_codes_from_retry
+                    async for r in self._handle_response_401(
+                        full_url=full_url,
+                        response=response,
+                        retries_left=retries_left,
+                        request_id=request_id,
+                        response_headers=response_headers,
                     ):
-                        current_access_token: Optional[str] = self._access_token
-                        try:
-                            self._access_token = await self._refresh_token_function(
-                                auth_server_url=self._auth_server_url,
-                                auth_scopes=self._auth_scopes,
-                                login_token=self._login_token,
-                            )
-                            if not self._access_token:
-                                # no ability to refresh auth token
-                                yield FhirGetResponse(
-                                    request_id=request_id,
-                                    url=full_url,
-                                    responses="",
-                                    error=last_response_text or "UnAuthorized",
-                                    access_token=current_access_token,
-                                    total_count=0,
-                                    status=response.status,
-                                    extra_context_to_return=self._extra_context_to_return,
-                                    resource_type=self._resource,
-                                    id_=self._id,
-                                    response_headers=response_headers,
-                                )
-                        except Exception as ex:
-                            # no ability to refresh auth token
-                            yield FhirGetResponse(
-                                request_id=request_id,
-                                url=full_url,
-                                responses="",
-                                error=str(ex),
-                                access_token=current_access_token,
-                                total_count=0,
-                                status=response.status,
-                                extra_context_to_return=self._extra_context_to_return,
-                                resource_type=self._resource,
-                                id_=self._id,
-                                response_headers=response_headers,
-                            )
-                        # try again
-                        continue
-                    else:
-                        # out of retries_left so just fail now
-                        yield FhirGetResponse(
-                            request_id=request_id,
-                            url=full_url,
-                            responses=await response.text(),
-                            error=last_response_text or "UnAuthorized",
-                            access_token=self._access_token,
-                            total_count=0,
-                            status=response.status,
-                            extra_context_to_return=self._extra_context_to_return,
-                            resource_type=self._resource,
-                            id_=self._id,
-                            response_headers=response_headers,
-                        )
+                        yield r
                 elif response.status == 429:  # too many calls
                     last_response_text = await self.get_safe_response_text_async(
                         response=response
@@ -1036,6 +983,74 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                 response_status_code=last_status_code,
                 message="",
                 elapsed_time=time.time() - start_time,
+            )
+
+    async def _handle_response_401(
+        self,
+        *,
+        full_url: str,
+        response: ClientResponse,
+        retries_left: int,
+        request_id: Optional[str],
+        response_headers: List[str],
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        last_response_text = await self.get_safe_response_text_async(response=response)
+        if retries_left > 0 and (
+            not self._exclude_status_codes_from_retry
+            or response.status not in self._exclude_status_codes_from_retry
+        ):
+            current_access_token: Optional[str] = self._access_token
+            try:
+                self._access_token = await self._refresh_token_function(
+                    auth_server_url=self._auth_server_url,
+                    auth_scopes=self._auth_scopes,
+                    login_token=self._login_token,
+                )
+                if not self._access_token:
+                    # no ability to refresh auth token
+                    yield FhirGetResponse(
+                        request_id=request_id,
+                        url=full_url,
+                        responses="",
+                        error=last_response_text or "UnAuthorized",
+                        access_token=current_access_token,
+                        total_count=0,
+                        status=response.status,
+                        extra_context_to_return=self._extra_context_to_return,
+                        resource_type=self._resource,
+                        id_=self._id,
+                        response_headers=response_headers,
+                    )
+            except Exception as ex:
+                # no ability to refresh auth token
+                yield FhirGetResponse(
+                    request_id=request_id,
+                    url=full_url,
+                    responses="",
+                    error=str(ex),
+                    access_token=current_access_token,
+                    total_count=0,
+                    status=response.status,
+                    extra_context_to_return=self._extra_context_to_return,
+                    resource_type=self._resource,
+                    id_=self._id,
+                    response_headers=response_headers,
+                )
+            # try again
+        else:
+            # out of retries_left so just fail now
+            yield FhirGetResponse(
+                request_id=request_id,
+                url=full_url,
+                responses=await response.text(),
+                error=last_response_text or "UnAuthorized",
+                access_token=self._access_token,
+                total_count=0,
+                status=response.status,
+                extra_context_to_return=self._extra_context_to_return,
+                resource_type=self._resource,
+                id_=self._id,
+                response_headers=response_headers,
             )
 
     async def _handle_response_403(
