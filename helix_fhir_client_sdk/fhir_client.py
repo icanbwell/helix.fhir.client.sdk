@@ -732,25 +732,26 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
 
-        http = session or self.create_http_session()
         try:
-            response: ClientResponse = await self._send_fhir_request_async(
-                http=http,
-                full_url=full_url,
-                headers=headers,
-                payload=self._action_payload or {},
-            )
-            status = response.status
-
-            if response.status == 200:
-                async for chunk in self._handle_successful_response(
-                    response, fn_handle_streaming_chunk, full_url, access_token
-                ):
-                    yield chunk
-            else:
-                yield await self._handle_error_response(
-                    response, full_url, 0, headers, access_token
+            async with self.create_http_session() as http:
+                response: ClientResponse = await self._send_fhir_request_async(
+                    http=http,
+                    full_url=full_url,
+                    headers=headers,
+                    payload=self._action_payload or {},
                 )
+                status = response.status
+
+                if response.status == 200:
+                    chunk: FhirGetResponse
+                    async for chunk in self._handle_successful_response(
+                        response, fn_handle_streaming_chunk, full_url, access_token
+                    ):
+                        yield chunk
+                else:
+                    yield await self._handle_error_response(
+                        response, full_url, 0, headers, access_token
+                    )
         except Exception as e:
             # Yield error response in case of exception
             yield FhirGetResponse(
