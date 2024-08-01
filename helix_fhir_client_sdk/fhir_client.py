@@ -748,7 +748,6 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                         response, fn_handle_streaming_chunk, full_url, access_token
                     ):
                         yield chunk
-                    return  # Exit after successful response
                 else:
                     yield await self._handle_error_response(
                         response, full_url, retries_left, headers, access_token
@@ -771,20 +770,21 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
 
             retries_left -= 1
 
-        # Final response after retries exhausted
-        yield FhirGetResponse(
-            request_id=None,
-            url=full_url,
-            responses="",
-            error="Error after retries",
-            access_token=self._access_token,
-            total_count=0,
-            status=status,
-            extra_context_to_return=self._extra_context_to_return,
-            resource_type=self._resource,
-            id_=self._id,
-            response_headers=None,
-        )
+        if retries_left == 0:
+            # Final response after retries exhausted
+            yield FhirGetResponse(
+                request_id=None,
+                url=full_url,
+                responses="",
+                error="Error after retries",
+                access_token=self._access_token,
+                total_count=0,
+                status=status,
+                extra_context_to_return=self._extra_context_to_return,
+                resource_type=self._resource,
+                id_=self._id,
+                response_headers=None,
+            )
 
     async def _expand_bundle_async(
         self,

@@ -65,7 +65,6 @@ class FhirResponseMixin:
             chunk_number = 0
             chunk_bytes: bytes
             async for chunk_bytes in response.content.iter_chunked(self._chunk_size):
-                await asyncio.sleep(0)
                 chunk_number += 1
                 if fn_handle_streaming_chunk:
                     await fn_handle_streaming_chunk(chunk_bytes, chunk_number)
@@ -88,7 +87,6 @@ class FhirResponseMixin:
                         response_headers=[],
                         chunk_number=chunk_number,
                     )
-            return
         else:
             resources_json: str = ""
             total_count: int = 0
