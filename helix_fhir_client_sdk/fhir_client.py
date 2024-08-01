@@ -880,36 +880,13 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                     ):
                         yield r
                 else:
-                    # some unexpected error
-                    if self._logger:
-                        self._logger.error(
-                            f"Fhir Receive failed [{response.status}]: {full_url} "
-                        )
-                    if self._internal_logger:
-                        self._internal_logger.error(
-                            f"Fhir Receive failed [{response.status}]: {full_url} "
-                        )
-                    error_text: str = await self.get_safe_response_text_async(
-                        response=response
-                    )
-                    if self._logger:
-                        self._logger.error(error_text)
-                    if self._internal_logger:
-                        self._internal_logger.error(error_text)
-
-                    yield FhirGetResponse(
+                    async for r in self._handle_response_unknown(
+                        full_url=full_url,
                         request_id=request_id,
-                        url=full_url,
-                        responses=error_text,
-                        access_token=self._access_token,
-                        error=error_text,
-                        total_count=0,
-                        status=response.status,
-                        extra_context_to_return=self._extra_context_to_return,
-                        resource_type=self._resource,
-                        id_=self._id,
+                        response=response,
                         response_headers=response_headers,
-                    )
+                    ):
+                        yield r
 
                 if self._logger:
                     self._logger.info(
@@ -947,6 +924,40 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                 message="",
                 elapsed_time=time.time() - start_time,
             )
+
+    async def _handle_response_unknown(
+        self,
+        *,
+        full_url: str,
+        request_id: Optional[str],
+        response: ClientResponse,
+        response_headers: List[str],
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        # some unexpected error
+        if self._logger:
+            self._logger.error(f"Fhir Receive failed [{response.status}]: {full_url} ")
+        if self._internal_logger:
+            self._internal_logger.error(
+                f"Fhir Receive failed [{response.status}]: {full_url} "
+            )
+        error_text: str = await self.get_safe_response_text_async(response=response)
+        if self._logger:
+            self._logger.error(error_text)
+        if self._internal_logger:
+            self._internal_logger.error(error_text)
+        yield FhirGetResponse(
+            request_id=request_id,
+            url=full_url,
+            responses=error_text,
+            access_token=self._access_token,
+            error=error_text,
+            total_count=0,
+            status=response.status,
+            extra_context_to_return=self._extra_context_to_return,
+            resource_type=self._resource,
+            id_=self._id,
+            response_headers=response_headers,
+        )
 
     async def _handle_response_429(
         self,
