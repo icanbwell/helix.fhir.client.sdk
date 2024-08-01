@@ -722,12 +722,10 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
         fn_resource_chunk_handler: Optional[HandleStreamingResourcesFunction] = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         retries_left: int = self._retry_count + 1
-
         full_url = self._build_full_url(
             ids, page_number, additional_parameters, id_above
         )
         headers = self._build_headers()
-
         status: int = 400
 
         while retries_left > 0:
@@ -743,7 +741,6 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                     headers=headers,
                     payload=self._action_payload or {},
                 )
-                retries_left -= 1
                 status = response.status
 
                 if response.status == 200:
@@ -751,11 +748,13 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                         response, fn_handle_streaming_chunk, full_url, access_token
                     ):
                         yield chunk
+                    return  # Exit after successful response
                 else:
                     yield await self._handle_error_response(
                         response, full_url, retries_left, headers, access_token
                     )
             except Exception as e:
+                # Yield error response in case of exception
                 yield FhirGetResponse(
                     request_id=None,
                     url=full_url,
@@ -770,6 +769,9 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                     response_headers=None,
                 )
 
+            retries_left -= 1
+
+        # Final response after retries exhausted
         yield FhirGetResponse(
             request_id=None,
             url=full_url,

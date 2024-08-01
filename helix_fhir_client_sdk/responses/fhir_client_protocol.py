@@ -1,8 +1,13 @@
-from typing import Protocol, Optional, Dict, Any, Tuple, List, Union
+from typing import Protocol, Optional, Dict, Any, Tuple, List, Union, AsyncGenerator
 from aiohttp import ClientSession, ClientResponse
 from furl import furl
 
-from helix_fhir_client_sdk.function_types import RefreshTokenFunction
+from helix_fhir_client_sdk.function_types import (
+    RefreshTokenFunction,
+    HandleStreamingChunkFunction,
+    HandleStreamingResourcesFunction,
+)
+from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 
 class FhirClientProtocol(Protocol):
@@ -63,3 +68,21 @@ class FhirClientProtocol(Protocol):
     ) -> furl: ...
 
     async def _handle_rate_limiting(self, retry_after_text: str) -> None: ...
+
+    async def _get_with_session_async(
+        self,
+        *,
+        session: Optional[ClientSession],
+        page_number: Optional[int] = None,
+        ids: Optional[List[str]] = None,
+        id_above: Optional[str] = None,
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
+        additional_parameters: Optional[List[str]] = None,
+        fn_resource_chunk_handler: Optional[HandleStreamingResourcesFunction] = None,
+    ) -> AsyncGenerator[FhirGetResponse, None]: ...
+
+    def separate_bundle_resources(self, separate_bundle_resources: bool):  # type: ignore[no-untyped-def]
+        ...
+
+    def resource(self, resource: str):  # type: ignore[no-untyped-def]
+        ...

@@ -1,6 +1,6 @@
 import asyncio
 import json
-from abc import abstractmethod, ABC
+from abc import ABC
 from datetime import datetime
 from typing import (
     Dict,
@@ -8,7 +8,6 @@ from typing import (
     List,
     Union,
     Any,
-    AsyncGenerator,
     Tuple,
     cast,
 )
@@ -18,16 +17,13 @@ from aiohttp import ClientSession
 from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
 from helix_fhir_client_sdk.fhir_bundle import BundleEntry, Bundle
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
-from helix_fhir_client_sdk.function_types import (
-    HandleStreamingChunkFunction,
-    HandleStreamingResourcesFunction,
-)
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,
     GraphDefinitionLink,
     GraphDefinitionTarget,
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
@@ -35,7 +31,7 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.request_cache import RequestCache
 
 
-class SimulatedGraphProcessorMixin(ABC):
+class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
     # noinspection PyPep8Naming,PyUnusedLocal
     async def process_simulate_graph_async(
         self,
@@ -385,7 +381,7 @@ class SimulatedGraphProcessorMixin(ABC):
         return responses
 
     async def _get_resources_by_parameters_async(
-        self,
+        self: FhirClientProtocol,
         *,
         id_: Optional[Union[List[str], str]] = None,
         session: ClientSession,
@@ -500,29 +496,3 @@ class SimulatedGraphProcessorMixin(ABC):
             result = cached_response
         assert result
         return result, cache_hits
-
-    @abstractmethod
-    def separate_bundle_resources(self, separate_bundle_resources: bool):  # type: ignore[no-untyped-def]
-        pass
-
-    @abstractmethod
-    def create_http_session(self) -> ClientSession:
-        pass
-
-    @abstractmethod
-    async def _get_with_session_async(
-        self,
-        *,
-        session: Optional[ClientSession],
-        page_number: Optional[int] = None,
-        ids: Optional[List[str]] = None,
-        id_above: Optional[str] = None,
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
-        additional_parameters: Optional[List[str]] = None,
-        fn_resource_chunk_handler: Optional[HandleStreamingResourcesFunction] = None,
-    ) -> AsyncGenerator[FhirGetResponse, None]:
-        pass
-
-    @abstractmethod
-    def resource(self, resource: str):  # type: ignore[no-untyped-def]
-        pass
