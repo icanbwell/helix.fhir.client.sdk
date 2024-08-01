@@ -661,7 +661,8 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
                 ids=ids,
                 fn_handle_streaming_chunk=data_chunk_handler,
             ):
-                full_response = response
+                if response:
+                    full_response = response
             assert full_response
             return full_response
 
@@ -721,63 +722,43 @@ class FhirClient(SimulatedGraphProcessorMixin, FhirResponseMixin, FhirClientProt
         additional_parameters: Optional[List[str]] = None,
         fn_resource_chunk_handler: Optional[HandleStreamingResourcesFunction] = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
-        retries_left: int = self._retry_count + 1
         full_url = self._build_full_url(
             ids, page_number, additional_parameters, id_above
         )
         headers = self._build_headers()
         status: int = 400
 
-        while retries_left > 0:
-            access_token = await self.get_access_token_async()
-            if access_token:
-                headers["Authorization"] = f"Bearer {access_token}"
+        access_token = await self.get_access_token_async()
+        if access_token:
+            headers["Authorization"] = f"Bearer {access_token}"
 
-            http = session or self.create_http_session()
-            try:
-                response: ClientResponse = await self._send_fhir_request_async(
-                    http=http,
-                    full_url=full_url,
-                    headers=headers,
-                    payload=self._action_payload or {},
+        http = session or self.create_http_session()
+        try:
+            response: ClientResponse = await self._send_fhir_request_async(
+                http=http,
+                full_url=full_url,
+                headers=headers,
+                payload=self._action_payload or {},
+            )
+            status = response.status
+
+            if response.status == 200:
+                async for chunk in self._handle_successful_response(
+                    response, fn_handle_streaming_chunk, full_url, access_token
+                ):
+                    yield chunk
+            else:
+                yield await self._handle_error_response(
+                    response, full_url, 0, headers, access_token
                 )
-                status = response.status
-
-                if response.status == 200:
-                    async for chunk in self._handle_successful_response(
-                        response, fn_handle_streaming_chunk, full_url, access_token
-                    ):
-                        yield chunk
-                else:
-                    yield await self._handle_error_response(
-                        response, full_url, retries_left, headers, access_token
-                    )
-            except Exception as e:
-                # Yield error response in case of exception
-                yield FhirGetResponse(
-                    request_id=None,
-                    url=full_url,
-                    responses="",
-                    error=str(e),
-                    access_token=access_token,
-                    total_count=0,
-                    status=status,
-                    extra_context_to_return=self._extra_context_to_return,
-                    resource_type=self._resource,
-                    id_=self._id,
-                    response_headers=None,
-                )
-
-            retries_left -= 1
-
-        if retries_left == 0:
-            # Final response after retries exhausted
+        except Exception as e:
+            # Yield error response in case of exception
             yield FhirGetResponse(
                 request_id=None,
                 url=full_url,
                 responses="",
-                error="Error after retries",
-                access_token=self._access_token,
+                error=str(e),
+                access_token=access_token,
                 total_count=0,
                 status=status,
                 extra_context_to_return=self._extra_context_to_return,

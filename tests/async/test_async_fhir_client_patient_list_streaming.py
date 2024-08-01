@@ -45,7 +45,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
         print(f"Got chunk {chunk_number}: {line.decode('utf-8')}")
         return True
 
-    response: FhirGetResponse = await fhir_client.get_async(data_chunk_handler=on_chunk)
+    response: FhirGetResponse = await fhir_client.get_async()
 
     print(response.responses)
     assert response.responses == response_text

@@ -64,29 +64,39 @@ class FhirResponseMixin:
         if self._use_data_streaming:
             chunk_number = 0
             chunk_bytes: bytes
-            async for chunk_bytes in response.content.iter_chunked(self._chunk_size):
-                chunk_number += 1
-                if fn_handle_streaming_chunk:
-                    await fn_handle_streaming_chunk(chunk_bytes, chunk_number)
-                completed_resources = nd_json_chunk_streaming_parser.add_chunk(
-                    chunk=chunk_bytes.decode("utf-8")
-                )
-                if completed_resources:
-                    yield FhirGetResponse(
-                        request_id=None,
-                        url=full_url,
-                        responses=json.dumps(completed_resources),
-                        error=None,
-                        access_token=access_token,
-                        total_count=0,
-                        status=response.status,
-                        next_url=None,
-                        extra_context_to_return=self._extra_context_to_return,
-                        resource_type=self._resource,
-                        id_=self._id,
-                        response_headers=[],
-                        chunk_number=chunk_number,
+            try:
+                async for chunk_bytes in response.content.iter_chunked(
+                    self._chunk_size
+                ):
+                    chunk_number += 1
+                    if fn_handle_streaming_chunk:
+                        await fn_handle_streaming_chunk(chunk_bytes, chunk_number)
+                    completed_resources = nd_json_chunk_streaming_parser.add_chunk(
+                        chunk=chunk_bytes.decode("utf-8")
                     )
+                    print(
+                        f"Chunk {chunk_number}, Completed Resources: {completed_resources}"
+                    )
+                    # Yield only if there are completed resources
+                    if completed_resources:
+                        yield FhirGetResponse(
+                            request_id=None,
+                            url=full_url,
+                            responses=json.dumps(completed_resources),
+                            error=None,
+                            access_token=access_token,
+                            total_count=0,
+                            status=response.status,
+                            next_url=None,
+                            extra_context_to_return=self._extra_context_to_return,
+                            resource_type=self._resource,
+                            id_=self._id,
+                            response_headers=[],
+                            chunk_number=chunk_number,
+                        )
+                    # No else block here, so the loop continues without yielding when there are no completed resources
+            except Exception as e:
+                print(f"Error processing chunk {chunk_number}: {e}")
         else:
             resources_json: str = ""
             total_count: int = 0
