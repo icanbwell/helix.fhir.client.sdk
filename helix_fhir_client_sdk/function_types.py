@@ -34,7 +34,7 @@ class HandleStreamingChunkFunction(Protocol):
 
 class HandleErrorFunction(Protocol):
     async def __call__(
-        self, error: str, response: str, page_number: Optional[int]
+        self, *, error: str, response: str, page_number: Optional[int], url: str
     ) -> bool:
         """
         Handle an error
@@ -68,6 +68,7 @@ class RefreshTokenFunction(Protocol):
 class HandleStreamingResourcesFunction(Protocol):
     async def __call__(
         self,
+        *,
         resources: Optional[List[Dict[str, Any]]],
         chunk_number: Optional[int] = None,
     ) -> bool:

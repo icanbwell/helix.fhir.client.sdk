@@ -500,12 +500,13 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
         """
 
         async def handle_error_async(
-            error: str, response: str, page_number: Optional[int]
+            error: str, response: str, page_number: Optional[int], url: str
         ) -> bool:
+            message = f"Error: {url} {page_number} {error}: {response}"
             if self._logger:
-                self._logger.error(f"page: {page_number} {error}: {response}")
+                self._logger.error(message)
             if self._internal_logger:
-                self._internal_logger.error(f"page: {page_number} {error}: {response}")
+                self._internal_logger.error(message)
             return True
 
         return handle_error_async
@@ -548,7 +549,12 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
 
         if result.error:
             if fn_handle_error:
-                await fn_handle_error(result.error, result.responses, page_number)
+                await fn_handle_error(
+                    error=result.error,
+                    response=result.responses,
+                    page_number=page_number,
+                    url=result.url,
+                )
             yield GetResult(
                 request_id=result.request_id,
                 resources=[],

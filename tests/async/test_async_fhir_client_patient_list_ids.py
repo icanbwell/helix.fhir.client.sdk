@@ -44,7 +44,7 @@ async def test_fhir_client_patient_list_ids_async() -> None:
             querystring={
                 "_elements": "id",
                 "_count": "10000",
-                "_getpagesoffset": "9",
+                "_getpagesoffset": "0",
                 "_lastUpdated": "ge2022-01-10T00:00:00Z",
             },
         ),
