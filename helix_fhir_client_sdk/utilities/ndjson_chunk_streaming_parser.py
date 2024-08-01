@@ -19,10 +19,9 @@ class NdJsonChunkStreamingParser:
         # Split the buffer into lines based on newline characters
         lines = self.buffer.split("\n")
 
-        # The last element in lines might be an incomplete JSON object
-        self.buffer = lines.pop()  # Keep the incomplete part in buffer
+        complete_json_objects: List[Dict[str, Any]] = []
 
-        complete_json_objects = []
+        incomplete_lines: List[str] = []
 
         # Process all complete lines
         for line in lines:
@@ -32,20 +31,9 @@ class NdJsonChunkStreamingParser:
                     complete_json_objects.append(json_object)
                 except json.JSONDecodeError as e:
                     print(f"Error parsing line: {line}\nError: {e}")
+                    incomplete_lines.append(line)
 
+        # Update the buffer with incomplete lines
+        self.buffer = "\n".join(incomplete_lines)
         # Return the list of complete JSON objects
         return complete_json_objects
-
-    def finalize(self) -> List[Dict[str, Any]]:
-        """
-        Finalize parsing by processing any remaining data in the buffer.
-
-        :return: A list of complete JSON objects parsed from the remaining buffer.
-        """
-        if self.buffer.strip():
-            try:
-                json_object = json.loads(self.buffer)
-                return [json_object]
-            except json.JSONDecodeError as e:
-                print(f"Error parsing final buffer: {self.buffer}\nError: {e}")
-        return []

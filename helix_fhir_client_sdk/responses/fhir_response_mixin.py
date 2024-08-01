@@ -95,24 +95,6 @@ class FhirResponseMixin:
                             chunk_number=chunk_number,
                         )
 
-                # see if there are some straggler resources left
-                completed_resources = nd_json_chunk_streaming_parser.finalize()
-                if completed_resources:
-                    yield FhirGetResponse(
-                        request_id=None,
-                        url=full_url,
-                        responses=json.dumps(completed_resources),
-                        error=None,
-                        access_token=access_token,
-                        total_count=0,
-                        status=response.status,
-                        next_url=None,
-                        extra_context_to_return=self._extra_context_to_return,
-                        resource_type=self._resource,
-                        id_=self._id,
-                        response_headers=[],
-                        chunk_number=chunk_number,
-                    )
             except Exception as e:
                 print(f"Error processing chunk {chunk_number}: {e}")
         else:

@@ -20,13 +20,6 @@ def test_ndjson_chunk_streaming_parser_single_line() -> None:
         all_objects.extend(complete_json_objects)
         all_objects_by_chunk.append(complete_json_objects)
 
-    # Finalize to process any remaining data in the buffer
-    remaining_objects = parser.finalize()
-    print("Remaining JSON objects from buffer:", remaining_objects)
-    all_objects.extend(remaining_objects)
-    if remaining_objects:
-        all_objects_by_chunk.append(remaining_objects)
-
     print("All JSON objects:", all_objects)
     assert len(all_objects) == 1
     assert all_objects[0] == {"name": "John", "age": 30}
@@ -53,13 +46,6 @@ def test_ndjson_chunk_streaming_parser() -> None:
         print(f"{chunk_number}: ", complete_json_objects)
         all_objects.extend(complete_json_objects)
         all_objects_by_chunk.append(complete_json_objects)
-
-    # Finalize to process any remaining data in the buffer
-    remaining_objects = parser.finalize()
-    print("Remaining JSON objects from buffer:", remaining_objects)
-    all_objects.extend(remaining_objects)
-    if remaining_objects:
-        all_objects_by_chunk.append(remaining_objects)
 
     print("All JSON objects:", all_objects)
     assert len(all_objects) == 4
