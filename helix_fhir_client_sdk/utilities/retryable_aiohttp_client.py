@@ -184,6 +184,21 @@ class RetryableAioHttpClient:
             kwargs["json"] = json
         return await self.fetch(url=url, method="POST", headers=headers, **kwargs)
 
+    async def patch(
+        self,
+        *,
+        url: str,
+        headers: Optional[Dict[str, str]],
+        data: Optional[str] = None,
+        json: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> RetryableAioHttpResponse:
+        if data is not None:
+            kwargs["data"] = data
+        elif json is not None:
+            kwargs["json"] = json
+        return await self.fetch(url=url, method="PATCH", headers=headers, **kwargs)
+
     async def put(
         self,
         *,

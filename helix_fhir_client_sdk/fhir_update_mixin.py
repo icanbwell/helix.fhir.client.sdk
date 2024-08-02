@@ -30,7 +30,6 @@ class FhirUpdateMixin(FhirClientProtocol):
         full_uri: furl = furl(self._url)
         full_uri /= self._resource
         full_uri /= self._id
-        # setup retry
         async with self.create_http_session() as http:
             # set up headers
             headers = {"Content-Type": "application/fhir+json"}
