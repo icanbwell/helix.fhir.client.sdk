@@ -20,7 +20,7 @@ class FhirGraphMixin(FhirClientProtocol):
         id_: str | List[str] | None = None,
         graph_definition: GraphDefinition,
         contained: bool,
-        process_in_batches: Optional[bool] = None,
+        process_in_pages: Optional[bool] = None,
         fn_handle_batch: Optional[HandleBatchFunction] = None,
         fn_handle_error: Optional[HandleErrorFunction] = None,
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
@@ -36,7 +36,7 @@ class FhirGraphMixin(FhirClientProtocol):
         :param graph_definition: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
                             parent resources in a contained property
-        :param process_in_batches: whether to process in batches of size page_size
+        :param process_in_pages: whether to process in batches of size page_size
         :param fn_handle_batch: Optional function to execute on each page of data.  Note that if this is passed we don't
                                 return the resources in the response anymore.  If this function returns false then we
                                 stop processing any further batches.
@@ -65,7 +65,16 @@ class FhirGraphMixin(FhirClientProtocol):
         self.id_(id_list)  # this is needed because the $graph endpoint requires an id
         output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
         async with self.create_http_session() as http:
-            if not process_in_batches:
+            if process_in_pages:
+                async for result1 in self.get_by_query_in_pages_async(  # type: ignore[attr-defined]
+                    concurrent_requests=concurrent_requests,
+                    output_queue=output_queue,
+                    fn_handle_error=fn_handle_error,
+                    fn_handle_batch=fn_handle_batch,
+                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+                ):
+                    yield result1
+            else:
                 result: Optional[FhirGetResponse]
                 chunk_size: int = self._page_size or 1
                 for chunk in ListChunker.divide_into_chunks(id_list, chunk_size):
@@ -78,15 +87,6 @@ class FhirGraphMixin(FhirClientProtocol):
                         ids=chunk,
                     ):
                         yield result1
-            else:
-                async for result1 in self.get_by_query_in_pages_async(  # type: ignore[attr-defined]
-                    concurrent_requests=concurrent_requests,
-                    output_queue=output_queue,
-                    fn_handle_error=fn_handle_error,
-                    fn_handle_batch=fn_handle_batch,
-                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                ):
-                    yield result1
 
     def graph(
         self,
@@ -102,7 +102,7 @@ class FhirGraphMixin(FhirClientProtocol):
                 self.graph_async(
                     graph_definition=graph_definition,
                     contained=contained,
-                    process_in_batches=process_in_batches,
+                    process_in_pages=process_in_batches,
                     concurrent_requests=concurrent_requests,
                 )
             )
