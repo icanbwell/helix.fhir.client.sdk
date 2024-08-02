@@ -343,8 +343,9 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
                 last_updated_filter.greater_than = greater_than
                 start = time.time()
                 fhir_client._last_page = None  # clean any previous setting
+                response: FhirGetResponse
                 async for (
-                    ids
+                    response
                 ) in fhir_client.get_by_query_in_pages_async(  # type:ignore[attr-defined]
                     concurrent_requests=concurrent_requests,
                     output_queue=output_queue,
@@ -352,7 +353,9 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
                     fn_handle_error=fn_handle_error or self.handle_error_wrapper(),
                     fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                 ):
-                    yield ids
+                    for resource in response.get_resources():
+                        if "id" in resource:
+                            yield resource["id"]
                 fhir_client._last_page = None  # clean any previous setting
                 end = time.time()
                 if self._logger:
@@ -363,7 +366,7 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
             start = time.time()
             fhir_client._last_page = None  # clean any previous setting
             async for (
-                ids
+                response
             ) in fhir_client.get_by_query_in_pages_async(  # type:ignore[attr-defined]
                 concurrent_requests=concurrent_requests,
                 output_queue=output_queue,
@@ -371,7 +374,9 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
                 fn_handle_error=self.handle_error_wrapper(),
                 fn_handle_streaming_chunk=fn_handle_streaming_chunk,
             ):
-                yield ids
+                for resource in response.get_resources():
+                    if "id" in resource:
+                        yield resource["id"]
             fhir_client._last_page = None  # clean any previous setting
             end = time.time()
             if self._logger:
