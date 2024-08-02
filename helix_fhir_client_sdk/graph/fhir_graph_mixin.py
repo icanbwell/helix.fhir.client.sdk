@@ -54,9 +54,8 @@ class FhirGraphMixin(FhirClientProtocol):
         self.action_payload(graph_definition.to_dict())
         self.resource(graph_definition.start)
         self.action("$graph")
-        self.id_(
-            id_ or "1"
-        )  # this is needed because the $graph endpoint requires an id
+        id_ = id_ or "1"
+        self.id_(id_)  # this is needed because the $graph endpoint requires an id
         output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
         async with self.create_http_session() as http:
             if not process_in_batches:
@@ -66,8 +65,8 @@ class FhirGraphMixin(FhirClientProtocol):
                     fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                     additional_parameters=self._additional_parameters,
                     id_above=None,
-                    page_number=None,
-                    ids=None,
+                    page_number=self._page_number,
+                    ids=[id_],
                 ):
                     yield result1
             else:
