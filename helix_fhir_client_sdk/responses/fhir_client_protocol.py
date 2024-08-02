@@ -4,7 +4,7 @@ from datetime import datetime
 from logging import Logger
 from threading import Lock
 from typing import Protocol, Optional, Dict, Any, List, Union, AsyncGenerator, Generator
-from aiohttp import ClientSession, ClientResponse
+from aiohttp import ClientSession
 from requests.adapters import BaseAdapter
 
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
@@ -14,10 +14,14 @@ from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
     HandleBatchFunction,
     HandleErrorFunction,
+    SimpleRefreshTokenFunction,
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
+    RetryableAioHttpResponse,
+)
 
 
 class FhirClientProtocol(Protocol):
@@ -88,7 +92,8 @@ class FhirClientProtocol(Protocol):
         full_url: str,
         headers: Dict[str, str],
         payload: Dict[str, Any] | None,
-    ) -> ClientResponse: ...
+        simple_refresh_token_func: Optional[SimpleRefreshTokenFunction],
+    ) -> RetryableAioHttpResponse: ...
 
     def create_http_session(self) -> ClientSession: ...
 

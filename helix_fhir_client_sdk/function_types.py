@@ -80,3 +80,15 @@ class HandleStreamingResourcesFunction(Protocol):
         :return: True if successful
         """
         ...
+
+
+class SimpleRefreshTokenFunction(Protocol):
+    async def __call__(
+        self,
+    ) -> Optional[str]:
+        """
+        Refreshes a token and returns the new token. If the token cannot be refreshed, returns None.
+
+        :return: new token or None
+        """
+        ...

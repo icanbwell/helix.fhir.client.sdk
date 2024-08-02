@@ -16,6 +16,9 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
 )
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
+    RetryableAioHttpResponse,
+)
 
 
 class FhirResponseProcessor:
@@ -43,7 +46,7 @@ class FhirResponseProcessor:
     @staticmethod
     async def handle_response(
         *,
-        response: ClientResponse,
+        response: RetryableAioHttpResponse,
         full_url: str,
         request_id: Optional[str],
         response_headers: List[str],
@@ -133,11 +136,7 @@ class FhirResponseProcessor:
             ):
                 yield r
         elif response.status == 502 or response.status == 504:  # time out
-            last_response_text = (
-                await FhirResponseProcessor.get_safe_response_text_async(
-                    response=response
-                )
-            )
+            last_response_text = response.response_text
             if retries_left > 0 and (
                 not exclude_status_codes_from_retry
                 or response.status not in exclude_status_codes_from_retry
@@ -207,7 +206,7 @@ class FhirResponseProcessor:
         *,
         full_url: str,
         request_id: Optional[str],
-        response: ClientResponse,
+        response: RetryableAioHttpResponse,
         response_headers: List[str],
         logger: Optional[FhirLogger],
         internal_logger: Optional[Logger],
@@ -238,9 +237,7 @@ class FhirResponseProcessor:
             internal_logger.error(
                 f"Fhir Receive failed [{response.status}]: {full_url} "
             )
-        error_text: str = await FhirResponseProcessor.get_safe_response_text_async(
-            response=response
-        )
+        error_text: str = response.response_text
         if logger:
             logger.error(error_text)
         if internal_logger:
@@ -262,7 +259,7 @@ class FhirResponseProcessor:
     @staticmethod
     async def _handle_response_429(
         *,
-        response: ClientResponse,
+        response: RetryableAioHttpResponse,
         full_url: str,
         request_id: Optional[str],
         response_headers: List[str],
@@ -286,9 +283,7 @@ class FhirResponseProcessor:
 
         :return: An async generator of FhirGetResponse objects.
         """
-        last_response_text = await FhirResponseProcessor.get_safe_response_text_async(
-            response=response
-        )
+        last_response_text = response.response_text
         if (
             not exclude_status_codes_from_retry
             or response.status not in exclude_status_codes_from_retry
@@ -309,7 +304,7 @@ class FhirResponseProcessor:
         # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
         # read the Retry-After header
         # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
-        retry_after_text: str = str(response.headers.getone("Retry-After"))
+        retry_after_text: str = str(response.response_headers.get("Retry-After"))
         if logger:
             logger.info(
                 f"Server {full_url} sent a 429 with retry-after: {retry_after_text}"
@@ -334,7 +329,7 @@ class FhirResponseProcessor:
     async def _handle_response_401(
         *,
         full_url: str,
-        response: ClientResponse,
+        response: RetryableAioHttpResponse,
         retries_left: int,
         request_id: Optional[str],
         response_headers: List[str],
@@ -370,9 +365,7 @@ class FhirResponseProcessor:
         :return: An async generator of FhirGetResponse objects.
 
         """
-        last_response_text = await FhirResponseProcessor.get_safe_response_text_async(
-            response=response
-        )
+        last_response_text = response.response_text
         if retries_left > 0 and (
             not exclude_status_codes_from_retry
             or response.status not in exclude_status_codes_from_retry
@@ -420,7 +413,7 @@ class FhirResponseProcessor:
             yield FhirGetResponse(
                 request_id=request_id,
                 url=full_url,
-                responses=await response.text(),
+                responses=response.response_text,
                 error=last_response_text or "UnAuthorized",
                 access_token=access_token,
                 total_count=0,
@@ -436,7 +429,7 @@ class FhirResponseProcessor:
         *,
         full_url: str,
         request_id: Optional[str],
-        response: ClientResponse,
+        response: RetryableAioHttpResponse,
         response_headers: List[str],
         access_token: Optional[str],
         extra_context_to_return: Optional[Dict[str, Any]],
@@ -458,9 +451,7 @@ class FhirResponseProcessor:
 
         :return: An async generator of FhirGetResponse objects.
         """
-        last_response_text = await FhirResponseProcessor.get_safe_response_text_async(
-            response=response
-        )
+        last_response_text = response.response_text
         yield FhirGetResponse(
             request_id=request_id,
             url=full_url,
@@ -480,7 +471,7 @@ class FhirResponseProcessor:
         *,
         full_url: str,
         request_id: Optional[str],
-        response: ClientResponse,
+        response: RetryableAioHttpResponse,
         response_headers: List[str],
         access_token: Optional[str],
         extra_context_to_return: Optional[Dict[str, Any]],
@@ -503,9 +494,7 @@ class FhirResponseProcessor:
 
         :return: An async generator of FhirGetResponse objects.
         """
-        last_response_text = await FhirResponseProcessor.get_safe_response_text_async(
-            response=response
-        )
+        last_response_text = response.response_text
         if logger:
             logger.error(f"resource not found! {full_url}")
         yield FhirGetResponse(
@@ -527,7 +516,7 @@ class FhirResponseProcessor:
         *,
         access_token: Optional[str],
         full_url: str,
-        response: ClientResponse,
+        response: RetryableAioHttpResponse,
         retries_left: int,
         request_id: Optional[str],
         response_headers: List[str],
@@ -615,7 +604,7 @@ class FhirResponseProcessor:
     async def _handle_response_200_non_streaming(
         *,
         full_url: str,
-        response: ClientResponse,
+        response: RetryableAioHttpResponse,
         retries_left: int,
         request_id: Optional[str],
         access_token: Optional[str],
@@ -658,7 +647,7 @@ class FhirResponseProcessor:
             logger.debug(f"Successfully retrieved: {full_url}")
         # noinspection PyBroadException
         try:
-            text = await response.text()
+            text = response.response_text
             if len(text) > 0:
                 response_json: Dict[str, Any] = json.loads(text)
                 if (
@@ -728,7 +717,7 @@ class FhirResponseProcessor:
             # do a retry
             if logger:
                 logger.error(
-                    f"{e}: {full_url}: retries_left={retries_left} headers={response.headers}"
+                    f"{e}: {full_url}: retries_left={retries_left} headers={response.response_headers}"
                 )
 
     @staticmethod
@@ -740,7 +729,7 @@ class FhirResponseProcessor:
         nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser,
         next_url: Optional[str],
         request_id: Optional[str],
-        response: ClientResponse,
+        response: RetryableAioHttpResponse,
         response_headers: List[str],
         total_count: int,
         chunk_size: int,

@@ -46,6 +46,7 @@ from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
     RefreshTokenFunction,
+    SimpleRefreshTokenFunction,
 )
 from helix_fhir_client_sdk.graph.fhir_graph_mixin import FhirGraphMixin
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
@@ -60,6 +61,12 @@ from helix_fhir_client_sdk.responses.fhir_response_processor import (
 )
 from helix_fhir_client_sdk.responses.fhir_update_response import FhirUpdateResponse
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
+    RetryableAioHttpClient,
+)
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
+    RetryableAioHttpResponse,
+)
 from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValidator
 from helix_fhir_client_sdk.well_known_configuration import (
     WellKnownConfigurationCacheEntry,
@@ -780,12 +787,22 @@ class FhirClient(
                     internal_logger=self._internal_logger,
                 )
 
-                response: ClientResponse = await self._send_fhir_request_async(
-                    http=http, full_url=full_url, headers=headers, payload=payload
+                response: RetryableAioHttpResponse = (
+                    await self._send_fhir_request_async(
+                        http=http,
+                        full_url=full_url,
+                        headers=headers,
+                        payload=payload,
+                        simple_refresh_token_func=lambda: self._refresh_token_function(
+                            auth_server_url=self._auth_server_url,
+                            auth_scopes=self._auth_scopes,
+                            login_token=self._login_token,
+                        ),
+                    )
                 )
                 last_status_code = response.status
                 response_headers: List[str] = [
-                    f"{key}:{value}" for key, value in response.headers.items()
+                    f"{key}:{value}" for key, value in response.response_headers.items()
                 ]
                 # retries_left
                 retries_left = retries_left - 1
@@ -801,7 +818,7 @@ class FhirClient(
                     uuid=self._uuid,
                 )
 
-                request_id = response.headers.getone("X-Request-ID", None)
+                request_id = response.response_headers.get("X-Request-ID", None)
                 self._internal_logger.info(f"X-Request-ID={request_id}")
 
                 async for r in FhirResponseProcessor.handle_response(
@@ -872,7 +889,7 @@ class FhirClient(
             )
 
     async def _log_retry(
-        self, *, url: str, response: ClientResponse, retries_left: int
+        self, *, url: str, response: RetryableAioHttpResponse, retries_left: int
     ) -> None:
         message: str = (
             f"Got status_code= {response.status} from {url}, Retries left={retries_left}"
@@ -991,7 +1008,8 @@ class FhirClient(
         full_url: str,
         headers: Dict[str, str],
         payload: Dict[str, Any] | None,
-    ) -> ClientResponse:
+        simple_refresh_token_func: Optional[SimpleRefreshTokenFunction],
+    ) -> RetryableAioHttpResponse:
         """
         Sends a request to the server
 
@@ -1008,6 +1026,12 @@ class FhirClient(
         if payload:
             assert isinstance(payload, dict)
 
+        client: RetryableAioHttpClient = RetryableAioHttpClient(
+            session=http,
+            simple_refresh_token_func=simple_refresh_token_func,
+            retries=self._retry_count,
+        )
+
         if self._action == "$graph":
             if self._logger:
                 self._logger.info(
@@ -1017,7 +1041,7 @@ class FhirClient(
                 f"sending a post: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
             )
             if payload:
-                return await http.post(full_url, headers=headers, json=payload)
+                return await client.post(url=full_url, headers=headers, json=payload)
             else:
                 raise Exception(
                     "$graph needs a payload to define the returning response (use action_payload parameter)"
@@ -1034,7 +1058,7 @@ class FhirClient(
                         f"sending a get: {full_url} with client_id={self._client_id} "
                         + f"and scopes={self._auth_scopes} instance_id={self._uuid}"
                     )
-            return await http.get(full_url, headers=headers, data=payload)
+            return await client.get(url=full_url, headers=headers, data=payload)
 
     # noinspection SpellCheckingInspection
     def create_http_session(self) -> ClientSession:
