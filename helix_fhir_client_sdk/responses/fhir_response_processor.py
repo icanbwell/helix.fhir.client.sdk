@@ -4,6 +4,7 @@ from typing import Optional, List, Dict, Any, Union, AsyncGenerator, Tuple
 from uuid import UUID
 
 from aiohttp import ClientResponse, ClientPayloadError
+from aiohttp.streams import AsyncStreamIterator
 
 from helix_fhir_client_sdk.function_types import (
     RefreshTokenFunction,
@@ -488,7 +489,15 @@ class FhirResponseProcessor:
         """
         chunk_number = 0
         chunk_bytes: bytes
-        async for chunk_bytes in response.content.iter_chunked(chunk_size):
+
+        def get_chunk_iterator() -> AsyncStreamIterator[bytes]:
+            # for Transfer-Encoding: chunked, we can't use response.content.iter_chunked()
+            if response.response_headers.get("Transfer-Encoding") == "chunked":
+                return response.content.iter_any()
+            else:
+                return response.content.iter_chunked(chunk_size)
+
+        async for chunk_bytes in get_chunk_iterator():
             # # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
             # await asyncio.sleep(0)
             chunk_number += 1

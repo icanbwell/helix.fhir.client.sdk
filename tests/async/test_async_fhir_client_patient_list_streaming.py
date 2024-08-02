@@ -50,7 +50,9 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
             headers={"Accept": "application/fhir+ndjson"},
         ),
         response=mock_response(
-            body=response_text, headers={"Content-Type": "application/fhir+ndjson"}
+            body=response_text,
+            headers={"Content-Type": "application/fhir+ndjson"},
+            connectionOptions={"chunkSize": 10},
         ),
         timing=times(2),
     )
