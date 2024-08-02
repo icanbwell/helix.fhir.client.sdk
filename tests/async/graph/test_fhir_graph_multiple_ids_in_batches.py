@@ -66,22 +66,40 @@ async def test_fhir_graph_multiple_ids_in_batches_async() -> None:
         ],
     )
 
+    response_text1 = {
+        "resourceType": "Bundle",
+        "entry": [
+            {"resource": {"resourceType": "Patient", "id": "1"}},
+        ],
+    }
     mock_client.expect(
         request=mock_request(
             path=f"/{relative_url}/Patient/1/$graph",
             method="POST",
         ),
-        response=mock_response(body={"resourceType": "Patient", "id": "1"}),
+        response=mock_response(body=response_text1),
         timing=times(1),
         file_path=None,
     )
 
+    response_text2 = {
+        "resourceType": "Bundle",
+        "entry": [
+            {
+                "resource": {
+                    "resourceType": "Patient",
+                    "id": "2",
+                    "contained": [{"resourceType": "Location", "id": "1"}],
+                }
+            },
+        ],
+    }
     mock_client.expect(
         request=mock_request(
             path=f"/{relative_url}/Patient/2/$graph",
             method="POST",
         ),
-        response=mock_response(body={"resourceType": "Patient", "id": "2"}),
+        response=mock_response(body=response_text2),
         timing=times(1),
         file_path=None,
     )
@@ -94,7 +112,7 @@ async def test_fhir_graph_multiple_ids_in_batches_async() -> None:
     async for response in fhir_client.graph_async(
         id_=["1", "2"],
         graph_definition=graph_definition,
-        contained=False,
+        contained=True,
         process_in_pages=False,
     ):
         print(f"Response Chunk: {response.responses}")
@@ -104,4 +122,10 @@ async def test_fhir_graph_multiple_ids_in_batches_async() -> None:
     print(f"Response: {responses[0].responses}")
     assert responses[0].responses
     assert responses[0].get_resources() == [{"id": "1", "resourceType": "Patient"}]
-    assert responses[1].get_resources() == [{"id": "2", "resourceType": "Patient"}]
+    assert responses[1].get_resources() == [
+        {
+            "contained": [{"id": "1", "resourceType": "Location"}],
+            "id": "2",
+            "resourceType": "Patient",
+        }
+    ]

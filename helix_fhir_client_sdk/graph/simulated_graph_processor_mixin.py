@@ -537,7 +537,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         if contained:
             if not self._additional_parameters:
                 self.additional_parameters([])
-            assert self._additional_parameters
+            assert self._additional_parameters is not None
             self._additional_parameters.append("contained=true")
 
         return await self.process_simulate_graph_async(
