@@ -108,7 +108,7 @@ class RetryableAioHttpClient:
                         )
                     elif response.status == 404:
                         return RetryableAioHttpResponse(
-                            ok=True,
+                            ok=response.ok,
                             status=response.status,
                             response_headers={
                                 k: v for k, v in response.headers.items()

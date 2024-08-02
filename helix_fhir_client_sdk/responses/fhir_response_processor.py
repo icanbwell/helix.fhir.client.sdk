@@ -117,6 +117,19 @@ class FhirResponseProcessor:
                 separate_bundle_resources=separate_bundle_resources,
             ):
                 yield r
+        elif response.status == 404:  # not found
+            async for r in FhirResponseProcessor._handle_response_404(
+                full_url=full_url,
+                request_id=request_id,
+                response=response,
+                response_headers=response_headers,
+                extra_context_to_return=extra_context_to_return,
+                resource=resource,
+                logger=logger,
+                id_=id_,
+                access_token=access_token,
+            ):
+                yield r
         else:  # unknown response
             async for r in FhirResponseProcessor._handle_response_unknown(
                 full_url=full_url,
@@ -179,6 +192,51 @@ class FhirResponseProcessor:
             responses=error_text,
             access_token=access_token,
             error=error_text,
+            total_count=0,
+            status=response.status,
+            extra_context_to_return=extra_context_to_return,
+            resource_type=resource,
+            id_=id_,
+            response_headers=response_headers,
+        )
+
+    @staticmethod
+    async def _handle_response_404(
+        *,
+        full_url: str,
+        request_id: Optional[str],
+        response: RetryableAioHttpResponse,
+        response_headers: List[str],
+        access_token: Optional[str],
+        extra_context_to_return: Optional[Dict[str, Any]],
+        resource: Optional[str],
+        id_: Optional[Union[List[str], str]],
+        logger: Optional[FhirLogger],
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        """
+        This method is responsible for handling a 404 response from the FHIR server.
+        A 404 response indicates that the resource was not found.
+
+        :param full_url: The full URL of the request.
+        :param request_id: The request ID.
+        :param response: The response object from the FHIR server.
+        :param response_headers: The response headers.
+        :param access_token: The access token.
+        :param extra_context_to_return: The extra context to return.
+        :param resource: The resource type.
+        :param id_: The ID of the resource.
+
+        :return: An async generator of FhirGetResponse objects.
+        """
+        last_response_text = response.response_text
+        if logger:
+            logger.error(f"resource not found! {full_url}")
+        yield FhirGetResponse(
+            request_id=request_id,
+            url=full_url,
+            responses=last_response_text,
+            error="NotFound",
+            access_token=access_token,
             total_count=0,
             status=response.status,
             extra_context_to_return=extra_context_to_return,
