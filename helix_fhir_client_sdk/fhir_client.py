@@ -1391,12 +1391,22 @@ class FhirClient(
                     access_token=access_token,
                 )
 
-            json_payload_bytes: bytes = json_data.encode("utf-8")
             # actually make the request
-            response = await http.put(
-                url=full_uri.url, data=json_payload_bytes, headers=headers
+            client: RetryableAioHttpClient = RetryableAioHttpClient(
+                session=http,
+                simple_refresh_token_func=lambda: self._refresh_token_function(
+                    auth_server_url=self._auth_server_url,
+                    auth_scopes=self._auth_scopes,
+                    login_token=self._login_token,
+                ),
+                retries=self._retry_count,
+                exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
+                use_data_streaming=self._use_data_streaming,
             )
-            request_id = response.headers.getone("X-Request-ID", None)
+            response = await client.put(
+                url=full_uri.url, data=json_data, headers=headers
+            )
+            request_id = response.response_headers.get("X-Request-ID", None)
             self._internal_logger.info(f"X-Request-ID={request_id}")
             if response.status == 200:
                 if self._logger:
@@ -1405,7 +1415,7 @@ class FhirClient(
             return FhirUpdateResponse(
                 request_id=request_id,
                 url=full_uri.tostr(),
-                responses=await response.text(),
+                responses=await response.get_text_async(),
                 error=f"{response.status}" if not response.status == 200 else None,
                 access_token=access_token,
                 status=response.status,
