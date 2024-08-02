@@ -82,7 +82,7 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
             },
             method="GET",
         ),
-        response=mock_response(code=401),
+        response=mock_response(code=404),
         timing=times(1),
     )
 
