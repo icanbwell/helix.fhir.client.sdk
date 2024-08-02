@@ -23,6 +23,7 @@ class RetryableAioHttpClient:
         simple_refresh_token_func: Optional[SimpleRefreshTokenFunction] = None,
         session: Optional[aiohttp.ClientSession] = None,
         exclude_status_codes_from_retry: List[int] | None,
+        use_data_streaming: Optional[bool],
     ) -> None:
         self.retries: int = retries
         self.timeout_in_seconds: Optional[float] = timeout_in_seconds
@@ -39,6 +40,7 @@ class RetryableAioHttpClient:
         self.exclude_status_codes_from_retry: List[int] | None = (
             exclude_status_codes_from_retry
         )
+        self.use_data_streaming: Optional[bool] = use_data_streaming
 
     @staticmethod
     async def get_safe_response_text_async(
@@ -80,8 +82,12 @@ class RetryableAioHttpClient:
                             response_headers={
                                 k: v for k, v in response.headers.items()
                             },
-                            response_text=await self.get_safe_response_text_async(
-                                response=response
+                            response_text=(
+                                await self.get_safe_response_text_async(
+                                    response=response
+                                )
+                                if not self.use_data_streaming
+                                else ""
                             ),
                             content=response.content,
                         )

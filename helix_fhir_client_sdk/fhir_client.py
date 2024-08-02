@@ -1034,6 +1034,7 @@ class FhirClient(
             simple_refresh_token_func=simple_refresh_token_func,
             retries=self._retry_count,
             exclude_status_codes_from_retry=exclude_status_codes_from_retry,
+            use_data_streaming=self._use_data_streaming,
         )
 
         if self._action == "$graph":
