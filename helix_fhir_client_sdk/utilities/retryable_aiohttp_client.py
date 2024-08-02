@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 from typing import Optional, Dict, Any, List
 
 import aiohttp
@@ -90,6 +91,8 @@ class RetryableAioHttpClient:
                             ),
                             content=response.content,
                         )
+                    elif response.status == 429:
+                        await self._handle_429(response=response, full_url=url)
                     elif (
                         self.retry_status_codes
                         and response.status in self.retry_status_codes
@@ -120,9 +123,11 @@ class RetryableAioHttpClient:
                         )
                     else:
                         response.raise_for_status()
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+
+                # now increment the retry count
                 retry_attempts += 1
-                if retry_attempts == self.retries:
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                if retry_attempts >= self.retries:
                     raise e
                 await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
 
@@ -148,3 +153,21 @@ class RetryableAioHttpClient:
 
     async def delete(self, *, url: str, **kwargs: Any) -> RetryableAioHttpResponse:
         return await self.fetch(url=url, method="DELETE", **kwargs)
+
+    @staticmethod
+    async def _handle_429(*, response: ClientResponse, full_url: str) -> None:
+        # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+        # read the Retry-After header
+        # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
+        retry_after_text: str = str(response.headers.getone("Retry-After"))
+        if retry_after_text:
+            if retry_after_text.isnumeric():  # it is number of seconds
+                await asyncio.sleep(int(retry_after_text))
+            else:
+                wait_till: datetime = datetime.strptime(
+                    retry_after_text, "%a, %d %b %Y %H:%M:%S GMT"
+                )
+                while datetime.utcnow() < wait_till:
+                    await asyncio.sleep(10)
+        else:
+            await asyncio.sleep(60)

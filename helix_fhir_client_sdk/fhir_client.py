@@ -800,6 +800,7 @@ class FhirClient(
                         ),
                     )
                 )
+                assert isinstance(response, RetryableAioHttpResponse)
                 last_status_code = response.status
                 response_headers: List[str] = [
                     f"{key}:{value}" for key, value in response.response_headers.items()
