@@ -4,8 +4,8 @@ from typing import List, Any, Generator, Optional
 class ListChunker:
     @staticmethod
     def divide_into_chunks(
-        array: List[str], chunk_size: Optional[int]
-    ) -> Generator[List[str], None, None]:
+        array: List[Any], chunk_size: Optional[int]
+    ) -> Generator[List[Any], None, None]:
         """
         Divides a list into a list of chunks
         Yield successive n-sized chunks from l.

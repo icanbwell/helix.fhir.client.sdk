@@ -1,7 +1,7 @@
 import asyncio
 import json
 import time
-from typing import Optional, List, Dict, Any, Union, cast
+from typing import Optional, List, Dict, Any, Union, cast, Generator
 from urllib import parse
 
 import requests
@@ -16,6 +16,7 @@ from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
+from helix_fhir_client_sdk.utilities.list_chunker import ListChunker
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
 )
@@ -31,6 +32,7 @@ class FhirMergeMixin(FhirClientProtocol):
         *,
         id_: Optional[str] = None,
         json_data_list: List[str],
+        batch_size: Optional[int] = None,
     ) -> FhirMergeResponse:
         """
         Calls $merge function on FHIR server
@@ -38,6 +40,7 @@ class FhirMergeMixin(FhirClientProtocol):
 
         :param json_data_list: list of resources to send
         :param id_: id of the resource to merge
+        :param batch_size: size of each batch
         :return: response
         """
         assert self._url, "No FHIR server url was set"
@@ -90,112 +93,127 @@ class FhirMergeMixin(FhirClientProtocol):
 
                 resource_uri: furl = full_uri.copy()
                 if len(resource_json_list_clean) > 0:
-                    # if there is only item in the list then send it instead of having it in a list
-                    json_payload: str = (
-                        json.dumps(resource_json_list_clean[0])
-                        if len(resource_json_list_clean) == 1
-                        else json.dumps(resource_json_list_clean)
+                    chunks: Generator[List[Dict[str, Any]], None, None] = (
+                        ListChunker.divide_into_chunks(
+                            resource_json_list_clean, chunk_size=batch_size
+                        )
                     )
-                    # json_payload_bytes: str = json_payload
-                    obj_id = (
-                        id_ or 1
-                    )  # TODO: remove this once the node fhir accepts merge without a parameter
-                    assert obj_id
+                    chunk: List[Dict[str, Any]]
+                    for chunk in chunks:
+                        # if there is only item in the list then send it instead of having it in a list
+                        json_payload: str = (
+                            json.dumps(chunk[0])
+                            if len(chunk) == 1
+                            else json.dumps(chunk)
+                        )
+                        # json_payload_bytes: str = json_payload
+                        obj_id = (
+                            id_ or 1
+                        )  # TODO: remove this once the node fhir accepts merge without a parameter
+                        assert obj_id
 
-                    resource_uri /= parse.quote(str(obj_id), safe="")
-                    resource_uri /= "$merge"
-                    try:
-                        client: RetryableAioHttpClient = RetryableAioHttpClient(
-                            session=http,
-                            simple_refresh_token_func=lambda: self._refresh_token_function(
-                                auth_server_url=self._auth_server_url,
-                                auth_scopes=self._auth_scopes,
-                                login_token=self._login_token,
-                            ),
-                            retries=self._retry_count,
-                            exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
-                            use_data_streaming=self._use_data_streaming,
-                        )
-                        # should we check if it exists and do a POST then?
-                        response: RetryableAioHttpResponse = await client.post(
-                            url=resource_uri.url,
-                            data=json_payload,
-                            headers=headers,
-                        )
-                        response_status = response.status
-                        request_id = response.response_headers.get("X-Request-ID", None)
-                        self._internal_logger.info(f"X-Request-ID={request_id}")
-                        if response and response.status == 200:
-                            response_text = await response.get_text_async()
-                            if response_text:
-                                try:
-                                    raw_response: Union[
-                                        List[Dict[str, Any]], Dict[str, Any]
-                                    ] = json.loads(response_text)
-                                    if isinstance(raw_response, list):
-                                        responses = raw_response
-                                    else:
-                                        responses = [raw_response]
-                                except ValueError as e:
-                                    responses = [{"issue": str(e)}]
-                            else:
-                                responses = []
-                        else:  # other HTTP errors
-                            self._internal_logger.info(
-                                f"POST response for {resource_uri.url}: {response.status}"
-                            )
-                            response_text = await response.get_text_async()
-                            return FhirMergeResponse(
-                                request_id=request_id,
-                                url=resource_uri.url or self._url or "",
-                                json_data=json_payload,
-                                responses=[
-                                    {
-                                        "issue": [
-                                            {
-                                                "severity": "error",
-                                                "code": "exception",
-                                                "diagnostics": response_text,
-                                            }
-                                        ]
-                                    }
-                                ],
-                                error=(
-                                    json.dumps(response_text) if response_text else None
+                        resource_uri /= parse.quote(str(obj_id), safe="")
+                        resource_uri /= "$merge"
+                        try:
+                            client: RetryableAioHttpClient = RetryableAioHttpClient(
+                                session=http,
+                                simple_refresh_token_func=lambda: self._refresh_token_function(
+                                    auth_server_url=self._auth_server_url,
+                                    auth_scopes=self._auth_scopes,
+                                    login_token=self._login_token,
                                 ),
-                                access_token=self._access_token,
-                                status=response.status if response.status else 500,
+                                retries=self._retry_count,
+                                exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
+                                use_data_streaming=self._use_data_streaming,
                             )
-                    except requests.exceptions.HTTPError as e:
-                        raise FhirSenderException(
-                            request_id=request_id,
-                            url=resource_uri.url,
-                            headers=headers,
-                            json_data=json_payload,
-                            response_text=await response.get_text_async(),
-                            response_status_code=(
-                                response.status if response else None
-                            ),
-                            exception=e,
-                            variables=FhirClientLogger.get_variables_to_log(vars(self)),
-                            message=f"HttpError: {e}",
-                            elapsed_time=time.time() - start_time,
-                        ) from e
-                    except Exception as e:
-                        raise FhirSenderException(
-                            request_id=request_id,
-                            url=resource_uri.url,
-                            headers=headers,
-                            json_data=json_payload,
-                            response_text=await response.get_text_async(),
-                            response_status_code=(
-                                response.status if response else None
-                            ),
-                            exception=e,
-                            variables=FhirClientLogger.get_variables_to_log(vars(self)),
-                            message=f"Unknown Error: {e}",
-                            elapsed_time=time.time() - start_time,
-                        ) from e
+                            # should we check if it exists and do a POST then?
+                            response: RetryableAioHttpResponse = await client.post(
+                                url=resource_uri.url,
+                                data=json_payload,
+                                headers=headers,
+                            )
+                            response_status = response.status
+                            request_id = response.response_headers.get(
+                                "X-Request-ID", None
+                            )
+                            self._internal_logger.info(f"X-Request-ID={request_id}")
+                            if response and response.status == 200:
+                                response_text = await response.get_text_async()
+                                if response_text:
+                                    try:
+                                        raw_response: Union[
+                                            List[Dict[str, Any]], Dict[str, Any]
+                                        ] = json.loads(response_text)
+                                        if isinstance(raw_response, list):
+                                            responses = raw_response
+                                        else:
+                                            responses = [raw_response]
+                                    except ValueError as e:
+                                        responses = [{"issue": str(e)}]
+                                else:
+                                    responses = []
+                            else:  # other HTTP errors
+                                self._internal_logger.info(
+                                    f"POST response for {resource_uri.url}: {response.status}"
+                                )
+                                response_text = await response.get_text_async()
+                                return FhirMergeResponse(
+                                    request_id=request_id,
+                                    url=resource_uri.url or self._url or "",
+                                    json_data=json_payload,
+                                    responses=[
+                                        {
+                                            "issue": [
+                                                {
+                                                    "severity": "error",
+                                                    "code": "exception",
+                                                    "diagnostics": response_text,
+                                                }
+                                            ]
+                                        }
+                                    ],
+                                    error=(
+                                        json.dumps(response_text)
+                                        if response_text
+                                        else None
+                                    ),
+                                    access_token=self._access_token,
+                                    status=response.status if response.status else 500,
+                                )
+                        except requests.exceptions.HTTPError as e:
+                            raise FhirSenderException(
+                                request_id=request_id,
+                                url=resource_uri.url,
+                                headers=headers,
+                                json_data=json_payload,
+                                response_text=await response.get_text_async(),
+                                response_status_code=(
+                                    response.status if response else None
+                                ),
+                                exception=e,
+                                variables=FhirClientLogger.get_variables_to_log(
+                                    vars(self)
+                                ),
+                                message=f"HttpError: {e}",
+                                elapsed_time=time.time() - start_time,
+                            ) from e
+                        except Exception as e:
+                            raise FhirSenderException(
+                                request_id=request_id,
+                                url=resource_uri.url,
+                                headers=headers,
+                                json_data=json_payload,
+                                response_text=await response.get_text_async(),
+                                response_status_code=(
+                                    response.status if response else None
+                                ),
+                                exception=e,
+                                variables=FhirClientLogger.get_variables_to_log(
+                                    vars(self)
+                                ),
+                                message=f"Unknown Error: {e}",
+                                elapsed_time=time.time() - start_time,
+                            ) from e
                 else:
                     json_payload = json.dumps(json_data_list)
 
@@ -281,16 +299,20 @@ class FhirMergeMixin(FhirClientProtocol):
         *,
         id_: Optional[str] = None,
         json_data_list: List[str],
+        batch_size: Optional[int] = None,
     ) -> FhirMergeResponse:
         """
         Calls $merge function on FHIR server
 
 
         :param json_data_list: list of resources to send
+        :param batch_size: size of each batch
         :param id_: id of the resource to merge
         :return: response
         """
         result: FhirMergeResponse = asyncio.run(
-            self.merge_async(id_=id_, json_data_list=json_data_list)
+            self.merge_async(
+                id_=id_, json_data_list=json_data_list, batch_size=batch_size
+            )
         )
         return result
