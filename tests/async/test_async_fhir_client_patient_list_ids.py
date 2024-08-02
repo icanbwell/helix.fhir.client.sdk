@@ -55,7 +55,7 @@ async def test_fhir_client_patient_list_ids_async() -> None:
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     fhir_client = fhir_client.last_updated_after(last_updated_after)
-    list_of_ids: List[str] = await fhir_client.get_ids_for_query_async()
+    list_of_ids: List[str] = [s async for s in fhir_client.get_ids_for_query_async()]
 
     print(json.dumps(list_of_ids))
     assert list_of_ids == ["12355", "5555"]

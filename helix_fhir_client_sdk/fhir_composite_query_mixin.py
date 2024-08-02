@@ -51,15 +51,18 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
         :param page_size_for_retrieving_ids:: number of ids to download in one batch
         """
         start = time.time()
-        list_of_ids: List[str] = await self.get_ids_for_query_async(
-            concurrent_requests=concurrent_requests,
-            last_updated_end_date=last_updated_end_date,
-            last_updated_start_date=last_updated_start_date,
-            page_size_for_retrieving_ids=page_size_for_retrieving_ids,
-            fn_handle_ids=fn_handle_ids,
-            fn_handle_streaming_chunk=fn_handle_streaming_ids,
-            fn_handle_error=fn_handle_error,
-        )
+        list_of_ids: List[str] = [
+            id_
+            async for id_ in self.get_ids_for_query_async(
+                concurrent_requests=concurrent_requests,
+                last_updated_end_date=last_updated_end_date,
+                last_updated_start_date=last_updated_start_date,
+                page_size_for_retrieving_ids=page_size_for_retrieving_ids,
+                fn_handle_ids=fn_handle_ids,
+                fn_handle_streaming_chunk=fn_handle_streaming_ids,
+                fn_handle_error=fn_handle_error,
+            )
+        ]
         # now split the ids
         chunks: Generator[List[str], None, None] = self._divide_into_chunks(
             list_of_ids, page_size_for_retrieving_resources
@@ -245,12 +248,22 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
         :param page_size_for_retrieving_ids:
         :return: list of ids
         """
+
+        # Define an asynchronous function to consume the generator and return the values
+        async def consume_generator(generator: AsyncGenerator[str, None]) -> List[str]:
+            results1 = []
+            async for value in generator:
+                results1.append(value)
+            return results1
+
         return asyncio.run(
-            self.get_ids_for_query_async(
-                last_updated_start_date=last_updated_start_date,
-                last_updated_end_date=last_updated_end_date,
-                concurrent_requests=concurrent_requests,
-                page_size_for_retrieving_ids=page_size_for_retrieving_ids,
+            consume_generator(
+                self.get_ids_for_query_async(
+                    last_updated_start_date=last_updated_start_date,
+                    last_updated_end_date=last_updated_end_date,
+                    concurrent_requests=concurrent_requests,
+                    page_size_for_retrieving_ids=page_size_for_retrieving_ids,
+                )
             )
         )
 
@@ -266,7 +279,7 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
         fn_handle_batch: Optional[HandleBatchFunction] = None,
         fn_handle_error: Optional[HandleErrorFunction] = None,
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
-    ) -> List[str]:
+    ) -> AsyncGenerator[str, None]:
         """
         Gets just the ids of the resources matching the query
 
@@ -330,13 +343,16 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
                 last_updated_filter.greater_than = greater_than
                 start = time.time()
                 fhir_client._last_page = None  # clean any previous setting
-                await fhir_client.get_by_query_in_pages_async(
+                async for (
+                    ids
+                ) in fhir_client.get_by_query_in_pages_async(  # type:ignore[attr-defined]
                     concurrent_requests=concurrent_requests,
                     output_queue=output_queue,
                     fn_handle_batch=add_to_list,
                     fn_handle_error=fn_handle_error or self.handle_error_wrapper(),
                     fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                )
+                ):
+                    yield ids
                 fhir_client._last_page = None  # clean any previous setting
                 end = time.time()
                 if self._logger:
@@ -346,13 +362,16 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
         else:
             start = time.time()
             fhir_client._last_page = None  # clean any previous setting
-            await fhir_client.get_by_query_in_pages_async(
+            async for (
+                ids
+            ) in fhir_client.get_by_query_in_pages_async(  # type:ignore[attr-defined]
                 concurrent_requests=concurrent_requests,
                 output_queue=output_queue,
                 fn_handle_batch=add_to_list,
                 fn_handle_error=self.handle_error_wrapper(),
                 fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-            )
+            ):
+                yield ids
             fhir_client._last_page = None  # clean any previous setting
             end = time.time()
             if self._logger:
@@ -361,7 +380,6 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
                 )
         if self._logger:
             self._logger.info(f"====== Received {len(list_of_ids)} ids =======")
-        return list_of_ids
 
     # Yield successive n-sized chunks from l.
     @staticmethod
@@ -693,14 +711,14 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
             ):
                 yield r
 
-    async def get_by_query_in_pages_async(
+    async def get_by_query_in_pages_async(  # type: ignore[override]
         self,
         concurrent_requests: int,
         output_queue: asyncio.Queue[PagingResult],
         fn_handle_batch: Optional[HandleBatchFunction],
         fn_handle_error: Optional[HandleErrorFunction],
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
-    ) -> FhirGetResponse:
+    ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Retrieves the data in batches (using paging) to reduce load on the FHIR server and to reduce network traffic
 
@@ -752,7 +770,7 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
                 for resources in [r.resources for r in result_list]:
                     resources_list.extend(resources)
 
-            return FhirGetResponse(
+            yield FhirGetResponse(
                 request_id=result_list[0].request_id if len(result_list) > 0 else None,
                 url=self._url,
                 responses=json.dumps(resources_list),

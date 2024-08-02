@@ -74,7 +74,7 @@ async def test_fhir_graph_async() -> None:
     fhir_client = FhirClient()
 
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
-    response: FhirGetResponse = await fhir_client.graph_async(
-        graph_definition=graph_definition, contained=False
+    response: FhirGetResponse = await anext(
+        fhir_client.graph_async(graph_definition=graph_definition, contained=False)
     )
     assert json.loads(response.responses) == response_text

@@ -3,7 +3,7 @@ from datetime import datetime
 
 # noinspection PyPackageRequirements
 from dateutil import parser
-from typing import Optional, Dict, Any, List, Union, cast
+from typing import Optional, Dict, Any, List, Union, cast, AsyncGenerator
 
 from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntry,
@@ -359,3 +359,23 @@ class FhirGetResponse:
             raise Exception(
                 f"Could not get resourceType and id from resources: {json.dumps(resources, cls=FhirJSONEncoder)}"
             ) from e
+
+    @staticmethod
+    async def from_async_generator(
+        generator: AsyncGenerator["FhirGetResponse", None]
+    ) -> "FhirGetResponse":
+        """
+        Reads a generator of FhirGetResponse and returns a single FhirGetResponse by appending all the FhirGetResponse
+
+        :param generator: generator of FhirGetResponse items
+        :return: FhirGetResponse
+        """
+        result: FhirGetResponse | None = None
+        async for value in generator:
+            if not result:
+                result = value
+            else:
+                result.append([value])
+
+        assert result
+        return result

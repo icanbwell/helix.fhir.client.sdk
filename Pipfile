@@ -29,7 +29,7 @@ pre-commit=">=3.7.1"
 # autoflake is needed for removing unused imports
 autoflake=">=2.3.1"
 # mypy is needed for type checking
-mypy = ">=1.10.1"
+mypy = ">=1.11.1"
 # pytest is needed for running tests
 pytest = ">=8.2.2"
 # black is needed for formatting code
