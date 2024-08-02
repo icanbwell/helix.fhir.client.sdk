@@ -1,5 +1,7 @@
 import json
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+
+from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 
 
 class NdJsonChunkStreamingParser:
@@ -7,13 +9,19 @@ class NdJsonChunkStreamingParser:
         # Initialize an empty buffer to store incomplete JSON objects
         self.buffer = ""
 
-    def add_chunk(self, chunk: str) -> List[Dict[str, Any]]:
+    def add_chunk(
+        self, chunk: str, logger: Optional[FhirLogger]
+    ) -> List[Dict[str, Any]]:
         """
         Add a new chunk of NDJSON data and return a list of complete JSON objects.
 
         :param chunk: A string containing a chunk of NDJSON data.
+        :param logger: A logger to log errors.
         :return: A list of complete JSON objects extracted from the chunk.
         """
+        if logger:
+            logger.debug(f"NdJsonChunkStreamingParser: chunk:\n{chunk}")
+
         # Add the new chunk to the buffer
         self.buffer += chunk
         # Split the buffer into lines based on newline characters
@@ -23,6 +31,11 @@ class NdJsonChunkStreamingParser:
 
         incomplete_lines: List[str] = []
 
+        if logger:
+            logger.debug(f"NdJsonChunkStreamingParser: line_count: {len(lines)}")
+            for line in lines:
+                logger.debug(f"{line}")
+
         # Process all complete lines
         for line in lines:
             if line.strip():  # Ensure line is not empty
@@ -31,6 +44,13 @@ class NdJsonChunkStreamingParser:
                     complete_json_objects.append(json_object)
                 except json.JSONDecodeError as e:
                     incomplete_lines.append(line)
+                    if logger:
+                        logger.debug(
+                            f"NdJsonChunkStreamingParser Error parsing line: {line}\nError: {e}."
+                            "  Will wait for next chunk to see if it fixes the issue."
+                            f"\nline: {line}"
+                            f"\nincomplete_lines: {incomplete_lines}"
+                        )
 
         # Update the buffer with incomplete lines
         self.buffer = "\n".join(incomplete_lines)

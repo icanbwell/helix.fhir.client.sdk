@@ -494,9 +494,11 @@ class FhirResponseProcessor:
             chunk_number += 1
             if fn_handle_streaming_chunk:
                 await fn_handle_streaming_chunk(chunk_bytes, chunk_number)
+            chunk = chunk_bytes.decode("utf-8")
             completed_resources: List[Dict[str, Any]] = (
                 nd_json_chunk_streaming_parser.add_chunk(
-                    chunk=chunk_bytes.decode("utf-8")
+                    chunk=chunk,
+                    logger=logger,
                 )
             )
             if completed_resources:
@@ -519,9 +521,15 @@ class FhirResponseProcessor:
                     response_headers=response_headers,
                     chunk_number=chunk_number,
                 )
-
-            if logger:
-                logger.debug(f"Successfully retrieved chunk {chunk_number}: {full_url}")
+                if logger:
+                    logger.debug(
+                        f"Successfully got completed resources from {full_url}:\n{completed_resources}"
+                    )
+            else:
+                if logger:
+                    logger.debug(
+                        f"No new complete resources from chunk {chunk_number} from {full_url}: \n{chunk}"
+                    )
 
     @staticmethod
     async def log_response(
