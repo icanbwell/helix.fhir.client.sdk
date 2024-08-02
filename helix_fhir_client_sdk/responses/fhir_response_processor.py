@@ -181,7 +181,7 @@ class FhirResponseProcessor:
             internal_logger.error(
                 f"Fhir Receive failed [{response.status}]: {full_url} "
             )
-        error_text: str = response.response_text
+        error_text: str = await response.get_text_async()
         if logger:
             logger.error(error_text)
         if internal_logger:
@@ -228,7 +228,7 @@ class FhirResponseProcessor:
 
         :return: An async generator of FhirGetResponse objects.
         """
-        last_response_text = response.response_text
+        last_response_text = await response.get_text_async()
         if logger:
             logger.error(f"resource not found! {full_url}")
         yield FhirGetResponse(
@@ -376,7 +376,7 @@ class FhirResponseProcessor:
             logger.debug(f"Successfully retrieved: {full_url}")
         # noinspection PyBroadException
         try:
-            text = response.response_text
+            text = await response.get_text_async()
             if len(text) > 0:
                 response_json: Dict[str, Any] = json.loads(text)
                 if (

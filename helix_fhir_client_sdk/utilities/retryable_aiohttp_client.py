@@ -90,6 +90,7 @@ class RetryableAioHttpClient:
                                 else ""
                             ),
                             content=response.content,
+                            use_data_streaming=self.use_data_streaming,
                         )
                     elif (
                         self.exclude_status_codes_from_retry
@@ -105,6 +106,7 @@ class RetryableAioHttpClient:
                                 response=response
                             ),
                             content=response.content,
+                            use_data_streaming=self.use_data_streaming,
                         )
                     elif response.status in [403, 404]:
                         return RetryableAioHttpResponse(
@@ -117,6 +119,7 @@ class RetryableAioHttpClient:
                                 response=response
                             ),
                             content=response.content,
+                            use_data_streaming=self.use_data_streaming,
                         )
                     elif response.status == 429:
                         await self._handle_429(response=response, full_url=url)
@@ -171,11 +174,14 @@ class RetryableAioHttpClient:
         *,
         url: str,
         headers: Optional[Dict[str, str]],
-        data: Optional[Dict[str, Any]] = None,
+        data: Optional[str] = None,
+        json: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> RetryableAioHttpResponse:
         if data is not None:
-            kwargs["json"] = data
+            kwargs["data"] = data
+        elif json is not None:
+            kwargs["json"] = json
         return await self.fetch(url=url, method="POST", headers=headers, **kwargs)
 
     async def delete(self, *, url: str, **kwargs: Any) -> RetryableAioHttpResponse:

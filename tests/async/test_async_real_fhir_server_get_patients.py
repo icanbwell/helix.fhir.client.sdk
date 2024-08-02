@@ -48,6 +48,7 @@ async def test_async_real_fhir_server_get_patients() -> None:
     )
     print(merge_response.responses)
     assert merge_response.status == 200, merge_response.responses
+    assert len(merge_response.responses) == 1, merge_response.responses
     assert merge_response.responses[0]["created"] is True, merge_response.responses
 
     fhir_client = FhirClient()
