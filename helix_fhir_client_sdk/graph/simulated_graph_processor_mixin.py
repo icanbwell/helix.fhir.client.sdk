@@ -10,6 +10,7 @@ from typing import (
     Any,
     Tuple,
     cast,
+    AsyncGenerator,
 )
 
 from aiohttp import ClientSession
@@ -51,7 +52,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         url: Optional[str],
         expand_fhir_bundle: Optional[bool],
         auth_scopes: Optional[List[str]],
-    ) -> FhirGetResponse:
+    ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Simulates the $graph query on the FHIR server
 
@@ -111,7 +112,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     logger=logger,
                 )
                 if not response.responses:
-                    return response
+                    yield response
                 parent_bundle_entries: List[BundleEntry] = response.get_bundle_entries()
 
                 if logger:
@@ -176,7 +177,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     logger.info(
                         f"Request Cache hits: {cache.cache_hits}, misses: {cache.cache_misses}"
                     )
-                return response
+                yield response
 
     async def _process_link_async(
         self,
@@ -515,7 +516,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         retrieve_and_restrict_to_capability_statement: Optional[bool] = None,
         ifModifiedSince: Optional[datetime] = None,
         eTag: Optional[str] = None,
-    ) -> FhirGetResponse:
+    ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Simulates the $graph query on the FHIR server
 
@@ -540,7 +541,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             assert self._additional_parameters is not None
             self._additional_parameters.append("contained=true")
 
-        return await self.process_simulate_graph_async(
+        async for r in self.process_simulate_graph_async(
             id_=id_,
             graph_json=graph_json,
             contained=contained,
@@ -556,4 +557,5 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             expand_fhir_bundle=self._expand_fhir_bundle,
             logger=self._logger,
             auth_scopes=self._auth_scopes,
-        )
+        ):
+            yield r

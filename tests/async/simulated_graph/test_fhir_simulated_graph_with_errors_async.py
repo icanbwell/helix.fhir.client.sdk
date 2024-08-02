@@ -93,11 +93,13 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
 
     fhir_client = fhir_client.exclude_status_codes_from_retry([401])
 
-    response: FhirGetResponse = await fhir_client.simulate_graph_async(
-        id_="1",
-        graph_json=graph_json,
-        contained=False,
-        separate_bundle_resources=False,
+    response: FhirGetResponse = await FhirGetResponse.from_async_generator(
+        fhir_client.simulate_graph_async(
+            id_="1",
+            graph_json=graph_json,
+            contained=False,
+            separate_bundle_resources=False,
+        )
     )
     print(response.responses)
 
