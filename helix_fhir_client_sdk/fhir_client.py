@@ -23,7 +23,6 @@ import aiohttp
 
 from aiohttp import (
     ClientSession,
-    ClientResponse,
     TraceRequestEndParams,
 )
 
@@ -35,6 +34,7 @@ from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.fhir_auth_mixin import FhirAuthMixin
 from helix_fhir_client_sdk.fhir_composite_query_mixin import FhirCompositeQueryMixin
+from helix_fhir_client_sdk.fhir_delete_mixin import FhirDeleteMixin
 from helix_fhir_client_sdk.fhir_merge_mixin import FhirMergeMixin
 from helix_fhir_client_sdk.fhir_patch_mixin import FhirPatchMixin
 from helix_fhir_client_sdk.fhir_update_mixin import FhirUpdateMixin
@@ -51,7 +51,6 @@ from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
-from helix_fhir_client_sdk.responses.fhir_delete_response import FhirDeleteResponse
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
@@ -73,6 +72,7 @@ class FhirClient(
     FhirUpdateMixin,
     FhirPatchMixin,
     FhirAuthMixin,
+    FhirDeleteMixin,
     FhirClientProtocol,
 ):
     """
@@ -460,57 +460,6 @@ class FhirClient(
         """
         self._access_token = value
         return self
-
-    async def delete_async(self) -> FhirDeleteResponse:
-        """
-        Delete the resources
-
-        """
-        if not self._id:
-            raise ValueError("delete requires the ID of FHIR object to delete")
-        if not self._resource:
-            raise ValueError("delete requires a FHIR resource type")
-        full_uri: furl = furl(self._url)
-        full_uri /= self._resource
-        full_uri /= self._id
-        # setup retry
-        async with self.create_http_session() as http:
-            # set up headers
-            headers: Dict[str, str] = {}
-            headers.update(self._additional_request_headers)
-            self._internal_logger.debug(f"Request headers: {headers}")
-
-            access_token = await self.get_access_token_async()
-            # set access token in request if present
-            if access_token:
-                headers["Authorization"] = f"Bearer {access_token}"
-
-            # actually make the request
-            response: ClientResponse = await http.delete(
-                full_uri.tostr(), headers=headers
-            )
-            request_id = response.headers.getone("X-Request-ID", None)
-            self._internal_logger.info(f"X-Request-ID={request_id}")
-            if response.status == 200:
-                if self._logger:
-                    self._logger.info(f"Successfully deleted: {full_uri}")
-
-            return FhirDeleteResponse(
-                request_id=request_id,
-                url=full_uri.tostr(),
-                responses=await response.text(),
-                error=f"{response.status}" if not response.status == 200 else None,
-                access_token=access_token,
-                status=response.status,
-            )
-
-    def delete(self) -> FhirDeleteResponse:
-        """
-        Delete the resources
-
-        """
-        result: FhirDeleteResponse = asyncio.run(self.delete_async())
-        return result
 
     def separate_bundle_resources(
         self, separate_bundle_resources: bool
@@ -973,64 +922,6 @@ class FhirClient(
         assert isinstance(filter_, list), "This function requires a list"
         self._filters.extend(filter_)
         return self
-
-    async def delete_by_query_async(
-        self, *, additional_parameters: Optional[List[str]] = None
-    ) -> FhirDeleteResponse:
-        """
-        Delete the resources using the specified query if any
-
-
-        :param additional_parameters: additional parameters to add to the query
-        :return: response
-        """
-        if not self._resource:
-            raise ValueError("delete requires a FHIR resource type")
-        full_uri: furl = furl(self._url)
-        full_uri /= self._resource
-        full_url: str = full_uri.url
-        if additional_parameters:
-            if len(full_uri.args) > 0:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += "&".join(additional_parameters)
-        elif self._additional_parameters:
-            if len(full_uri.args) > 0:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += "&".join(self._additional_parameters)
-        # setup retry
-        async with self.create_http_session() as http:
-            # set up headers
-            headers: Dict[str, str] = {}
-            headers.update(self._additional_request_headers)
-            self._internal_logger.debug(f"Request headers: {headers}")
-
-            access_token = await self.get_access_token_async()
-            # set access token in request if present
-            if access_token:
-                headers["Authorization"] = f"Bearer {access_token}"
-
-            # actually make the request
-            response: ClientResponse = await http.delete(
-                full_uri.tostr(), headers=headers
-            )
-            request_id = response.headers.getone("X-Request-ID", None)
-            self._internal_logger.info(f"X-Request-ID={request_id}")
-            if response.status == 200:
-                if self._logger:
-                    self._logger.info(f"Successfully deleted: {full_uri}")
-
-            return FhirDeleteResponse(
-                request_id=request_id,
-                url=full_uri.tostr(),
-                responses=await response.text(),
-                error=f"{response.status}" if not response.status == 200 else None,
-                access_token=access_token,
-                status=response.status,
-            )
 
     def clone(self) -> "FhirClient":
         """
