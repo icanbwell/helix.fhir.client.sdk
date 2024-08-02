@@ -22,6 +22,9 @@ from helix_fhir_client_sdk.responses.paging_result import PagingResult
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
+from helix_fhir_client_sdk.well_known_configuration import (
+    WellKnownConfigurationCacheEntry,
+)
 
 
 class FhirClientProtocol(Protocol):
@@ -82,6 +85,10 @@ class FhirClientProtocol(Protocol):
     # default to built-in function to refresh token
     _refresh_token_function: RefreshTokenFunction
     _chunk_size: int
+    _time_to_live_in_secs_for_cache: int
+    _well_known_configuration_cache_lock: Lock
+
+    _well_known_configuration_cache: Dict[str, WellKnownConfigurationCacheEntry]
 
     async def get_access_token_async(self) -> Optional[str]: ...
 
@@ -115,7 +122,7 @@ class FhirClientProtocol(Protocol):
     def resource(self, resource: str):  # type: ignore[no-untyped-def]
         ...
 
-    def set_access_token(self, value: str) -> "FhirClientProtocol": ...
+    def set_access_token(self, value: str | None) -> "FhirClientProtocol": ...
 
     def include_only_properties(
         self, include_only_properties: List[str] | None
