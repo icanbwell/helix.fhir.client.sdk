@@ -1,7 +1,7 @@
 import asyncio
 import json
 import time
-from typing import Optional, List, Dict, Any, Union, cast, Generator
+from typing import Optional, List, Dict, Any, Union, cast, Generator, AsyncGenerator
 from urllib import parse
 
 import requests
@@ -33,7 +33,7 @@ class FhirMergeMixin(FhirClientProtocol):
         id_: Optional[str] = None,
         json_data_list: List[str],
         batch_size: Optional[int] = None,
-    ) -> FhirMergeResponse:
+    ) -> AsyncGenerator[FhirMergeResponse, None]:
         """
         Calls $merge function on FHIR server
 
@@ -152,12 +152,25 @@ class FhirMergeMixin(FhirClientProtocol):
                                         responses = [{"issue": str(e)}]
                                 else:
                                     responses = []
+                                yield FhirMergeResponse(
+                                    request_id=request_id,
+                                    url=resource_uri.url,
+                                    responses=responses + errors,
+                                    error=(
+                                        json.dumps(responses + errors)
+                                        if response_status != 200
+                                        else None
+                                    ),
+                                    access_token=self._access_token,
+                                    status=response_status if response_status else 500,
+                                    json_data=json_payload,
+                                )
                             else:  # other HTTP errors
                                 self._internal_logger.info(
                                     f"POST response for {resource_uri.url}: {response.status}"
                                 )
                                 response_text = await response.get_text_async()
-                                return FhirMergeResponse(
+                                yield FhirMergeResponse(
                                     request_id=request_id,
                                     url=resource_uri.url or self._url or "",
                                     json_data=json_payload,
@@ -216,7 +229,19 @@ class FhirMergeMixin(FhirClientProtocol):
                             ) from e
                 else:
                     json_payload = json.dumps(json_data_list)
-
+                    yield FhirMergeResponse(
+                        request_id=request_id,
+                        url=resource_uri.url,
+                        responses=responses + errors,
+                        error=(
+                            json.dumps(responses + errors)
+                            if response_status != 200
+                            else None
+                        ),
+                        access_token=self._access_token,
+                        status=response_status if response_status else 500,
+                        json_data=json_payload,
+                    )
             except AssertionError as e:
                 if self._logger:
                     self._logger.error(
@@ -225,18 +250,7 @@ class FhirMergeMixin(FhirClientProtocol):
                             + f"variables={convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))}"
                         )
                     )
-
-            return FhirMergeResponse(
-                request_id=request_id,
-                url=resource_uri.url,
-                responses=responses + errors,
-                error=(
-                    json.dumps(responses + errors) if response_status != 200 else None
-                ),
-                access_token=self._access_token,
-                status=response_status if response_status else 500,
-                json_data=json_payload,
-            )
+                raise e
 
     async def validate_content(
         self,
@@ -310,9 +324,12 @@ class FhirMergeMixin(FhirClientProtocol):
         :param id_: id of the resource to merge
         :return: response
         """
+
         result: FhirMergeResponse = asyncio.run(
-            self.merge_async(
-                id_=id_, json_data_list=json_data_list, batch_size=batch_size
+            FhirMergeResponse.from_async_generator(
+                self.merge_async(
+                    id_=id_, json_data_list=json_data_list, batch_size=batch_size
+                )
             )
         )
         return result
