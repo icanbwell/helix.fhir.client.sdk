@@ -17,6 +17,7 @@ from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProto
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_result import GetResult
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
+from helix_fhir_client_sdk.utilities.list_chunker import ListChunker
 
 
 class FhirCompositeQueryMixin(FhirClientProtocol):
@@ -64,7 +65,7 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
             )
         ]
         # now split the ids
-        chunks: Generator[List[str], None, None] = self._divide_into_chunks(
+        chunks: Generator[List[str], None, None] = ListChunker.divide_into_chunks(
             list_of_ids, page_size_for_retrieving_resources
         )
         # chunks_list = list(chunks)
@@ -385,23 +386,6 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
                 )
         if self._logger:
             self._logger.info(f"====== Received {len(list_of_ids)} ids =======")
-
-    # Yield successive n-sized chunks from l.
-    @staticmethod
-    def _divide_into_chunks(
-        array: List[Any], chunk_size: int
-    ) -> Generator[List[str], None, None]:
-        """
-        Divides a list into a list of chunks
-
-
-        :param array: array to divide into chunks
-        :param chunk_size: size of each chunk
-        :return: generator that returns a list of strings
-        """
-        # looping till length l
-        for i in range(0, len(array), chunk_size):
-            yield array[i : i + chunk_size]
 
     # noinspection PyUnusedLocal
     async def get_resources_by_id_from_queue_async(

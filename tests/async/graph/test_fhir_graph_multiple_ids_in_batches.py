@@ -17,9 +17,9 @@ from helix_fhir_client_sdk.graph.graph_definition import (
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 
-async def test_fhir_graph_multiple_ids_async() -> None:
+async def test_fhir_graph_multiple_ids_in_batches_async() -> None:
     print("")
-    test_name = "test_fhir_graph_multiple_ids_async"
+    test_name = "test_fhir_graph_multiple_ids_in_batches_async"
 
     environ["LOG_LEVEL"] = "DEBUG"
 
@@ -66,20 +66,22 @@ async def test_fhir_graph_multiple_ids_async() -> None:
         ],
     )
 
-    response_text = {
-        "resourceType": "Bundle",
-        "entry": [
-            {"resource": {"resourceType": "Patient", "id": "1"}},
-            {"resource": {"resourceType": "Patient", "id": "2"}},
-        ],
-    }
     mock_client.expect(
         request=mock_request(
-            path=f"/{relative_url}/Patient/$graph",
+            path=f"/{relative_url}/Patient/1/$graph",
             method="POST",
-            querystring={"id": "1,2"},
         ),
-        response=mock_response(body=response_text),
+        response=mock_response(body={"resourceType": "Patient", "id": "1"}),
+        timing=times(1),
+        file_path=None,
+    )
+
+    mock_client.expect(
+        request=mock_request(
+            path=f"/{relative_url}/Patient/2/$graph",
+            method="POST",
+        ),
+        response=mock_response(body={"resourceType": "Patient", "id": "2"}),
         timing=times(1),
         file_path=None,
     )
@@ -87,20 +89,19 @@ async def test_fhir_graph_multiple_ids_async() -> None:
     fhir_client = FhirClient()
 
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
-    fhir_client = fhir_client.page_size(10)
+    fhir_client = fhir_client.page_size(1)  # process one by one
     responses: List[FhirGetResponse] = []
     async for response in fhir_client.graph_async(
-        id_=["1", "2"], graph_definition=graph_definition, contained=False
+        id_=["1", "2"],
+        graph_definition=graph_definition,
+        contained=False,
+        process_in_batches=False,
     ):
         print(f"Response Chunk: {response.responses}")
         responses.append(response)
 
-    assert len(responses) == 1
+    assert len(responses) == 2
     print(f"Response: {responses[0].responses}")
-    assert responses[
-        0
-    ].responses, f"Expected {response_text} but got {responses[0].responses} from url {responses[0].url}"
-    assert responses[0].get_resources() == [
-        {"id": "1", "resourceType": "Patient"},
-        {"id": "2", "resourceType": "Patient"},
-    ]
+    assert responses[0].responses
+    assert responses[0].get_resources() == [{"id": "1", "resourceType": "Patient"}]
+    assert responses[1].get_resources() == [{"id": "2", "resourceType": "Patient"}]

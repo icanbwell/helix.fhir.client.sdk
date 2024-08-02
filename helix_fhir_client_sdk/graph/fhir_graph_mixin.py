@@ -10,6 +10,7 @@ from helix_fhir_client_sdk.graph.graph_definition import GraphDefinition
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
+from helix_fhir_client_sdk.utilities.list_chunker import ListChunker
 
 
 class FhirGraphMixin(FhirClientProtocol):
@@ -66,15 +67,17 @@ class FhirGraphMixin(FhirClientProtocol):
         async with self.create_http_session() as http:
             if not process_in_batches:
                 result: Optional[FhirGetResponse]
-                async for result1 in self._get_with_session_async(  # type: ignore[attr-defined]
-                    session=http,
-                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                    additional_parameters=self._additional_parameters,
-                    id_above=None,
-                    page_number=self._page_number,
-                    ids=id_list,
-                ):
-                    yield result1
+                chunk_size: int = self._page_size or 1
+                for chunk in ListChunker.divide_into_chunks(id_list, chunk_size):
+                    async for result1 in self._get_with_session_async(  # type: ignore[attr-defined]
+                        session=http,
+                        fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+                        additional_parameters=self._additional_parameters,
+                        id_above=None,
+                        page_number=self._page_number,
+                        ids=chunk,
+                    ):
+                        yield result1
             else:
                 async for result1 in self.get_by_query_in_pages_async(  # type: ignore[attr-defined]
                     concurrent_requests=concurrent_requests,
