@@ -1,5 +1,5 @@
 import asyncio
-from typing import Optional, AsyncGenerator
+from typing import Optional, AsyncGenerator, List
 
 from helix_fhir_client_sdk.function_types import (
     HandleBatchFunction,
@@ -16,7 +16,7 @@ class FhirGraphMixin(FhirClientProtocol):
     async def graph_async(
         self,
         *,
-        id_: Optional[str] = None,
+        id_: str | List[str] | None = None,
         graph_definition: GraphDefinition,
         contained: bool,
         process_in_batches: Optional[bool] = None,
@@ -40,7 +40,7 @@ class FhirGraphMixin(FhirClientProtocol):
                                 return the resources in the response anymore.  If this function returns false then we
                                 stop processing any further batches.
         :param fn_handle_error: function that is called when there is an error
-        :param id_: id of the resource to start the graph from
+        :param id_: id of the resource to start the graph from.   Can be a list of ids
         :return: response containing all the resources received
         """
         assert graph_definition
@@ -54,8 +54,14 @@ class FhirGraphMixin(FhirClientProtocol):
         self.action_payload(graph_definition.to_dict())
         self.resource(graph_definition.start)
         self.action("$graph")
-        id_ = id_ or "1"
-        self.id_(id_)  # this is needed because the $graph endpoint requires an id
+        id_list: list[str] = []
+        if isinstance(id_, list):
+            id_list = id_
+        elif id_:
+            id_list.append(id_)
+        else:
+            id_list.append("1")
+        self.id_(id_list)  # this is needed because the $graph endpoint requires an id
         output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
         async with self.create_http_session() as http:
             if not process_in_batches:
@@ -66,7 +72,7 @@ class FhirGraphMixin(FhirClientProtocol):
                     additional_parameters=self._additional_parameters,
                     id_above=None,
                     page_number=self._page_number,
-                    ids=[id_],
+                    ids=id_list,
                 ):
                     yield result1
             else:
