@@ -22,6 +22,7 @@ class RetryableAioHttpClient:
         retry_status_codes: Optional[List[int]] = None,
         simple_refresh_token_func: Optional[SimpleRefreshTokenFunction] = None,
         session: Optional[aiohttp.ClientSession] = None,
+        exclude_status_codes_from_retry: List[int] | None,
     ) -> None:
         self.retries: int = retries
         self.timeout_in_seconds: Optional[float] = timeout_in_seconds
@@ -35,6 +36,9 @@ class RetryableAioHttpClient:
             simple_refresh_token_func
         )
         self.session: Optional[ClientSession] = session
+        self.exclude_status_codes_from_retry: List[int] | None = (
+            exclude_status_codes_from_retry
+        )
 
     @staticmethod
     async def get_safe_response_text_async(
@@ -71,6 +75,22 @@ class RetryableAioHttpClient:
                     )
                     if response.ok:
                         return RetryableAioHttpResponse(
+                            ok=response.ok,
+                            status=response.status,
+                            response_headers={
+                                k: v for k, v in response.headers.items()
+                            },
+                            response_text=await self.get_safe_response_text_async(
+                                response=response
+                            ),
+                            content=response.content,
+                        )
+                    elif (
+                        self.exclude_status_codes_from_retry
+                        and response.status in self.exclude_status_codes_from_retry
+                    ):
+                        return RetryableAioHttpResponse(
+                            ok=response.ok,
                             status=response.status,
                             response_headers={
                                 k: v for k, v in response.headers.items()
@@ -82,6 +102,7 @@ class RetryableAioHttpClient:
                         )
                     elif response.status == 404:
                         return RetryableAioHttpResponse(
+                            ok=response.ok,
                             status=response.status,
                             response_headers={
                                 k: v for k, v in response.headers.items()

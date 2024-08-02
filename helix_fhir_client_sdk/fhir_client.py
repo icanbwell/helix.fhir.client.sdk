@@ -798,6 +798,7 @@ class FhirClient(
                             auth_scopes=self._auth_scopes,
                             login_token=self._login_token,
                         ),
+                        exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                     )
                 )
                 assert isinstance(response, RetryableAioHttpResponse)
@@ -1010,6 +1011,7 @@ class FhirClient(
         headers: Dict[str, str],
         payload: Dict[str, Any] | None,
         simple_refresh_token_func: Optional[SimpleRefreshTokenFunction],
+        exclude_status_codes_from_retry: List[int] | None,
     ) -> RetryableAioHttpResponse:
         """
         Sends a request to the server
@@ -1031,6 +1033,7 @@ class FhirClient(
             session=http,
             simple_refresh_token_func=simple_refresh_token_func,
             retries=self._retry_count,
+            exclude_status_codes_from_retry=exclude_status_codes_from_retry,
         )
 
         if self._action == "$graph":

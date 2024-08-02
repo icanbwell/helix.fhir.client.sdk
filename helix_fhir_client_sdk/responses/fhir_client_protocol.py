@@ -93,6 +93,7 @@ class FhirClientProtocol(Protocol):
         headers: Dict[str, str],
         payload: Dict[str, Any] | None,
         simple_refresh_token_func: Optional[SimpleRefreshTokenFunction],
+        exclude_status_codes_from_retry: List[int] | None,
     ) -> RetryableAioHttpResponse: ...
 
     def create_http_session(self) -> ClientSession: ...
