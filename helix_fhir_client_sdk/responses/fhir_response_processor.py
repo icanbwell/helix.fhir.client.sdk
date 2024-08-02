@@ -49,7 +49,6 @@ class FhirResponseProcessor:
         request_id: Optional[str],
         response_headers: List[str],
         access_token: Optional[str],
-        retries_left: int,
         resources_json: str,
         fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
         logger: Optional[FhirLogger],
@@ -77,7 +76,6 @@ class FhirResponseProcessor:
         :param request_id: The request ID.
         :param response_headers: The response headers.
         :param access_token: The access token.
-        :param retries_left: The number of retries left.
         :param resources_json: The resources in JSON format.
         :param fn_handle_streaming_chunk: The function to handle the streaming chunk.
         :param logger: The logger object.
@@ -107,7 +105,6 @@ class FhirResponseProcessor:
                 response_headers=response_headers,
                 fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                 access_token=access_token,
-                retries_left=retries_left,
                 resources_json=resources_json,
                 resource=resource,
                 id_=id_,
@@ -196,7 +193,6 @@ class FhirResponseProcessor:
         access_token: Optional[str],
         full_url: str,
         response: RetryableAioHttpResponse,
-        retries_left: int,
         request_id: Optional[str],
         response_headers: List[str],
         resources_json: str,
@@ -218,7 +214,6 @@ class FhirResponseProcessor:
         :param access_token: The access token.
         :param full_url: The full URL of the request.
         :param response: The response object from the FHIR server.
-        :param retries_left: The number of retries left.
         :param request_id: The request ID.
         :param response_headers: The response headers.
         :param resources_json: The resources in JSON format.
@@ -265,7 +260,6 @@ class FhirResponseProcessor:
                 request_id=request_id,
                 access_token=access_token,
                 response_headers=response_headers,
-                retries_left=retries_left,
                 next_url=next_url,
                 total_count=total_count,
                 resources_json=resources_json,
@@ -284,7 +278,6 @@ class FhirResponseProcessor:
         *,
         full_url: str,
         response: RetryableAioHttpResponse,
-        retries_left: int,
         request_id: Optional[str],
         access_token: Optional[str],
         response_headers: List[str],
@@ -305,7 +298,6 @@ class FhirResponseProcessor:
 
         :param full_url: The full URL of the request.
         :param response: The response object from the FHIR server.
-        :param retries_left: The number of retries left.
         :param request_id: The request ID.
         :param access_token: The access token.
         :param response_headers: The response headers.
@@ -395,9 +387,7 @@ class FhirResponseProcessor:
         except ClientPayloadError as e:
             # do a retry
             if logger:
-                logger.error(
-                    f"{e}: {full_url}: retries_left={retries_left} headers={response.response_headers}"
-                )
+                logger.error(f"{e}: {full_url}: headers={response.response_headers}")
 
     @staticmethod
     async def _handle_response_200_streaming(
@@ -480,7 +470,6 @@ class FhirResponseProcessor:
         *,
         full_url: str,
         response_status: int,
-        retries_left: int,
         client_id: Optional[str],
         auth_scopes: List[str] | None,
         uuid: UUID,
@@ -493,7 +482,6 @@ class FhirResponseProcessor:
 
         :param full_url: The full URL of the request.
         :param response_status: The response status.
-        :param retries_left: The number of retries left.
         :param client_id: The client ID.
         :param auth_scopes: The authorization scopes.
         :param uuid: The UUID.
@@ -509,21 +497,18 @@ class FhirResponseProcessor:
                     f"response from get_with_session_async: {full_url} status_code {response_status} "
                     + f"with client_id={client_id} and scopes={auth_scopes} "
                     + f"instance_id={uuid} "
-                    + f"retries_left={retries_left}"
                 )
             if internal_logger:
                 internal_logger.info(
                     f"response from get_with_session_async: {full_url} status_code {response_status} "
                     + f"with client_id={client_id} and scopes={auth_scopes} "
                     + f"instance_id={uuid} "
-                    + f"retries_left={retries_left}"
                 )
 
     @staticmethod
     async def log_request(
         *,
         full_url: str,
-        retries_left: int,
         client_id: Optional[str],
         auth_scopes: List[str] | None,
         uuid: UUID,
@@ -535,7 +520,6 @@ class FhirResponseProcessor:
         This method is responsible for logging the request to the FHIR server.
 
         :param full_url: The full URL of the request.
-        :param retries_left: The number of retries left.
         :param client_id: The client ID.
         :param auth_scopes: The authorization scopes.
         :param uuid: The UUID.
@@ -549,12 +533,12 @@ class FhirResponseProcessor:
             if logger:
                 logger.debug(
                     f"sending a get_with_session_async: {full_url} with client_id={client_id} "
-                    + f"and scopes={auth_scopes} instance_id={uuid} retries_left={retries_left}"
+                    + f"and scopes={auth_scopes} instance_id={uuid}"
                 )
             if internal_logger:
                 internal_logger.info(
                     f"sending a get_with_session_async: {full_url} with client_id={client_id} "
-                    + f"and scopes={auth_scopes} instance_id={uuid} retries_left={retries_left}"
+                    + f"and scopes={auth_scopes} instance_id={uuid}"
                 )
 
     @staticmethod

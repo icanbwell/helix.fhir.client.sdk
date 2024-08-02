@@ -738,8 +738,6 @@ class FhirClient(
         assert self._url, "No FHIR server url was set"
         assert self._resource, "No Resource was set"
         request_id: Optional[str] = None
-        retries_left: int = self._retry_count + 1
-        # retries_left: int = 1
 
         # create url and query to request from FHIR server
         resources_json: str = ""
@@ -764,118 +762,84 @@ class FhirClient(
         last_status_code: Optional[int] = None
         last_response_text: Optional[str] = None
         try:
-            while retries_left > 0:
-                # set access token in request if present
-                access_token: Optional[str] = await self.get_access_token_async()
-                if access_token:
-                    headers["Authorization"] = f"Bearer {access_token}"
+            # set access token in request if present
+            access_token: Optional[str] = await self.get_access_token_async()
+            if access_token:
+                headers["Authorization"] = f"Bearer {access_token}"
 
-                # actually make the request
-                if session is None:
-                    http = self.create_http_session()
-                else:
-                    http = session
+            # actually make the request
+            if session is None:
+                http = self.create_http_session()
+            else:
+                http = session
 
-                await FhirResponseProcessor.log_request(
-                    full_url=full_url,
-                    retries_left=retries_left,
-                    client_id=self._client_id,
-                    auth_scopes=self._auth_scopes,
-                    log_level=self._log_level,
-                    uuid=self._uuid,
-                    logger=self._logger,
-                    internal_logger=self._internal_logger,
-                )
+            await FhirResponseProcessor.log_request(
+                full_url=full_url,
+                client_id=self._client_id,
+                auth_scopes=self._auth_scopes,
+                log_level=self._log_level,
+                uuid=self._uuid,
+                logger=self._logger,
+                internal_logger=self._internal_logger,
+            )
 
-                response: RetryableAioHttpResponse = (
-                    await self._send_fhir_request_async(
-                        http=http,
-                        full_url=full_url,
-                        headers=headers,
-                        payload=payload,
-                        simple_refresh_token_func=lambda: self._refresh_token_function(
-                            auth_server_url=self._auth_server_url,
-                            auth_scopes=self._auth_scopes,
-                            login_token=self._login_token,
-                        ),
-                        exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
-                    )
-                )
-                assert isinstance(response, RetryableAioHttpResponse)
-                last_status_code = response.status
-                response_headers: List[str] = [
-                    f"{key}:{value}" for key, value in response.response_headers.items()
-                ]
-                # retries_left
-                retries_left = retries_left - 1
-                await FhirResponseProcessor.log_response(
-                    full_url=full_url,
-                    response_status=response.status,
-                    retries_left=retries_left,
-                    client_id=self._client_id,
-                    internal_logger=self._internal_logger,
-                    log_level=self._log_level,
-                    logger=self._logger,
-                    auth_scopes=self._auth_scopes,
-                    uuid=self._uuid,
-                )
-
-                request_id = response.response_headers.get("X-Request-ID", None)
-                self._internal_logger.info(f"X-Request-ID={request_id}")
-
-                async for r in FhirResponseProcessor.handle_response(
-                    auth_scopes=self._auth_scopes,
-                    internal_logger=self._internal_logger,
-                    access_token=access_token,
-                    response_headers=response_headers,
-                    response=response,
-                    logger=self._logger,
-                    resources_json=resources_json,
-                    retries_left=retries_left,
-                    full_url=full_url,
-                    request_id=request_id,
-                    login_token=self._login_token,
-                    resource=self._resource,
-                    id_=self._id,
+            response: RetryableAioHttpResponse = await self._send_fhir_request_async(
+                http=http,
+                full_url=full_url,
+                headers=headers,
+                payload=payload,
+                simple_refresh_token_func=lambda: self._refresh_token_function(
                     auth_server_url=self._auth_server_url,
-                    refresh_token_function=self._refresh_token_function,
-                    exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
-                    chunk_size=self._chunk_size,
-                    expand_fhir_bundle=self._expand_fhir_bundle,
-                    separate_bundle_resources=self._separate_bundle_resources,
-                    url=self._url,
-                    extra_context_to_return=self._extra_context_to_return,
-                    use_data_streaming=self._use_data_streaming,
-                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                ):
-                    yield r
+                    auth_scopes=self._auth_scopes,
+                    login_token=self._login_token,
+                ),
+                exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
+            )
+            assert isinstance(response, RetryableAioHttpResponse)
+            last_status_code = response.status
+            response_headers: List[str] = [
+                f"{key}:{value}" for key, value in response.response_headers.items()
+            ]
+            await FhirResponseProcessor.log_response(
+                full_url=full_url,
+                response_status=response.status,
+                client_id=self._client_id,
+                internal_logger=self._internal_logger,
+                log_level=self._log_level,
+                logger=self._logger,
+                auth_scopes=self._auth_scopes,
+                uuid=self._uuid,
+            )
 
-                await self._log_retry(
-                    response=response, retries_left=retries_left, url=full_url
-                )
-                if (
-                    response.status == 200
-                    or response.status == 404
-                    or response.status == 403
-                ):
-                    # for these status codes retry will not solve them
-                    break
+            request_id = response.response_headers.get("X-Request-ID", None)
+            self._internal_logger.info(f"X-Request-ID={request_id}")
 
-            if retries_left == 0:
-                # if after retries_left we still fail then show it here
-                yield FhirGetResponse(
-                    request_id=request_id,
-                    url=full_url,
-                    responses="",
-                    error=last_response_text or "Error after retries",
-                    access_token=self._access_token,
-                    total_count=0,
-                    status=last_status_code or 0,
-                    extra_context_to_return=self._extra_context_to_return,
-                    resource_type=self._resource,
-                    id_=self._id,
-                    response_headers=None,
-                )
+            async for r in FhirResponseProcessor.handle_response(
+                auth_scopes=self._auth_scopes,
+                internal_logger=self._internal_logger,
+                access_token=access_token,
+                response_headers=response_headers,
+                response=response,
+                logger=self._logger,
+                resources_json=resources_json,
+                full_url=full_url,
+                request_id=request_id,
+                login_token=self._login_token,
+                resource=self._resource,
+                id_=self._id,
+                auth_server_url=self._auth_server_url,
+                refresh_token_function=self._refresh_token_function,
+                exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
+                chunk_size=self._chunk_size,
+                expand_fhir_bundle=self._expand_fhir_bundle,
+                separate_bundle_resources=self._separate_bundle_resources,
+                url=self._url,
+                extra_context_to_return=self._extra_context_to_return,
+                use_data_streaming=self._use_data_streaming,
+                fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+            ):
+                yield r
+
         except Exception as ex:
             raise FhirSenderException(
                 request_id=request_id,
@@ -889,17 +853,6 @@ class FhirClient(
                 message="",
                 elapsed_time=time.time() - start_time,
             )
-
-    async def _log_retry(
-        self, *, url: str, response: RetryableAioHttpResponse, retries_left: int
-    ) -> None:
-        message: str = (
-            f"Got status_code= {response.status} from {url}, Retries left={retries_left}"
-        )
-        if self._logger:
-            self._logger.info(message)
-        if self._internal_logger:
-            self._internal_logger.info(message)
 
     async def _build_url(
         self,
