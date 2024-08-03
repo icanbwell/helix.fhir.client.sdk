@@ -8,18 +8,24 @@ from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
 from helix_fhir_client_sdk.utilities.fhir_server_helpers import FhirServerHelpers
+from tests.test_logger import TestLogger
 
 
 @pytest.mark.parametrize("use_data_streaming", [True, False])
 async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> None:
     await FhirServerHelpers.clean_fhir_server_async(resource_type="Patient")
 
+    environ["LOG_LEVEL"] = "DEBUG"
+
     fhir_server_url: str = environ["FHIR_SERVER_URL"]
     auth_client_id = environ["FHIR_CLIENT_ID"]
     auth_client_secret = environ["FHIR_CLIENT_SECRET"]
     auth_well_known_url = environ["AUTH_CONFIGURATION_URI"]
 
+    logger = TestLogger()
+
     fhir_client = FhirClient()
+    fhir_client.logger(logger=logger)
     fhir_client = fhir_client.url(fhir_server_url).resource("Patient")
     fhir_client = fhir_client.client_credentials(
         client_id=auth_client_id, client_secret=auth_client_secret

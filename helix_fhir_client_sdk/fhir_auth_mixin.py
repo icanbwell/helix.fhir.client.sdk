@@ -92,10 +92,6 @@ class FhirAuthMixin(FhirClientProtocol):
             self.auth_server_url(
                 await self._get_auth_server_url_from_well_known_configuration_async()
             )
-            if self._auth_server_url and self._logger:
-                self._logger.info(
-                    f"Received {self._auth_server_url} from well_known configuration of server: {self._url}"
-                )
         self.set_access_token(
             await self._refresh_token_function(
                 auth_server_url=self._auth_server_url,
@@ -157,9 +153,10 @@ class FhirAuthMixin(FhirClientProtocol):
                     < self._time_to_live_in_secs_for_cache
                 ):
                     cached_endpoint: Optional[str] = entry.auth_url
-                    # self._internal_logger.info(
-                    #     f"Returning auth_url from cache for {host_name}: {cached_endpoint}"
-                    # )
+                    if self._logger:
+                        self._logger.debug(
+                            f"Returning auth_url from cache for {host_name}: {cached_endpoint}"
+                        )
                     return cached_endpoint
             async with self.create_http_session() as http:
                 try:
@@ -174,6 +171,10 @@ class FhirAuthMixin(FhirClientProtocol):
                                     auth_url=token_endpoint,
                                     last_updated_utc=datetime.utcnow(),
                                 )
+                            )
+                        if self._logger:
+                            self._logger.info(
+                                f"Returning auth_url without cache for {host_name}: {token_endpoint}"
                             )
                         return token_endpoint
                     else:
