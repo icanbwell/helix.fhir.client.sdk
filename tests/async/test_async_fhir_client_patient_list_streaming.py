@@ -11,6 +11,7 @@ from mockserver_client.mockserver_client import (
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from tests.test_logger import TestLogger
 
 
 async def test_fhir_client_patient_list_async_streaming() -> None:
@@ -58,7 +59,9 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
         timing=times(2),
     )
 
+    logger = TestLogger()
     fhir_client = FhirClient()
+    fhir_client.logger(logger=logger)
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     fhir_client = fhir_client.use_data_streaming(True)
     fhir_client = fhir_client.chunk_size(10)

@@ -473,7 +473,7 @@ class FhirClient(
     ) -> None:
         FhirClient._internal_logger.debug(
             f"[CHUNK] {params.method} {params.url} "
-            f"Chunk received:\n{params.chunk.decode('utf-8') if params.chunk else '[None]'}"
+            f"Chunk received:\n{params.chunk.decode('utf-8') if params.chunk else '[Empty]'}"
         )
 
     def get_access_token(self) -> Optional[str]:

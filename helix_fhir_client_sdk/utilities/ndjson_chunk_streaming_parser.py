@@ -19,8 +19,8 @@ class NdJsonChunkStreamingParser:
         :param logger: A logger to log errors.
         :return: A list of complete JSON objects extracted from the chunk.
         """
-        if logger:
-            logger.debug(f"NdJsonChunkStreamingParser: chunk:\n{chunk}")
+        # if logger:
+        #     logger.debug(f"NdJsonChunkStreamingParser: chunk:\n{chunk}")
 
         # Add the new chunk to the buffer
         self.buffer += chunk
@@ -31,11 +31,6 @@ class NdJsonChunkStreamingParser:
 
         incomplete_lines: List[str] = []
 
-        if logger:
-            logger.debug(f"NdJsonChunkStreamingParser: line_count: {len(lines)}")
-            for line in lines:
-                logger.debug(f"{line}")
-
         # Process all complete lines
         for line in lines:
             if line.strip():  # Ensure line is not empty
@@ -44,13 +39,13 @@ class NdJsonChunkStreamingParser:
                     complete_json_objects.append(json_object)
                 except json.JSONDecodeError as e:
                     incomplete_lines.append(line)
-                    if logger:
-                        logger.debug(
-                            f"NdJsonChunkStreamingParser Error parsing line: {line}\nError: {e}."
-                            "  Will wait for next chunk to see if it fixes the issue."
-                            f"\nline: {line}"
-                            f"\nincomplete_lines: {incomplete_lines}"
-                        )
+                    # if logger:
+                    #     logger.debug(
+                    #         f"NdJsonChunkStreamingParser Error parsing line: {line}\nError: {e}."
+                    #         "  Will wait for next chunk to see if it fixes the issue."
+                    #         f"\nline: {line}"
+                    #         f"\nincomplete_lines: {incomplete_lines}"
+                    #     )
 
         # Update the buffer with incomplete lines
         self.buffer = "\n".join(incomplete_lines)
