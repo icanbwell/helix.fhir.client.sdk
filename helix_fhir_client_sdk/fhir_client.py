@@ -460,6 +460,9 @@ class FhirClient(
         FhirClient._internal_logger.info(
             "Sent headers: %s" % params.response.request_info.headers
         )
+        FhirClient._internal_logger.info(
+            "Received headers: %s" % params.response.headers
+        )
 
     def get_access_token(self) -> Optional[str]:
         return asyncio.run(self.get_access_token_async())

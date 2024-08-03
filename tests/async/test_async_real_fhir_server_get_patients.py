@@ -15,7 +15,7 @@ from tests.test_logger import TestLogger
 async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> None:
     await FhirServerHelpers.clean_fhir_server_async(resource_type="Patient")
 
-    environ["LOG_LEVEL"] = "DEBUG"
+    environ["LOGLEVEL"] = "DEBUG"
 
     fhir_server_url: str = environ["FHIR_SERVER_URL"]
     auth_client_id = environ["FHIR_CLIENT_ID"]
