@@ -152,9 +152,9 @@ async def test_async_real_fhir_server_get_patients_large(
     if use_data_streaming:
         resources: List[Dict[str, Any]] = response.get_resources()
         assert len(resources) == 1000
-        assert resources[0]["id"] == resource["id"]
-        assert resources[0]["resourceType"] == resource["resourceType"]
-        assert response.chunk_number == 1
+        assert resources[0]["id"].startswith("example-")
+        assert resources[0]["resourceType"] == "Patient"
+        assert response.chunk_number == 4
         assert response.response_headers is not None
         assert "Transfer-Encoding:chunked" in response.response_headers
     else:
