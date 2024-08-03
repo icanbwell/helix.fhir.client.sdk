@@ -24,7 +24,7 @@ class RetryableAioHttpClient:
         session: Optional[aiohttp.ClientSession] = None,
         exclude_status_codes_from_retry: List[int] | None,
         use_data_streaming: Optional[bool],
-        compress: Optional[bool] = True,
+        compress: Optional[bool] = False,
     ) -> None:
         self.retries: int = retries
         self.timeout_in_seconds: Optional[float] = timeout_in_seconds
@@ -45,7 +45,6 @@ class RetryableAioHttpClient:
         self.chunked = use_data_streaming
         self.compress = compress
         self.chunked = False
-        self.compress = False
 
     @staticmethod
     async def get_safe_response_text_async(
