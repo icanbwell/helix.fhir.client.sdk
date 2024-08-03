@@ -24,6 +24,7 @@ import aiohttp
 from aiohttp import (
     ClientSession,
     TraceRequestEndParams,
+    TraceResponseChunkReceivedParams,
 )
 
 from furl import furl
@@ -463,6 +464,17 @@ class FhirClient(
             f"{key}:{value}" for key, value in params.response.headers.items()
         ]
         FhirClient._internal_logger.info(f"Received headers: {received_headers}")
+
+    @staticmethod
+    async def on_response_chunk_received(
+        session: ClientSession,
+        trace_config_ctx: SimpleNamespace,
+        params: TraceResponseChunkReceivedParams,
+    ) -> None:
+        FhirClient._internal_logger.debug(
+            f"[CHUNK] {params.method} {params.url} "
+            f"Chunk received:\n{params.chunk.decode('utf-8') if params.chunk else '[None]'}"
+        )
 
     def get_access_token(self) -> Optional[str]:
         return asyncio.run(self.get_access_token_async())
@@ -909,7 +921,9 @@ class FhirClient(
         # trace_config.on_request_start.append(on_request_start)
         if self._log_level == "DEBUG":
             trace_config.on_request_end.append(FhirClient.on_request_end)
-        # trace_config.on_response_chunk_received
+            trace_config.on_response_chunk_received.append(
+                FhirClient.on_response_chunk_received
+            )
         # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
         timeout = aiohttp.ClientTimeout(total=60 * 60, sock_read=240)
         session: ClientSession = aiohttp.ClientSession(
