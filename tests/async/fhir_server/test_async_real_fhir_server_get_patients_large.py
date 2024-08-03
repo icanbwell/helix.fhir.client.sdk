@@ -67,25 +67,23 @@ async def test_async_real_fhir_server_get_patients_large(
     fhir_client = fhir_client.limit(1000)
     fhir_client = fhir_client.use_data_streaming(use_data_streaming)
 
-    responses: List[FhirGetResponse] = []
-    response: Optional[FhirGetResponse] = None
-    resource_chunks: List[List[Dict[str, Any]]] = []
-    async for response1 in fhir_client.get_streaming_async():
-        resources_in_chunk = response1.get_resources()
-        print(
-            f"Chunk Received {response1.chunk_number} [{len(resources_in_chunk)}]: {response1}"
-        )
-        resource_chunks.append(resources_in_chunk)
-        responses.append(response1)
-        if not response:
-            response = response1
-        else:
-            response.append([response1])
-
-    assert response is not None
-    response_text = response.responses
-
     if use_data_streaming:
+        responses: List[FhirGetResponse] = []
+        response: Optional[FhirGetResponse] = None
+        resource_chunks: List[List[Dict[str, Any]]] = []
+        async for response1 in fhir_client.get_streaming_async():
+            resources_in_chunk = response1.get_resources()
+            print(
+                f"Chunk Received {response1.chunk_number} [{len(resources_in_chunk)}]: {response1}"
+            )
+            resource_chunks.append(resources_in_chunk)
+            responses.append(response1)
+            if not response:
+                response = response1
+            else:
+                response.append([response1])
+
+        assert response is not None
         resources: List[Dict[str, Any]] = response.get_resources()
         assert len(resources) == 1000
         assert len(responses) > 1
@@ -96,6 +94,8 @@ async def test_async_real_fhir_server_get_patients_large(
         assert "Transfer-Encoding:chunked" in response.response_headers
         assert "Content-Encoding:gzip" in response.response_headers
     else:
+        response = await fhir_client.get_async()
+        response_text = response.responses
         bundle = json.loads(response_text)
         assert "entry" in bundle, bundle
         responses_: List[Any] = [r["resource"] for r in bundle["entry"]]
