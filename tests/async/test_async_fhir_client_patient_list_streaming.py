@@ -52,7 +52,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
         response=mock_response(
             body=response_text,
             headers={"Content-Type": "application/fhir+ndjson"},
-            connectionOptions={"chunkSize": 10},
+            connectionOptions={"chunkSize": 1},
         ),
         timing=times(2),
     )

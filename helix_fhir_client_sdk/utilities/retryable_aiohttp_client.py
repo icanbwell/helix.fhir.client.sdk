@@ -167,7 +167,7 @@ class RetryableAioHttpClient:
     async def get(
         self, *, url: str, headers: Optional[Dict[str, str]], **kwargs: Any
     ) -> RetryableAioHttpResponse:
-        return await self.fetch(url=url, method="GET", headers=headers, **kwargs)
+        return await self.fetch(url=url, method="GET", chunked=True, compress=True, headers=headers, **kwargs)
 
     async def post(
         self,

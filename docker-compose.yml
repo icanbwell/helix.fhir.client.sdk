@@ -7,7 +7,7 @@ services:
       context: .
     volumes:
       - ./:/src/
-#      - ../mockserver_client/mockserver_client:/usr/local/lib/python3.10/dist-packages/mockserver_client
+      - ../mockserver_client/mockserver_client:/usr/local/lib/python3.10/site-packages/mockserver_client
     container_name: fhir_client_sdk_dev
     working_dir: /src
     env_file:
