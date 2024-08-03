@@ -104,14 +104,14 @@ class FhirGetResponse:
             "entry": bundle_entries,
         }
         self.responses = json.dumps(bundle, cls=FhirJSONEncoder)
-        # latest_chunk_number: List[int] = sorted(
-        #     [o.chunk_number for o in other if o.chunk_number], reverse=True
-        # )
-        # if len(latest_chunk_number) > 0:
-        #     self.chunk_number = latest_chunk_number[0]
-        # if len(other) > 0:
-        #     self.next_url = other[-1].next_url
-        #     self.access_token = other[-1].access_token
+        latest_chunk_number: List[int] = sorted(
+            [o.chunk_number for o in other if o.chunk_number], reverse=True
+        )
+        if len(latest_chunk_number) > 0:
+            self.chunk_number = latest_chunk_number[0]
+        if len(other) > 0:
+            self.next_url = other[-1].next_url
+            self.access_token = other[-1].access_token
         return self
 
     def get_resources(self) -> List[Dict[str, Any]]:
