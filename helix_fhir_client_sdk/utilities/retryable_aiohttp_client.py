@@ -42,8 +42,8 @@ class RetryableAioHttpClient:
             exclude_status_codes_from_retry
         )
         self.use_data_streaming: Optional[bool] = use_data_streaming
-        # self.chunked = use_data_streaming
-        # self.compress = compress
+        self.chunked = use_data_streaming
+        self.compress = compress
         self.chunked = False
         self.compress = False
 
@@ -82,7 +82,7 @@ class RetryableAioHttpClient:
                         url,
                         headers=headers,
                         # chunked=self.chunked,
-                        # compress=self.compress,
+                        compress=self.compress,
                         **kwargs,
                     )
                     if response.ok:
