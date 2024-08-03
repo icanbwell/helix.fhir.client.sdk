@@ -1,6 +1,6 @@
 import json
 from os import environ
-from typing import Any, List
+from typing import Any, List, Dict
 
 import pytest
 
@@ -28,9 +28,7 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
     await fhir_client.id_("12355").delete_async()
 
     fhir_client = FhirClient()
-    fhir_client = (
-        fhir_client.url(fhir_server_url).use_data_streaming(True).resource("Patient")
-    )
+    fhir_client = fhir_client.url(fhir_server_url).resource("Patient")
     fhir_client = fhir_client.client_credentials(
         client_id=auth_client_id, client_secret=auth_client_secret
     )
@@ -64,9 +62,16 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
     fhir_client = fhir_client.use_data_streaming(use_data_streaming)
     response: FhirGetResponse = await fhir_client.get_async()
     response_text = response.responses
-    bundle = json.loads(response_text)
-    assert "entry" in bundle, bundle
-    responses_: List[Any] = [r["resource"] for r in bundle["entry"]]
-    assert len(responses_) == 1
-    assert responses_[0]["id"] == resource["id"]
-    assert responses_[0]["resourceType"] == resource["resourceType"]
+
+    if use_data_streaming:
+        resources: List[Dict[str, Any]] = response.get_resources()
+        assert len(resources) == 1
+        assert resources[0]["id"] == resource["id"]
+        assert resources[0]["resourceType"] == resource["resourceType"]
+    else:
+        bundle = json.loads(response_text)
+        assert "entry" in bundle, bundle
+        responses_: List[Any] = [r["resource"] for r in bundle["entry"]]
+        assert len(responses_) == 1
+        assert responses_[0]["id"] == resource["id"]
+        assert responses_[0]["resourceType"] == resource["resourceType"]

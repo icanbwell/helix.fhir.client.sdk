@@ -42,8 +42,8 @@ class RetryableAioHttpClient:
             exclude_status_codes_from_retry
         )
         self.use_data_streaming: Optional[bool] = use_data_streaming
-        self.chunked = use_data_streaming
-        self.compress = (compress,)
+        self.chunked = False
+        self.compress = False
 
     @staticmethod
     async def get_safe_response_text_async(

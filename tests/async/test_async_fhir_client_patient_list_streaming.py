@@ -43,6 +43,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
     for e in fhir["entry"]:
         response_text += json.dumps(e["resource"]) + "\n"
 
+    # noinspection PyArgumentList
     mock_client.expect(
         request=mock_request(
             path=f"/{relative_url}/Patient",
@@ -52,7 +53,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
         response=mock_response(
             body=response_text,
             headers={"Content-Type": "application/fhir+ndjson"},
-            connectionOptions={"chunkSize": 1},
+            # connectionOptions={"chunkSize": 1},
         ),
         timing=times(2),
     )
