@@ -76,12 +76,13 @@ class RetryableAioHttpClient:
             try:
                 if self.session is None:
                     self.session = aiohttp.ClientSession()
+                if self.chunked:
+                    kwargs["chunked"] = self.chunked
                 async with async_timeout.timeout(self.timeout_in_seconds):
                     response = await self.session.request(
                         method,
                         url,
                         headers=headers,
-                        chunked=self.chunked,
                         compress=self.compress,
                         **kwargs,
                     )
@@ -106,6 +107,19 @@ class RetryableAioHttpClient:
                         self.exclude_status_codes_from_retry
                         and response.status in self.exclude_status_codes_from_retry
                     ):
+                        return RetryableAioHttpResponse(
+                            ok=response.ok,
+                            status=response.status,
+                            response_headers={
+                                k: v for k, v in response.headers.items()
+                            },
+                            response_text=await self.get_safe_response_text_async(
+                                response=response
+                            ),
+                            content=response.content,
+                            use_data_streaming=self.use_data_streaming,
+                        )
+                    elif response.status == 400:
                         return RetryableAioHttpResponse(
                             ok=response.ok,
                             status=response.status,
