@@ -90,6 +90,8 @@ class FhirClientProtocol(Protocol):
 
     _well_known_configuration_cache: Dict[str, WellKnownConfigurationCacheEntry]
 
+    _compress: bool
+
     async def get_access_token_async(self) -> Optional[str]: ...
 
     async def _send_fhir_request_async(

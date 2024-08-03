@@ -68,6 +68,7 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
         assert len(resources) == 1
         assert resources[0]["id"] == resource["id"]
         assert resources[0]["resourceType"] == resource["resourceType"]
+        assert response.chunk_number == 1
     else:
         bundle = json.loads(response_text)
         assert "entry" in bundle, bundle

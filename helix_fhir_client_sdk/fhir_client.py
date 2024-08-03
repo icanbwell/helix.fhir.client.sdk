@@ -143,6 +143,8 @@ class FhirClient(
         )
         self._chunk_size: int = 1024
 
+        self._compress: bool = True
+
         FhirAuthMixin.__init__(self)
 
     def action(self, action: str) -> "FhirClient":
@@ -433,6 +435,15 @@ class FhirClient(
         :param last_page: last page number
         """
         self._last_page = last_page
+        return self
+
+    def compress(self, compress: bool) -> "FhirClient":
+        """
+        Sets the compress flag
+
+        :param compress: whether to compress the response
+        """
+        self._compress = compress
         return self
 
     # noinspection PyUnusedLocal
@@ -839,6 +850,7 @@ class FhirClient(
             retries=self._retry_count,
             exclude_status_codes_from_retry=exclude_status_codes_from_retry,
             use_data_streaming=self._use_data_streaming,
+            compress=self._compress,
         )
 
         if self._action == "$graph":

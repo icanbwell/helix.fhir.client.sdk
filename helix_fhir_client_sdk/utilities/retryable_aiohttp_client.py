@@ -42,6 +42,8 @@ class RetryableAioHttpClient:
             exclude_status_codes_from_retry
         )
         self.use_data_streaming: Optional[bool] = use_data_streaming
+        # self.chunked = use_data_streaming
+        # self.compress = compress
         self.chunked = False
         self.compress = False
 
@@ -76,7 +78,12 @@ class RetryableAioHttpClient:
                     self.session = aiohttp.ClientSession()
                 async with async_timeout.timeout(self.timeout_in_seconds):
                     response = await self.session.request(
-                        method, url, headers=headers, **kwargs
+                        method,
+                        url,
+                        headers=headers,
+                        # chunked=self.chunked,
+                        # compress=self.compress,
+                        **kwargs,
                     )
                     if response.ok:
                         return RetryableAioHttpResponse(

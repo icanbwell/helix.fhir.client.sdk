@@ -61,6 +61,7 @@ class FhirUpdateMixin(FhirClientProtocol):
                 retries=self._retry_count,
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                 use_data_streaming=self._use_data_streaming,
+                compress=self._compress,
             )
             response = await client.put(
                 url=full_uri.url, data=json_data, headers=headers

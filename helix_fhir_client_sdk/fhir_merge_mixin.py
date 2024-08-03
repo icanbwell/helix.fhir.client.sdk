@@ -125,6 +125,7 @@ class FhirMergeMixin(FhirClientProtocol):
                                 retries=self._retry_count,
                                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                                 use_data_streaming=self._use_data_streaming,
+                                compress=self._compress,
                             )
                             # should we check if it exists and do a POST then?
                             response: RetryableAioHttpResponse = await client.post(
