@@ -67,11 +67,16 @@ async def test_async_real_fhir_server_get_patients_large(
     fhir_client = fhir_client.limit(1000)
     fhir_client = fhir_client.use_data_streaming(use_data_streaming)
 
+    responses: List[FhirGetResponse] = []
     response: Optional[FhirGetResponse] = None
     resource_chunks: List[List[Dict[str, Any]]] = []
     async for response1 in fhir_client.get_streaming_async():
-        print(f"Got response from chunk {response1.chunk_number}: {response1}")
-        resource_chunks.append(response1.get_resources())
+        resources_in_chunk = response1.get_resources()
+        print(
+            f"Chunk Received {response1.chunk_number} [{len(resources_in_chunk)}]: {response1}"
+        )
+        resource_chunks.append(resources_in_chunk)
+        responses.append(response1)
         if not response:
             response = response1
         else:
@@ -83,11 +88,13 @@ async def test_async_real_fhir_server_get_patients_large(
     if use_data_streaming:
         resources: List[Dict[str, Any]] = response.get_resources()
         assert len(resources) == 1000
+        assert len(responses) > 1
         assert resources[0]["id"].startswith("example-")
         assert resources[0]["resourceType"] == "Patient"
         assert response.chunk_number == 4
         assert response.response_headers is not None
         assert "Transfer-Encoding:chunked" in response.response_headers
+        assert "Content-Encoding:gzip" in response.response_headers
     else:
         bundle = json.loads(response_text)
         assert "entry" in bundle, bundle
@@ -95,3 +102,5 @@ async def test_async_real_fhir_server_get_patients_large(
         assert len(responses_) == 1000
         assert responses_[0]["id"].startswith("example-")
         assert responses_[0]["resourceType"] == "Patient"
+        assert response.response_headers is not None
+        assert "Content-Encoding:gzip" in response.response_headers
