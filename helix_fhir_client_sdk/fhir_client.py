@@ -453,16 +453,16 @@ class FhirClient(
         trace_config_ctx: SimpleNamespace,
         params: TraceRequestEndParams,
     ) -> None:
-        FhirClient._internal_logger.info(
-            "Ending %s request for %s. I sent: %s"
-            % (params.method, params.url, params.headers)
-        )
-        FhirClient._internal_logger.info(
-            "Sent headers: %s" % params.response.request_info.headers
-        )
-        FhirClient._internal_logger.info(
-            "Received headers: %s" % params.response.headers
-        )
+        FhirClient._internal_logger.info(f"{params.method} {params.url}")
+        sent_headers: List[str] = [
+            f"{key}:{value}"
+            for key, value in params.response.request_info.headers.items()
+        ]
+        FhirClient._internal_logger.info(f"Sent headers: {sent_headers}")
+        received_headers: List[str] = [
+            f"{key}:{value}" for key, value in params.response.headers.items()
+        ]
+        FhirClient._internal_logger.info(f"Received headers: {received_headers}")
 
     def get_access_token(self) -> Optional[str]:
         return asyncio.run(self.get_access_token_async())
