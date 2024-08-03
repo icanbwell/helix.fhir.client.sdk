@@ -75,6 +75,8 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
         assert resources[0]["id"] == resource["id"]
         assert resources[0]["resourceType"] == resource["resourceType"]
         assert response.chunk_number == 1
+        assert response.response_headers is not None
+        assert "Transfer-Encoding:chunked" in response.response_headers
     else:
         bundle = json.loads(response_text)
         assert "entry" in bundle, bundle
