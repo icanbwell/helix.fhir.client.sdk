@@ -72,6 +72,7 @@ class RetryableAioHttpClient:
     ) -> RetryableAioHttpResponse:
         retry_attempts = 0
         while retry_attempts < self.retries:
+            retry_attempts += 1
             try:
                 if self.session is None:
                     self.session = aiohttp.ClientSession()
@@ -80,7 +81,7 @@ class RetryableAioHttpClient:
                         method,
                         url,
                         headers=headers,
-                        # chunked=self.chunked,
+                        chunked=self.chunked,
                         compress=self.compress,
                         **kwargs,
                     )
