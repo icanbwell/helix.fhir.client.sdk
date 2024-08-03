@@ -1,7 +1,7 @@
 import copy
 import json
 from os import environ
-from typing import Any, List, Dict
+from typing import Any, List, Dict, Optional
 
 import pytest
 
@@ -135,12 +135,23 @@ async def test_async_real_fhir_server_get_patients_large(
     fhir_client = fhir_client.expand_fhir_bundle(False)
     fhir_client = fhir_client.limit(1000)
     fhir_client = fhir_client.use_data_streaming(use_data_streaming)
-    response: FhirGetResponse = await fhir_client.get_async()
+
+    response: Optional[FhirGetResponse] = None
+    resource_chunks: List[List[Dict[str, Any]]] = []
+    async for response1 in fhir_client.get_streaming_async():
+        print(f"Got response from chunk {response1.chunk_number}: {response1}")
+        resource_chunks.append(response1.get_resources())
+        if not response:
+            response = response1
+        else:
+            response.append([response1])
+
+    assert response is not None
     response_text = response.responses
 
     if use_data_streaming:
         resources: List[Dict[str, Any]] = response.get_resources()
-        assert len(resources) == 1
+        assert len(resources) == 1000
         assert resources[0]["id"] == resource["id"]
         assert resources[0]["resourceType"] == resource["resourceType"]
         assert response.chunk_number == 1
