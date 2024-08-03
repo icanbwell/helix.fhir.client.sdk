@@ -22,7 +22,7 @@ services:
 
   mock-server:
     image: mockserver/mockserver:mockserver-5.15.0
-    command: -logLevel DEBUG -serverPort 1080
+    command: -logLevel DEBUG -serverPort 1080 -Dmockserver.logLevel=INFO
     ports:
       - '1080:1080'
     environment:
