@@ -1,4 +1,3 @@
-import copy
 import json
 from os import environ
 from typing import Any, List, Dict, Optional
@@ -8,6 +7,7 @@ import pytest
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
+from helix_fhir_client_sdk.utilities.fhir_helper import FhirHelper
 from helix_fhir_client_sdk.utilities.fhir_server_helpers import FhirServerHelpers
 from tests.test_logger import TestLogger
 
@@ -48,76 +48,7 @@ async def test_async_real_fhir_server_get_patients_large(
     )
     fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
 
-    # now create 1000 patients
-    patient = {
-        "resourceType": "Patient",
-        "id": "example",
-        "meta": {
-            "source": "http://www.icanbwell.com",
-            "security": [
-                {"system": "https://www.icanbwell.com/access", "code": "bwell"},
-                {"system": "https://www.icanbwell.com/owner", "code": "bwell"},
-            ],
-        },
-        "text": {
-            "status": "generated",
-            "div": '<div xmlns="http://www.w3.org/1999/xhtml">John Doe</div>',
-        },
-        "identifier": [
-            {
-                "use": "usual",
-                "type": {
-                    "coding": [{"system": "http://hl7.org/fhir/v2/0203", "code": "MR"}]
-                },
-                "system": "http://example.com",
-                "value": "12345",
-            }
-        ],
-        "active": True,
-        "name": [{"use": "official", "family": "Doe", "given": ["John"]}],
-        "gender": "male",
-        "birthDate": "1990-01-01",
-        "address": [
-            {
-                "use": "home",
-                "line": ["123 Main St"],
-                "city": "Anytown",
-                "state": "CA",
-                "postalCode": "12345",
-                "country": "USA",
-            }
-        ],
-    }
-
-    # add 1000 patients
-    print("Adding 1000 patients")
-    patients: List[Dict[str, Any]] = []
-    for i in range(1000):
-        patient_new = copy.deepcopy(patient)
-        patient_new["id"] = f"example-{i}"
-        patient_new["identifier"][0]["value"] = f"12345-{i}"  # type: ignore[index]
-        patient_new["name"][0]["family"] = f"Doe-{i}"  # type: ignore[index]
-        patient_new["name"][0]["given"][0] = f"John-{i}"  # type: ignore[index]
-        patient_new["address"][0]["line"][0] = f"123 Main St-{i}"  # type: ignore[index]
-        patient_new["address"][0]["city"] = f"Anytown-{i}"  # type: ignore[index]
-        patient_new["address"][0]["state"] = f"CA-{i}"  # type: ignore[index]
-        patient_new["address"][0]["postalCode"] = f"12345-{i}"  # type: ignore[index]
-        patient_new["address"][0]["country"] = f"USA-{i}"  # type: ignore[index]
-        patients.append(patient_new)
-    print("Added 1000 patients")
-
-    resource = {
-        "resourceType": "Bundle",
-        "id": "12355",
-        "meta": {
-            "source": "http://www.icanbwell.com",
-            "security": [
-                {"system": "https://www.icanbwell.com/access", "code": "bwell"},
-                {"system": "https://www.icanbwell.com/owner", "code": "bwell"},
-            ],
-        },
-        "entry": [{"resource": p} for p in patients],
-    }
+    resource = await FhirHelper.create_test_patients(1000)
     merge_response: FhirMergeResponse = await FhirMergeResponse.from_async_generator(
         fhir_client.merge_async(json_data_list=[json.dumps(resource)])
     )

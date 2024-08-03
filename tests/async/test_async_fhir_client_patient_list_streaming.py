@@ -1,6 +1,6 @@
 import json
 from os import environ
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Optional
 
 from mockserver_client.mockserver_client import (
     mock_request,
@@ -11,6 +11,7 @@ from mockserver_client.mockserver_client import (
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.utilities.fhir_helper import FhirHelper
 from tests.test_logger import TestLogger
 
 
@@ -31,14 +32,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
     mock_client.clear(f"/{test_name}/*.*")
     mock_client.reset()
 
-    fhir: Dict[str, Any] = {
-        "resourceType": "Bundle",
-        "total": 2,
-        "entry": [
-            {"resource": {"resourceType": "Patient", "id": "1"}},
-            {"resource": {"resourceType": "Patient", "id": "2"}},
-        ],
-    }
+    fhir: Dict[str, Any] = await FhirHelper.create_test_patients(100)
 
     response_text: str = ""
     for e in fhir["entry"]:
@@ -67,12 +61,22 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
     fhir_client = fhir_client.chunk_size(10)
 
     responses: List[FhirGetResponse] = []
-
+    response: Optional[FhirGetResponse] = None
+    resource_chunks: List[List[Dict[str, Any]]] = []
     async for response1 in fhir_client.get_streaming_async():
+        print(f"Got response from chunk {response1.chunk_number}: {response1}")
+        resource_chunks.append(response1.get_resources())
+        if not response:
+            response = response1
+        else:
+            response.append([response1])
         responses.append(response1)
 
-    assert len(responses) == 2
-    assert responses[0].resource_type == "Patient"
-    assert responses[0].get_resources() == [{"resourceType": "Patient", "id": "1"}]
-    assert responses[1].resource_type == "Patient"
-    assert responses[1].get_resources() == [{"resourceType": "Patient", "id": "2"}]
+    assert response is not None
+
+    resources: List[Dict[str, Any]] = response.get_resources()
+    assert len(resources) == 100
+
+    assert len(responses) > 1
+    assert resources[0]["id"].startswith("example-")
+    assert resources[0]["resourceType"] == "Patient"
