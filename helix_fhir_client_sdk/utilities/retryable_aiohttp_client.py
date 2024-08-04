@@ -69,7 +69,7 @@ class RetryableAioHttpClient:
         headers: Dict[str, str] | None,
         **kwargs: Any,
     ) -> RetryableAioHttpResponse:
-        retry_attempts = 0
+        retry_attempts = -1
         while retry_attempts < self.retries:
             retry_attempts += 1
             try:
@@ -178,9 +178,6 @@ class RetryableAioHttpClient:
                         )
                     else:
                         response.raise_for_status()
-
-                # now increment the retry count
-                retry_attempts += 1
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 if retry_attempts >= self.retries:
                     raise e

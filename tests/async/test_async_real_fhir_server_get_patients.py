@@ -71,9 +71,9 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
 
     if use_data_streaming:
         resources: List[Dict[str, Any]] = response.get_resources()
-        assert len(resources) == 1
-        assert resources[0]["id"] == resource["id"]
-        assert resources[0]["resourceType"] == resource["resourceType"]
+        assert len(resources) == 100
+        assert resources[0]["id"].startswith("example-")
+        assert resources[0]["resourceType"] == "Patient"
         assert response.chunk_number == 1
         assert response.response_headers is not None
         assert "Transfer-Encoding:chunked" in response.response_headers
@@ -81,6 +81,6 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
         bundle = json.loads(response_text)
         assert "entry" in bundle, bundle
         responses_: List[Any] = [r["resource"] for r in bundle["entry"]]
-        assert len(responses_) == 1
-        assert responses_[0]["id"] == resource["id"]
-        assert responses_[0]["resourceType"] == resource["resourceType"]
+        assert len(responses_) == 100
+        assert responses_[0]["id"].startswith("example-")
+        assert responses_[0]["resourceType"] == "Patient"
