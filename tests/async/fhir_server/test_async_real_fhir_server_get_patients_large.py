@@ -89,7 +89,7 @@ async def test_async_real_fhir_server_get_patients_large(
         assert len(responses) > 1
         assert resources[0]["id"].startswith("example-")
         assert resources[0]["resourceType"] == "Patient"
-        assert response.chunk_number == 4
+        assert response.chunk_number == 7
         assert response.response_headers is not None
         assert "Transfer-Encoding:chunked" in response.response_headers
         assert "Content-Encoding:gzip" in response.response_headers

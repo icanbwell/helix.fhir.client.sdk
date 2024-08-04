@@ -21,8 +21,8 @@ services:
         ELASTICSEARCH_HOST: https://elasticsearch:9200
 
   mock-server:
-    image: mockserver/mockserver:mockserver-5.15.0
-    command: -logLevel DEBUG -serverPort 1080 -Dmockserver.logLevel=INFO
+    image: mockserver/mockserver:5.15.0
+    command: -logLevel DEBUG -serverPort 1080 -Dmockserver.logLevel=DEBUG
     ports:
       - '1080:1080'
     environment:
@@ -32,7 +32,7 @@ services:
   fhir:
     depends_on:
       - mongo
-    image: imranq2/node-fhir-server-mongo:5.3.8
+    image: imranq2/node-fhir-server-mongo:5.3.11
     # To use local fhir code, comment above line and uncomment below
 #    build:
 #      dockerfile: Dockerfile
