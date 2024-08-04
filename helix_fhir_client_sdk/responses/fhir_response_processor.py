@@ -490,13 +490,29 @@ class FhirResponseProcessor:
         chunk_number = 0
         chunk_bytes: bytes
 
-        def get_chunk_iterator() -> AsyncStreamIterator[bytes]:
+        async def get_iter_chunk_iterator() -> AsyncGenerator[bytes, None]:
+            """
+            Reads the aiohttp response content async generator but returns only the chunked bytes
+
+            """
+            async for chunk1, end_of_http_chunk in response.content.iter_chunks():
+                yield chunk1
+
+        def get_chunk_iterator() -> (
+            AsyncStreamIterator[bytes] | AsyncGenerator[bytes, None]
+        ):
+            """
+            Looks at the headers to determine if the response is chunked or not.  Then returns
+            the appropriate async generator
+
+            """
             # for Transfer-Encoding: chunked, we can't use response.content.iter_chunked()
             if response.response_headers.get("Transfer-Encoding") == "chunked":
-                return response.content.iter_any()
+                return get_iter_chunk_iterator()
             else:
                 return response.content.iter_chunked(chunk_size)
 
+        # iterate over the chunks and return the completed resources as we get them
         async for chunk_bytes in get_chunk_iterator():
             # # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
             # await asyncio.sleep(0)

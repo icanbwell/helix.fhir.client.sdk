@@ -49,7 +49,7 @@ sphinx-rtd-theme="==2.0.0"
 # myst-parser is needed for parsing Markdown
 myst-parser="==3.0.1"
 # helix-mockserver-client is needed for mocking servers
-helix-mockserver-client=">=1.2.1"
+helix-mockserver-client=">=1.3.0"
 # httpx is needed for making HTTP requests
 httpx=">=0.23.3"
 
