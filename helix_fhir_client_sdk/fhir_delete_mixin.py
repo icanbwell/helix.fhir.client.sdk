@@ -19,13 +19,16 @@ class FhirDeleteMixin(FhirClientProtocol):
         Delete the resources
 
         """
-        if not self._id:
+        id_list = self._id
+        if isinstance(id_list, list):
+            id_list = ",".join(id_list)
+        if not id_list:
             raise ValueError("delete requires the ID of FHIR object to delete")
         if not self._resource:
             raise ValueError("delete requires a FHIR resource type")
         full_uri: furl = furl(self._url)
         full_uri /= self._resource
-        full_uri /= self._id
+        full_uri /= id_list
         # setup retry
         async with self.create_http_session() as http:
             # set up headers

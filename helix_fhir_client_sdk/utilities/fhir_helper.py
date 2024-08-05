@@ -1,6 +1,9 @@
 import copy
 from typing import List, Dict, Any
 
+from helix_fhir_client_sdk.fhir_client import FhirClient
+from helix_fhir_client_sdk.utilities.list_chunker import ListChunker
+
 
 class FhirHelper:
     @staticmethod
@@ -76,3 +79,16 @@ class FhirHelper:
             "entry": [{"resource": p} for p in patients],
         }
         return bundle
+
+    @staticmethod
+    async def delete_resources_by_ids_async(
+        fhir_client: FhirClient, resource_type: str, id_list: List[str]
+    ) -> None:
+        count: int = len(id_list)
+        print(f"Deleting {count} {resource_type} resources: {id_list}")
+        for chunk_resource_ids in ListChunker.divide_into_chunks(id_list, 100):
+            fhir_client = fhir_client.resource(resource_type)
+            delete_response = await fhir_client.id_(chunk_resource_ids).delete_async()
+            assert delete_response.status == 204, delete_response.responses
+            print(f"Deleted {len(chunk_resource_ids)} {resource_type} resources")
+        print(f"Finished deleting {count} {resource_type} resources")

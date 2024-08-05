@@ -7,6 +7,7 @@ import pytest
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
+from helix_fhir_client_sdk.utilities.fhir_helper import FhirHelper
 from helix_fhir_client_sdk.utilities.fhir_server_helpers import FhirServerHelpers
 from helix_fhir_client_sdk.utilities.practitioner_generator import PractitionerGenerator
 from tests.test_logger import TestLogger
@@ -39,32 +40,24 @@ async def test_async_real_fhir_server_get_graph_large(
     count: int = 100
 
     id_dict: Dict[str, List[str]] = PractitionerGenerator.get_ids(count)
-    print(f"Deleting {count} Practitioner resources: {id_dict['Practitioner']}")
-    for i in id_dict[resource_type]:
-        resource_id = f"{i}"
-        delete_response = (
-            await fhir_client.resource(resource_type).id_(resource_id).delete_async()
-        )
-        assert delete_response.status == 204, delete_response.responses
-    print(f"Deleted {count} Practitioner resources")
-    print(f"Deleting {count} Organization resource {id_dict['Organization']}")
-    for i in id_dict["Organization"]:
-        resource_id = f"{i}"
-        delete_response = (
-            await fhir_client.resource("Organization").id_(resource_id).delete_async()
-        )
-        assert delete_response.status == 204, delete_response.responses
-    print(f"Deleted {count} Organization resources")
-    print(f"Deleting {count} PractitionerRole resources {id_dict['PractitionerRole']}")
-    for i in id_dict["PractitionerRole"]:
-        resource_id = f"{i}"
-        delete_response = (
-            await fhir_client.resource("PractitionerRole")
-            .id_(resource_id)
-            .delete_async()
-        )
-        assert delete_response.status == 204, delete_response.responses
-    print(f"Deleted {count} PractitionerRole resources")
+    # delete Practitioner resources
+    await FhirHelper.delete_resources_by_ids_async(
+        fhir_client=fhir_client,
+        resource_type=resource_type,
+        id_list=id_dict[resource_type],
+    )
+    # delete Organization resources
+    await FhirHelper.delete_resources_by_ids_async(
+        fhir_client=fhir_client,
+        resource_type="Organization",
+        id_list=id_dict["Organization"],
+    )
+    # delete PractitionerRole resources
+    await FhirHelper.delete_resources_by_ids_async(
+        fhir_client=fhir_client,
+        resource_type="PractitionerRole",
+        id_list=id_dict["PractitionerRole"],
+    )
 
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(fhir_server_url).resource(resource_type)
