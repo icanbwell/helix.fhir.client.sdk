@@ -79,6 +79,7 @@ services:
       ACCESS_TAGS_INDEXED: "medstar,Thedacare,bwell"
       ENABLE_GLOBAL_ID: 1
       NODE_OPTIONS: --max-old-space-size=20240
+      GRAPH_BATCH_SIZE: 10
     ports:
       - '3000:3000'
     command: yarn start
