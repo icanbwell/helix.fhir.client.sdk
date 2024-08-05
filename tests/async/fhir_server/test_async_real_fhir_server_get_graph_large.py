@@ -16,7 +16,8 @@ from tests.test_logger import TestLogger
 async def test_async_real_fhir_server_get_graph_large(
     use_data_streaming: bool,
 ) -> None:
-    await FhirServerHelpers.clean_fhir_server_async(resource_type="Patient")
+    resource_type = "Practitioner"
+    await FhirServerHelpers.clean_fhir_server_async(resource_type=resource_type)
 
     environ["LOGLEVEL"] = "DEBUG"
 
@@ -29,20 +30,20 @@ async def test_async_real_fhir_server_get_graph_large(
 
     fhir_client = FhirClient()
     fhir_client.logger(logger=logger)
-    fhir_client = fhir_client.url(fhir_server_url).resource("Practitioner")
+    fhir_client = fhir_client.url(fhir_server_url).resource(resource_type)
     fhir_client = fhir_client.client_credentials(
         client_id=auth_client_id, client_secret=auth_client_secret
     )
     fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
 
-    count: int = 50
+    count: int = 100
 
     id_dict: Dict[str, List[str]] = PractitionerGenerator.get_ids(count)
     print(f"Deleting {count} Practitioner resources: {id_dict['Practitioner']}")
-    for i in id_dict["Practitioner"]:
+    for i in id_dict[resource_type]:
         resource_id = f"{i}"
         delete_response = (
-            await fhir_client.resource("Practitioner").id_(resource_id).delete_async()
+            await fhir_client.resource(resource_type).id_(resource_id).delete_async()
         )
         assert delete_response.status == 204, delete_response.responses
     print(f"Deleted {count} Practitioner resources")
@@ -66,7 +67,7 @@ async def test_async_real_fhir_server_get_graph_large(
     print(f"Deleted {count} PractitionerRole resources")
 
     fhir_client = FhirClient()
-    fhir_client = fhir_client.url(fhir_server_url).resource("Practitioner")
+    fhir_client = fhir_client.url(fhir_server_url).resource(resource_type)
     fhir_client = fhir_client.client_credentials(
         client_id=auth_client_id, client_secret=auth_client_secret
     )
@@ -91,7 +92,7 @@ async def test_async_real_fhir_server_get_graph_large(
         "id": "o",
         "name": "provider_slots",
         "status": "active",
-        "start": "Practitioner",
+        "start": resource_type,
         "link": [
             {
                 "target": [
@@ -139,8 +140,8 @@ async def test_async_real_fhir_server_get_graph_large(
     }
 
     fhir_client = FhirClient()
-    fhir_client = fhir_client.url(fhir_server_url).resource("Practitioner")
-    fhir_client = fhir_client.id_(id_dict["Practitioner"])
+    fhir_client = fhir_client.url(fhir_server_url).resource(resource_type)
+    fhir_client = fhir_client.id_(id_dict[resource_type])
     fhir_client = fhir_client.action("$graph").action_payload(slot_practitioner_graph)
     fhir_client = fhir_client.client_credentials(
         client_id=auth_client_id, client_secret=auth_client_secret
@@ -174,7 +175,7 @@ async def test_async_real_fhir_server_get_graph_large(
         assert len(resources) == expected_resource_count
         assert len(responses) > 1
         assert resources[0]["id"].startswith("example-")
-        assert resources[0]["resourceType"] == "Practitioner"
+        assert resources[0]["resourceType"] == resource_type
         assert response.chunk_number == 7
     else:
         response = await fhir_client.get_async()
@@ -184,6 +185,6 @@ async def test_async_real_fhir_server_get_graph_large(
         bundle = json.loads(response_text)
         assert "entry" in bundle, bundle
         responses_: List[Any] = [r["resource"] for r in bundle["entry"]]
-        assert len(responses_) == 1000
-        assert responses_[0]["id"].startswith("example-")
-        assert responses_[0]["resourceType"] == "Practitioner"
+        assert len(responses_) == expected_resource_count
+        assert responses_[0]["id"].startswith("practitioner-")
+        assert responses_[0]["resourceType"] == resource_type

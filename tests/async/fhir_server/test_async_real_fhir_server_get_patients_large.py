@@ -16,7 +16,8 @@ from tests.test_logger import TestLogger
 async def test_async_real_fhir_server_get_patients_large(
     use_data_streaming: bool,
 ) -> None:
-    await FhirServerHelpers.clean_fhir_server_async(resource_type="Patient")
+    resource_type = "Patient"
+    await FhirServerHelpers.clean_fhir_server_async(resource_type=resource_type)
 
     environ["LOGLEVEL"] = "DEBUG"
 
@@ -29,7 +30,7 @@ async def test_async_real_fhir_server_get_patients_large(
 
     fhir_client = FhirClient()
     fhir_client.logger(logger=logger)
-    fhir_client = fhir_client.url(fhir_server_url).resource("Patient")
+    fhir_client = fhir_client.url(fhir_server_url).resource(resource_type)
     fhir_client = fhir_client.client_credentials(
         client_id=auth_client_id, client_secret=auth_client_secret
     )
@@ -42,7 +43,7 @@ async def test_async_real_fhir_server_get_patients_large(
     print("Deleted 1000 patients")
 
     fhir_client = FhirClient()
-    fhir_client = fhir_client.url(fhir_server_url).resource("Patient")
+    fhir_client = fhir_client.url(fhir_server_url).resource(resource_type)
     fhir_client = fhir_client.client_credentials(
         client_id=auth_client_id, client_secret=auth_client_secret
     )
@@ -58,7 +59,7 @@ async def test_async_real_fhir_server_get_patients_large(
     assert merge_response.responses[0]["created"] is True, merge_response.responses
 
     fhir_client = FhirClient()
-    fhir_client = fhir_client.url(fhir_server_url).resource("Patient")
+    fhir_client = fhir_client.url(fhir_server_url).resource(resource_type)
     fhir_client = fhir_client.client_credentials(
         client_id=auth_client_id, client_secret=auth_client_secret
     )
@@ -84,23 +85,24 @@ async def test_async_real_fhir_server_get_patients_large(
                 response.append([response1])
 
         assert response is not None
-        resources: List[Dict[str, Any]] = response.get_resources()
-        assert len(resources) == 1000
-        assert len(responses) > 1
-        assert resources[0]["id"].startswith("example-")
-        assert resources[0]["resourceType"] == "Patient"
-        assert response.chunk_number == 7
         assert response.response_headers is not None
         assert "Transfer-Encoding:chunked" in response.response_headers
         assert "Content-Encoding:gzip" in response.response_headers
+        resources: List[Dict[str, Any]] = response.get_resources()
+        assert len(resources) == 1000
+        print("Number of chunks received:", len(responses))
+        assert len(responses) > 1
+        assert resources[0]["id"].startswith("example-")
+        assert resources[0]["resourceType"] == resource_type
+        assert response.chunk_number == 7
     else:
         response = await fhir_client.get_async()
+        assert response.response_headers is not None
+        assert "Content-Encoding:gzip" in response.response_headers
         response_text = response.responses
         bundle = json.loads(response_text)
         assert "entry" in bundle, bundle
         responses_: List[Any] = [r["resource"] for r in bundle["entry"]]
         assert len(responses_) == 1000
         assert responses_[0]["id"].startswith("example-")
-        assert responses_[0]["resourceType"] == "Patient"
-        assert response.response_headers is not None
-        assert "Content-Encoding:gzip" in response.response_headers
+        assert responses_[0]["resourceType"] == resource_type
