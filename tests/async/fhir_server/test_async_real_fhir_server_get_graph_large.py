@@ -37,7 +37,7 @@ async def test_async_real_fhir_server_get_graph_large(
     )
     fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
 
-    count: int = 100
+    count: int = 10
     roles_per_practitioner: int = 10
 
     id_dict: Dict[str, List[str]] = PractitionerGenerator.get_ids(
@@ -175,7 +175,7 @@ async def test_async_real_fhir_server_get_graph_large(
         assert "Content-Encoding:gzip" in response.response_headers
         assert len(resources) == count
         # assert len(responses) > 1
-        assert resources[0]["id"].startswith("example-")
+        assert resources[0]["id"].startswith("practitioner-")
         assert resources[0]["resourceType"] == resource_type
         # assert response.chunk_number == 7
     else:

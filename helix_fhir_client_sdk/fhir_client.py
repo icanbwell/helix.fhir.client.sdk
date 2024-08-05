@@ -692,7 +692,6 @@ class FhirClient(
             self._internal_logger.info(f"X-Request-ID={request_id}")
 
             async for r in FhirResponseProcessor.handle_response(
-                auth_scopes=self._auth_scopes,
                 internal_logger=self._internal_logger,
                 access_token=access_token,
                 response_headers=response_headers,
@@ -701,12 +700,8 @@ class FhirClient(
                 resources_json=resources_json,
                 full_url=full_url,
                 request_id=request_id,
-                login_token=self._login_token,
                 resource=self._resource,
                 id_=self._id,
-                auth_server_url=self._auth_server_url,
-                refresh_token_function=self._refresh_token_function,
-                exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                 chunk_size=self._chunk_size,
                 expand_fhir_bundle=self._expand_fhir_bundle,
                 separate_bundle_resources=self._separate_bundle_resources,

@@ -7,7 +7,6 @@ from aiohttp import ClientResponse, ClientPayloadError
 from aiohttp.streams import AsyncStreamIterator
 
 from helix_fhir_client_sdk.function_types import (
-    RefreshTokenFunction,
     HandleStreamingChunkFunction,
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
@@ -57,11 +56,6 @@ class FhirResponseProcessor:
         extra_context_to_return: Optional[Dict[str, Any]],
         resource: Optional[str],
         id_: Optional[Union[List[str], str]],
-        exclude_status_codes_from_retry: Optional[List[int]],
-        refresh_token_function: RefreshTokenFunction,
-        auth_server_url: Optional[str],
-        auth_scopes: List[str] | None,
-        login_token: Optional[str],
         chunk_size: int,
         expand_fhir_bundle: bool,
         url: Optional[str],
@@ -84,11 +78,6 @@ class FhirResponseProcessor:
         :param extra_context_to_return: The extra context to return.
         :param resource: The resource type.
         :param id_: The ID of the resource.
-        :param exclude_status_codes_from_retry: The status codes to exclude from retry.
-        :param refresh_token_function: The function to refresh the token.
-        :param auth_server_url: The authorization server URL.
-        :param auth_scopes: The authorization scopes.
-        :param login_token: The login token.
         :param chunk_size: The chunk size.
         :param expand_fhir_bundle: Whether to expand the FHIR bundle.
         :param url: The URL.
