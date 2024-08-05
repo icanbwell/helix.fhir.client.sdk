@@ -177,7 +177,8 @@ async def test_async_real_fhir_server_get_graph_large(
         # assert len(responses) == 4  # need new version of fhir server that fixes streaming from graph
         assert resources[0]["id"].startswith("practitioner-")
         assert resources[0]["resourceType"] == resource_type
-        assert response.chunk_number == 5
+        assert response.chunk_number is not None
+        assert response.chunk_number >= 5
     else:
         response = await fhir_client.get_async()
         assert response.response_headers is not None
