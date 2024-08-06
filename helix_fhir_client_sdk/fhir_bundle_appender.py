@@ -36,36 +36,46 @@ class FhirBundleAppender:
                 if not bundle.entry:
                     bundle.entry = []
                 diagnostics_coding_nullable: List[Optional[Dict[str, Any]]] = [
-                    {
-                        "system": "https://www.icanbwell.com/url",
-                        "code": response.url,
-                    }
-                    if response.url
-                    else None,
-                    {
-                        "system": "https://www.icanbwell.com/resourceType",
-                        "code": response.resource_type,
-                    }
-                    if response.resource_type
-                    else None,
-                    {
-                        "system": "https://www.icanbwell.com/id",
-                        "code": ",".join(response.id_)
-                        if isinstance(response.id_, list)
-                        else response.id_,
-                    }
-                    if response.id_
-                    else None,
+                    (
+                        {
+                            "system": "https://www.icanbwell.com/url",
+                            "code": response.url,
+                        }
+                        if response.url
+                        else None
+                    ),
+                    (
+                        {
+                            "system": "https://www.icanbwell.com/resourceType",
+                            "code": response.resource_type,
+                        }
+                        if response.resource_type
+                        else None
+                    ),
+                    (
+                        {
+                            "system": "https://www.icanbwell.com/id",
+                            "code": (
+                                ",".join(response.id_)
+                                if isinstance(response.id_, list)
+                                else response.id_
+                            ),
+                        }
+                        if response.id_
+                        else None
+                    ),
                     {
                         "system": "https://www.icanbwell.com/statuscode",
                         "code": response.status,
                     },
-                    {
-                        "system": "https://www.icanbwell.com/accessToken",
-                        "code": response.access_token,
-                    }
-                    if response.access_token
-                    else None,
+                    (
+                        {
+                            "system": "https://www.icanbwell.com/accessToken",
+                            "code": response.access_token,
+                        }
+                        if response.access_token
+                        else None
+                    ),
                 ]
                 diagnostics_coding: List[Dict[str, Any]] = [
                     c for c in diagnostics_coding_nullable if c is not None
@@ -82,9 +92,11 @@ class FhirBundleAppender:
                                 "code": (
                                     "expired"
                                     if response.status == 401
-                                    else "not-found"
-                                    if response.status == 404
-                                    else "exception"
+                                    else (
+                                        "not-found"
+                                        if response.status == 404
+                                        else "exception"
+                                    )
                                 ),
                                 "details": {"coding": diagnostics_coding},
                                 "diagnostics": json.dumps(
@@ -113,9 +125,11 @@ class FhirBundleAppender:
                                 "code": (
                                     "expired"
                                     if response.status == 401
-                                    else "not-found"
-                                    if response.status == 404
-                                    else "exception"
+                                    else (
+                                        "not-found"
+                                        if response.status == 404
+                                        else "exception"
+                                    )
                                 ),
                                 "details": {"coding": diagnostics_coding},
                                 "diagnostics": json.dumps(

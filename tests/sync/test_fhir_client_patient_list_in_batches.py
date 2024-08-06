@@ -160,7 +160,12 @@ def test_fhir_client_patient_list_in_batches() -> None:
         request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
-            querystring={"_count": "1", "_getpagesoffset": "0", "_total": "accurate"},
+            querystring={
+                "id": "1,2",
+                "_count": "10",
+                "_getpagesoffset": "0",
+                "_total": "accurate",
+            },
         ),
         response=mock_response(body=json.dumps(response_text_1)),
         timing=times(1),
@@ -196,3 +201,7 @@ def test_fhir_client_patient_list_in_batches() -> None:
         {"resourceType": "Patient", "id": "1"},
         {"resourceType": "Patient", "id": "2"},
     ]
+
+    # can't do this since we implement early stopping which is not deterministic since we use concurrent requests
+    # so some calls may not be made if a concurrent call returns empty
+    # mock_client.verify_expectations(test_name=test_name)

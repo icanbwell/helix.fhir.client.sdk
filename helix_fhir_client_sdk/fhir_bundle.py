@@ -30,9 +30,11 @@ class BundleEntryRequest:
         return BundleEntryRequest(
             url=d["url"],
             method=d["method"],
-            ifModifiedSince=datetime.fromisoformat(d["ifModifiedSince"])
-            if "ifModifiedSince" in d
-            else None,
+            ifModifiedSince=(
+                datetime.fromisoformat(d["ifModifiedSince"])
+                if "ifModifiedSince" in d
+                else None
+            ),
             ifNoneMatch=d["ifNoneMatch"] if "ifNoneMatch" in d else None,
         )
 
@@ -64,9 +66,11 @@ class BundleEntryResponse:
     def from_dict(d: Dict[str, Any]) -> "BundleEntryResponse":
         return BundleEntryResponse(
             status=d["status"],
-            lastModified=datetime.fromisoformat(d["lastModified"])
-            if "lastModified" in d
-            else None,
+            lastModified=(
+                datetime.fromisoformat(d["lastModified"])
+                if "lastModified" in d
+                else None
+            ),
             etag=d["etag"] if "etag" in d else None,
         )
 
@@ -103,12 +107,14 @@ class BundleEntry:
         return BundleEntry(
             fullUrl=d["fullUrl"] if "fullUrl" in d else None,
             resource=d["resource"] if "resource" in d else None,
-            request=BundleEntryRequest.from_dict(d["request"])
-            if "request" in d
-            else None,
-            response=BundleEntryResponse.from_dict(d["response"])
-            if "response" in d
-            else None,
+            request=(
+                BundleEntryRequest.from_dict(d["request"]) if "request" in d else None
+            ),
+            response=(
+                BundleEntryResponse.from_dict(d["response"])
+                if "response" in d
+                else None
+            ),
         )
 
 

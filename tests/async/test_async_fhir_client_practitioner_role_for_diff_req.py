@@ -141,9 +141,12 @@ async def test_async_fhir_client_practitioner_role_for_diff_req() -> None:
     fhir_client = fhir_client.include_total(True)
 
     mock_calls_to_get_response(mock_client, relative_url)
-    list_of_ids1: List[str] = await fhir_client.get_ids_for_query_async(
-        concurrent_requests=2, page_size_for_retrieving_ids=2
-    )
+    list_of_ids1: List[str] = [
+        s
+        async for s in fhir_client.get_ids_for_query_async(
+            concurrent_requests=2, page_size_for_retrieving_ids=2
+        )
+    ]
 
     mock_client.reset()
     # this is the second call made by the first concurrent request
@@ -216,9 +219,12 @@ async def test_async_fhir_client_practitioner_role_for_diff_req() -> None:
     )
 
     mock_calls_to_get_response(mock_client, relative_url)
-    list_of_ids2: List[str] = await fhir_client.get_ids_for_query_async(
-        concurrent_requests=3, page_size_for_retrieving_ids=2
-    )
+    list_of_ids2: List[str] = [
+        s
+        async for s in fhir_client.get_ids_for_query_async(
+            concurrent_requests=3, page_size_for_retrieving_ids=2
+        )
+    ]
 
     # Assert len of ids are same when concurrent request and page size were different.
     assert len(list_of_ids1) == len(list_of_ids2)

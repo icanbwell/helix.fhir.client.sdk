@@ -162,7 +162,7 @@ async def test_fhir_client_patient_list_in_batches_async() -> None:
             method="GET",
             querystring={
                 "id": "1,2",
-                "_count": "1",
+                "_count": "10",
                 "_getpagesoffset": "0",
                 "_total": "accurate",
             },
