@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from aiohttp import ClientSession, ClientResponse
 from furl import furl
@@ -15,6 +15,7 @@ class AsyncFhirValidator:
         json_data: str,
         resource_name: str,
         validation_server_url: str,
+        access_token: Optional[str],
     ) -> None:
         """
         Calls the validation server url to validate the given resource
@@ -23,9 +24,12 @@ class AsyncFhirValidator:
         :param json_data: json data for resource
         :param resource_name: name of resource
         :param validation_server_url: url to validation server
+        :param access_token: access token to use
         """
         # check each resource against the validation server
         headers = {"Content-Type": "application/fhir+json"}
+        if access_token:
+            headers["Authorization"] = f"Bearer {access_token}"
         full_validation_uri: furl = furl(validation_server_url)
         full_validation_uri /= resource_name
         full_validation_uri /= "$validate"

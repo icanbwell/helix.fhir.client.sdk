@@ -1,5 +1,6 @@
 import datetime
 import json
+from os import environ
 from typing import List
 
 from mockserver_client.mockserver_client import (
@@ -14,6 +15,8 @@ from helix_fhir_client_sdk.fhir_client import FhirClient
 
 async def test_fhir_client_patient_list_ids_async() -> None:
     test_name = "test_fhir_client_patient_list_ids_async"
+
+    environ["LOGLEVEL"] = "DEBUG"
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
@@ -41,7 +44,7 @@ async def test_fhir_client_patient_list_ids_async() -> None:
             querystring={
                 "_elements": "id",
                 "_count": "10000",
-                "_getpagesoffset": "9",
+                "_getpagesoffset": "0",
                 "_lastUpdated": "ge2022-01-10T00:00:00Z",
             },
         ),
@@ -52,7 +55,7 @@ async def test_fhir_client_patient_list_ids_async() -> None:
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     fhir_client = fhir_client.last_updated_after(last_updated_after)
-    list_of_ids: List[str] = await fhir_client.get_ids_for_query_async()
+    list_of_ids: List[str] = [s async for s in fhir_client.get_ids_for_query_async()]
 
     print(json.dumps(list_of_ids))
     assert list_of_ids == ["12355", "5555"]

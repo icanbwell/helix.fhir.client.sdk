@@ -46,8 +46,8 @@ async def test_fhir_client_patient_merge_async() -> None:
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     fhir_client = fhir_client.additional_request_headers(additional_request_headers)
-    response: FhirMergeResponse = await fhir_client.merge_async(
-        json_data_list=[json.dumps(resource)]
+    response: FhirMergeResponse = await FhirMergeResponse.from_async_generator(
+        fhir_client.merge_async(json_data_list=[json.dumps(resource)])
     )
 
     print(response.responses)

@@ -1,4 +1,6 @@
 import json
+from os import environ
+from typing import List
 
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
@@ -17,7 +19,10 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 
 async def test_fhir_graph_async() -> None:
+    print("")
     test_name = "test_fhir_graph_async"
+
+    environ["LOG_LEVEL"] = "DEBUG"
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
@@ -73,8 +78,14 @@ async def test_fhir_graph_async() -> None:
 
     fhir_client = FhirClient()
 
-    fhir_client = fhir_client.url(absolute_url).resource("Patient")
-    response: FhirGetResponse = await fhir_client.graph_async(
-        graph_definition=graph_definition, contained=False
-    )
-    assert json.loads(response.responses) == response_text
+    fhir_client = fhir_client.url(absolute_url).resource("Patient").id_("1")
+    responses: List[FhirGetResponse] = []
+    async for response in fhir_client.graph_async(
+        id_="1", graph_definition=graph_definition, contained=False
+    ):
+        print(f"Response Chunk: {response.responses}")
+        responses.append(response)
+
+    assert len(responses) == 1
+    print(f"Response: {responses[0].responses}")
+    assert json.loads(responses[0].responses) == response_text
