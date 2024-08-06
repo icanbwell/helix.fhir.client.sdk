@@ -1,21 +1,30 @@
 import asyncio
 import json
-from abc import abstractmethod, ABC
+from abc import ABC
 from datetime import datetime
-from typing import Union, List, Dict, Any, Optional, cast, Tuple
+from typing import (
+    Dict,
+    Optional,
+    List,
+    Union,
+    Any,
+    Tuple,
+    cast,
+    AsyncGenerator,
+)
 
 from aiohttp import ClientSession
 
 from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
 from helix_fhir_client_sdk.fhir_bundle import BundleEntry, Bundle
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
-from helix_fhir_client_sdk.function_types import HandleStreamingChunkFunction
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,
     GraphDefinitionLink,
     GraphDefinitionTarget,
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
@@ -23,7 +32,7 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.request_cache import RequestCache
 
 
-class SimulatedGraphProcessorMixin(ABC):
+class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
     # noinspection PyPep8Naming,PyUnusedLocal
     async def process_simulate_graph_async(
         self,
@@ -43,7 +52,7 @@ class SimulatedGraphProcessorMixin(ABC):
         url: Optional[str],
         expand_fhir_bundle: Optional[bool],
         auth_scopes: Optional[List[str]],
-    ) -> FhirGetResponse:
+    ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Simulates the $graph query on the FHIR server
 
@@ -103,7 +112,7 @@ class SimulatedGraphProcessorMixin(ABC):
                     logger=logger,
                 )
                 if not response.responses:
-                    return response
+                    yield response
                 parent_bundle_entries: List[BundleEntry] = response.get_bundle_entries()
 
                 if logger:
@@ -168,7 +177,7 @@ class SimulatedGraphProcessorMixin(ABC):
                     logger.info(
                         f"Request Cache hits: {cache.cache_hits}, misses: {cache.cache_misses}"
                     )
-                return response
+                yield response
 
     async def _process_link_async(
         self,
@@ -373,7 +382,7 @@ class SimulatedGraphProcessorMixin(ABC):
         return responses
 
     async def _get_resources_by_parameters_async(
-        self,
+        self: FhirClientProtocol,
         *,
         id_: Optional[Union[List[str], str]] = None,
         session: ClientSession,
@@ -437,9 +446,11 @@ class SimulatedGraphProcessorMixin(ABC):
             cached_bundle: Bundle = Bundle(entry=cached_bundle_entries)
             cached_response = FhirGetResponse(
                 request_id=None,
-                url=cached_bundle_entries[0].request.url
-                if cached_bundle_entries[0].request
-                else "",
+                url=(
+                    cached_bundle_entries[0].request.url
+                    if cached_bundle_entries[0].request
+                    else ""
+                ),
                 id_=None,
                 resource_type=resource_type,
                 responses=json.dumps(cached_bundle.to_dict(), cls=FhirJSONEncoder),
@@ -455,17 +466,24 @@ class SimulatedGraphProcessorMixin(ABC):
         result: Optional[FhirGetResponse] = None
         # either we have non-cached ids or this is a query without id but has other parameters
         if len(non_cached_id_list) > 0 or not id_:
-            result = await self._get_with_session_async(
+            async for (
+                result1
+            ) in self._get_with_session_async(  # type:ignore[attr-defined]
+                page_number=None,
                 session=session,
                 ids=non_cached_id_list,
                 additional_parameters=parameters,
-            )
+                id_above=None,
+                fn_handle_streaming_chunk=None,
+            ):
+                result = result1
+            assert result
             non_cached_bundle_entry: BundleEntry
             for non_cached_bundle_entry in result.get_bundle_entries():
                 if non_cached_bundle_entry.resource:
-                    non_cached_resource: Dict[
-                        str, Any
-                    ] = non_cached_bundle_entry.resource
+                    non_cached_resource: Dict[str, Any] = (
+                        non_cached_bundle_entry.resource
+                    )
                     non_cached_resource_id: Optional[str] = non_cached_resource.get(
                         "id"
                     )
@@ -483,27 +501,122 @@ class SimulatedGraphProcessorMixin(ABC):
         assert result
         return result, cache_hits
 
-    @abstractmethod
-    def separate_bundle_resources(self, separate_bundle_resources: bool):  # type: ignore[no-untyped-def]
-        pass
-
-    @abstractmethod
-    def create_http_session(self) -> ClientSession:
-        pass
-
-    @abstractmethod
-    async def _get_with_session_async(
+    # noinspection PyPep8Naming
+    async def simulate_graph_async(
         self,
         *,
-        session: Optional[ClientSession],
-        page_number: Optional[int] = None,
-        ids: Optional[List[str]] = None,
-        id_above: Optional[str] = None,
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
-        additional_parameters: Optional[List[str]] = None,
+        id_: Union[List[str], str],
+        graph_json: Dict[str, Any],
+        contained: bool,
+        concurrent_requests: int = 1,
+        separate_bundle_resources: bool = False,
+        restrict_to_scope: Optional[str] = None,
+        restrict_to_resources: Optional[List[str]] = None,
+        restrict_to_capability_statement: Optional[str] = None,
+        retrieve_and_restrict_to_capability_statement: Optional[bool] = None,
+        ifModifiedSince: Optional[datetime] = None,
+        eTag: Optional[str] = None,
     ) -> FhirGetResponse:
-        pass
+        """
+        Simulates the $graph query on the FHIR server
 
-    @abstractmethod
-    def resource(self, resource: str):  # type: ignore[no-untyped-def]
-        pass
+
+        :param separate_bundle_resources:
+        :param id_: single id or list of ids (ids can be comma separated too)
+        :param concurrent_requests:
+        :param graph_json: definition of a graph to execute
+        :param contained: whether we should return the related resources as top level list or nest them inside their
+                            parent resources in a contained property
+        :param restrict_to_scope: Optional scope to restrict to
+        :param restrict_to_resources: Optional list of resources to restrict to
+        :param restrict_to_capability_statement: Optional capability statement to restrict to
+        :param retrieve_and_restrict_to_capability_statement: Optional capability statement to retrieve and restrict to
+        :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
+        :param eTag: Optional ETag to use for If-None-Match header
+        :return: FhirGetResponse
+        """
+        if contained:
+            if not self._additional_parameters:
+                self.additional_parameters([])
+            assert self._additional_parameters is not None
+            self._additional_parameters.append("contained=true")
+
+        result: FhirGetResponse = await FhirGetResponse.from_async_generator(
+            self.process_simulate_graph_async(
+                id_=id_,
+                graph_json=graph_json,
+                contained=contained,
+                concurrent_requests=concurrent_requests,
+                separate_bundle_resources=separate_bundle_resources,
+                restrict_to_scope=restrict_to_scope,
+                restrict_to_resources=restrict_to_resources,
+                restrict_to_capability_statement=restrict_to_capability_statement,
+                retrieve_and_restrict_to_capability_statement=retrieve_and_restrict_to_capability_statement,
+                ifModifiedSince=ifModifiedSince,
+                eTag=eTag,
+                url=self._url,
+                expand_fhir_bundle=self._expand_fhir_bundle,
+                logger=self._logger,
+                auth_scopes=self._auth_scopes,
+            )
+        )
+        return result
+
+    # noinspection PyPep8Naming
+    async def simulate_graph_streaming_async(
+        self,
+        *,
+        id_: Union[List[str], str],
+        graph_json: Dict[str, Any],
+        contained: bool,
+        concurrent_requests: int = 1,
+        separate_bundle_resources: bool = False,
+        restrict_to_scope: Optional[str] = None,
+        restrict_to_resources: Optional[List[str]] = None,
+        restrict_to_capability_statement: Optional[str] = None,
+        retrieve_and_restrict_to_capability_statement: Optional[bool] = None,
+        ifModifiedSince: Optional[datetime] = None,
+        eTag: Optional[str] = None,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        """
+        Simulates the $graph query on the FHIR server
+
+
+        :param separate_bundle_resources:
+        :param id_: single id or list of ids (ids can be comma separated too)
+        :param concurrent_requests:
+        :param graph_json: definition of a graph to execute
+        :param contained: whether we should return the related resources as top level list or nest them inside their
+                            parent resources in a contained property
+        :param restrict_to_scope: Optional scope to restrict to
+        :param restrict_to_resources: Optional list of resources to restrict to
+        :param restrict_to_capability_statement: Optional capability statement to restrict to
+        :param retrieve_and_restrict_to_capability_statement: Optional capability statement to retrieve and restrict to
+        :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
+        :param eTag: Optional ETag to use for If-None-Match header
+        :return: FhirGetResponse
+        """
+        if contained:
+            if not self._additional_parameters:
+                self.additional_parameters([])
+            assert self._additional_parameters is not None
+            self._additional_parameters.append("contained=true")
+
+        async for r in self.process_simulate_graph_async(
+            id_=id_,
+            graph_json=graph_json,
+            contained=contained,
+            concurrent_requests=concurrent_requests,
+            separate_bundle_resources=separate_bundle_resources,
+            restrict_to_scope=restrict_to_scope,
+            restrict_to_resources=restrict_to_resources,
+            restrict_to_capability_statement=restrict_to_capability_statement,
+            retrieve_and_restrict_to_capability_statement=retrieve_and_restrict_to_capability_statement,
+            ifModifiedSince=ifModifiedSince,
+            eTag=eTag,
+            url=self._url,
+            expand_fhir_bundle=self._expand_fhir_bundle,
+            logger=self._logger,
+            auth_scopes=self._auth_scopes,
+        ):
+            yield r

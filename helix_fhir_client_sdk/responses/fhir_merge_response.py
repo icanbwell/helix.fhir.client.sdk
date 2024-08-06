@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, AsyncGenerator
 
 
 class FhirMergeResponse:
@@ -28,3 +28,35 @@ class FhirMergeResponse:
         self.status: int = status
         self.data: str = json_data
         self.successful: bool = status != 200
+
+    def append(self, other: Optional[List["FhirMergeResponse"]]) -> None:
+        """
+        Appends another FhirMergeResponse to this one
+
+        :param other: FhirMergeResponse to append
+        """
+        if other:
+            for r in other:
+                self.responses.extend(r.responses)
+                self.error = (self.error or "") + (r.error or "")
+                self.successful = self.successful and r.successful
+
+    @staticmethod
+    async def from_async_generator(
+        generator: AsyncGenerator["FhirMergeResponse", None]
+    ) -> "FhirMergeResponse":
+        """
+        Reads a generator of FhirGetResponse and returns a single FhirGetResponse by appending all the FhirGetResponse
+
+        :param generator: generator of FhirGetResponse items
+        :return: FhirGetResponse
+        """
+        result: FhirMergeResponse | None = None
+        async for value in generator:
+            if not result:
+                result = value
+            else:
+                result.append([value])
+
+        assert result
+        return result

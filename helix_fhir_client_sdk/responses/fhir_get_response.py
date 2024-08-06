@@ -3,7 +3,7 @@ from datetime import datetime
 
 # noinspection PyPackageRequirements
 from dateutil import parser
-from typing import Optional, Dict, Any, List, Union, cast
+from typing import Optional, Dict, Any, List, Union, cast, AsyncGenerator
 
 from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntry,
@@ -38,6 +38,7 @@ class FhirGetResponse:
         response_headers: Optional[
             List[str]
         ],  # header name and value separated by a colon
+        chunk_number: Optional[int] = None,
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -81,6 +82,8 @@ class FhirGetResponse:
         self.successful: bool = status == 200
         """ Headers returned by the server (can have duplicate header names) """ ""
         self.response_headers: Optional[List[str]] = response_headers
+        self.chunk_number: Optional[int] = chunk_number
+        """ Chunk number for streaming """
 
     def append(self, other: List["FhirGetResponse"]) -> "FhirGetResponse":
         """
@@ -92,15 +95,23 @@ class FhirGetResponse:
         bundle_entries: List[BundleEntry] = self.get_bundle_entries()
         for other_response in other:
             if other_response.responses:
-                other_bundle_entries: List[
-                    BundleEntry
-                ] = other_response.get_bundle_entries()
+                other_bundle_entries: List[BundleEntry] = (
+                    other_response.get_bundle_entries()
+                )
                 bundle_entries.extend(other_bundle_entries)
         bundle = {
             "resourceType": "Bundle",
             "entry": bundle_entries,
         }
         self.responses = json.dumps(bundle, cls=FhirJSONEncoder)
+        latest_chunk_number: List[int] = sorted(
+            [o.chunk_number for o in other if o.chunk_number], reverse=True
+        )
+        if len(latest_chunk_number) > 0:
+            self.chunk_number = latest_chunk_number[0]
+        if len(other) > 0:
+            self.next_url = other[-1].next_url
+            self.access_token = other[-1].access_token
         return self
 
     def get_resources(self) -> List[Dict[str, Any]]:
@@ -115,12 +126,15 @@ class FhirGetResponse:
 
         try:
             # THis is either a list of resources or a Bundle resource containing a list of resources
-            child_response_resources: Union[
-                Dict[str, Any], List[Dict[str, Any]]
-            ] = self.parse_json(self.responses)
+            child_response_resources: Union[Dict[str, Any], List[Dict[str, Any]]] = (
+                self.parse_json(self.responses)
+            )
             # if it is a list of resources then return it
             if isinstance(child_response_resources, list):
-                return child_response_resources
+                return [
+                    cast(Dict[str, Any], c.get("resource")) if "resource" in c else c
+                    for c in child_response_resources
+                ]
             # otherwise it is a bundle so parse out the resources
             if "entry" in child_response_resources:
                 # bundle
@@ -144,9 +158,9 @@ class FhirGetResponse:
             return []
         try:
             # THis is either a list of resources or a Bundle resource containing a list of resources
-            child_response_resources: Union[
-                Dict[str, Any], List[Dict[str, Any]]
-            ] = self.parse_json(self.responses)
+            child_response_resources: Union[Dict[str, Any], List[Dict[str, Any]]] = (
+                self.parse_json(self.responses)
+            )
 
             # use these if the bundle entry does not have them
             request: BundleEntryRequest = BundleEntryRequest(url=self.url)
@@ -167,18 +181,22 @@ class FhirGetResponse:
                 return [
                     BundleEntry(
                         resource=entry["resource"],
-                        request=BundleEntryRequest.from_dict(
-                            cast(Dict[str, Any], entry.get("request"))
-                        )
-                        if entry.get("request")
-                        and isinstance(entry.get("request"), dict)
-                        else request,
-                        response=BundleEntryResponse.from_dict(
-                            cast(Dict[str, Any], entry.get("response"))
-                        )
-                        if entry.get("response")
-                        and isinstance(entry.get("response"), dict)
-                        else response,
+                        request=(
+                            BundleEntryRequest.from_dict(
+                                cast(Dict[str, Any], entry.get("request"))
+                            )
+                            if entry.get("request")
+                            and isinstance(entry.get("request"), dict)
+                            else request
+                        ),
+                        response=(
+                            BundleEntryResponse.from_dict(
+                                cast(Dict[str, Any], entry.get("response"))
+                            )
+                            if entry.get("response")
+                            and isinstance(entry.get("response"), dict)
+                            else response
+                        ),
                         fullUrl=entry.get("fullUrl"),
                     )
                     for entry in bundle_entries
@@ -289,9 +307,9 @@ class FhirGetResponse:
 
         """
         try:
-            response_resources: Union[
-                Dict[str, Any], List[Dict[str, Any]]
-            ] = self.parse_json(self.responses)
+            response_resources: Union[Dict[str, Any], List[Dict[str, Any]]] = (
+                self.parse_json(self.responses)
+            )
 
             # there are three cases:
             # 1. response_resources is a list of resources
@@ -349,3 +367,23 @@ class FhirGetResponse:
             raise Exception(
                 f"Could not get resourceType and id from resources: {json.dumps(resources, cls=FhirJSONEncoder)}"
             ) from e
+
+    @staticmethod
+    async def from_async_generator(
+        generator: AsyncGenerator["FhirGetResponse", None]
+    ) -> "FhirGetResponse":
+        """
+        Reads a generator of FhirGetResponse and returns a single FhirGetResponse by appending all the FhirGetResponse
+
+        :param generator: generator of FhirGetResponse items
+        :return: FhirGetResponse
+        """
+        result: FhirGetResponse | None = None
+        async for value in generator:
+            if not result:
+                result = value
+            else:
+                result.append([value])
+
+        assert result
+        return result

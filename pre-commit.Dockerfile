@@ -1,7 +1,7 @@
 FROM python:3.10-slim-bookworm
 
 
-COPY ${project_root}/Pipfile* ./
+COPY Pipfile* ./
 RUN apt-get update && \
     apt-get install -y git && \
     pip install pipenv && \
