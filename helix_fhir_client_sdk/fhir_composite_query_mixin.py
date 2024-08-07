@@ -17,6 +17,7 @@ from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProto
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_result import GetResult
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
+from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.list_chunker import ListChunker
 
 
@@ -181,7 +182,7 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
         :param page_size_for_retrieving_resources: number of resources to download in one batch
         :param page_size_for_retrieving_ids:: number of ids to download in one batch
         """
-        return asyncio.run(
+        return AsyncRunner.run(
             self.get_resources_by_query_async(
                 last_updated_start_date=last_updated_start_date,
                 last_updated_end_date=last_updated_end_date,
@@ -219,7 +220,7 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
         :param page_size_for_retrieving_resources: number of resources to download in one batch
         :param page_size_for_retrieving_ids:: number of ids to download in one batch
         """
-        return asyncio.run(
+        return AsyncRunner.run(
             self.get_resources_by_query_and_last_updated_async(
                 last_updated_start_date=last_updated_start_date,
                 last_updated_end_date=last_updated_end_date,
@@ -257,7 +258,7 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
                 results1.append(value)
             return results1
 
-        return asyncio.run(
+        return AsyncRunner.run(
             consume_generator(
                 self.get_ids_for_query_async(
                     last_updated_start_date=last_updated_start_date,

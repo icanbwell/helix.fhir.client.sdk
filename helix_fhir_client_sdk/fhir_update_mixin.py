@@ -1,9 +1,8 @@
-import asyncio
-
 from furl import furl
 
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_update_response import FhirUpdateResponse
+from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
 )
@@ -89,5 +88,5 @@ class FhirUpdateMixin(FhirClientProtocol):
 
         :param json_data: data to update the resource with
         """
-        result: FhirUpdateResponse = asyncio.run(self.update_async(json_data))
+        result: FhirUpdateResponse = AsyncRunner.run(self.update_async(json_data))
         return result

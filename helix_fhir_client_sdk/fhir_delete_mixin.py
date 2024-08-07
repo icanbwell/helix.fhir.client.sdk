@@ -1,10 +1,10 @@
-import asyncio
 from typing import Dict, Optional, List
 
 from furl import furl
 
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_delete_response import FhirDeleteResponse
+from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
 )
@@ -77,7 +77,7 @@ class FhirDeleteMixin(FhirClientProtocol):
         Delete the resources
 
         """
-        result: FhirDeleteResponse = asyncio.run(self.delete_async())
+        result: FhirDeleteResponse = AsyncRunner.run(self.delete_async())
         return result
 
     async def delete_by_query_async(

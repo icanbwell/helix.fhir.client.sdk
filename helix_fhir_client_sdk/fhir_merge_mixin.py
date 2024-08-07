@@ -1,4 +1,3 @@
-import asyncio
 import json
 import time
 from typing import Optional, List, Dict, Any, Union, cast, Generator, AsyncGenerator
@@ -15,6 +14,7 @@ from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
 )
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
+from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 from helix_fhir_client_sdk.utilities.list_chunker import ListChunker
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
@@ -326,7 +326,7 @@ class FhirMergeMixin(FhirClientProtocol):
         :return: response
         """
 
-        result: FhirMergeResponse = asyncio.run(
+        result: FhirMergeResponse = AsyncRunner.run(
             FhirMergeResponse.from_async_generator(
                 self.merge_async(
                     id_=id_, json_data_list=json_data_list, batch_size=batch_size
