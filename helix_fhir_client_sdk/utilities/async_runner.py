@@ -48,7 +48,7 @@ class AsyncRunner:
                     f"While calling {fn.__name__} there is already an event loop running."
                     "\nThis usually happens because you are calling this function"
                     " from an asynchronous context so you can't just wrap it in AsyncRunner.run()."
-                    f"\nEither await this function {fn.__name__} or"
+                    f"\nEither use `await {fn.__name__}` or"
                     " use nest_asyncio (https://github.com/erdewit/nest_asyncio)."
                 )
             else:
