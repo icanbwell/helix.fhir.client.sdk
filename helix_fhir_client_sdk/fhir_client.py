@@ -124,7 +124,7 @@ class FhirClient(
 
         self._use_post_for_search: bool = False
 
-        self._accept: str = "application/fhir+json"
+        self._accept: str = "application/fhir+ndjson, application/fhir+json"
         self._content_type: str = "application/fhir+json"
         self._additional_request_headers: Dict[str, str] = {}
         self._accept_encoding: str = "gzip,deflate"

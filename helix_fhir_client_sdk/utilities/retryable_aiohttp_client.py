@@ -85,7 +85,6 @@ class RetryableAioHttpClient:
                     response = await self.session.request(
                         method,
                         url,
-                        raise_for_status=False,
                         **kwargs,
                     )
                     if response.ok:
@@ -178,7 +177,13 @@ class RetryableAioHttpClient:
                             self.backoff_factor * (2 ** (retry_attempts - 1))
                         )
                     else:
-                        response.raise_for_status()
+                        raise aiohttp.ClientResponseError(
+                            status=response.status,
+                            message="Non-retryable status code received",
+                            headers=response.headers,
+                            history=response.history,
+                            request_info=response.request_info,
+                        )
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 if retry_attempts >= self.retries:
                     raise e
