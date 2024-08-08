@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 import uuid
@@ -56,6 +55,7 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
 )
+from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
@@ -124,7 +124,7 @@ class FhirClient(
 
         self._use_post_for_search: bool = False
 
-        self._accept: str = "application/fhir+json"
+        self._accept: str = "application/fhir+ndjson, application/fhir+json"
         self._content_type: str = "application/fhir+json"
         self._additional_request_headers: Dict[str, str] = {}
         self._accept_encoding: str = "gzip,deflate"
@@ -477,7 +477,7 @@ class FhirClient(
         )
 
     def get_access_token(self) -> Optional[str]:
-        return asyncio.run(self.get_access_token_async())
+        return AsyncRunner.run(self.get_access_token_async())
 
     def set_access_token(self, value: str | None) -> "FhirClient":
         """
@@ -587,7 +587,7 @@ class FhirClient(
 
         :return: response
         """
-        result: FhirGetResponse = asyncio.run(self.get_async())
+        result: FhirGetResponse = AsyncRunner.run(self.get_async())
         return result
 
     async def _get_with_session_async(  # type: ignore[override]
@@ -665,11 +665,7 @@ class FhirClient(
                 full_url=full_url,
                 headers=headers,
                 payload=payload,
-                simple_refresh_token_func=lambda: self._refresh_token_function(
-                    auth_server_url=self._auth_server_url,
-                    auth_scopes=self._auth_scopes,
-                    login_token=self._login_token,
-                ),
+                simple_refresh_token_func=lambda: self._refresh_token_function(),
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
             )
             assert isinstance(response, RetryableAioHttpResponse)

@@ -1,10 +1,10 @@
-import asyncio
 from typing import Dict, Optional, List
 
 from furl import furl
 
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_delete_response import FhirDeleteResponse
+from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
 )
@@ -43,11 +43,7 @@ class FhirDeleteMixin(FhirClientProtocol):
 
             client: RetryableAioHttpClient = RetryableAioHttpClient(
                 session=http,
-                simple_refresh_token_func=lambda: self._refresh_token_function(
-                    auth_server_url=self._auth_server_url,
-                    auth_scopes=self._auth_scopes,
-                    login_token=self._login_token,
-                ),
+                simple_refresh_token_func=lambda: self._refresh_token_function(),
                 retries=self._retry_count,
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                 use_data_streaming=self._use_data_streaming,
@@ -77,7 +73,7 @@ class FhirDeleteMixin(FhirClientProtocol):
         Delete the resources
 
         """
-        result: FhirDeleteResponse = asyncio.run(self.delete_async())
+        result: FhirDeleteResponse = AsyncRunner.run(self.delete_async())
         return result
 
     async def delete_by_query_async(
@@ -121,11 +117,7 @@ class FhirDeleteMixin(FhirClientProtocol):
 
             client: RetryableAioHttpClient = RetryableAioHttpClient(
                 session=http,
-                simple_refresh_token_func=lambda: self._refresh_token_function(
-                    auth_server_url=self._auth_server_url,
-                    auth_scopes=self._auth_scopes,
-                    login_token=self._login_token,
-                ),
+                simple_refresh_token_func=lambda: self._refresh_token_function(),
                 retries=self._retry_count,
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                 use_data_streaming=self._use_data_streaming,

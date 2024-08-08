@@ -10,6 +10,7 @@ from helix_fhir_client_sdk.graph.graph_definition import GraphDefinition
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
+from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.list_chunker import ListChunker
 
 
@@ -97,7 +98,7 @@ class FhirGraphMixin(FhirClientProtocol):
         concurrent_requests: int = 1,
     ) -> FhirGetResponse:
 
-        return asyncio.run(
+        return AsyncRunner.run(
             FhirGetResponse.from_async_generator(
                 self.graph_async(
                     graph_definition=graph_definition,

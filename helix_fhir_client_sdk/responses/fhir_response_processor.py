@@ -3,7 +3,7 @@ from logging import Logger
 from typing import Optional, List, Dict, Any, Union, AsyncGenerator, Tuple
 from uuid import UUID
 
-from aiohttp import ClientResponse, ClientPayloadError
+from aiohttp import ClientResponse
 from aiohttp.streams import AsyncStreamIterator
 
 from helix_fhir_client_sdk.function_types import (
@@ -364,6 +364,7 @@ class FhirResponseProcessor:
         """
         if logger:
             logger.debug(f"Successfully retrieved: {full_url}")
+        text: Optional[str] = None
         # noinspection PyBroadException
         try:
             text = await response.get_text_async()
@@ -432,10 +433,25 @@ class FhirResponseProcessor:
                 id_=id_,
                 response_headers=response_headers,
             )
-        except ClientPayloadError as e:
-            # do a retry
+        except Exception as e:
             if logger:
-                logger.error(f"{e}: {full_url}: headers={response.response_headers}")
+                logger.error(
+                    f"Error processing response from {full_url} with error: {str(e)}"
+                )
+            yield FhirGetResponse(
+                request_id=request_id,
+                url=full_url,
+                responses=text or "",
+                error=str(e),
+                access_token=access_token,
+                total_count=total_count,
+                status=response.status,
+                next_url=next_url,
+                extra_context_to_return=extra_context_to_return,
+                resource_type=resource,
+                id_=id_,
+                response_headers=response_headers,
+            )
 
     @staticmethod
     async def _handle_response_200_streaming(
@@ -501,49 +517,70 @@ class FhirResponseProcessor:
             else:
                 return response.content.iter_chunked(chunk_size)
 
-        # iterate over the chunks and return the completed resources as we get them
-        async for chunk_bytes in get_chunk_iterator():
-            # # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
-            # await asyncio.sleep(0)
-            chunk_number += 1
-            if fn_handle_streaming_chunk:
-                await fn_handle_streaming_chunk(chunk_bytes, chunk_number)
-            chunk = chunk_bytes.decode("utf-8")
-            completed_resources: List[Dict[str, Any]] = (
-                nd_json_chunk_streaming_parser.add_chunk(
-                    chunk=chunk,
-                    logger=logger,
+        chunk: Optional[str] = None
+        try:
+            # iterate over the chunks and return the completed resources as we get them
+            async for chunk_bytes in get_chunk_iterator():
+                # # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
+                # await asyncio.sleep(0)
+                chunk_number += 1
+                if fn_handle_streaming_chunk:
+                    await fn_handle_streaming_chunk(chunk_bytes, chunk_number)
+                chunk = chunk_bytes.decode("utf-8")
+                completed_resources: List[Dict[str, Any]] = (
+                    nd_json_chunk_streaming_parser.add_chunk(
+                        chunk=chunk,
+                        logger=logger,
+                    )
                 )
+                if completed_resources:
+                    yield FhirGetResponse(
+                        request_id=request_id,
+                        url=full_url,
+                        responses=(
+                            json.dumps(completed_resources[0])
+                            if len(completed_resources) == 1
+                            else json.dumps(completed_resources)
+                        ),
+                        error=None,
+                        access_token=access_token,
+                        total_count=total_count,
+                        status=response.status,
+                        next_url=next_url,
+                        extra_context_to_return=extra_context_to_return,
+                        resource_type=resource,
+                        id_=id_,
+                        response_headers=response_headers,
+                        chunk_number=chunk_number,
+                    )
+                    if logger:
+                        logger.debug(
+                            f"Successfully got completed resources from {full_url}:\n{completed_resources}"
+                        )
+                else:
+                    if logger:
+                        logger.debug(
+                            f"No new complete resources from chunk {chunk_number} from {full_url}: \n{chunk}"
+                        )
+        except Exception as e:
+            if logger:
+                logger.error(
+                    f"Error processing response from {full_url} with error: {str(e)}"
+                )
+            yield FhirGetResponse(
+                request_id=request_id,
+                url=full_url,
+                responses=chunk or "",
+                error=str(e),
+                access_token=access_token,
+                total_count=total_count,
+                status=response.status,
+                next_url=next_url,
+                extra_context_to_return=extra_context_to_return,
+                resource_type=resource,
+                id_=id_,
+                response_headers=response_headers,
             )
-            if completed_resources:
-                yield FhirGetResponse(
-                    request_id=request_id,
-                    url=full_url,
-                    responses=(
-                        json.dumps(completed_resources[0])
-                        if len(completed_resources) == 1
-                        else json.dumps(completed_resources)
-                    ),
-                    error=None,
-                    access_token=access_token,
-                    total_count=total_count,
-                    status=response.status,
-                    next_url=next_url,
-                    extra_context_to_return=extra_context_to_return,
-                    resource_type=resource,
-                    id_=id_,
-                    response_headers=response_headers,
-                    chunk_number=chunk_number,
-                )
-                if logger:
-                    logger.debug(
-                        f"Successfully got completed resources from {full_url}:\n{completed_resources}"
-                    )
-            else:
-                if logger:
-                    logger.debug(
-                        f"No new complete resources from chunk {chunk_number} from {full_url}: \n{chunk}"
-                    )
 
     @staticmethod
     async def log_response(
