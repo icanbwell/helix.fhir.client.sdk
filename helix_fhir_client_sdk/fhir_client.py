@@ -665,11 +665,7 @@ class FhirClient(
                 full_url=full_url,
                 headers=headers,
                 payload=payload,
-                simple_refresh_token_func=lambda: self._refresh_token_function(
-                    auth_server_url=self._auth_server_url,
-                    auth_scopes=self._auth_scopes,
-                    login_token=self._login_token,
-                ),
+                simple_refresh_token_func=lambda: self._refresh_token_function(),
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
             )
             assert isinstance(response, RetryableAioHttpResponse)

@@ -43,11 +43,7 @@ class FhirDeleteMixin(FhirClientProtocol):
 
             client: RetryableAioHttpClient = RetryableAioHttpClient(
                 session=http,
-                simple_refresh_token_func=lambda: self._refresh_token_function(
-                    auth_server_url=self._auth_server_url,
-                    auth_scopes=self._auth_scopes,
-                    login_token=self._login_token,
-                ),
+                simple_refresh_token_func=lambda: self._refresh_token_function(),
                 retries=self._retry_count,
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                 use_data_streaming=self._use_data_streaming,
@@ -121,11 +117,7 @@ class FhirDeleteMixin(FhirClientProtocol):
 
             client: RetryableAioHttpClient = RetryableAioHttpClient(
                 session=http,
-                simple_refresh_token_func=lambda: self._refresh_token_function(
-                    auth_server_url=self._auth_server_url,
-                    auth_scopes=self._auth_scopes,
-                    login_token=self._login_token,
-                ),
+                simple_refresh_token_func=lambda: self._refresh_token_function(),
                 retries=self._retry_count,
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                 use_data_streaming=self._use_data_streaming,
