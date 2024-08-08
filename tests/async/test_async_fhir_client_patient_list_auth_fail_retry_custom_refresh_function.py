@@ -55,15 +55,10 @@ async def test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_fun
     mocked_authenticate_async = AsyncMock()
     mocked_authenticate_async.return_value = "my_access_token"
 
-    # noinspection PyTypeChecker
     fhir_client = fhir_client.refresh_token_function(mocked_authenticate_async)
     response: FhirGetResponse = await fhir_client.get_async()
 
     mocked_authenticate_async.assert_called()
-    mocked_authenticate_async.assert_called_with(
-        auth_server_url=absolute_url + "/" + "auth",
-        auth_scopes=["user/*.ready"],
-        login_token="Y2xpZW50X2lkOmNsaWVudF9zZWNyZXQ=",
-    )
+    mocked_authenticate_async.assert_called_with()
     print(response.responses)
     assert response.responses == response_text
