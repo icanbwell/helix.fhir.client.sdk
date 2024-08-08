@@ -85,6 +85,7 @@ class RetryableAioHttpClient:
                     response = await self.session.request(
                         method,
                         url,
+                        raise_for_status=False,
                         **kwargs,
                     )
                     if response.ok:
