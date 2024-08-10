@@ -351,10 +351,6 @@ class FhirClient(
         :param use: where to use data streaming
         """
         self._use_data_streaming = use
-        if use:
-            self._accept = "application/fhir+ndjson"
-        else:
-            self._accept = "application/fhir+json"
         return self
 
     def use_post_for_search(self, use: bool) -> "FhirClient":
