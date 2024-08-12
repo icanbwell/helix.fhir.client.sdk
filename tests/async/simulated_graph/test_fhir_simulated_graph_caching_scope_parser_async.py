@@ -156,11 +156,13 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
         fhir_client = fhir_client.set_access_token(auth_access_token)
 
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
-    response: FhirGetResponse = await fhir_client.simulate_graph_async(
-        id_="1",
-        graph_json=graph_json,
-        contained=False,
-        separate_bundle_resources=False,
+    response: FhirGetResponse = await FhirGetResponse.from_async_generator(
+        fhir_client.simulate_graph_streaming_async(
+            id_="1",
+            graph_json=graph_json,
+            contained=False,
+            separate_bundle_resources=False,
+        )
     )
     print(response.responses)
 

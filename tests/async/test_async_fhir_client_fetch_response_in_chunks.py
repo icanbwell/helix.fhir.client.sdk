@@ -1,6 +1,7 @@
 import json
-from typing import AsyncGenerator, Optional, Any, Tuple, Dict, List
+from typing import AsyncGenerator, Optional, Tuple, Dict, List, cast
 
+from aiohttp import StreamReader
 from mockserver_client.mockserver_client import (
     mock_request,
     mock_response,
@@ -11,6 +12,10 @@ from mockserver_client.mockserver_client import (
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from unittest.mock import AsyncMock, patch
+
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
+    RetryableAioHttpResponse,
+)
 
 
 async def test_fhir_client_patient_list_async_streaming() -> None:
@@ -48,7 +53,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
         print(f"Got chunk {chunk_number}: {line.decode('utf-8')}")
         return True
 
-    class ClientResponse:
+    class MyRetryableAioHttpResponse(RetryableAioHttpResponse):
         """
         Mocked ClientResponse class of aiohttp module.
         """
@@ -56,20 +61,17 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
         def __init__(
             self,
             status: int,
-            headers: Dict[str, str],
+            response_headers: Dict[str, str],
             content: List[Tuple[bytes, bool]],
         ) -> None:
-            self.status = status
-            self._headers = headers
-            self._content = content
-
-        @property
-        def content(self) -> Any:
-            return ContentIterator(self._content)
-
-        @property
-        def headers(self) -> Any:
-            return GetHeader(self._headers)
+            super().__init__(
+                ok=status < 400,
+                status=status,
+                response_headers=response_headers,
+                content=cast(StreamReader, ContentIterator(content)),
+                response_text=response_text,
+                use_data_streaming=False,
+            )
 
     class ContentIterator:
         """
@@ -83,26 +85,18 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
             for content in self._content:
                 yield content
 
-    class GetHeader(dict[str, Any]):
-        """
-        Mocked CIMultiDictProxy class of multidict module. This class was mocked to mock the behaviour of getone method.
-        """
-
-        def __init__(self, header: Dict[str, str]) -> None:
-            super().__init__()
-            self._header = header
-
-        def getone(self, key: str, *args: Any, **kwargs: Any) -> Any:
-            return self._header.get(key, None)
+        async def iter_chunked(self, chunk_size: int) -> AsyncGenerator[bytes, None]:
+            for content, chunk_number in self._content:
+                yield content
 
     # Mocking send_fhir_request_async method of fhir client class
     with patch.object(
         fhir_client, "_send_fhir_request_async", new_callable=AsyncMock
     ) as mock_send_fhir_request_async:
-        mocked_response = ClientResponse(
-            200,
-            {"Accept": "application/fhir+ndjson"},
-            [
+        mocked_response = MyRetryableAioHttpResponse(
+            status=200,
+            response_headers={"Accept": "application/fhir+ndjson"},
+            content=[
                 (b'{"resourceType": "Patient", "id": "12355"', False),
                 (b', "first_name": "test"}', True),
             ],

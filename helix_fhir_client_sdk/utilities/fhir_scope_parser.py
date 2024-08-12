@@ -43,18 +43,20 @@ class FhirScopeParser:
                         FhirScopeParserResult(
                             resource_type=resource.strip(" \n") if resource else None,
                             operation=operation.strip(" \n") if operation else None,
-                            interaction=permission.strip(" \n").lower()
-                            if permission
-                            else None,
+                            interaction=(
+                                permission.strip(" \n").lower() if permission else None
+                            ),
                         )
                     )
                 else:
                     parsed_scopes.append(
                         FhirScopeParserResult(
                             resource_type=resource.strip(" \n") if resource else None,
-                            interaction=interaction.strip(" \n").lower()
-                            if interaction
-                            else None,
+                            interaction=(
+                                interaction.strip(" \n").lower()
+                                if interaction
+                                else None
+                            ),
                         )
                     )
             elif scope and scope.strip(" \n") != "":
