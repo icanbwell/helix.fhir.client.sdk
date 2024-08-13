@@ -257,7 +257,7 @@ class FhirAuthMixin(FhirClientProtocol):
         async with RetryableAioHttpClient(
             fn_get_session=lambda: self.create_http_session(),
             use_data_streaming=False,
-            compress=True,
+            compress=False,
             exclude_status_codes_from_retry=None,
         ) as client:
             response: RetryableAioHttpResponse = await client.post(

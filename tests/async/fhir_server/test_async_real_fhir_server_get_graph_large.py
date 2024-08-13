@@ -17,10 +17,10 @@ from tests.test_logger import TestLogger
 async def test_async_real_fhir_server_get_graph_large(
     use_data_streaming: bool,
 ) -> None:
+    environ["LOGLEVEL"] = "DEBUG"
+
     resource_type = "Practitioner"
     await FhirServerHelpers.clean_fhir_server_async(resource_type=resource_type)
-
-    environ["LOGLEVEL"] = "DEBUG"
 
     fhir_server_url: str = environ["FHIR_SERVER_URL"]
     auth_client_id = environ["FHIR_CLIENT_ID"]
