@@ -540,11 +540,11 @@ class FhirResponseProcessor:
                         logger.debug(
                             f"Successfully got completed resources from {full_url}: {len(completed_resources)}"
                         )
-                else:
-                    if logger:
-                        logger.debug(
-                            f"No new complete resources from chunk {chunk_number} from {full_url}:"
-                        )
+                # else:
+                #     if logger:
+                #         logger.debug(
+                #             f"No new complete resources from chunk {chunk_number} from {full_url}:"
+                #         )
         except Exception as e:
             if logger:
                 logger.error(
