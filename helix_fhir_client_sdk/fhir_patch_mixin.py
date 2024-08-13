@@ -40,75 +40,75 @@ class FhirPatchMixin(FhirClientProtocol):
         request_id: Optional[str] = None
 
         start_time: float = time.time()
-        async with self.create_http_session() as http:
-            # Set up headers
-            headers = {"Content-Type": "application/json-patch+json"}
-            headers.update(self._additional_request_headers)
-            self._internal_logger.debug(f"Request headers: {headers}")
-            access_token = await self.get_access_token_async()
-            # set access token in request if present
-            if access_token:
-                headers["Authorization"] = f"Bearer {access_token}"
-            try:
-                deserialized_data = json.loads(data)
-                # actually make the request
-                client: RetryableAioHttpClient = RetryableAioHttpClient(
-                    session=http,
-                    simple_refresh_token_func=lambda: self._refresh_token_function(),
-                    retries=self._retry_count,
-                    exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
-                    use_data_streaming=self._use_data_streaming,
-                    compress=self._compress,
-                )
 
-                response: RetryableAioHttpResponse = await client.patch(
-                    url=full_uri.url, json=deserialized_data, headers=headers
-                )
-                response_status = response.status
-                request_id = response.response_headers.get("X-Request-ID", None)
-                self._internal_logger.info(f"X-Request-ID={request_id}")
-
-                if response_status == 200:
-                    if self._logger:
-                        self._logger.info(f"Successfully updated: {full_uri}")
-                elif response_status == 404:
-                    if self._logger:
-                        self._logger.info(f"Request resource was not found: {full_uri}")
-                else:
-                    # other HTTP errors
-                    self._internal_logger.info(
-                        f"PATCH response for {full_uri.url}: {response_status}"
-                    )
-            except Exception as e:
-                raise FhirSenderException(
-                    request_id=request_id,
-                    url=full_uri.url,
-                    headers=headers,
-                    json_data=data,
-                    response_text=await response.get_text_async(),
-                    response_status_code=response.status if response else None,
-                    exception=e,
-                    variables=FhirClientLogger.get_variables_to_log(vars(self)),
-                    message=f"Error: {e}",
-                    elapsed_time=time.time() - start_time,
-                ) from e
-            # check if response is json
-            response_text = await response.get_text_async()
-            if response_text:
-                try:
-                    responses = json.loads(response_text)
-                except ValueError as e:
-                    responses = {"issue": str(e)}
-            else:
-                responses = {}
-            return FhirUpdateResponse(
-                request_id=request_id,
-                url=full_uri.tostr(),
-                responses=json.dumps(responses),
-                error=json.dumps(responses),
-                access_token=access_token,
-                status=response_status if response_status else 500,
+        # Set up headers
+        headers = {"Content-Type": "application/json-patch+json"}
+        headers.update(self._additional_request_headers)
+        self._internal_logger.debug(f"Request headers: {headers}")
+        access_token = await self.get_access_token_async()
+        # set access token in request if present
+        if access_token:
+            headers["Authorization"] = f"Bearer {access_token}"
+        try:
+            deserialized_data = json.loads(data)
+            # actually make the request
+            client: RetryableAioHttpClient = RetryableAioHttpClient(
+                fn_get_session=lambda: self.create_http_session(),
+                simple_refresh_token_func=lambda: self._refresh_token_function(),
+                retries=self._retry_count,
+                exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
+                use_data_streaming=self._use_data_streaming,
+                compress=self._compress,
             )
+
+            response: RetryableAioHttpResponse = await client.patch(
+                url=full_uri.url, json=deserialized_data, headers=headers
+            )
+            response_status = response.status
+            request_id = response.response_headers.get("X-Request-ID", None)
+            self._internal_logger.info(f"X-Request-ID={request_id}")
+
+            if response_status == 200:
+                if self._logger:
+                    self._logger.info(f"Successfully updated: {full_uri}")
+            elif response_status == 404:
+                if self._logger:
+                    self._logger.info(f"Request resource was not found: {full_uri}")
+            else:
+                # other HTTP errors
+                self._internal_logger.info(
+                    f"PATCH response for {full_uri.url}: {response_status}"
+                )
+        except Exception as e:
+            raise FhirSenderException(
+                request_id=request_id,
+                url=full_uri.url,
+                headers=headers,
+                json_data=data,
+                response_text=await response.get_text_async(),
+                response_status_code=response.status if response else None,
+                exception=e,
+                variables=FhirClientLogger.get_variables_to_log(vars(self)),
+                message=f"Error: {e}",
+                elapsed_time=time.time() - start_time,
+            ) from e
+        # check if response is json
+        response_text = await response.get_text_async()
+        if response_text:
+            try:
+                responses = json.loads(response_text)
+            except ValueError as e:
+                responses = {"issue": str(e)}
+        else:
+            responses = {}
+        return FhirUpdateResponse(
+            request_id=request_id,
+            url=full_uri.tostr(),
+            responses=json.dumps(responses),
+            error=json.dumps(responses),
+            access_token=access_token,
+            status=response_status if response_status else 500,
+        )
 
     def send_patch_request(self, data: str) -> FhirUpdateResponse:
         """

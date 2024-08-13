@@ -60,7 +60,6 @@ class FhirClientProtocol(Protocol):
     _expand_fhir_bundle: bool
 
     _stop_processing: bool = False
-    _authentication_token_lock: Lock
     _last_page: Optional[int]
 
     _use_data_streaming: bool = False

@@ -116,7 +116,6 @@ class FhirClient(
         self._expand_fhir_bundle: bool = True
 
         self._stop_processing: bool = False
-        self._authentication_token_lock: Lock = Lock()
         self._last_page: Optional[int] = None
 
         self._use_data_streaming: bool = False
@@ -460,6 +459,9 @@ class FhirClient(
             f"{key}:{value}" for key, value in params.response.headers.items()
         ]
         FhirClient._internal_logger.info(f"Received headers: {received_headers}")
+        FhirClient._internal_logger.info(
+            f"Response from {params.url} status: {params.response.status}"
+        )
 
     @staticmethod
     async def on_response_chunk_received(
@@ -847,7 +849,7 @@ class FhirClient(
             assert isinstance(payload, dict)
 
         client: RetryableAioHttpClient = RetryableAioHttpClient(
-            session=http,
+            fn_get_session=lambda: self.create_http_session(),
             simple_refresh_token_func=simple_refresh_token_func,
             retries=self._retry_count,
             exclude_status_codes_from_retry=exclude_status_codes_from_retry,

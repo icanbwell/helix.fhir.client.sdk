@@ -11,6 +11,9 @@ from furl import furl
 
 from helix_fhir_client_sdk.function_types import RefreshTokenFunction
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
+from helix_fhir_client_sdk.responses.fhir_response_processor import (
+    FhirResponseProcessor,
+)
 from helix_fhir_client_sdk.well_known_configuration import (
     WellKnownConfigurationCacheEntry,
 )
@@ -150,31 +153,35 @@ class FhirAuthMixin(FhirClientProtocol):
                     return cached_endpoint
             async with self.create_http_session() as http:
                 try:
-                    response: ClientResponse = await http.get(self._auth_wellknown_url)
-                    text_ = await response.text()
-                    if response and response.status == 200 and text_:
-                        content: Dict[str, Any] = json.loads(text_)
-                        token_endpoint: Optional[str] = str(content["token_endpoint"])
-                        with self._well_known_configuration_cache_lock:
-                            self._well_known_configuration_cache[host_name] = (
-                                WellKnownConfigurationCacheEntry(
-                                    auth_url=token_endpoint,
-                                    last_updated_utc=datetime.utcnow(),
+                    response: ClientResponse
+                    async with http.get(self._auth_wellknown_url) as response:
+                        text_ = await response.text()
+                        if response and response.status == 200 and text_:
+                            content: Dict[str, Any] = json.loads(text_)
+                            token_endpoint: Optional[str] = str(
+                                content["token_endpoint"]
+                            )
+                            with self._well_known_configuration_cache_lock:
+                                self._well_known_configuration_cache[host_name] = (
+                                    WellKnownConfigurationCacheEntry(
+                                        auth_url=token_endpoint,
+                                        last_updated_utc=datetime.utcnow(),
+                                    )
                                 )
-                            )
-                        if self._logger:
-                            self._logger.info(
-                                f"Returning auth_url without cache for {host_name}: {token_endpoint}"
-                            )
-                        return token_endpoint
-                    else:
-                        with self._well_known_configuration_cache_lock:
-                            self._well_known_configuration_cache[host_name] = (
-                                WellKnownConfigurationCacheEntry(
-                                    auth_url=None, last_updated_utc=datetime.utcnow()
+                            if self._logger:
+                                self._logger.info(
+                                    f"Returning auth_url without cache for {host_name}: {token_endpoint}"
                                 )
-                            )
-                        return None
+                            return token_endpoint
+                        else:
+                            with self._well_known_configuration_cache_lock:
+                                self._well_known_configuration_cache[host_name] = (
+                                    WellKnownConfigurationCacheEntry(
+                                        auth_url=None,
+                                        last_updated_utc=datetime.utcnow(),
+                                    )
+                                )
+                            return None
                 except Exception as e:
                     raise Exception(
                         f"Error getting well known configuration from {self._auth_wellknown_url}"
@@ -231,34 +238,39 @@ class FhirAuthMixin(FhirClientProtocol):
             return None
         assert auth_server_url, "No auth server url was set"
         assert self._login_token, "No login token was set"
-        with self._authentication_token_lock:
-            payload: str = (
-                "grant_type=client_credentials&scope=" + "%20".join(self._auth_scopes)
-                if self._auth_scopes
-                else "grant_type=client_credentials"
-            )
-            # noinspection SpellCheckingInspection
-            headers: Dict[str, str] = {
-                "Accept": "application/json",
-                "Authorization": "Basic " + self._login_token,
-                "Content-Type": "application/x-www-form-urlencoded",
-            }
+        payload: str = (
+            "grant_type=client_credentials&scope=" + "%20".join(self._auth_scopes)
+            if self._auth_scopes
+            else "grant_type=client_credentials"
+        )
+        # noinspection SpellCheckingInspection
+        headers: Dict[str, str] = {
+            "Accept": "application/json",
+            "Authorization": "Basic " + self._login_token,
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
 
-            async with self.create_http_session() as session:
-                response: ClientResponse = await session.request(
-                    "POST", auth_server_url, headers=headers, data=payload
+        async with self.create_http_session() as session:
+            async with session.request(
+                "POST", auth_server_url, headers=headers, data=payload
+            ) as response:
+                # token = response.text.encode('utf8')
+                token_text: str = (
+                    await FhirResponseProcessor.get_safe_response_text_async(
+                        response=response
+                    )
                 )
+                if not token_text:
+                    self._internal_logger.error(f"No token found in {token_text}")
+                    raise Exception(f"No access token found in {token_text}")
 
-            # token = response.text.encode('utf8')
-            token_text: str = await response.text()
-            if not token_text:
-                return None
-            token_json: Dict[str, Any] = json.loads(token_text)
+                token_json: Dict[str, Any] = json.loads(token_text)
 
-            if "access_token" not in token_json:
-                raise Exception(f"No access token found in {token_json}")
-            access_token: str = token_json["access_token"]
-            return access_token
+                if "access_token" not in token_json:
+                    self._internal_logger.error(f"No token found in {token_json}")
+                    raise Exception(f"No access token found in {token_json}")
+                access_token: str = token_json["access_token"]
+                return access_token
 
     @staticmethod
     def _create_login_token(client_id: str, client_secret: str) -> str:

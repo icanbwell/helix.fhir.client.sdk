@@ -29,52 +29,49 @@ class FhirUpdateMixin(FhirClientProtocol):
         full_uri: furl = furl(self._url)
         full_uri /= self._resource
         full_uri /= self._id
-        async with self.create_http_session() as http:
-            # set up headers
-            headers = {"Content-Type": "application/fhir+json"}
-            headers.update(self._additional_request_headers)
-            self._internal_logger.debug(f"Request headers: {headers}")
+        # set up headers
+        headers = {"Content-Type": "application/fhir+json"}
+        headers.update(self._additional_request_headers)
+        self._internal_logger.debug(f"Request headers: {headers}")
 
-            access_token = await self.get_access_token_async()
-            # set access token in request if present
-            if access_token:
-                headers["Authorization"] = f"Bearer {access_token}"
+        access_token = await self.get_access_token_async()
+        # set access token in request if present
+        if access_token:
+            headers["Authorization"] = f"Bearer {access_token}"
 
-            if self._validation_server_url:
-                await AsyncFhirValidator.validate_fhir_resource(
-                    http=http,
-                    json_data=json_data,
-                    resource_name=self._resource,
-                    validation_server_url=self._validation_server_url,
-                    access_token=access_token,
-                )
-
-            # actually make the request
-            client: RetryableAioHttpClient = RetryableAioHttpClient(
-                session=http,
-                simple_refresh_token_func=lambda: self._refresh_token_function(),
-                retries=self._retry_count,
-                exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
-                use_data_streaming=self._use_data_streaming,
-                compress=self._compress,
-            )
-            response = await client.put(
-                url=full_uri.url, data=json_data, headers=headers
-            )
-            request_id = response.response_headers.get("X-Request-ID", None)
-            self._internal_logger.info(f"X-Request-ID={request_id}")
-            if response.status == 200:
-                if self._logger:
-                    self._logger.info(f"Successfully updated: {full_uri}")
-
-            return FhirUpdateResponse(
-                request_id=request_id,
-                url=full_uri.tostr(),
-                responses=await response.get_text_async(),
-                error=f"{response.status}" if not response.status == 200 else None,
+        if self._validation_server_url:
+            await AsyncFhirValidator.validate_fhir_resource(
+                fn_get_session=lambda: self.create_http_session(),
+                json_data=json_data,
+                resource_name=self._resource,
+                validation_server_url=self._validation_server_url,
                 access_token=access_token,
-                status=response.status,
             )
+
+        # actually make the request
+        client: RetryableAioHttpClient = RetryableAioHttpClient(
+            fn_get_session=lambda: self.create_http_session(),
+            simple_refresh_token_func=lambda: self._refresh_token_function(),
+            retries=self._retry_count,
+            exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
+            use_data_streaming=self._use_data_streaming,
+            compress=self._compress,
+        )
+        response = await client.put(url=full_uri.url, data=json_data, headers=headers)
+        request_id = response.response_headers.get("X-Request-ID", None)
+        self._internal_logger.info(f"X-Request-ID={request_id}")
+        if response.status == 200:
+            if self._logger:
+                self._logger.info(f"Successfully updated: {full_uri}")
+
+        return FhirUpdateResponse(
+            request_id=request_id,
+            url=full_uri.tostr(),
+            responses=await response.get_text_async(),
+            error=f"{response.status}" if not response.status == 200 else None,
+            access_token=access_token,
+            status=response.status,
+        )
 
     def update(self, json_data: str) -> FhirUpdateResponse:
         """
