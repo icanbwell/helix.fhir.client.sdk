@@ -387,3 +387,27 @@ class FhirGetResponse:
 
         assert result
         return result
+
+    def get_operation_outcomes(self) -> List[Dict[str, Any]]:
+        """
+        Gets the operation outcomes from the response
+
+        :return: list of operation outcomes
+        """
+        return [
+            r
+            for r in self.get_resources()
+            if r.get("resourceType") == "OperationOutcome"
+        ]
+
+    def get_resources_except_operation_outcomes(self) -> List[Dict[str, Any]]:
+        """
+        Gets the normal FHIR resources by skipping any OperationOutcome resources
+
+        :return: list of valid resources
+        """
+        return [
+            r
+            for r in self.get_resources()
+            if r.get("resourceType") != "OperationOutcome"
+        ]

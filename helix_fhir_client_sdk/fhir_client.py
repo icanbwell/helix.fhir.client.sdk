@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 import uuid
@@ -44,7 +43,6 @@ from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
     RefreshTokenFunction,
-    SimpleRefreshTokenFunction,
 )
 from helix_fhir_client_sdk.graph.fhir_graph_mixin import FhirGraphMixin
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
@@ -56,6 +54,7 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
 )
+from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
@@ -116,7 +115,6 @@ class FhirClient(
         self._expand_fhir_bundle: bool = True
 
         self._stop_processing: bool = False
-        self._authentication_token_lock: Lock = Lock()
         self._last_page: Optional[int] = None
 
         self._use_data_streaming: bool = False
@@ -124,7 +122,7 @@ class FhirClient(
 
         self._use_post_for_search: bool = False
 
-        self._accept: str = "application/fhir+json"
+        self._accept: str = "application/fhir+ndjson, application/fhir+json"
         self._content_type: str = "application/fhir+json"
         self._additional_request_headers: Dict[str, str] = {}
         self._accept_encoding: str = "gzip,deflate"
@@ -351,10 +349,11 @@ class FhirClient(
         :param use: where to use data streaming
         """
         self._use_data_streaming = use
+        # The b.well FHIR server as of version 5.3.16 has a bug that it cannot parse an accept string with multiple
+        # accepts.  We should remove this when that is fixed.
         if use:
             self._accept = "application/fhir+ndjson"
-        else:
-            self._accept = "application/fhir+json"
+
         return self
 
     def use_post_for_search(self, use: bool) -> "FhirClient":
@@ -464,6 +463,9 @@ class FhirClient(
             f"{key}:{value}" for key, value in params.response.headers.items()
         ]
         FhirClient._internal_logger.info(f"Received headers: {received_headers}")
+        FhirClient._internal_logger.info(
+            f"Response from {params.url} status: {params.response.status}"
+        )
 
     @staticmethod
     async def on_response_chunk_received(
@@ -477,7 +479,7 @@ class FhirClient(
         )
 
     def get_access_token(self) -> Optional[str]:
-        return asyncio.run(self.get_access_token_async())
+        return AsyncRunner.run(self.get_access_token_async())
 
     def set_access_token(self, value: str | None) -> "FhirClient":
         """
@@ -587,7 +589,7 @@ class FhirClient(
 
         :return: response
         """
-        result: FhirGetResponse = asyncio.run(self.get_async())
+        result: FhirGetResponse = AsyncRunner.run(self.get_async())
         return result
 
     async def _get_with_session_async(  # type: ignore[override]
@@ -644,12 +646,6 @@ class FhirClient(
             if access_token:
                 headers["Authorization"] = f"Bearer {access_token}"
 
-            # actually make the request
-            if session is None:
-                http = self.create_http_session()
-            else:
-                http = session
-
             await FhirResponseProcessor.log_request(
                 full_url=full_url,
                 client_id=self._client_id,
@@ -660,57 +656,61 @@ class FhirClient(
                 internal_logger=self._internal_logger,
             )
 
-            response: RetryableAioHttpResponse = await self._send_fhir_request_async(
-                http=http,
-                full_url=full_url,
-                headers=headers,
-                payload=payload,
-                simple_refresh_token_func=lambda: self._refresh_token_function(
-                    auth_server_url=self._auth_server_url,
-                    auth_scopes=self._auth_scopes,
-                    login_token=self._login_token,
-                ),
+            async with RetryableAioHttpClient(
+                fn_get_session=lambda: self.create_http_session(),
+                simple_refresh_token_func=lambda: self._refresh_token_function(),
+                retries=self._retry_count,
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
-            )
-            assert isinstance(response, RetryableAioHttpResponse)
-            last_status_code = response.status
-            response_headers: List[str] = [
-                f"{key}:{value}" for key, value in response.response_headers.items()
-            ]
-            await FhirResponseProcessor.log_response(
-                full_url=full_url,
-                response_status=response.status,
-                client_id=self._client_id,
-                internal_logger=self._internal_logger,
-                log_level=self._log_level,
-                logger=self._logger,
-                auth_scopes=self._auth_scopes,
-                uuid=self._uuid,
-            )
-
-            request_id = response.response_headers.get("X-Request-ID", None)
-            self._internal_logger.info(f"X-Request-ID={request_id}")
-
-            async for r in FhirResponseProcessor.handle_response(
-                internal_logger=self._internal_logger,
-                access_token=access_token,
-                response_headers=response_headers,
-                response=response,
-                logger=self._logger,
-                resources_json=resources_json,
-                full_url=full_url,
-                request_id=request_id,
-                resource=self._resource,
-                id_=self._id,
-                chunk_size=self._chunk_size,
-                expand_fhir_bundle=self._expand_fhir_bundle,
-                separate_bundle_resources=self._separate_bundle_resources,
-                url=self._url,
-                extra_context_to_return=self._extra_context_to_return,
                 use_data_streaming=self._use_data_streaming,
-                fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-            ):
-                yield r
+                compress=self._compress,
+            ) as client:
+                response: RetryableAioHttpResponse = (
+                    await self._send_fhir_request_async(
+                        client=client,
+                        full_url=full_url,
+                        headers=headers,
+                        payload=payload,
+                    )
+                )
+                assert isinstance(response, RetryableAioHttpResponse)
+                last_status_code = response.status
+                response_headers: List[str] = [
+                    f"{key}:{value}" for key, value in response.response_headers.items()
+                ]
+                await FhirResponseProcessor.log_response(
+                    full_url=full_url,
+                    response_status=response.status,
+                    client_id=self._client_id,
+                    internal_logger=self._internal_logger,
+                    log_level=self._log_level,
+                    logger=self._logger,
+                    auth_scopes=self._auth_scopes,
+                    uuid=self._uuid,
+                )
+
+                request_id = response.response_headers.get("X-Request-ID", None)
+                self._internal_logger.info(f"X-Request-ID={request_id}")
+
+                async for r in FhirResponseProcessor.handle_response(
+                    internal_logger=self._internal_logger,
+                    access_token=access_token,
+                    response_headers=response_headers,
+                    response=response,
+                    logger=self._logger,
+                    resources_json=resources_json,
+                    full_url=full_url,
+                    request_id=request_id,
+                    resource=self._resource,
+                    id_=self._id,
+                    chunk_size=self._chunk_size,
+                    expand_fhir_bundle=self._expand_fhir_bundle,
+                    separate_bundle_resources=self._separate_bundle_resources,
+                    url=self._url,
+                    extra_context_to_return=self._extra_context_to_return,
+                    use_data_streaming=self._use_data_streaming,
+                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+                ):
+                    yield r
 
         except Exception as ex:
             raise FhirSenderException(
@@ -831,37 +831,25 @@ class FhirClient(
     async def _send_fhir_request_async(
         self,
         *,
-        http: ClientSession,
+        client: RetryableAioHttpClient,
         full_url: str,
         headers: Dict[str, str],
         payload: Dict[str, Any] | None,
-        simple_refresh_token_func: Optional[SimpleRefreshTokenFunction],
-        exclude_status_codes_from_retry: List[int] | None,
     ) -> RetryableAioHttpResponse:
         """
         Sends a request to the server
 
 
-        :param http: session to use
         :param full_url: url to call
         :param headers: headers to send
         :param payload: payload to send
         """
-        assert http is not None
+        assert client is not None
         assert full_url
         assert headers
         assert isinstance(headers, dict)
         if payload:
             assert isinstance(payload, dict)
-
-        client: RetryableAioHttpClient = RetryableAioHttpClient(
-            session=http,
-            simple_refresh_token_func=simple_refresh_token_func,
-            retries=self._retry_count,
-            exclude_status_codes_from_retry=exclude_status_codes_from_retry,
-            use_data_streaming=self._use_data_streaming,
-            compress=self._compress,
-        )
 
         if self._action == "$graph":
             if self._logger:
