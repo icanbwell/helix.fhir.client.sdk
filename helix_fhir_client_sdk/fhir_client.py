@@ -25,7 +25,6 @@ from aiohttp import (
     TraceRequestEndParams,
     TraceResponseChunkReceivedParams,
 )
-
 from furl import furl
 
 from requests.adapters import BaseAdapter
@@ -453,7 +452,27 @@ class FhirClient(
         trace_config_ctx: SimpleNamespace,
         params: TraceRequestEndParams,
     ) -> None:
-        FhirClient._internal_logger.info(f"{params.method} {params.url}")
+        accept: Optional[str] = params.response.request_info.headers.get("Accept", "")
+        accept_encoding: Optional[str] = params.response.request_info.headers.get(
+            "Accept-Encoding", ""
+        )
+        content_type_sent: Optional[str] = params.response.request_info.headers.get(
+            "Content-Type", ""
+        )
+        content_encoding_sent: Optional[str] = params.response.request_info.headers.get(
+            "Content-Encoding", ""
+        )
+        transfer_encoding_sent: Optional[str] = (
+            params.response.request_info.headers.get("Transfer-Encoding", "")
+        )
+        FhirClient._internal_logger.info(
+            f"Sent: {params.method} {params.url}"
+            + f" | Accept: {accept}"
+            + f" | Accept-Encoding: {accept_encoding}"
+            + f" | Content-Type: {content_type_sent}"
+            + f" | Content-Encoding: {content_encoding_sent}"
+            + f" | Transfer-Encoding: {transfer_encoding_sent}"
+        )
         sent_headers: List[str] = [
             f"{key}:{value}"
             for key, value in params.response.request_info.headers.items()
@@ -474,7 +493,7 @@ class FhirClient(
         )
 
         FhirClient._internal_logger.info(
-            f"Response: {params.method} {params.url}"
+            f"Received: {params.method} {params.url}"
             + f" | Status: {params.response.status}"
             + f" | Content-Type: {content_type}"
             + f" | Transfer-Encoding: {transfer_encoding}"
