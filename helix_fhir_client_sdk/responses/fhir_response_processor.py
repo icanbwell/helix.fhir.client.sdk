@@ -3,7 +3,6 @@ from logging import Logger
 from typing import Optional, List, Dict, Any, Union, AsyncGenerator, Tuple
 from uuid import UUID
 
-from aiohttp import ClientResponse
 from aiohttp.streams import AsyncStreamIterator
 
 from helix_fhir_client_sdk.function_types import (
@@ -24,22 +23,6 @@ class FhirResponseProcessor:
     This class is responsible for processing the response from the FHIR server.
 
     """
-
-    @staticmethod
-    async def get_safe_response_text_async(
-        *, response: Optional[ClientResponse]
-    ) -> str:
-        """
-        This method is responsible for getting the response text from the response object.
-
-        :param response: The response object from the FHIR server.
-        """
-        try:
-            return (
-                await response.text() if (response and response.status != 504) else ""
-            )
-        except Exception as e:
-            return str(e)
 
     @staticmethod
     async def handle_response(

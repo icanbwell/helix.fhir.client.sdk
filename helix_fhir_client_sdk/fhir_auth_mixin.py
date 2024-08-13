@@ -11,8 +11,12 @@ from furl import furl
 
 from helix_fhir_client_sdk.function_types import RefreshTokenFunction
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
-from helix_fhir_client_sdk.responses.fhir_response_processor import (
-    FhirResponseProcessor,
+
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
+    RetryableAioHttpClient,
+)
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
+    RetryableAioHttpResponse,
 )
 from helix_fhir_client_sdk.well_known_configuration import (
     WellKnownConfigurationCacheEntry,
@@ -250,27 +254,28 @@ class FhirAuthMixin(FhirClientProtocol):
             "Content-Type": "application/x-www-form-urlencoded",
         }
 
-        async with self.create_http_session() as session:
-            async with session.request(
-                "POST", auth_server_url, headers=headers, data=payload
-            ) as response:
-                # token = response.text.encode('utf8')
-                token_text: str = (
-                    await FhirResponseProcessor.get_safe_response_text_async(
-                        response=response
-                    )
-                )
-                if not token_text:
-                    self._internal_logger.error(f"No token found in {token_text}")
-                    raise Exception(f"No access token found in {token_text}")
+        async with RetryableAioHttpClient(
+            fn_get_session=lambda: self.create_http_session(),
+            use_data_streaming=False,
+            compress=True,
+            exclude_status_codes_from_retry=None,
+        ) as client:
+            response: RetryableAioHttpResponse = await client.post(
+                url=auth_server_url, headers=headers, data=payload
+            )
+            # token = response.text.encode('utf8')
+            token_text: str = await response.get_text_async()
+            if not token_text:
+                self._internal_logger.error(f"No token found in {token_text}")
+                raise Exception(f"No access token found in {token_text}")
 
-                token_json: Dict[str, Any] = json.loads(token_text)
+            token_json: Dict[str, Any] = json.loads(token_text)
 
-                if "access_token" not in token_json:
-                    self._internal_logger.error(f"No token found in {token_json}")
-                    raise Exception(f"No access token found in {token_json}")
-                access_token: str = token_json["access_token"]
-                return access_token
+            if "access_token" not in token_json:
+                self._internal_logger.error(f"No token found in {token_json}")
+                raise Exception(f"No access token found in {token_json}")
+            access_token: str = token_json["access_token"]
+            return access_token
 
     @staticmethod
     def _create_login_token(client_id: str, client_secret: str) -> str:
