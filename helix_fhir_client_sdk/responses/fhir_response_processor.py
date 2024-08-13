@@ -531,7 +531,7 @@ class FhirResponseProcessor:
                             + f" | Resources: {len(completed_resources):,}"
                             + f" | Total Resources: {total_resources:,}"
                             + (
-                                f" | Resources/sec: {(total_resources / total_time):,.0f}"
+                                f" | Resources/sec: {(total_resources / total_time):,.2f}"
                                 if total_time > 0
                                 else ""
                             )
