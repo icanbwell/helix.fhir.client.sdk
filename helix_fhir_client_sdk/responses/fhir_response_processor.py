@@ -524,25 +524,22 @@ class FhirResponseProcessor:
                     )
                 )
                 if completed_resources:
-                    total_time = time.time() - start_time
+                    total_time: float = time.time() - start_time
+                    if total_time == 0:
+                        total_time = 0.1  # avoid division by zero
                     total_resources += len(completed_resources)
-                    total_time_str: str = (
-                        datetime.fromtimestamp(total_time).strftime("%H:%M:%S")
-                        if total_time > 0
-                        else ""
+                    total_time_str: str = datetime.fromtimestamp(total_time).strftime(
+                        "%H:%M:%S"
                     )
                     if logger:
                         logger.debug(
                             f"Chunk: {chunk_number:,}"
                             + f" | Resources: {len(completed_resources):,}"
                             + f" | Total Resources: {total_resources:,}"
-                            + (
-                                f" | Resources/sec: {(total_resources / total_time):,.2f}"
-                                if total_time > 0
-                                else ""
-                            )
+                            + f" | Resources/sec: {(total_resources / total_time):,.2f}"
                             + f" | Bytes: {chunk_length:,}"
                             + f" | Total Bytes: {total_length:,}"
+                            + f" | Bytes/sec: {(total_length / total_time):,.2f}"
                             + f" | Url: {full_url}"
                             + f" | Total time: {total_time_str}"
                         )
