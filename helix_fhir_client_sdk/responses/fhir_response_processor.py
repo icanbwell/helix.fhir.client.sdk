@@ -520,8 +520,8 @@ class FhirResponseProcessor:
                     if logger:
                         logger.debug(
                             f"Chunk [{chunk_number}]"
-                            f" | Completed: {len(completed_resources)}"
-                            f" | Url: {full_url}: "
+                            f" | Resources: {len(completed_resources)}"
+                            f" | Url: {full_url}"
                         )
                     yield FhirGetResponse(
                         request_id=request_id,
