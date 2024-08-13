@@ -43,7 +43,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
         request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
-            headers={"Accept": "application/fhir+ndjson"},
+            headers={"Accept": "application/fhir+ndjson, application/fhir+json"},
         ),
         response=mock_response(
             body=response_text,
@@ -79,6 +79,9 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
     assert response is not None
 
     resources: List[Dict[str, Any]] = response.get_resources()
+
+    mock_client.verify_expectations()
+
     assert len(resources) == 100
 
     assert len(responses) > 1
