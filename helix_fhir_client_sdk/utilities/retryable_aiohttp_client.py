@@ -96,108 +96,108 @@ class RetryableAioHttpClient:
                     kwargs["headers"] = headers
                 assert self.session is not None
                 async with async_timeout.timeout(self.timeout_in_seconds):
-                    async with self.session.request(
+                    response: ClientResponse = await self.session.request(
                         method,
                         url,
                         **kwargs,
-                    ) as response:
-                        if response.ok:
-                            return RetryableAioHttpResponse(
-                                ok=response.ok,
-                                status=response.status,
-                                response_headers={
-                                    k: v for k, v in response.headers.items()
-                                },
-                                response_text=(
-                                    await self.get_safe_response_text_async(
-                                        response=response
-                                    )
-                                    if not self.use_data_streaming
-                                    else ""
-                                ),
-                                content=response.content,
-                                use_data_streaming=self.use_data_streaming,
-                            )
-                        elif (
-                            self.exclude_status_codes_from_retry
-                            and response.status in self.exclude_status_codes_from_retry
-                        ):
-                            return RetryableAioHttpResponse(
-                                ok=response.ok,
-                                status=response.status,
-                                response_headers={
-                                    k: v for k, v in response.headers.items()
-                                },
-                                response_text=await self.get_safe_response_text_async(
+                    )
+                    if response.ok:
+                        return RetryableAioHttpResponse(
+                            ok=response.ok,
+                            status=response.status,
+                            response_headers={
+                                k: v for k, v in response.headers.items()
+                            },
+                            response_text=(
+                                await self.get_safe_response_text_async(
                                     response=response
-                                ),
-                                content=response.content,
-                                use_data_streaming=self.use_data_streaming,
-                            )
-                        elif response.status == 400:
-                            return RetryableAioHttpResponse(
-                                ok=response.ok,
-                                status=response.status,
-                                response_headers={
-                                    k: v for k, v in response.headers.items()
-                                },
-                                response_text=await self.get_safe_response_text_async(
-                                    response=response
-                                ),
-                                content=response.content,
-                                use_data_streaming=self.use_data_streaming,
-                            )
-                        elif response.status in [403, 404]:
-                            return RetryableAioHttpResponse(
-                                ok=response.ok,
-                                status=response.status,
-                                response_headers={
-                                    k: v for k, v in response.headers.items()
-                                },
-                                response_text=await self.get_safe_response_text_async(
-                                    response=response
-                                ),
-                                content=response.content,
-                                use_data_streaming=self.use_data_streaming,
-                            )
-                        elif response.status == 429:
-                            await self._handle_429(response=response, full_url=url)
-                        elif (
-                            self.retry_status_codes
-                            and response.status in self.retry_status_codes
-                        ):
-                            raise ClientResponseError(
-                                status=response.status,
-                                message="Retryable status code received",
-                                headers=response.headers,
-                                history=response.history,
-                                request_info=response.request_info,
-                            )
-                        elif response.status == 401 and self.simple_refresh_token_func:
-                            # Call the token refresh function if status code is 401
-                            access_token = await self.simple_refresh_token_func()
-                            if not headers:
-                                headers = {}
-                            headers["Authorization"] = f"Bearer {access_token}"
-                            if retry_attempts >= self.retries:
-                                raise ClientResponseError(
-                                    status=response.status,
-                                    message="Unauthorized",
-                                    headers=response.headers,
-                                    history=response.history,
-                                    request_info=response.request_info,
                                 )
-                            await asyncio.sleep(
-                                self.backoff_factor * (2 ** (retry_attempts - 1))
-                            )
-                        else:
+                                if not self.use_data_streaming
+                                else ""
+                            ),
+                            content=response.content,
+                            use_data_streaming=self.use_data_streaming,
+                        )
+                    elif (
+                        self.exclude_status_codes_from_retry
+                        and response.status in self.exclude_status_codes_from_retry
+                    ):
+                        return RetryableAioHttpResponse(
+                            ok=response.ok,
+                            status=response.status,
+                            response_headers={
+                                k: v for k, v in response.headers.items()
+                            },
+                            response_text=await self.get_safe_response_text_async(
+                                response=response
+                            ),
+                            content=response.content,
+                            use_data_streaming=self.use_data_streaming,
+                        )
+                    elif response.status == 400:
+                        return RetryableAioHttpResponse(
+                            ok=response.ok,
+                            status=response.status,
+                            response_headers={
+                                k: v for k, v in response.headers.items()
+                            },
+                            response_text=await self.get_safe_response_text_async(
+                                response=response
+                            ),
+                            content=response.content,
+                            use_data_streaming=self.use_data_streaming,
+                        )
+                    elif response.status in [403, 404]:
+                        return RetryableAioHttpResponse(
+                            ok=response.ok,
+                            status=response.status,
+                            response_headers={
+                                k: v for k, v in response.headers.items()
+                            },
+                            response_text=await self.get_safe_response_text_async(
+                                response=response
+                            ),
+                            content=response.content,
+                            use_data_streaming=self.use_data_streaming,
+                        )
+                    elif response.status == 429:
+                        await self._handle_429(response=response, full_url=url)
+                    elif (
+                        self.retry_status_codes
+                        and response.status in self.retry_status_codes
+                    ):
+                        raise ClientResponseError(
+                            status=response.status,
+                            message="Retryable status code received",
+                            headers=response.headers,
+                            history=response.history,
+                            request_info=response.request_info,
+                        )
+                    elif response.status == 401 and self.simple_refresh_token_func:
+                        # Call the token refresh function if status code is 401
+                        access_token = await self.simple_refresh_token_func()
+                        if not headers:
+                            headers = {}
+                        headers["Authorization"] = f"Bearer {access_token}"
+                        if retry_attempts >= self.retries:
                             raise ClientResponseError(
                                 status=response.status,
-                                message="Non-retryable status code received",
+                                message="Unauthorized",
                                 headers=response.headers,
                                 history=response.history,
                                 request_info=response.request_info,
                             )
+                        await asyncio.sleep(
+                            self.backoff_factor * (2 ** (retry_attempts - 1))
+                        )
+                    else:
+                        raise ClientResponseError(
+                            status=response.status,
+                            message="Non-retryable status code received",
+                            headers=response.headers,
+                            history=response.history,
+                            request_info=response.request_info,
+                        )
             except (ClientError, asyncio.TimeoutError) as e:
                 if retry_attempts >= self.retries:
                     raise e
