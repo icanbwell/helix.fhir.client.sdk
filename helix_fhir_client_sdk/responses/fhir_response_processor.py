@@ -503,7 +503,7 @@ class FhirResponseProcessor:
                 return response.content.iter_chunked(chunk_size)
 
         total_resources: int = 0
-        total_length: int = 0
+        total_kilobytes: int = 0
         start_time: float = time.time()
         chunk: Optional[str] = None
         try:
@@ -516,7 +516,7 @@ class FhirResponseProcessor:
                     await fn_handle_streaming_chunk(chunk_bytes, chunk_number)
                 chunk = chunk_bytes.decode("utf-8")
                 chunk_length = len(chunk_bytes)
-                total_length += chunk_length
+                total_kilobytes += chunk_length // 1024
                 completed_resources: List[Dict[str, Any]] = (
                     nd_json_chunk_streaming_parser.add_chunk(
                         chunk=chunk,
@@ -537,9 +537,9 @@ class FhirResponseProcessor:
                             + f" | Resources: {len(completed_resources):,}"
                             + f" | Total Resources: {total_resources:,}"
                             + f" | Resources/sec: {(total_resources / total_time):,.2f}"
-                            + f" | Bytes: {chunk_length:,}"
-                            + f" | Total Bytes: {total_length:,}"
-                            + f" | Bytes/sec: {(total_length / total_time):,.2f}"
+                            + f" | Chunk KB: {chunk_length/1024:,}"
+                            + f" | Total KB: {total_kilobytes:,}"
+                            + f" | KB/sec: {(total_kilobytes / total_time):,.2f}"
                             + f" | Url: {full_url}"
                             + f" | Total time: {total_time_str}"
                         )
