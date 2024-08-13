@@ -52,33 +52,32 @@ class FhirPatchMixin(FhirClientProtocol):
         try:
             deserialized_data = json.loads(data)
             # actually make the request
-            client: RetryableAioHttpClient = RetryableAioHttpClient(
+            async with RetryableAioHttpClient(
                 fn_get_session=lambda: self.create_http_session(),
                 simple_refresh_token_func=lambda: self._refresh_token_function(),
                 retries=self._retry_count,
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                 use_data_streaming=self._use_data_streaming,
                 compress=self._compress,
-            )
-
-            response: RetryableAioHttpResponse = await client.patch(
-                url=full_uri.url, json=deserialized_data, headers=headers
-            )
-            response_status = response.status
-            request_id = response.response_headers.get("X-Request-ID", None)
-            self._internal_logger.info(f"X-Request-ID={request_id}")
-
-            if response_status == 200:
-                if self._logger:
-                    self._logger.info(f"Successfully updated: {full_uri}")
-            elif response_status == 404:
-                if self._logger:
-                    self._logger.info(f"Request resource was not found: {full_uri}")
-            else:
-                # other HTTP errors
-                self._internal_logger.info(
-                    f"PATCH response for {full_uri.url}: {response_status}"
+            ) as client:
+                response: RetryableAioHttpResponse = await client.patch(
+                    url=full_uri.url, json=deserialized_data, headers=headers
                 )
+                response_status = response.status
+                request_id = response.response_headers.get("X-Request-ID", None)
+                self._internal_logger.info(f"X-Request-ID={request_id}")
+
+                if response_status == 200:
+                    if self._logger:
+                        self._logger.info(f"Successfully updated: {full_uri}")
+                elif response_status == 404:
+                    if self._logger:
+                        self._logger.info(f"Request resource was not found: {full_uri}")
+                else:
+                    # other HTTP errors
+                    self._internal_logger.info(
+                        f"PATCH response for {full_uri.url}: {response_status}"
+                    )
         except Exception as e:
             raise FhirSenderException(
                 request_id=request_id,

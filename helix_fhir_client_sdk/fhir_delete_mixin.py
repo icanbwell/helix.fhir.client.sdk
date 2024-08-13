@@ -40,32 +40,31 @@ class FhirDeleteMixin(FhirClientProtocol):
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
 
-        client: RetryableAioHttpClient = RetryableAioHttpClient(
+        async with RetryableAioHttpClient(
             fn_get_session=lambda: self.create_http_session(),
             simple_refresh_token_func=lambda: self._refresh_token_function(),
             retries=self._retry_count,
             exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
             use_data_streaming=self._use_data_streaming,
             compress=False,
-        )
+        ) as client:
+            response: RetryableAioHttpResponse = await client.delete(
+                url=full_uri.tostr(), headers=headers
+            )
+            request_id = response.response_headers.get("X-Request-ID", None)
+            self._internal_logger.info(f"X-Request-ID={request_id}")
+            if response.status == 200:
+                if self._logger:
+                    self._logger.info(f"Successfully deleted: {full_uri}")
 
-        response: RetryableAioHttpResponse = await client.delete(
-            url=full_uri.tostr(), headers=headers
-        )
-        request_id = response.response_headers.get("X-Request-ID", None)
-        self._internal_logger.info(f"X-Request-ID={request_id}")
-        if response.status == 200:
-            if self._logger:
-                self._logger.info(f"Successfully deleted: {full_uri}")
-
-        return FhirDeleteResponse(
-            request_id=request_id,
-            url=full_uri.tostr(),
-            responses=await response.get_text_async(),
-            error=f"{response.status}" if not response.status == 200 else None,
-            access_token=access_token,
-            status=response.status,
-        )
+            return FhirDeleteResponse(
+                request_id=request_id,
+                url=full_uri.tostr(),
+                responses=await response.get_text_async(),
+                error=f"{response.status}" if not response.status == 200 else None,
+                access_token=access_token,
+                status=response.status,
+            )
 
     def delete(self) -> FhirDeleteResponse:
         """
@@ -113,28 +112,27 @@ class FhirDeleteMixin(FhirClientProtocol):
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
 
-        client: RetryableAioHttpClient = RetryableAioHttpClient(
+        async with RetryableAioHttpClient(
             fn_get_session=lambda: self.create_http_session(),
             simple_refresh_token_func=lambda: self._refresh_token_function(),
             retries=self._retry_count,
             exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
             use_data_streaming=self._use_data_streaming,
-        )
+        ) as client:
+            response: RetryableAioHttpResponse = await client.delete(
+                url=full_uri.tostr(), headers=headers
+            )
+            request_id = response.response_headers.get("X-Request-ID", None)
+            self._internal_logger.info(f"X-Request-ID={request_id}")
+            if response.status == 200:
+                if self._logger:
+                    self._logger.info(f"Successfully deleted: {full_uri}")
 
-        response: RetryableAioHttpResponse = await client.delete(
-            url=full_uri.tostr(), headers=headers
-        )
-        request_id = response.response_headers.get("X-Request-ID", None)
-        self._internal_logger.info(f"X-Request-ID={request_id}")
-        if response.status == 200:
-            if self._logger:
-                self._logger.info(f"Successfully deleted: {full_uri}")
-
-        return FhirDeleteResponse(
-            request_id=request_id,
-            url=full_uri.tostr(),
-            responses=await response.get_text_async(),
-            error=f"{response.status}" if not response.status == 200 else None,
-            access_token=access_token,
-            status=response.status,
-        )
+            return FhirDeleteResponse(
+                request_id=request_id,
+                url=full_uri.tostr(),
+                responses=await response.get_text_async(),
+                error=f"{response.status}" if not response.status == 200 else None,
+                access_token=access_token,
+                status=response.status,
+            )

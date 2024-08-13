@@ -848,42 +848,43 @@ class FhirClient(
         if payload:
             assert isinstance(payload, dict)
 
-        client: RetryableAioHttpClient = RetryableAioHttpClient(
+        async with RetryableAioHttpClient(
             fn_get_session=lambda: self.create_http_session(),
             simple_refresh_token_func=simple_refresh_token_func,
             retries=self._retry_count,
             exclude_status_codes_from_retry=exclude_status_codes_from_retry,
             use_data_streaming=self._use_data_streaming,
             compress=self._compress,
-        )
-
-        if self._action == "$graph":
-            if self._logger:
-                self._logger.info(
-                    f"sending a post: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
-                )
-            logging.info(
-                f"sending a post: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
-            )
-            if payload:
-                return await client.post(url=full_url, headers=headers, json=payload)
-            else:
-                raise Exception(
-                    "$graph needs a payload to define the returning response (use action_payload parameter)"
-                )
-        else:
-            if self._log_level == "DEBUG":
+        ) as client:
+            if self._action == "$graph":
                 if self._logger:
                     self._logger.info(
-                        f"sending a get: {full_url} with client_id={self._client_id} "
-                        + f"and scopes={self._auth_scopes} instance_id={self._uuid}"
+                        f"sending a post: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
+                    )
+                logging.info(
+                    f"sending a post: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
+                )
+                if payload:
+                    return await client.post(
+                        url=full_url, headers=headers, json=payload
                     )
                 else:
-                    self._internal_logger.info(
-                        f"sending a get: {full_url} with client_id={self._client_id} "
-                        + f"and scopes={self._auth_scopes} instance_id={self._uuid}"
+                    raise Exception(
+                        "$graph needs a payload to define the returning response (use action_payload parameter)"
                     )
-            return await client.get(url=full_url, headers=headers, data=payload)
+            else:
+                if self._log_level == "DEBUG":
+                    if self._logger:
+                        self._logger.info(
+                            f"sending a get: {full_url} with client_id={self._client_id} "
+                            + f"and scopes={self._auth_scopes} instance_id={self._uuid}"
+                        )
+                    else:
+                        self._internal_logger.info(
+                            f"sending a get: {full_url} with client_id={self._client_id} "
+                            + f"and scopes={self._auth_scopes} instance_id={self._uuid}"
+                        )
+                return await client.get(url=full_url, headers=headers, data=payload)
 
     # noinspection SpellCheckingInspection
     def create_http_session(self) -> ClientSession:
