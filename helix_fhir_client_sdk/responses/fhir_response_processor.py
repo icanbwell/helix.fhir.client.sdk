@@ -522,8 +522,8 @@ class FhirResponseProcessor:
                     total_resources += len(completed_resources)
                     if logger:
                         logger.debug(
-                            f"Chunk: [{chunk_number}]"
-                            f" | Bytes: [{chunk_length}]"
+                            f"Chunk: {chunk_number}"
+                            f" | Bytes: {chunk_length}"
                             f" | Resources: {len(completed_resources)}"
                             f" | Total: {total_resources}"
                             f" | Url: {full_url}"
