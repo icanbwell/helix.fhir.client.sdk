@@ -43,7 +43,7 @@ async def test_fhir_client_patient_list_async_resource_streaming() -> None:
         request=mock_request(
             path=f"/{relative_url}/Patient",
             method="GET",
-            headers={"Accept": "application/fhir+ndjson, application/fhir+json"},
+            headers={"Accept": "application/fhir+ndjson"},
         ),
         response=mock_response(body=response_text),
         timing=times(2),

@@ -349,6 +349,11 @@ class FhirClient(
         :param use: where to use data streaming
         """
         self._use_data_streaming = use
+        # The b.well FHIR server as of version 5.3.16 has a bug that it cannot parse an accept string with multiple
+        # accepts.  We should remove this when that is fixed.
+        if use:
+            self._accept = "application/fhir+ndjson"
+
         return self
 
     def use_post_for_search(self, use: bool) -> "FhirClient":
