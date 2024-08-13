@@ -1,6 +1,6 @@
 import asyncio
-import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Coroutine, Any, TypeVar, Optional
 
 T = TypeVar("T")
@@ -46,7 +46,7 @@ class AsyncRunner:
         except RuntimeError as e:
             if "This event loop is already running" in str(e):
                 try:
-                    return AsyncRunner.run_in_new_thread_and_wait(coro=fn)
+                    return AsyncRunner.run_in_thread_pool_and_wait(coro=fn)
                 except RuntimeError as e2:
                     raise RuntimeError(
                         f"While calling {fn.__name__} there is already an event loop running."
@@ -60,10 +60,38 @@ class AsyncRunner:
                 raise e
         return result
 
+    # @staticmethod
+    # def run_in_new_thread_and_wait(coro: Coroutine[Any, Any, T]) -> T:
+    #     """
+    #     Runs the coroutine in a new thread and waits for it to finish
+    #
+    #     :param coro: Coroutine
+    #     :return: T
+    #     """
+    #     result: Optional[T] = None
+    #     exception: Optional[Exception] = None
+    #
+    #     def target() -> None:
+    #         nonlocal result, exception
+    #         try:
+    #             result = asyncio.run(coro)
+    #         except Exception as e:
+    #             exception = e
+    #
+    #     thread = threading.Thread(target=target)
+    #     thread.start()
+    #     thread.join()
+    #
+    #     if exception:
+    #         raise exception
+    #
+    #     # Allow returning None without checking since T may be an Optional type already
+    #     return result  # type: ignore[return-value]
+
     @staticmethod
-    def run_in_new_thread_and_wait(coro: Coroutine[Any, Any, T]) -> T:
+    def run_in_thread_pool_and_wait(coro: Coroutine[Any, Any, T]) -> T:
         """
-        Runs the coroutine in a new thread and waits for it to finish
+        Runs the coroutine in a thread pool and waits for it to finish
 
         :param coro: Coroutine
         :return: T
@@ -78,9 +106,9 @@ class AsyncRunner:
             except Exception as e:
                 exception = e
 
-        thread = threading.Thread(target=target)
-        thread.start()
-        thread.join()
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(target)
+            future.result()  # This will block until the thread completes
 
         if exception:
             raise exception
