@@ -501,6 +501,7 @@ class FhirResponseProcessor:
                 return response.content.iter_chunked(chunk_size)
 
         total_resources: int = 0
+        total_length: int = 0
         chunk: Optional[str] = None
         try:
             # iterate over the chunks and return the completed resources as we get them
@@ -512,6 +513,7 @@ class FhirResponseProcessor:
                     await fn_handle_streaming_chunk(chunk_bytes, chunk_number)
                 chunk = chunk_bytes.decode("utf-8")
                 chunk_length = len(chunk_bytes)
+                total_length += chunk_length
                 completed_resources: List[Dict[str, Any]] = (
                     nd_json_chunk_streaming_parser.add_chunk(
                         chunk=chunk,
@@ -522,10 +524,11 @@ class FhirResponseProcessor:
                     total_resources += len(completed_resources)
                     if logger:
                         logger.debug(
-                            f"Chunk: {chunk_number}"
-                            f" | Bytes: {chunk_length}"
-                            f" | Resources: {len(completed_resources)}"
-                            f" | Total: {total_resources}"
+                            f"Chunk: {chunk_number:,}"
+                            f" | Resources: {len(completed_resources):,}"
+                            f" | Total Resources: {total_resources:,}"
+                            f" | Bytes: {chunk_length:,}"
+                            f" | Total Bytes: {total_length:,}"
                             f" | Url: {full_url}"
                         )
                     yield FhirGetResponse(
