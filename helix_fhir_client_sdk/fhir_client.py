@@ -25,7 +25,6 @@ from aiohttp import (
     TraceRequestEndParams,
     TraceResponseChunkReceivedParams,
 )
-
 from furl import furl
 
 from requests.adapters import BaseAdapter
@@ -453,18 +452,52 @@ class FhirClient(
         trace_config_ctx: SimpleNamespace,
         params: TraceRequestEndParams,
     ) -> None:
-        FhirClient._internal_logger.info(f"{params.method} {params.url}")
+        accept: Optional[str] = params.response.request_info.headers.get("Accept", "")
+        accept_encoding: Optional[str] = params.response.request_info.headers.get(
+            "Accept-Encoding", ""
+        )
+        content_type_sent: Optional[str] = params.response.request_info.headers.get(
+            "Content-Type", ""
+        )
+        content_encoding_sent: Optional[str] = params.response.request_info.headers.get(
+            "Content-Encoding", ""
+        )
+        transfer_encoding_sent: Optional[str] = (
+            params.response.request_info.headers.get("Transfer-Encoding", "")
+        )
+        FhirClient._internal_logger.info(
+            f"Sent: {params.method} {params.url}"
+            + f" | Accept: {accept}"
+            + f" | Accept-Encoding: {accept_encoding}"
+            + f" | Content-Type: {content_type_sent}"
+            + f" | Content-Encoding: {content_encoding_sent}"
+            + f" | Transfer-Encoding: {transfer_encoding_sent}"
+        )
         sent_headers: List[str] = [
             f"{key}:{value}"
             for key, value in params.response.request_info.headers.items()
         ]
-        FhirClient._internal_logger.info(f"Sent headers: {sent_headers}")
+        FhirClient._internal_logger.debug(f"Sent headers: {sent_headers}")
         received_headers: List[str] = [
             f"{key}:{value}" for key, value in params.response.headers.items()
         ]
-        FhirClient._internal_logger.info(f"Received headers: {received_headers}")
+        FhirClient._internal_logger.debug(f"Received headers: {received_headers}")
+
+        # Log that we received a response
+        content_type: Optional[str] = params.response.headers.get("Content-Type", "")
+        content_encoding: Optional[str] = params.response.headers.get(
+            "Content-Encoding", ""
+        )
+        transfer_encoding: Optional[str] = params.response.headers.get(
+            "Transfer-Encoding", ""
+        )
+
         FhirClient._internal_logger.info(
-            f"Response from {params.url} status: {params.response.status}"
+            f"Received: {params.method} {params.url}"
+            + f" | Status: {params.response.status}"
+            + f" | Content-Type: {content_type}"
+            + f" | Transfer-Encoding: {transfer_encoding}"
+            + f" | Content-Encoding: {content_encoding}"
         )
 
     @staticmethod
