@@ -458,13 +458,27 @@ class FhirClient(
             f"{key}:{value}"
             for key, value in params.response.request_info.headers.items()
         ]
-        FhirClient._internal_logger.info(f"Sent headers: {sent_headers}")
+        FhirClient._internal_logger.debug(f"Sent headers: {sent_headers}")
         received_headers: List[str] = [
             f"{key}:{value}" for key, value in params.response.headers.items()
         ]
-        FhirClient._internal_logger.info(f"Received headers: {received_headers}")
+        FhirClient._internal_logger.debug(f"Received headers: {received_headers}")
+
+        # Log that we received a response
+        content_type: Optional[str] = params.response.headers.get("Content-Type", "")
+        content_encoding: Optional[str] = params.response.headers.get(
+            "Content-Encoding", ""
+        )
+        transfer_encoding: Optional[str] = params.response.headers.get(
+            "Transfer-Encoding", ""
+        )
+
         FhirClient._internal_logger.info(
-            f"Response from {params.url} status: {params.response.status}"
+            f"Response: {params.method} {params.url}"
+            + f" | Status: {params.response.status}"
+            + f" | Content-Type: {content_type}"
+            + f" | Transfer-Encoding: {transfer_encoding}"
+            + f" | Content-Encoding: {content_encoding}"
         )
 
     @staticmethod
