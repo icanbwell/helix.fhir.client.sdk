@@ -517,6 +517,12 @@ class FhirResponseProcessor:
                     )
                 )
                 if completed_resources:
+                    if logger:
+                        logger.debug(
+                            f"Chunk [{chunk_number}]"
+                            f" | Completed: {len(completed_resources)}"
+                            f" | Url: {full_url}: "
+                        )
                     yield FhirGetResponse(
                         request_id=request_id,
                         url=full_url,
@@ -536,10 +542,6 @@ class FhirResponseProcessor:
                         response_headers=response_headers,
                         chunk_number=chunk_number,
                     )
-                    if logger:
-                        logger.debug(
-                            f"Successfully got completed resources from {full_url}: {len(completed_resources)}"
-                        )
                 # else:
                 #     if logger:
                 #         logger.debug(
