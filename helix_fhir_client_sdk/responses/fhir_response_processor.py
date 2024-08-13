@@ -1,4 +1,5 @@
 import json
+import time
 from logging import Logger
 from typing import Optional, List, Dict, Any, Union, AsyncGenerator, Tuple
 from uuid import UUID
@@ -502,6 +503,7 @@ class FhirResponseProcessor:
 
         total_resources: int = 0
         total_length: int = 0
+        start_time: float = time.time()
         chunk: Optional[str] = None
         try:
             # iterate over the chunks and return the completed resources as we get them
@@ -521,15 +523,21 @@ class FhirResponseProcessor:
                     )
                 )
                 if completed_resources:
+                    total_time = time.time() - start_time
                     total_resources += len(completed_resources)
                     if logger:
                         logger.debug(
                             f"Chunk: {chunk_number:,}"
-                            f" | Resources: {len(completed_resources):,}"
-                            f" | Total Resources: {total_resources:,}"
-                            f" | Bytes: {chunk_length:,}"
-                            f" | Total Bytes: {total_length:,}"
-                            f" | Url: {full_url}"
+                            + f" | Resources: {len(completed_resources):,}"
+                            + f" | Total Resources: {total_resources:,}"
+                            + (
+                                f" | Resources/sec: {(total_resources / total_time):,.0f}"
+                                if total_time > 0
+                                else ""
+                            )
+                            + f" | Bytes: {chunk_length:,}"
+                            + f" | Total Bytes: {total_length:,}"
+                            + f" | Url: {full_url}"
                         )
                     yield FhirGetResponse(
                         request_id=request_id,
