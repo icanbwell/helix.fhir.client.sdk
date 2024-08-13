@@ -1,5 +1,6 @@
 import json
 import time
+from datetime import datetime
 from logging import Logger
 from typing import Optional, List, Dict, Any, Union, AsyncGenerator, Tuple
 from uuid import UUID
@@ -525,6 +526,11 @@ class FhirResponseProcessor:
                 if completed_resources:
                     total_time = time.time() - start_time
                     total_resources += len(completed_resources)
+                    total_time_str: str = (
+                        datetime.fromtimestamp(total_time).strftime("%H:%M:%S")
+                        if total_time > 0
+                        else ""
+                    )
                     if logger:
                         logger.debug(
                             f"Chunk: {chunk_number:,}"
@@ -538,6 +544,7 @@ class FhirResponseProcessor:
                             + f" | Bytes: {chunk_length:,}"
                             + f" | Total Bytes: {total_length:,}"
                             + f" | Url: {full_url}"
+                            + f" | Total time: {total_time_str}"
                         )
                     yield FhirGetResponse(
                         request_id=request_id,
