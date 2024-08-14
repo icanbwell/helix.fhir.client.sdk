@@ -99,8 +99,8 @@ def test_add_chunk_complete_and_incomplete_objects() -> None:
 
 def test_add_chunk_incomplete_then_complete_object() -> None:
     parser = NdJsonChunkStreamingParser()
-    chunk1 = '{"name": "John", "age": 30\n'
-    chunk2 = '{"name": "Jane", "age": 25}\n'
+    chunk1 = '{"name": "John", "age": 30'
+    chunk2 = '}\n{"name": "Jane", "age": 25}\n'
     parser.add_chunk(chunk1, logger=None)
     result = parser.add_chunk(chunk2, logger=None)
     expected_result: List[Dict[str, Any]] = [
@@ -120,12 +120,13 @@ def test_add_chunk_empty_chunk() -> None:
 
 def test_add_chunk_mixed_complete_and_incomplete_objects() -> None:
     parser = NdJsonChunkStreamingParser()
-    chunk1 = '{"name": "John", "age": 30}\n{"name": "Jane", "age": 25\n'
-    chunk2 = '{"name": "Doe", "age": 40}\n'
-    parser.add_chunk(chunk1, logger=None)
+    chunk1 = '{"name": "John", "age": 30}\n{"name": "Jane", "age": 25'
+    chunk2 = '}\n{"name": "Doe", "age": 40}\n'
+    result = parser.add_chunk(chunk1, logger=None)
+    assert result == [{"name": "John", "age": 30}]
     result = parser.add_chunk(chunk2, logger=None)
     expected_result: List[Dict[str, Any]] = [
-        {"name": "John", "age": 30},
+        {"name": "Jane", "age": 25},
         {"name": "Doe", "age": 40},
     ]
     assert result == expected_result
