@@ -63,20 +63,13 @@ async def test_handle_response_200_non_streaming_separate_bundle() -> None:
         )
     ]
 
-    expected_resources = [
-        {
-            "practitioner": [{"resourceType": "Practitioner", "id": "1"}],
-            "token": "mock_access_token",
-            "url": "http://example.com",
-            "extra_key": "extra_value",
-        },
-        {
-            "practitionerrole": [{"resourceType": "PractitionerRole", "id": "2"}],
-            "token": "mock_access_token",
-            "url": "http://example.com",
-            "extra_key": "extra_value",
-        },
-    ]
+    expected_resources = {
+        "practitioner": [{"resourceType": "Practitioner", "id": "1"}],
+        "practitionerrole": [{"resourceType": "PractitionerRole", "id": "2"}],
+        "token": "mock_access_token",
+        "url": "http://example.com",
+        "extra_key": "extra_value",
+    }
 
     expected_result = [
         {
