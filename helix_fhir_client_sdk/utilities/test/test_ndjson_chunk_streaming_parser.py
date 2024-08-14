@@ -130,3 +130,14 @@ def test_add_chunk_mixed_complete_and_incomplete_objects() -> None:
         {"name": "Doe", "age": 40},
     ]
     assert result == expected_result
+
+
+def test_add_chunk_no_newline_at_the_end() -> None:
+    parser = NdJsonChunkStreamingParser()
+    chunk = '{"name": "John", "age": 30}\n{"name": "Jane", "age": 25}'
+    result = parser.add_chunk(chunk, logger=None)
+    expected_result: List[Dict[str, Any]] = [
+        {"name": "John", "age": 30},
+        {"name": "Jane", "age": 25},
+    ]
+    assert result == expected_result

@@ -1,4 +1,5 @@
 import dataclasses
+from copy import deepcopy
 from typing import List, Dict, Any, Optional, cast
 
 
@@ -31,22 +32,24 @@ class ResourceSeparator:
         resource_count: int = 0
         resource: Dict[str, Any]
         for resource in resources:
+            # make a copy so we are not changing the original resource
+            cloned_resource: Dict[str, Any] = deepcopy(resource)
             # This dict will hold the separated resources where the key is resourceType
             # have to split these here otherwise when Spark loads them
             # it can't handle that items in the entry array can have different schemas
             resources_dict: Dict[str, Optional[str] | List[Dict[str, Any]]] = {}
             # add the parent resource to the resources_dict
-            resource_type = str(resource["resourceType"]).lower()
+            resource_type = str(cloned_resource["resourceType"]).lower()
             if resource_type not in resources_dict:
                 resources_dict[resource_type] = []
             if isinstance(resources_dict[resource_type], list):
                 cast(List[Dict[str, Any]], resources_dict[resource_type]).append(
-                    resource
+                    cloned_resource
                 )
                 resource_count += 1
             # now see if this resource has a contained array and if so, add those to the resources_dict
-            if "contained" in resource:
-                contained_resources = resource.pop("contained")
+            if "contained" in cloned_resource:
+                contained_resources = cloned_resource.pop("contained")
                 for contained_resource in contained_resources:
                     resource_type = str(contained_resource["resourceType"]).lower()
                     if resource_type not in resources_dict:

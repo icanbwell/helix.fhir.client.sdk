@@ -605,11 +605,7 @@ class FhirResponseProcessor:
                                 )
                             )
                         else:
-                            resources_json = (
-                                json.dumps(completed_resources[0])
-                                if len(completed_resources) == 1
-                                else json.dumps(completed_resources)
-                            )
+                            resources_json = json.dumps(completed_resource)
 
                         yield FhirGetResponse(
                             request_id=request_id,

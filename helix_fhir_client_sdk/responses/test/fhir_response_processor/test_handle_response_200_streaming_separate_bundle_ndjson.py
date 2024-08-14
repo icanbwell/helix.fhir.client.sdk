@@ -83,21 +83,39 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
 
     assert len(result) == 2
 
-    expected_result = {
-        "request_id": request_id,
-        "url": full_url,
-        "responses": json.dumps(expected_resources),
-        "error": None,
-        "access_token": access_token,
-        "total_count": 2,
-        "status": 200,
-        "next_url": None,
-        "extra_context_to_return": extra_context_to_return,
-        "resource_type": resource,
-        "id_": id_,
-        "response_headers": ["mock_header=mock_value"],
-        "chunk_number": 1,
-        "successful": True,
-    }
+    expected_result = [
+        {
+            "request_id": request_id,
+            "url": full_url,
+            "responses": json.dumps([expected_resources[0]]),
+            "error": None,
+            "access_token": access_token,
+            "total_count": 2,
+            "status": 200,
+            "next_url": None,
+            "extra_context_to_return": extra_context_to_return,
+            "resource_type": resource,
+            "id_": id_,
+            "response_headers": ["mock_header=mock_value"],
+            "chunk_number": 1,
+            "successful": True,
+        },
+        {
+            "request_id": request_id,
+            "url": full_url,
+            "responses": json.dumps([expected_resources[1]]),
+            "error": None,
+            "access_token": access_token,
+            "total_count": 1,
+            "status": 200,
+            "next_url": None,
+            "extra_context_to_return": extra_context_to_return,
+            "resource_type": resource,
+            "id_": id_,
+            "response_headers": ["mock_header=mock_value"],
+            "chunk_number": 1,
+            "successful": True,
+        },
+    ]
 
-    assert result[0].__dict__ == expected_result
+    assert [r.to_dict() for r in result] == expected_result
