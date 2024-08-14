@@ -69,6 +69,8 @@ async def test_handle_response_200() -> None:
             "resource_type": resource,
             "id_": id_,
             "response_headers": response_headers,
+            "chunk_number": None,
+            "successful": True,
         }
     ]
 
