@@ -90,6 +90,7 @@ class FhirDeleteMixin(FhirClientProtocol):
         full_uri: furl = furl(self._url)
         full_uri /= self._resource
         full_url: str = full_uri.url
+        additional_parameters = additional_parameters or self._additional_parameters
         if additional_parameters:
             if len(full_uri.args) > 0:
                 full_url += "&"
@@ -121,7 +122,7 @@ class FhirDeleteMixin(FhirClientProtocol):
             use_data_streaming=self._use_data_streaming,
         ) as client:
             response: RetryableAioHttpResponse = await client.delete(
-                url=full_uri.tostr(), headers=headers
+                url=full_url, headers=headers
             )
             request_id = response.response_headers.get("X-Request-ID", None)
             self._internal_logger.info(f"X-Request-ID={request_id}")
@@ -138,7 +139,7 @@ class FhirDeleteMixin(FhirClientProtocol):
 
             return FhirDeleteResponse(
                 request_id=request_id,
-                url=full_uri.tostr(),
+                url=full_url,
                 responses=response_text,
                 error=f"{response.status}" if not response.status == 200 else None,
                 access_token=access_token,
