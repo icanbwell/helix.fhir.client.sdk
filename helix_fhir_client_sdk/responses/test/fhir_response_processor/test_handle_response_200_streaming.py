@@ -28,9 +28,11 @@ async def test_handle_response_200_streaming() -> None:
     response = MagicMock(RetryableAioHttpResponse)
     response.ok = True
     response.status = 200
+    response.content = MagicMock()
     response.content.iter_chunked = AsyncMock(
         return_value=iter([b'{"resourceType": "Patient", "id": "1"}\n'])
     )
+    response.response_headers = response_headers
 
     fn_handle_streaming_chunk = AsyncMock()
     nd_json_chunk_streaming_parser = NdJsonChunkStreamingParser()

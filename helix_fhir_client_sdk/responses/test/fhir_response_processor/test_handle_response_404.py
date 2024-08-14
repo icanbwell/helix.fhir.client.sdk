@@ -44,9 +44,11 @@ async def test_handle_response_404() -> None:
     expected_result = [
         {
             "request_id": request_id,
+            "chunk_number": None,
             "url": full_url,
             "responses": "Not Found",
             "error": "NotFound",
+            "next_url": None,
             "access_token": access_token,
             "total_count": 0,
             "status": 404,
@@ -54,6 +56,7 @@ async def test_handle_response_404() -> None:
             "resource_type": resource,
             "id_": id_,
             "response_headers": response_headers,
+            "successful": False,
         }
     ]
 
