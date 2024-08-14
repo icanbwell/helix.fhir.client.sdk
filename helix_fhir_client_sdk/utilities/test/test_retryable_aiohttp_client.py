@@ -69,7 +69,7 @@ async def test_handle_429() -> None:
 
 @pytest.mark.asyncio
 async def test_chunked_transfer_encoding() -> None:
-    async with RetryableAioHttpClient(use_data_streaming=False) as client:
+    async with RetryableAioHttpClient(use_data_streaming=True) as client:
         with aioresponses() as m:
             m.get(
                 "http://test.com",
@@ -80,4 +80,7 @@ async def test_chunked_transfer_encoding() -> None:
             response = await client.get(url="http://test.com", headers=None)
             assert response.ok
             assert response.status == 200
-            assert await response.get_text_async() == "Wikipedia"
+            assert (
+                await response.get_text_async()
+                == "4\r\nWiki\r\n5\r\npedia\r\n0\r\n\r\n"
+            )

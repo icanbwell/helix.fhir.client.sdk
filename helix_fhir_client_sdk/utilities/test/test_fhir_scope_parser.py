@@ -6,7 +6,7 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser_result import (
 
 def test_parse_scopes_empty() -> None:
     parser = FhirScopeParser(scopes=[])
-    assert parser.parsed_scopes == []
+    assert parser.parsed_scopes is None
 
 
 def test_parse_scopes_none() -> None:
