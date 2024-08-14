@@ -33,7 +33,7 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
 
     # Define an async iterator
     async def async_iterator(chunk_size1: int) -> AsyncGenerator[bytes, None]:
-        yield b'{"resourceType": "Practitioner", "id": "1", "contained":[{"resourceType": "PractitionerRole", "id": "1"}]}\n'
+        yield b'{"resourceType": "Practitioner", "id": "1", "contained":[{"resourceType": "PractitionerRole", "id": "2"}]}\n'
 
     response.content.iter_chunked = async_iterator
 
@@ -65,38 +65,31 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
         )
     ]
 
-    expected_resources = [
-        {
-            "practitioner": [{"resourceType": "Practitioner", "id": "1"}],
-            "token": "mock_access_token",
-            "url": "http://example.com",
-            "extra_key": "extra_value",
-        },
-        {
-            "practitionerrole": [{"resourceType": "PractitionerRole", "id": "2"}],
-            "token": "mock_access_token",
-            "url": "http://example.com",
-            "extra_key": "extra_value",
-        },
-    ]
+    expected_resource = {
+        "practitioner": [{"resourceType": "Practitioner", "id": "1"}],
+        "practitionerrole": [{"resourceType": "PractitionerRole", "id": "2"}],
+        "token": "mock_access_token",
+        "url": "http://example.com",
+        "extra_key": "extra_value",
+    }
 
-    expected_result = [
-        {
-            "request_id": request_id,
-            "url": full_url,
-            "responses": json.dumps(expected_resources),
-            "error": None,
-            "access_token": access_token,
-            "total_count": 0,
-            "status": 200,
-            "next_url": None,
-            "extra_context_to_return": extra_context_to_return,
-            "resource_type": resource,
-            "id_": id_,
-            "response_headers": ["mock_header=mock_value"],
-            "chunk_number": 1,
-            "successful": True,
-        }
-    ]
+    assert len(result) == 1
 
-    assert result[0].__dict__ == expected_result[0]
+    expected_result = {
+        "request_id": request_id,
+        "url": full_url,
+        "responses": json.dumps(expected_resource),
+        "error": None,
+        "access_token": access_token,
+        "total_count": 2,
+        "status": 200,
+        "next_url": None,
+        "extra_context_to_return": extra_context_to_return,
+        "resource_type": resource,
+        "id_": id_,
+        "response_headers": ["mock_header=mock_value"],
+        "chunk_number": 1,
+        "successful": True,
+    }
+
+    assert result[0].__dict__ == expected_result
