@@ -65,25 +65,67 @@ def test_ndjson_chunk_streaming_parser() -> None:
     assert all_objects_by_chunk[3][0] == {"name": "Smith", "age": 35}
 
 
-# def test_ndjson_chunk_streaming_parser_line_with_newline() -> None:
-#     print("")
-#     data_chunks = [
-#         '{"resourceType":"Patient","id":"3456789012345670303","meta":{"profile":["http://hl7.org/fhir/us/carin/StructureDefinition/carin-bb-coverage"]}\n,"identifier":[{"type":{"coding":[{"system":"http://terminology.hl7.org/CodeSystem/v2-0203","code":"SN"}]},"system":"https://sources.aetna.com/coverage/identifier/membershipid/59","value":"435679010300+AE303+2021-01-01"}],"status":"active","type":{"coding":[{"system":"http://terminology.hl7.org/CodeSystem/v3-ActCode","code":"PPO","display":"preferred provider organization policy"}]},"policyHolder":{"reference":"Patient/1234567890123456703","type":"Patient"},"subscriber":{"reference":"Patient/1234567890123456703","type":"Patient"},"subscriberId":"435679010300","beneficiary":{"reference":"Patient/1234567890123456703","type":"Patient"},"relationship":{"coding":[{"system":"http://terminology.hl7.org/CodeSystem/subscriber-relationship","code":"self"}]},"period":{"start":"2021-01-01","end":"2021-12-31"},"payor":[{"reference":"Organization/6667778889990000014","type":"Organization","display":"Aetna"}],"class":[{"type":{"coding":[{"system":"http://terminology.hl7.org/CodeSystem/coverage-class","code":"plan","display":"Plan"}]},"value":"AE303","name":"Aetna Plan"}],"network":"Medicare - MA/NY/NJ - Full Reciprocity","costToBeneficiary":[{"type":{"text":"Annual Physical Exams NMC - In Network"},"valueQuantity":{"value":50,"unit":"$","system":"http://aetna.com/Medicare/CostToBeneficiary/ValueQuantity/code"}}]}',
-#         "",
-#     ]
-#
-#     parser = NdJsonChunkStreamingParser()
-#
-#     all_objects: List[Dict[str, Any]] = []
-#     all_objects_by_chunk: List[List[Dict[str, Any]]] = []
-#
-#     chunk_number = 0
-#     for chunk in data_chunks:
-#         chunk_number += 1
-#         complete_json_objects = parser.add_chunk(chunk, logger=None)
-#         print(f"{chunk_number}: ", complete_json_objects)
-#         all_objects.extend(complete_json_objects)
-#         all_objects_by_chunk.append(complete_json_objects)
-#
-#     print("All JSON objects:", all_objects)
-#     assert len(all_objects) == 1
+def test_add_chunk_single_complete_object() -> None:
+    parser = NdJsonChunkStreamingParser()
+    chunk = '{"name": "John", "age": 30}\n'
+    result = parser.add_chunk(chunk, logger=None)
+    expected_result = [{"name": "John", "age": 30}]
+    assert result == expected_result
+
+
+def test_add_chunk_multiple_complete_objects() -> None:
+    parser = NdJsonChunkStreamingParser()
+    chunk = '{"name": "John", "age": 30}\n{"name": "Jane", "age": 25}\n'
+    result = parser.add_chunk(chunk, logger=None)
+    expected_result = [{"name": "John", "age": 30}, {"name": "Jane", "age": 25}]
+    assert result == expected_result
+
+
+def test_add_chunk_incomplete_object() -> None:
+    parser = NdJsonChunkStreamingParser()
+    chunk = '{"name": "John", "age": 30\n'
+    result: List[Dict[str, Any]] = parser.add_chunk(chunk, logger=None)
+    expected_result: List[Dict[str, Any]] = []
+    assert result == expected_result
+
+
+def test_add_chunk_complete_and_incomplete_objects() -> None:
+    parser = NdJsonChunkStreamingParser()
+    chunk = '{"name": "John", "age": 30}\n{"name": "Jane", "age": 25\n'
+    result = parser.add_chunk(chunk, logger=None)
+    expected_result: List[Dict[str, Any]] = [{"name": "John", "age": 30}]
+    assert result == expected_result
+
+
+def test_add_chunk_incomplete_then_complete_object() -> None:
+    parser = NdJsonChunkStreamingParser()
+    chunk1 = '{"name": "John", "age": 30\n'
+    chunk2 = '{"name": "Jane", "age": 25}\n'
+    parser.add_chunk(chunk1, logger=None)
+    result = parser.add_chunk(chunk2, logger=None)
+    expected_result: List[Dict[str, Any]] = [
+        {"name": "John", "age": 30},
+        {"name": "Jane", "age": 25},
+    ]
+    assert result == expected_result
+
+
+def test_add_chunk_empty_chunk() -> None:
+    parser = NdJsonChunkStreamingParser()
+    chunk = ""
+    result = parser.add_chunk(chunk, logger=None)
+    expected_result: List[Dict[str, Any]] = []
+    assert result == expected_result
+
+
+def test_add_chunk_mixed_complete_and_incomplete_objects() -> None:
+    parser = NdJsonChunkStreamingParser()
+    chunk1 = '{"name": "John", "age": 30}\n{"name": "Jane", "age": 25\n'
+    chunk2 = '{"name": "Doe", "age": 40}\n'
+    parser.add_chunk(chunk1, logger=None)
+    result = parser.add_chunk(chunk2, logger=None)
+    expected_result: List[Dict[str, Any]] = [
+        {"name": "John", "age": 30},
+        {"name": "Doe", "age": 40},
+    ]
+    assert result == expected_result
