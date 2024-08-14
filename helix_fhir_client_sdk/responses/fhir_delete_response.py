@@ -10,6 +10,7 @@ class FhirDeleteResponse:
         error: Optional[str],
         access_token: Optional[str],
         status: int,
+        count: Optional[int] = None,
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -23,6 +24,9 @@ class FhirDeleteResponse:
         self.request_id: Optional[str] = request_id
         self.url: str = url
         self.responses: str = responses
+        """ Response text """
         self.error: Optional[str] = error
         self.access_token: Optional[str] = access_token
         self.status: int = status
+        self.count: Optional[int] = count
+        """ Number of resources deleted """

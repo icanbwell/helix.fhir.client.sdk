@@ -1,3 +1,4 @@
+import json
 from typing import Dict, Optional, List
 
 from furl import furl
@@ -128,11 +129,19 @@ class FhirDeleteMixin(FhirClientProtocol):
                 if self._logger:
                     self._logger.info(f"Successfully deleted: {full_uri}")
 
+            deleted_count: Optional[int] = None
+            response_text = await response.get_text_async()
+            if response_text and response_text.startswith("{"):
+                # '{"deleted":0}'
+                deleted_info = json.loads(response_text)
+                deleted_count = deleted_info.get("deleted", None)
+
             return FhirDeleteResponse(
                 request_id=request_id,
                 url=full_uri.tostr(),
-                responses=await response.get_text_async(),
+                responses=response_text,
                 error=f"{response.status}" if not response.status == 200 else None,
                 access_token=access_token,
                 status=response.status,
+                count=deleted_count,
             )
