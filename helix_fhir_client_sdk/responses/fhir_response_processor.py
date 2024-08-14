@@ -472,7 +472,10 @@ class FhirResponseProcessor:
             total_count = resource_separator_result.total_count
         elif resources:
             total_count = len(resources)
-            resources_json = json.dumps(resources)
+            if len(resources) == 1:
+                resources_json = json.dumps(resources[0])
+            else:
+                resources_json = json.dumps(resources)
         else:
             resources_json = text
 

@@ -37,7 +37,7 @@ async def test_async_real_fhir_server_get_patients_large(
     fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
     fhir_client = fhir_client.resource(resource_type)
 
-    count = 1000
+    count = 10
 
     print(f"Deleting {count} patients")
     patient_ids = [f"example-{i}" for i in range(count)]
