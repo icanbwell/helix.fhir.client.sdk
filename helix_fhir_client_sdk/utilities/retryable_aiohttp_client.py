@@ -21,7 +21,7 @@ class RetryableAioHttpClient:
         retry_status_codes: Optional[List[int]] = None,
         simple_refresh_token_func: Optional[SimpleRefreshTokenFunction] = None,
         fn_get_session: Optional[Callable[[], ClientSession]] = None,
-        exclude_status_codes_from_retry: List[int] | None,
+        exclude_status_codes_from_retry: List[int] | None = None,
         use_data_streaming: Optional[bool],
         compress: Optional[bool] = False,
     ) -> None:

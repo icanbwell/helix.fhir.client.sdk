@@ -52,6 +52,8 @@ myst-parser="==3.0.1"
 helix-mockserver-client=">=1.3.0"
 # httpx is needed for making HTTP requests
 httpx=">=0.23.3"
+# aioresponses is needed for mocking HTTP requests
+aioresponses=">=0.7.6"
 
 # These dependencies are required for pipenv-setup.  They conflict with ones above, so we install these
 # only when running pipenv-setup
