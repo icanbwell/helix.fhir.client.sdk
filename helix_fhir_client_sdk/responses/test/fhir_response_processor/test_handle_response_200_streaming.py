@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
@@ -15,7 +16,6 @@ async def test_handle_response_200_streaming() -> None:
     access_token = "mock_access_token"
     full_url = "http://example.com"
     request_id = "mock_request_id"
-    response_headers = ["mock_header"]
     chunk_size = 1024
     extra_context_to_return = {"extra_key": "extra_value"}
     resource = "Patient"
@@ -29,10 +29,14 @@ async def test_handle_response_200_streaming() -> None:
     response.ok = True
     response.status = 200
     response.content = MagicMock()
-    response.content.iter_chunked = AsyncMock(
-        return_value=iter([b'{"resourceType": "Patient", "id": "1"}\n'])
-    )
-    response.response_headers = response_headers
+
+    # Define an async iterator
+    async def async_iterator(chunk_size1: int) -> AsyncGenerator[bytes, None]:
+        yield b'{"resourceType": "Patient", "id": "1"}\n'
+
+    response.content.iter_chunked = async_iterator
+
+    response.response_headers = {"mock_header": "mock_value"}
 
     fn_handle_streaming_chunk = AsyncMock()
     nd_json_chunk_streaming_parser = NdJsonChunkStreamingParser()
@@ -47,7 +51,7 @@ async def test_handle_response_200_streaming() -> None:
             next_url=None,
             request_id=request_id,
             response=response,
-            response_headers=response_headers,
+            response_headers=["mock_header=mock_value"],
             total_count=0,
             chunk_size=chunk_size,
             extra_context_to_return=extra_context_to_return,
@@ -67,14 +71,15 @@ async def test_handle_response_200_streaming() -> None:
             "responses": '{"resourceType": "Patient", "id": "1"}',
             "error": None,
             "access_token": access_token,
-            "total_count": 1,
+            "total_count": 0,
             "status": 200,
             "next_url": None,
             "extra_context_to_return": extra_context_to_return,
             "resource_type": resource,
             "id_": id_,
-            "response_headers": response_headers,
+            "response_headers": ["mock_header=mock_value"],
             "chunk_number": 1,
+            "successful": True,
         }
     ]
 
