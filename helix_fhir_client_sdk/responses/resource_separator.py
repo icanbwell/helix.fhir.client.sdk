@@ -28,6 +28,15 @@ class ResourceSeparator:
         # it can't handle that items in the entry array can have different schemas
         resource: Dict[str, Any]
         for resource in resources:
+            # add the parent resource to the resources_dict
+            resource_type = str(resource["resourceType"]).lower()
+            if resource_type not in resources_dict:
+                resources_dict[resource_type] = []
+            if isinstance(resources_dict[resource_type], list):
+                cast(List[Dict[str, Any]], resources_dict[resource_type]).append(
+                    resource
+                )
+            # now see if this resource has a contained array and if so, add those to the resources_dict
             if "contained" in resource:
                 contained_resources = resource.pop("contained")
                 for contained_resource in contained_resources:
