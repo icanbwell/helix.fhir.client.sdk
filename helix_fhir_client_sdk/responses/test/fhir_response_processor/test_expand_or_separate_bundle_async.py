@@ -26,7 +26,6 @@ async def test_expand_or_separate_bundle_async() -> None:
             access_token=access_token,
             expand_fhir_bundle=expand_fhir_bundle,
             extra_context_to_return=extra_context_to_return,
-            resources_json=resources_json,
             response_json=response_json,
             separate_bundle_resources=separate_bundle_resources,
             text=text,

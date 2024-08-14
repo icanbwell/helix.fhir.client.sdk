@@ -33,7 +33,7 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
 
     # Define an async iterator
     async def async_iterator(chunk_size1: int) -> AsyncGenerator[bytes, None]:
-        yield b'{"resourceType": "Practitioner", "id": "1"}\n{"resourceType": "PractitionerRole", "id": "1"}'
+        yield b'{"resourceType": "Practitioner", "id": "1", "contained":[{"resourceType": "PractitionerRole", "id": "1"}]}\n'
 
     response.content.iter_chunked = async_iterator
 

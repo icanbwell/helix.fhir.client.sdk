@@ -11,7 +11,12 @@ from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from helix_fhir_client_sdk.responses.bundle_expander import (
+    BundleExpander,
+    BundleExpanderResult,
+)
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.responses.resource_separator import ResourceSeparator
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
 )
@@ -377,7 +382,6 @@ class FhirResponseProcessor:
                         access_token=access_token,
                         expand_fhir_bundle=expand_fhir_bundle,
                         extra_context_to_return=extra_context_to_return,
-                        resources_json=resources_json,
                         response_json=response_json,
                         separate_bundle_resources=separate_bundle_resources,
                         text=text,
@@ -425,48 +429,48 @@ class FhirResponseProcessor:
         access_token: Optional[str],
         expand_fhir_bundle: Optional[bool],
         extra_context_to_return: Optional[Dict[str, Any]],
-        resources_json: str,
         response_json: Dict[str, Any],
         separate_bundle_resources: bool,
         text: str,
         total_count: int,
         url: Optional[str],
     ) -> Tuple[str, int]:
+
+        resources: List[Dict[str, Any]] | None = None
+        resources_json: str = ""
         # see if this is a Resource Bundle and un-bundle it
         if (
             expand_fhir_bundle
             and "resourceType" in response_json
             and response_json["resourceType"] == "Bundle"
         ):
-            (
-                resources_json,
-                total_count,
-            ) = await FhirResponseProcessor._expand_bundle_async(
-                access_token=access_token,
-                total_count=total_count,
-                resources=resources_json,
-                response_json=response_json,
-                url=url or "",
-                separate_bundle_resources=separate_bundle_resources,
-                extra_context_to_return=extra_context_to_return,
+            bundle_expander_result: BundleExpanderResult = (
+                await BundleExpander.expand_bundle_async(
+                    total_count=total_count,
+                    bundle=response_json,
+                )
             )
-        elif (
-            separate_bundle_resources
-            and "resourceType" in response_json
-            and response_json["resourceType"] != "Bundle"
-        ):
-            # single resource was returned
-            resources_dict = {
-                f'{response_json["resourceType"].lower()}': [response_json],
-                "token": access_token,
-                "url": url,
-            }
-            if extra_context_to_return:
-                resources_dict.update(extra_context_to_return)
+            resources = bundle_expander_result.resources
+            total_count = bundle_expander_result.total_count
+        else:
+            resources = [response_json]
+            total_count = 1
 
+        if separate_bundle_resources:
+            resources_dict: Dict[str, Optional[str] | List[Any]] = (
+                await ResourceSeparator.separate_contained_resources_async(
+                    resources=resources,
+                    access_token=access_token,
+                    url=url,
+                    extra_context_to_return=extra_context_to_return,
+                )
+            )
             resources_json = json.dumps(resources_dict)
+        elif resources:
+            resources_json = json.dumps(resources)
         else:
             resources_json = text
+
         return resources_json, total_count
 
     @staticmethod
@@ -583,7 +587,6 @@ class FhirResponseProcessor:
                                 access_token=access_token,
                                 expand_fhir_bundle=expand_fhir_bundle,
                                 extra_context_to_return=extra_context_to_return,
-                                resources_json=json.dumps(completed_resource),
                                 response_json=completed_resource,
                                 separate_bundle_resources=separate_bundle_resources,
                                 text=json.dumps(completed_resource),
@@ -707,102 +710,3 @@ class FhirResponseProcessor:
                     f"sending a get_with_session_async: {full_url} with client_id={client_id} "
                     + f"and scopes={auth_scopes} instance_id={uuid}"
                 )
-
-    @staticmethod
-    async def _expand_bundle_async(
-        *,
-        resources: str,
-        response_json: Dict[str, Any],
-        total_count: int,
-        access_token: Optional[str],
-        url: str,
-        separate_bundle_resources: bool,
-        extra_context_to_return: Optional[Dict[str, Any]],
-    ) -> Tuple[str, int]:
-        """
-        This method is responsible for expanding the FHIR bundle.
-
-        :param resources: The resources in JSON format.
-        :param response_json: The response JSON.
-        :param total_count: The total count.
-        :param access_token: The access token.
-        :param url: The URL.
-        :param separate_bundle_resources: Whether to separate the bundle resources.
-        :param extra_context_to_return: The extra context to return.
-
-        :return: A tuple of the resources in JSON format and the total count.
-        """
-        if "total" in response_json:
-            total_count = int(response_json["total"])
-        if "entry" in response_json:
-            entries: List[Dict[str, Any]] = response_json["entry"]
-            entry: Dict[str, Any]
-            resources_list: List[Dict[str, Any]] = []
-            for entry in entries:
-                if "resource" in entry:
-                    if separate_bundle_resources:
-                        resources_list = await FhirResponseProcessor._separate_contained_resources_async(
-                            entry=entry,
-                            resources_list=resources_list,
-                            access_token=access_token,
-                            url=url,
-                            extra_context_to_return=extra_context_to_return,
-                        )
-                    else:
-                        resources_list.append(entry["resource"])
-
-            resources = json.dumps(resources_list)
-        return resources, total_count
-
-    @staticmethod
-    async def _separate_contained_resources_async(
-        *,
-        entry: Dict[str, Any],
-        resources_list: List[Dict[str, Any]],
-        access_token: Optional[str],
-        url: str,
-        extra_context_to_return: Optional[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
-        """
-        This method is responsible for separating the contained resources.
-
-        :param entry: The entry.
-        :param resources_list: The resources list.
-        :param access_token: The access token.
-        :param url: The URL.
-        :param extra_context_to_return: The extra context to return.
-
-        :return: None
-        """
-        # if self._action != "$graph":
-        #     raise Exception(
-        #         "only $graph action with _separate_bundle_resources=True"
-        #         " is supported at this moment"
-        #     )
-        resources_dict: Dict[str, Union[Optional[str], List[Any]]] = (
-            {}
-        )  # {resource type: [data]}}
-        # iterate through the entry list
-        # have to split these here otherwise when Spark loads them
-        # it can't handle
-        # that items in the entry array can have different schemas
-        resource_type: str = str(entry["resource"]["resourceType"]).lower()
-        parent_resource: Dict[str, Any] = entry["resource"]
-        resources_dict[resource_type] = [parent_resource]
-        # $graph returns "contained" if there is any related resources
-        if "contained" in entry["resource"]:
-            contained = parent_resource.pop("contained")
-            for contained_entry in contained:
-                resource_type = str(contained_entry["resourceType"]).lower()
-                if resource_type not in resources_dict:
-                    resources_dict[resource_type] = []
-
-                if isinstance(resources_dict[resource_type], list):
-                    resources_dict[resource_type].append(contained_entry)  # type: ignore
-        resources_dict["token"] = access_token
-        resources_dict["url"] = url
-        if extra_context_to_return:
-            resources_dict.update(extra_context_to_return)
-        resources_list.append(resources_dict)
-
-        return resources_list
