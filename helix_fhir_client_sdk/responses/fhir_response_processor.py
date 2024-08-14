@@ -468,7 +468,7 @@ class FhirResponseProcessor:
                     extra_context_to_return=extra_context_to_return,
                 )
             )
-            resources_json = json.dumps(resource_separator_result.resources_dict)
+            resources_json = json.dumps(resource_separator_result.resources_dicts)
             total_count = resource_separator_result.total_count
         elif resources:
             total_count = len(resources)

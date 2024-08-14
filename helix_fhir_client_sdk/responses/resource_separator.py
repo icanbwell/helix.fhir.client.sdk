@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional, cast
 
 @dataclasses.dataclass
 class ResourceSeparatorResult:
-    resources_dict: Dict[str, Optional[str] | List[Dict[str, Any]]]
+    resources_dicts: List[Dict[str, Optional[str] | List[Dict[str, Any]]]]
     total_count: int
 
 
@@ -27,15 +27,14 @@ class ResourceSeparator:
 
         :return: None
         """
-
-        # This dict will hold the separated resources where the key is resourceType
-        resources_dict: Dict[str, Optional[str] | List[Dict[str, Any]]] = {}
-
-        # have to split these here otherwise when Spark loads them
-        # it can't handle that items in the entry array can have different schemas
-        resource: Dict[str, Any]
+        resources_dicts: List[Dict[str, Optional[str] | List[Dict[str, Any]]]] = []
         resource_count: int = 0
+        resource: Dict[str, Any]
         for resource in resources:
+            # This dict will hold the separated resources where the key is resourceType
+            # have to split these here otherwise when Spark loads them
+            # it can't handle that items in the entry array can have different schemas
+            resources_dict: Dict[str, Optional[str] | List[Dict[str, Any]]] = {}
             # add the parent resource to the resources_dict
             resource_type = str(resource["resourceType"]).lower()
             if resource_type not in resources_dict:
@@ -57,12 +56,12 @@ class ResourceSeparator:
                             List[Dict[str, Any]], resources_dict[resource_type]
                         ).append(contained_resource)
                         resource_count += 1
-
-        resources_dict["token"] = access_token
-        resources_dict["url"] = url
-        if extra_context_to_return:
-            resources_dict.update(extra_context_to_return)
+            resources_dict["token"] = access_token
+            resources_dict["url"] = url
+            if extra_context_to_return:
+                resources_dict.update(extra_context_to_return)
+            resources_dicts.append(resources_dict)
 
         return ResourceSeparatorResult(
-            resources_dict=resources_dict, total_count=resource_count
+            resources_dicts=resources_dicts, total_count=resource_count
         )
