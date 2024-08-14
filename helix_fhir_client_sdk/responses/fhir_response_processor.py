@@ -741,7 +741,7 @@ class FhirResponseProcessor:
             for entry in entries:
                 if "resource" in entry:
                     if separate_bundle_resources:
-                        await FhirResponseProcessor._separate_contained_resources_async(
+                        resources_list = await FhirResponseProcessor._separate_contained_resources_async(
                             entry=entry,
                             resources_list=resources_list,
                             access_token=access_token,
@@ -762,7 +762,7 @@ class FhirResponseProcessor:
         access_token: Optional[str],
         url: str,
         extra_context_to_return: Optional[Dict[str, Any]],
-    ) -> None:
+    ) -> List[Dict[str, Any]]:
         """
         This method is responsible for separating the contained resources.
 
@@ -804,3 +804,5 @@ class FhirResponseProcessor:
         if extra_context_to_return:
             resources_dict.update(extra_context_to_return)
         resources_list.append(resources_dict)
+
+        return resources_list
