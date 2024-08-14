@@ -36,8 +36,14 @@ async def test_handle_response_200_streaming_separate_bundle() -> None:
         "resourceType": "Bundle",
         "total": 2,
         "entry": [
-            {"resource": {"resourceType": "Practitioner", "id": "1"}},
-            {"resource": {"resourceType": "PractitionerRole", "id": "2"}},
+            {
+                "resource": {
+                    "resourceType": "Practitioner",
+                    "id": "1",
+                    "contained": [{"resourceType": "PractitionerRole", "id": "2"}],
+                }
+            },
+            {"resource": {"resourceType": "Practitioner", "id": "3"}},
         ],
     }
 
@@ -75,23 +81,31 @@ async def test_handle_response_200_streaming_separate_bundle() -> None:
         )
     ]
 
-    expected_resource = {
-        "practitioner": [{"resourceType": "Practitioner", "id": "1"}],
-        "practitionerrole": [{"resourceType": "PractitionerRole", "id": "2"}],
-        "token": "mock_access_token",
-        "url": "http://example.com",
-        "extra_key": "extra_value",
-    }
+    expected_resources = [
+        {
+            "practitioner": [{"resourceType": "Practitioner", "id": "1"}],
+            "practitionerrole": [{"resourceType": "PractitionerRole", "id": "2"}],
+            "token": "mock_access_token",
+            "url": "http://example.com",
+            "extra_key": "extra_value",
+        },
+        {
+            "practitioner": [{"resourceType": "Practitioner", "id": "3"}],
+            "token": "mock_access_token",
+            "url": "http://example.com",
+            "extra_key": "extra_value",
+        },
+    ]
 
     assert len(result) == 1
 
     expected_result = {
         "request_id": request_id,
         "url": full_url,
-        "responses": json.dumps(expected_resource),
+        "responses": json.dumps(expected_resources),
         "error": None,
         "access_token": access_token,
-        "total_count": 2,
+        "total_count": 3,
         "status": 200,
         "next_url": None,
         "extra_context_to_return": extra_context_to_return,

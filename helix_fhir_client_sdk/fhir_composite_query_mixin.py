@@ -313,8 +313,8 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
             assert isinstance(list_of_ids, list)
             assert isinstance(resources_, list)
             for resource_ in resources_:
-                assert resource_.get("resourceType") != "Bundle"
-                list_of_ids.append(resource_["id"])
+                if resource_.get("resourceType") != "Bundle":
+                    list_of_ids.append(resource_["id"])
             if fn_handle_ids:
                 await fn_handle_ids(resources_, page_number)
             if self._logger:
