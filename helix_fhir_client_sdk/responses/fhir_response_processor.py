@@ -16,7 +16,10 @@ from helix_fhir_client_sdk.responses.bundle_expander import (
     BundleExpanderResult,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.responses.resource_separator import ResourceSeparator
+from helix_fhir_client_sdk.responses.resource_separator import (
+    ResourceSeparator,
+    ResourceSeparatorResult,
+)
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
 )
@@ -457,7 +460,7 @@ class FhirResponseProcessor:
             total_count = 1
 
         if separate_bundle_resources:
-            resources_dict: Dict[str, Optional[str] | List[Any]] = (
+            resource_separator_result: ResourceSeparatorResult = (
                 await ResourceSeparator.separate_contained_resources_async(
                     resources=resources,
                     access_token=access_token,
@@ -465,8 +468,10 @@ class FhirResponseProcessor:
                     extra_context_to_return=extra_context_to_return,
                 )
             )
-            resources_json = json.dumps(resources_dict)
+            resources_json = json.dumps(resource_separator_result.resources_dict)
+            total_count = resource_separator_result.total_count
         elif resources:
+            total_count = len(resources)
             resources_json = json.dumps(resources)
         else:
             resources_json = text

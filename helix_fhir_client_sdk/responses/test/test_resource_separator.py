@@ -34,7 +34,8 @@ async def test_separate_contained_resources_async_with_contained() -> None:
         "extra_key": "extra_value",
     }
 
-    assert result == expected_result
+    assert result.resources_dict == expected_result
+    assert result.total_count == 3
 
 
 async def test_separate_contained_resources_async_with_multiple_contained() -> None:
@@ -72,7 +73,8 @@ async def test_separate_contained_resources_async_with_multiple_contained() -> N
         "url": "http://example.com",
     }
 
-    assert result == expected_result
+    assert result.resources_dict == expected_result
+    assert result.total_count == 4
 
 
 async def test_separate_contained_resources_async_without_contained() -> None:
@@ -99,7 +101,8 @@ async def test_separate_contained_resources_async_without_contained() -> None:
         "practitioner": [{"id": "2", "resourceType": "Practitioner"}],
     }
 
-    assert result == expected_result
+    assert result.resources_dict == expected_result
+    assert result.total_count == 2
 
 
 async def test_separate_contained_resources_async_empty_list() -> None:
@@ -121,4 +124,5 @@ async def test_separate_contained_resources_async_empty_list() -> None:
         "extra_key": "extra_value",
     }
 
-    assert result == expected_result
+    assert result.resources_dict == expected_result
+    assert result.total_count == 0

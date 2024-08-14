@@ -1,4 +1,11 @@
+import dataclasses
 from typing import List, Dict, Any, Optional, cast
+
+
+@dataclasses.dataclass
+class ResourceSeparatorResult:
+    resources_dict: Dict[str, Optional[str] | List[Dict[str, Any]]]
+    total_count: int
 
 
 class ResourceSeparator:
@@ -9,7 +16,7 @@ class ResourceSeparator:
         access_token: Optional[str],
         url: Optional[str],
         extra_context_to_return: Optional[Dict[str, Any]],
-    ) -> Dict[str, Optional[str] | List[Any]]:
+    ) -> ResourceSeparatorResult:
         """
         Given a list of resources, return a list of resources with the contained resources separated out.
 
@@ -27,6 +34,7 @@ class ResourceSeparator:
         # have to split these here otherwise when Spark loads them
         # it can't handle that items in the entry array can have different schemas
         resource: Dict[str, Any]
+        resource_count: int = 0
         for resource in resources:
             # add the parent resource to the resources_dict
             resource_type = str(resource["resourceType"]).lower()
@@ -36,6 +44,7 @@ class ResourceSeparator:
                 cast(List[Dict[str, Any]], resources_dict[resource_type]).append(
                     resource
                 )
+                resource_count += 1
             # now see if this resource has a contained array and if so, add those to the resources_dict
             if "contained" in resource:
                 contained_resources = resource.pop("contained")
@@ -47,10 +56,13 @@ class ResourceSeparator:
                         cast(
                             List[Dict[str, Any]], resources_dict[resource_type]
                         ).append(contained_resource)
+                        resource_count += 1
 
         resources_dict["token"] = access_token
         resources_dict["url"] = url
         if extra_context_to_return:
             resources_dict.update(extra_context_to_return)
 
-        return resources_dict
+        return ResourceSeparatorResult(
+            resources_dict=resources_dict, total_count=resource_count
+        )
