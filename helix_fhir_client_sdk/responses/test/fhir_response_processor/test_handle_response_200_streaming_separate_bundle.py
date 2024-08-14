@@ -23,7 +23,7 @@ async def test_handle_response_200_streaming_separate_bundle() -> None:
     resource = "Patient"
     id_ = "mock_id"
     logger = MagicMock(FhirLogger)
-    expand_fhir_bundle = False
+    expand_fhir_bundle = True
     separate_bundle_resources = True
     url = "http://example.com"
 
@@ -97,7 +97,7 @@ async def test_handle_response_200_streaming_separate_bundle() -> None:
             "responses": json.dumps(expected_resources),
             "error": None,
             "access_token": access_token,
-            "total_count": 0,
+            "total_count": 2,
             "status": 200,
             "next_url": None,
             "extra_context_to_return": extra_context_to_return,

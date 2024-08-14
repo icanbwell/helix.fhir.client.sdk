@@ -22,7 +22,7 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
     resource = "Patient"
     id_ = "mock_id"
     logger = MagicMock(FhirLogger)
-    expand_fhir_bundle = False
+    expand_fhir_bundle = True
     separate_bundle_resources = True
     url = "http://example.com"
 
