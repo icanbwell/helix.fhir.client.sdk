@@ -4,7 +4,7 @@ from helix_fhir_client_sdk.responses.bundle_expander import (
 )
 
 
-async def test_expand_bundle_async() -> None:
+async def test_bundle_expander() -> None:
     response_json = {
         "resourceType": "Bundle",
         "total": 2,
