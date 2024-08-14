@@ -170,3 +170,12 @@ class FhirClientProtocol(Protocol):
     ) -> "FhirClientProtocol": ...
 
     def action(self, action: str) -> "FhirClientProtocol": ...
+
+    async def build_url(
+        self,
+        *,
+        additional_parameters: Optional[List[str]],
+        id_above: Optional[str],
+        ids: Optional[List[str]],
+        page_number: Optional[int],
+    ) -> str: ...

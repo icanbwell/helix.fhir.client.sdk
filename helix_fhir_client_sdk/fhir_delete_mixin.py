@@ -89,20 +89,12 @@ class FhirDeleteMixin(FhirClientProtocol):
             raise ValueError("delete requires a FHIR resource type")
         full_uri: furl = furl(self._url)
         full_uri /= self._resource
-        full_url: str = full_uri.url
-        additional_parameters = additional_parameters or self._additional_parameters
-        if additional_parameters:
-            if len(full_uri.args) > 0:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += "&".join(additional_parameters)
-        elif self._additional_parameters:
-            if len(full_uri.args) > 0:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += "&".join(self._additional_parameters)
+        full_url = await self.build_url(
+            id_above=None,
+            page_number=None,
+            ids=None,
+            additional_parameters=additional_parameters,
+        )
         # setup retry
         # set up headers
         headers: Dict[str, str] = {}

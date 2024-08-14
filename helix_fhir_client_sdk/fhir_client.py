@@ -653,7 +653,7 @@ class FhirClient(
 
         # create url and query to request from FHIR server
         resources_json: str = ""
-        full_url = await self._build_url(
+        full_url = await self.build_url(
             ids=ids,
             id_above=id_above,
             page_number=page_number,
@@ -759,7 +759,8 @@ class FhirClient(
                 elapsed_time=time.time() - start_time,
             )
 
-    async def _build_url(
+    # noinspection PyProtocol
+    async def build_url(
         self,
         *,
         additional_parameters: Optional[List[str]],
