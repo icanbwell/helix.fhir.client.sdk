@@ -90,23 +90,23 @@ async def test_handle_response_200_streaming_separate_bundle() -> None:
         },
     ]
 
-    expected_result = [
-        {
-            "request_id": request_id,
-            "url": full_url,
-            "responses": json.dumps(expected_resources),
-            "error": None,
-            "access_token": access_token,
-            "total_count": 2,
-            "status": 200,
-            "next_url": None,
-            "extra_context_to_return": extra_context_to_return,
-            "resource_type": resource,
-            "id_": id_,
-            "response_headers": ["mock_header=mock_value"],
-            "chunk_number": 1,
-            "successful": True,
-        }
-    ]
+    assert len(result) == 1
 
-    assert result[0].__dict__ == expected_result[0]
+    expected_result = {
+        "request_id": request_id,
+        "url": full_url,
+        "responses": json.dumps(expected_resources),
+        "error": None,
+        "access_token": access_token,
+        "total_count": 2,
+        "status": 200,
+        "next_url": None,
+        "extra_context_to_return": extra_context_to_return,
+        "resource_type": resource,
+        "id_": id_,
+        "response_headers": ["mock_header=mock_value"],
+        "chunk_number": 1,
+        "successful": True,
+    }
+
+    assert result[0].__dict__ == expected_result

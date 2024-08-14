@@ -64,6 +64,8 @@ async def test_handle_response_200_streaming() -> None:
         )
     ]
 
+    assert len(result) == 1
+
     expected_result = [
         {
             "request_id": request_id,

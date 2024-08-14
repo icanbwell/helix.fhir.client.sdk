@@ -382,7 +382,7 @@ class FhirResponseProcessor:
                         access_token=access_token,
                         expand_fhir_bundle=expand_fhir_bundle,
                         extra_context_to_return=extra_context_to_return,
-                        response_json=response_json,
+                        resource_or_bundle=response_json,
                         separate_bundle_resources=separate_bundle_resources,
                         text=text,
                         total_count=total_count,
@@ -429,7 +429,7 @@ class FhirResponseProcessor:
         access_token: Optional[str],
         expand_fhir_bundle: Optional[bool],
         extra_context_to_return: Optional[Dict[str, Any]],
-        response_json: Dict[str, Any],
+        resource_or_bundle: Dict[str, Any],
         separate_bundle_resources: bool,
         text: str,
         total_count: int,
@@ -441,19 +441,19 @@ class FhirResponseProcessor:
         # see if this is a Resource Bundle and un-bundle it
         if (
             expand_fhir_bundle
-            and "resourceType" in response_json
-            and response_json["resourceType"] == "Bundle"
+            and "resourceType" in resource_or_bundle
+            and resource_or_bundle["resourceType"] == "Bundle"
         ):
             bundle_expander_result: BundleExpanderResult = (
                 await BundleExpander.expand_bundle_async(
                     total_count=total_count,
-                    bundle=response_json,
+                    bundle=resource_or_bundle,
                 )
             )
             resources = bundle_expander_result.resources
             total_count = bundle_expander_result.total_count
         else:
-            resources = [response_json]
+            resources = [resource_or_bundle]
             total_count = 1
 
         if separate_bundle_resources:
@@ -581,19 +581,27 @@ class FhirResponseProcessor:
                             + f" | Url: {full_url}"
                             + f" | Total time: {total_time_str}"
                         )
+
                     for completed_resource in completed_resources:
-                        resources_json, total_count = (
-                            await FhirResponseProcessor.expand_or_separate_bundle_async(
-                                access_token=access_token,
-                                expand_fhir_bundle=expand_fhir_bundle,
-                                extra_context_to_return=extra_context_to_return,
-                                response_json=completed_resource,
-                                separate_bundle_resources=separate_bundle_resources,
-                                text=json.dumps(completed_resource),
-                                total_count=total_count,
-                                url=url,
+                        if expand_fhir_bundle or separate_bundle_resources:
+                            resources_json, total_count = (
+                                await FhirResponseProcessor.expand_or_separate_bundle_async(
+                                    access_token=access_token,
+                                    expand_fhir_bundle=expand_fhir_bundle,
+                                    extra_context_to_return=extra_context_to_return,
+                                    resource_or_bundle=completed_resource,
+                                    separate_bundle_resources=separate_bundle_resources,
+                                    text=json.dumps(completed_resource),
+                                    total_count=total_count,
+                                    url=url,
+                                )
                             )
-                        )
+                        else:
+                            resources_json = (
+                                json.dumps(completed_resources[0])
+                                if len(completed_resources) == 1
+                                else json.dumps(completed_resources)
+                            )
 
                         yield FhirGetResponse(
                             request_id=request_id,
