@@ -632,7 +632,6 @@ class FhirCompositeQueryMixin(FhirClientProtocol):
         """
         page_number: int = start_page
         server_page_number: int = page_number
-        result: List[PagingResult] = []
         id_above: Optional[str] = None
         while (
             not self._last_page and not self._last_page == 0
