@@ -1,9 +1,8 @@
-import asyncio
 import uuid
 from datetime import datetime
 from logging import Logger
 from threading import Lock
-from typing import Protocol, Optional, Dict, Any, List, Union, AsyncGenerator, Generator
+from typing import Protocol, Optional, Dict, Any, List, Union, AsyncGenerator
 
 from aiohttp import ClientSession
 from requests.adapters import BaseAdapter
@@ -13,12 +12,9 @@ from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.function_types import (
     RefreshTokenFunction,
     HandleStreamingChunkFunction,
-    HandleBatchFunction,
-    HandleErrorFunction,
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.responses.paging_result import PagingResult
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
 )
@@ -136,15 +132,6 @@ class FhirClientProtocol(Protocol):
 
     def filter(self, filter_: List[BaseFilter]) -> "FhirClientProtocol": ...
 
-    async def get_by_query_in_pages_async(
-        self,
-        concurrent_requests: int,
-        output_queue: asyncio.Queue[PagingResult],
-        fn_handle_batch: Optional[HandleBatchFunction],
-        fn_handle_error: Optional[HandleErrorFunction],
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
-    ) -> AsyncGenerator[FhirGetResponse, None]: ...
-
     def clone(self) -> "FhirClientProtocol": ...
 
     def last_page(self, last_page: int) -> "FhirClientProtocol": ...
@@ -152,16 +139,6 @@ class FhirClientProtocol(Protocol):
     def page_number(self, page_number: int) -> "FhirClientProtocol": ...
 
     def id_(self, id_: Union[List[str], str] | None) -> "FhirClientProtocol": ...
-
-    async def get_resources_by_id_in_parallel_batches_async(
-        self,
-        concurrent_requests: int,
-        chunks: Generator[List[str], None, None],
-        fn_handle_batch: Optional[HandleBatchFunction],
-        fn_handle_error: Optional[HandleErrorFunction],
-        fn_handle_ids: Optional[HandleBatchFunction] = None,
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
-    ) -> List[Dict[str, Any]]: ...
 
     def additional_parameters(
         self, additional_parameters: List[str]

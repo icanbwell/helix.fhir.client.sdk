@@ -32,7 +32,6 @@ from requests.adapters import BaseAdapter
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.fhir_auth_mixin import FhirAuthMixin
-from helix_fhir_client_sdk.fhir_composite_query_mixin import FhirCompositeQueryMixin
 from helix_fhir_client_sdk.fhir_delete_mixin import FhirDeleteMixin
 from helix_fhir_client_sdk.fhir_merge_mixin import FhirMergeMixin
 from helix_fhir_client_sdk.fhir_patch_mixin import FhirPatchMixin
@@ -66,7 +65,6 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
 class FhirClient(
     SimulatedGraphProcessorMixin,
     FhirMergeMixin,
-    FhirCompositeQueryMixin,
     FhirGraphMixin,
     FhirUpdateMixin,
     FhirPatchMixin,
