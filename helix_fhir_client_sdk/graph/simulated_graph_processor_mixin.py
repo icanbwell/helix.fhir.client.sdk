@@ -7,6 +7,7 @@ from typing import (
     List,
     Union,
     Any,
+    Tuple,
     cast,
     AsyncGenerator,
 )
@@ -22,19 +23,10 @@ from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinitionTarget,
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
-from helix_fhir_client_sdk.responses.bundle_expander import (
-    BundleExpander,
-    BundleExpanderResult,
-)
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.responses.resource_separator import (
-    ResourceSeparator,
-    ResourceSeparatorResult,
-)
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
-from helix_fhir_client_sdk.utilities.list_chunker import ListChunker
 from helix_fhir_client_sdk.utilities.request_cache import RequestCache
 
 
@@ -103,139 +95,86 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         cache: RequestCache
         with RequestCache() as cache:
-            responses: List[FhirGetResponse] = []
             async with self.create_http_session() as session:
                 # first load the start resource
                 start: str = graph_definition.start
                 response: FhirGetResponse
-                async for response in self._get_resources_by_parameters_async(
+                cache_hits: int
+                response, cache_hits = await self._get_resources_by_parameters_async(
                     session=session,
                     resource_type=start,
                     id_=id_,
                     cache=cache,
                     scope_parser=scope_parser,
                     logger=logger,
-                ):
-                    responses.append(response)
-                    async for (
-                        child_response
-                    ) in self._process_children_of_start_resource(
-                        parent_response=response,
-                        logger=logger,
-                        graph_definition=graph_definition,
-                        session=session,
-                        scope_parser=scope_parser,
-                        separate_bundle_resources=separate_bundle_resources,
-                        url=url,
-                        expand_fhir_bundle=expand_fhir_bundle,
-                        cache=cache,
-                    ):
-                        yield child_response
-
-    async def _process_children_of_start_resource(
-        self,
-        *,
-        parent_response: FhirGetResponse,
-        logger: Optional[FhirLogger],
-        graph_definition: GraphDefinition,
-        session: ClientSession,
-        cache: RequestCache,
-        scope_parser: FhirScopeParser,
-        separate_bundle_resources: bool,
-        url: Optional[str],
-        expand_fhir_bundle: Optional[bool],
-    ) -> AsyncGenerator[FhirGetResponse, None]:
-        """
-        Once the parent resource has been downloaded this function can download all the children resources
-
-
-        """
-        if parent_response.responses:
-            parent_bundle_entries: List[BundleEntry] = (
-                parent_response.get_bundle_entries()
-            )
-
-            if logger:
-                logger.info(
-                    f"FhirClient.simulate_graph_async() got parent resources: {len(parent_response.get_resources())} "
-                    + f"cached:{parent_response.cache_hits}"
                 )
+                if not response.responses:
+                    yield response
+                parent_bundle_entries: List[BundleEntry] = response.get_bundle_entries()
 
-            # turn into a bundle if not already a bundle
-            bundle = Bundle(entry=parent_bundle_entries)
+                if logger:
+                    logger.info(
+                        f"FhirClient.simulate_graph_async() got parent resources: {len(response.get_resources())} "
+                        + f"cached:{cache_hits}"
+                    )
+                # turn into a bundle if not already a bundle
+                bundle = Bundle(entry=parent_bundle_entries)
 
-            # now process the graph links
-            child_responses: List[FhirGetResponse] = []
-            if graph_definition.link and len(graph_definition.link) > 0:
-                link: GraphDefinitionLink
-                for link in graph_definition.link:
-                    parent_bundle_entry: BundleEntry
-                    for parent_bundle_entry in parent_bundle_entries:
-                        async for response in self._process_link_async(
-                            session=session,
-                            link=link,
-                            parent_bundle_entry=parent_bundle_entry,
-                            logger=logger,
-                            cache=cache,
-                            scope_parser=scope_parser,
-                        ):
-                            child_responses.append(response)
+                # now process the graph links
+                responses: List[FhirGetResponse] = []
+                if graph_definition.link and len(graph_definition.link) > 0:
+                    link: GraphDefinitionLink
+                    for link in graph_definition.link:
+                        parent_bundle_entry: BundleEntry
+                        for parent_bundle_entry in parent_bundle_entries:
+                            responses.extend(
+                                await self._process_link_async(
+                                    session=session,
+                                    link=link,
+                                    parent_bundle_entry=parent_bundle_entry,
+                                    logger=logger,
+                                    cache=cache,
+                                    scope_parser=scope_parser,
+                                )
+                            )
+                FhirBundleAppender.append_responses(responses=responses, bundle=bundle)
 
-            # now we have all the child resources too
-            FhirBundleAppender.append_responses(
-                responses=child_responses, bundle=bundle
-            )
+                bundle = FhirBundleAppender.remove_duplicate_resources(bundle=bundle)
 
-            bundle = FhirBundleAppender.remove_duplicate_resources(bundle=bundle)
-
-            # token, url, service_slug
-            if bundle.entry is not None:
+                # token, url, service_slug
                 if separate_bundle_resources:
-                    resource_separator_result: ResourceSeparatorResult = (
-                        await ResourceSeparator.separate_contained_resources_async(
-                            resources=[
-                                e.resource for e in bundle.entry if e and e.resource
-                            ],
-                            url=url,
-                            extra_context_to_return=self._extra_context_to_return,
-                            access_token=await self.get_access_token_async(),
-                        )
-                    )
-                    resources: List[Dict[str, Optional[str] | List[Dict[str, Any]]]] = (
-                        resource_separator_result.resources_dicts
-                    )
-
-                    parent_response.responses = json.dumps(
-                        resources, cls=FhirJSONEncoder
-                    )
-                elif expand_fhir_bundle:
-                    bundle_expander_result: BundleExpanderResult = (
-                        await BundleExpander.expand_bundle_async(
-                            bundle=bundle.to_dict(),
-                            total_count=bundle.total_count or 0,
-                        )
-                    )
+                    resources: Dict[str, Union[str, List[Dict[str, Any]]]] = {}
                     if bundle.entry:
-                        parent_response.responses = json.dumps(
-                            bundle_expander_result.resources, cls=FhirJSONEncoder
+                        entry: BundleEntry
+                        for entry in bundle.entry:
+                            resource: Optional[Dict[str, Any]] = entry.resource
+                            if resource:
+                                resource_type = resource.get("resourceType")
+                                assert (
+                                    resource_type
+                                ), f"No resourceType in {json.dumps(resource)}"
+                                if resource_type not in resources:
+                                    resources[resource_type] = []
+                                if isinstance(resources[resource_type], list):
+                                    resources[resource_type].append(resource)  # type: ignore
+                    response.responses = json.dumps(resources, cls=FhirJSONEncoder)
+                elif expand_fhir_bundle:
+                    if bundle.entry:
+                        response.responses = json.dumps(
+                            [e.resource for e in bundle.entry], cls=FhirJSONEncoder
                         )
                     else:
-                        parent_response.responses = ""
+                        response.responses = ""
                 else:
                     bundle_dict: Dict[str, Any] = bundle.to_dict()
-                    parent_response.responses = json.dumps(
-                        bundle_dict, cls=FhirJSONEncoder
-                    )
-            else:
-                bundle_dict = bundle.to_dict()
-                parent_response.responses = json.dumps(bundle_dict, cls=FhirJSONEncoder)
+                    response.responses = json.dumps(bundle_dict, cls=FhirJSONEncoder)
 
-            parent_response.url = url or parent_response.url  # set url to top level url
-            if logger:
-                logger.info(
-                    f"Request Cache hits: {cache.cache_hits}, misses: {cache.cache_misses}"
-                )
-            yield parent_response
+                response.url = url or response.url  # set url to top level url
+                if logger:
+                    logger.info(
+                        f"Request Cache hits: {cache.cache_hits}, misses: {cache.cache_misses}"
+                    )
+                yield response
 
     async def _process_link_async(
         self,
@@ -246,7 +185,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         logger: Optional[FhirLogger],
         cache: RequestCache,
         scope_parser: FhirScopeParser,
-    ) -> AsyncGenerator[FhirGetResponse, None]:
+    ) -> List[FhirGetResponse]:
         """
         Process a GraphDefinition link object
 
@@ -261,19 +200,22 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         """
         assert session
         assert link
+        responses: List[FhirGetResponse] = []
         targets: List[GraphDefinitionTarget] = link.target
         target: GraphDefinitionTarget
         for target in targets:
-            async for result in self._process_target_async(
-                session=session,
-                target=target,
-                path=link.path,
-                parent_bundle_entry=parent_bundle_entry,
-                logger=logger,
-                cache=cache,
-                scope_parser=scope_parser,
-            ):
-                yield result
+            responses.extend(
+                await self._process_target_async(
+                    session=session,
+                    target=target,
+                    path=link.path,
+                    parent_bundle_entry=parent_bundle_entry,
+                    logger=logger,
+                    cache=cache,
+                    scope_parser=scope_parser,
+                )
+            )
+        return responses
 
     async def _process_target_async(
         self,
@@ -285,7 +227,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         logger: Optional[FhirLogger],
         cache: RequestCache,
         scope_parser: FhirScopeParser,
-    ) -> AsyncGenerator[FhirGetResponse, None]:
+    ) -> List[FhirGetResponse]:
         """
         Process a GraphDefinition target
 
@@ -299,6 +241,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param scope_parser: scope parser to use
         :return: list of FhirGetResponse objects
         """
+        responses: List[FhirGetResponse] = []
         children: List[BundleEntry] = []
         child_response: FhirGetResponse
         child_response_resources: Union[Dict[str, Any], List[Dict[str, Any]]]
@@ -329,27 +272,27 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         reference_parts = reference_id.split("/")
                         if reference_parts[0] == target_type:
                             child_id = reference_parts[1]
-                            async for (
-                                child_response
-                            ) in self._get_resources_by_parameters_async(
+                            (
+                                child_response,
+                                cache_hits,
+                            ) = await self._get_resources_by_parameters_async(
                                 session=session,
                                 resource_type=target_type,
                                 id_=child_id,
                                 cache=cache,
                                 scope_parser=scope_parser,
                                 logger=logger,
-                            ):
-                                yield child_response
-                                children = child_response.get_bundle_entries()
-                                if logger:
-                                    logger.info(
-                                        f"Received child resources"
-                                        + f" from parent {parent_resource.get('resourceType')}/{parent_resource.get('id')}"
-                                        + f" [{path}]"
-                                        + f", count:{len(child_response.get_resource_type_and_ids())},"
-                                        f" cached:{child_response.cache_hits}"
-                                        + f", {','.join(child_response.get_resource_type_and_ids())}"
-                                    )
+                            )
+                            responses.append(child_response)
+                            children = child_response.get_bundle_entries()
+                            if logger:
+                                logger.info(
+                                    f"Received child resources"
+                                    + f" from parent {parent_resource.get('resourceType')}/{parent_resource.get('id')}"
+                                    + f" [{path}]"
+                                    + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
+                                    + f", {','.join(child_response.get_resource_type_and_ids())}"
+                                )
             else:  # single reference
                 if parent_resource and parent_resource.get(path) and target_type:
                     reference = parent_resource.get(path)
@@ -358,27 +301,27 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         reference_parts = reference_id.split("/")
                         if reference_parts[0] == target_type:
                             child_id = reference_parts[1]
-                            async for (
-                                child_response
-                            ) in self._get_resources_by_parameters_async(
+                            (
+                                child_response,
+                                cache_hits,
+                            ) = await self._get_resources_by_parameters_async(
                                 session=session,
                                 resource_type=target_type,
                                 id_=child_id,
                                 cache=cache,
                                 scope_parser=scope_parser,
                                 logger=logger,
-                            ):
-                                yield child_response
-                                children = child_response.get_bundle_entries()
-                                if logger:
-                                    logger.info(
-                                        f"Received child resources"
-                                        + f" from parent {parent_resource.get('resourceType')}/{parent_resource.get('id')}"
-                                        + f" [{path}]"
-                                        + f", count:{len(child_response.get_resource_type_and_ids())},"
-                                        f" cached:{child_response.cache_hits}"
-                                        + f", {','.join(child_response.get_resource_type_and_ids())}"
-                                    )
+                            )
+                            responses.append(child_response)
+                            children = child_response.get_bundle_entries()
+                            if logger:
+                                logger.info(
+                                    f"Received child resources"
+                                    + f" from parent {parent_resource.get('resourceType')}/{parent_resource.get('id')}"
+                                    + f" [{path}]"
+                                    + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
+                                    + f", {','.join(child_response.get_resource_type_and_ids())}"
+                                )
         elif target.params:  # reverse path
             # for a reverse link, get the ids of the current resource, put in a view and
             # add a stage to get that
@@ -396,40 +339,44 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 request_parameters: List[str] = [
                     f"{property_name}={parent_id}"
                 ] + additional_parameters
-                async for child_response in self._get_resources_by_parameters_async(
+                (
+                    child_response,
+                    cache_hits,
+                ) = await self._get_resources_by_parameters_async(
                     session=session,
                     resource_type=target_type,
                     parameters=request_parameters,
                     cache=cache,
                     scope_parser=scope_parser,
                     logger=logger,
-                ):
-                    yield child_response
-                    if logger:
-                        logger.debug(
-                            f"Received child resources with params:{target.params} "
-                            + f" from parent {parent_resource.get('resourceType')}/{parent_resource.get('id')}"
-                            + f" [{'&'.join(request_parameters)}]"
-                            + f", count:{len(child_response.get_resource_type_and_ids())},"
-                            f" cached:{child_response.cache_hits}"
-                            + f", {','.join(child_response.get_resource_type_and_ids())}"
-                        )
-                    children = child_response.get_bundle_entries()
+                )
+                responses.append(child_response)
+                if logger:
+                    logger.debug(
+                        f"Received child resources with params:{target.params} "
+                        + f" from parent {parent_resource.get('resourceType')}/{parent_resource.get('id')}"
+                        + f" [{'&'.join(request_parameters)}]"
+                        + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
+                        + f", {','.join(child_response.get_resource_type_and_ids())}"
+                    )
+                children = child_response.get_bundle_entries()
 
         if target.link:
             child_link: GraphDefinitionLink
             for child_link in target.link:
                 child: BundleEntry
                 for child in children:
-                    async for child_response in self._process_link_async(
-                        session=session,
-                        link=child_link,
-                        parent_bundle_entry=child,
-                        logger=logger,
-                        cache=cache,
-                        scope_parser=scope_parser,
-                    ):
-                        yield child_response
+                    responses.extend(
+                        await self._process_link_async(
+                            session=session,
+                            link=child_link,
+                            parent_bundle_entry=child,
+                            logger=logger,
+                            cache=cache,
+                            scope_parser=scope_parser,
+                        )
+                    )
+        return responses
 
     async def _get_resources_by_parameters_async(
         self: FhirClientProtocol,
@@ -441,14 +388,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         cache: RequestCache,
         scope_parser: FhirScopeParser,
         logger: Optional[FhirLogger],
-    ) -> AsyncGenerator[FhirGetResponse, None]:
+    ) -> Tuple[FhirGetResponse, int]:
         assert session
         assert resource_type
 
         if not scope_parser.scope_allows(resource_type=resource_type):
             if logger:
                 logger.debug(f"Skipping resource {resource_type} due to scope")
-            yield (
+            return (
                 FhirGetResponse(
                     request_id=None,
                     url="",
@@ -462,8 +409,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     total_count=0,
                     extra_context_to_return=None,
                     error=None,
-                    cache_hits=0,
-                )
+                ),
+                0,
             )
 
         self.resource(resource=resource_type)
@@ -477,6 +424,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         non_cached_id_list: List[str] = []
         # get any cached resources
         cached_bundle_entries: List[BundleEntry] = []
+        cached_response: Optional[FhirGetResponse] = None
         cache_hits: int = 0
         if id_list:
             for resource_id in id_list:
@@ -493,7 +441,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             if logger:
                 logger.debug(f"Returning resource {resource_type} from cache")
             cached_bundle: Bundle = Bundle(entry=cached_bundle_entries)
-            yield FhirGetResponse(
+            cached_response = FhirGetResponse(
                 request_id=None,
                 url=(
                     cached_bundle_entries[0].request.url
@@ -511,41 +459,44 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 extra_context_to_return=None,
                 error=None,
             )
-        else:
-            # either we have non-cached ids or this is a query without id but has other parameters
-            if len(non_cached_id_list) > 0 or id_ is not None:
-                chunk_size: int = self._page_size or 1
-                result: FhirGetResponse
-                for chunk in ListChunker.divide_into_chunks(
-                    non_cached_id_list, chunk_size
-                ):
-                    async for (
-                        result
-                    ) in self._get_with_session_async(  # type:ignore[attr-defined]
-                        page_number=None,
-                        session=session,
-                        ids=chunk,
-                        additional_parameters=parameters,
-                        id_above=None,
-                        fn_handle_streaming_chunk=None,
-                    ):
-                        non_cached_bundle_entry: BundleEntry
-                        for non_cached_bundle_entry in result.get_bundle_entries():
-                            if non_cached_bundle_entry.resource:
-                                non_cached_resource: Dict[str, Any] = (
-                                    non_cached_bundle_entry.resource
-                                )
-                                non_cached_resource_id: Optional[str] = (
-                                    non_cached_resource.get("id")
-                                )
-                                if non_cached_resource_id:
-                                    cache.add(
-                                        resource_type=resource_type,
-                                        resource_id=non_cached_resource_id,
-                                        bundle_entry=non_cached_bundle_entry,
-                                    )
 
-                        yield result
+        result: Optional[FhirGetResponse] = None
+        # either we have non-cached ids or this is a query without id but has other parameters
+        if len(non_cached_id_list) > 0 or not id_:
+            async for (
+                result1
+            ) in self._get_with_session_async(  # type:ignore[attr-defined]
+                page_number=None,
+                session=session,
+                ids=non_cached_id_list,
+                additional_parameters=parameters,
+                id_above=None,
+                fn_handle_streaming_chunk=None,
+            ):
+                result = result1
+            assert result
+            non_cached_bundle_entry: BundleEntry
+            for non_cached_bundle_entry in result.get_bundle_entries():
+                if non_cached_bundle_entry.resource:
+                    non_cached_resource: Dict[str, Any] = (
+                        non_cached_bundle_entry.resource
+                    )
+                    non_cached_resource_id: Optional[str] = non_cached_resource.get(
+                        "id"
+                    )
+                    if non_cached_resource_id:
+                        cache.add(
+                            resource_type=resource_type,
+                            resource_id=non_cached_resource_id,
+                            bundle_entry=non_cached_bundle_entry,
+                        )
+
+            if cached_response:
+                result.append([cached_response])
+        elif cached_response:
+            result = cached_response
+        assert result
+        return result, cache_hits
 
     # noinspection PyPep8Naming
     async def simulate_graph_async(
