@@ -37,5 +37,6 @@ https://icanbwell.github.io/helix.fhir.client.sdk/
 https://github.com/icanbwell/fhir-server-performance
 
 # Python Version Support
-1.x supports python 3.7+
-2.x supports python 3.10+
+* 1.x supports python 3.7+ 
+* 2.x supports python 3.10+
+* 3.x supports python 3.12+

@@ -61,6 +61,7 @@ setup(
         "urllib3",
         "chardet",
         "aiohttp",
+        "async-timeout>=4.0.3",
         "python-dateutil",
     ],
     classifiers=[
@@ -69,7 +70,7 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.10",
+    python_requires=">=3.12",
     dependency_links=[],
     include_package_data=True,
     zip_safe=False,
