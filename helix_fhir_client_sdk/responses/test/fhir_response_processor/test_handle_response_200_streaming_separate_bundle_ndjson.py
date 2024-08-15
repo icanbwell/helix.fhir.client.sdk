@@ -99,6 +99,7 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
             "response_headers": ["mock_header=mock_value"],
             "chunk_number": 1,
             "successful": True,
+            "cache_hits": None,
         },
         {
             "request_id": request_id,
@@ -115,6 +116,7 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
             "response_headers": ["mock_header=mock_value"],
             "chunk_number": 1,
             "successful": True,
+            "cache_hits": None,
         },
     ]
 

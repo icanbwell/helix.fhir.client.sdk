@@ -71,6 +71,7 @@ async def test_handle_response_200() -> None:
             "response_headers": response_headers,
             "chunk_number": None,
             "successful": True,
+            "cache_hits": None,
         }
     ]
 

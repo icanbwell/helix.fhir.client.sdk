@@ -82,6 +82,7 @@ async def test_handle_response_200_streaming() -> None:
             "response_headers": ["mock_header=mock_value"],
             "chunk_number": 1,
             "successful": True,
+            "cache_hits": None,
         }
     ]
 

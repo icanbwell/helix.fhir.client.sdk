@@ -114,6 +114,7 @@ async def test_handle_response_200_streaming_separate_bundle() -> None:
         "response_headers": ["mock_header=mock_value"],
         "chunk_number": 1,
         "successful": True,
+        "cache_hits": None,
     }
 
     assert result[0].__dict__ == expected_result

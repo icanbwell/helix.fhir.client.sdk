@@ -57,6 +57,7 @@ async def test_handle_response_404() -> None:
             "id_": id_,
             "response_headers": response_headers,
             "successful": False,
+            "cache_hits": None,
         }
     ]
 

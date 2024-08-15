@@ -100,6 +100,7 @@ async def test_handle_response_200_non_streaming_separate_bundle() -> None:
         "id_": id_,
         "successful": True,
         "response_headers": response_headers,
+        "cache_hits": None,
     }
 
     assert result[0].__dict__ == expected_result
