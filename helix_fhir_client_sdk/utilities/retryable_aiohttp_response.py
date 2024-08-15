@@ -1,4 +1,5 @@
-from typing import Dict, Optional
+import json
+from typing import Dict, Optional, List, cast
 
 from aiohttp import StreamReader
 
@@ -32,3 +33,7 @@ class RetryableAioHttpResponse:
             return self.text_read
         else:
             return self._response_text
+
+    async def json(self) -> Dict[str, str] | List[Dict[str, str]]:
+        text = await self.get_text_async()
+        return cast(Dict[str, str] | List[Dict[str, str]], json.loads(text))

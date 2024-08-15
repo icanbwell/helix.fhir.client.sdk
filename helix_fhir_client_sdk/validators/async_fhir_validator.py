@@ -1,10 +1,16 @@
-from typing import Dict, Any, Optional, Callable, List
+from typing import Dict, Any, Optional, Callable, List, cast
 
-from aiohttp import ClientSession, ClientResponse
+from aiohttp import ClientSession
 from furl import furl
 
 from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
     FhirValidationException,
+)
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
+    RetryableAioHttpClient,
+)
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
+    RetryableAioHttpResponse,
 )
 
 
@@ -33,18 +39,23 @@ class AsyncFhirValidator:
         full_validation_uri: furl = furl(validation_server_url)
         full_validation_uri /= resource_name
         full_validation_uri /= "$validate"
-        async with fn_get_session() as http:
-            validation_response: ClientResponse = await http.post(
+        async with RetryableAioHttpClient(
+            fn_get_session=fn_get_session,
+            use_data_streaming=False,
+        ) as http:
+            validation_response: RetryableAioHttpResponse = await http.post(
                 url=full_validation_uri.url,
-                data=json_data.encode("utf-8"),
+                data=json_data,
                 headers=headers,
             )
-            request_id = validation_response.headers.getone("X-Request-ID", None)
+            request_id = validation_response.response_headers.get("X-Request-ID")
             if validation_response.ok:
-                operation_outcome: Dict[str, Any] = await validation_response.json()
+                operation_outcome: Dict[str, Any] = cast(
+                    Dict[str, Any], await validation_response.json()
+                )
                 issue: List[Dict[str, Any]] = operation_outcome.get("issue", [])
                 if len(issue) > 0 and issue[0].get("severity") == "error":
-                    response_text = await validation_response.text()
+                    response_text = await validation_response.get_text_async()
                     raise FhirValidationException(
                         request_id=request_id,
                         url=full_validation_uri.url,
@@ -56,7 +67,7 @@ class AsyncFhirValidator:
                         issue=operation_outcome["issue"],
                     )
             else:
-                response_text = await validation_response.text()
+                response_text = await validation_response.get_text_async()
                 raise FhirValidationException(
                     request_id=request_id,
                     url=full_validation_uri.url,
