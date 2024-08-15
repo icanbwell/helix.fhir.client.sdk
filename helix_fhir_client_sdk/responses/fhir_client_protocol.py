@@ -181,3 +181,7 @@ class FhirClientProtocol(Protocol):
         ids: Optional[List[str]],
         page_number: Optional[int],
     ) -> str: ...
+
+    def throw_exception_on_error(
+        self, throw_exception_on_error: bool
+    ) -> "FhirClientProtocol": ...
