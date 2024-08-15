@@ -471,11 +471,11 @@ async def test_process_simulate_graph_async_multiple_patients_one_by_one(
         )
 
         response = [r async for r in async_gen]
-        assert len(response) == 1
-        resources: List[Dict[str, Any]] = response[0].get_resources()
-        assert resources[0] == {"resourceType": "Patient", "id": "1"}
-        assert resources[1] == {"resourceType": "Patient", "id": "2"}
-        assert resources[2] == {"resourceType": "Patient", "id": "3"}
+        assert len(response) == 3
+        assert response[0].get_resources() == [{"resourceType": "Patient", "id": "1"}]
+
+        assert response[1].get_resources() == [{"resourceType": "Patient", "id": "2"}]
+        assert response[2].get_resources() == [{"resourceType": "Patient", "id": "3"}]
 
 
 @pytest.mark.asyncio
