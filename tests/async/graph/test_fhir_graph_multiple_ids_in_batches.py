@@ -113,7 +113,6 @@ async def test_fhir_graph_multiple_ids_in_batches_async() -> None:
         id_=["1", "2"],
         graph_definition=graph_definition,
         contained=True,
-        process_in_pages=False,
     ):
         print(f"Response Chunk: {response.responses}")
         responses.append(response)

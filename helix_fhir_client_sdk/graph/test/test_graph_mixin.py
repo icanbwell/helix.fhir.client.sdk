@@ -19,7 +19,7 @@ class TestFhirGraphMixin:
         class TestClient(FhirClient):
             def __init__(self) -> None:
                 super().__init__()
-                self.page_size(1)
+                self.page_size(10)
                 self.url("https://fhir-server")
                 self.resource("Patient")
                 self.log_level("DEBUG")
@@ -70,14 +70,9 @@ class TestFhirGraphMixin:
         with aioresponses() as m:
             # Mocking the HTTP response
             m.post(
-                "https://fhir-server/Patient/123/$graph?contained=true",
+                "https://fhir-server/Patient/$graph?contained=true&id=123%252C456",
                 payload={"resourceType": "Bundle", "type": "searchset"},
             )
-            m.post(
-                "https://fhir-server/Patient/456/$graph?contained=true",
-                payload={"resourceType": "Bundle", "type": "searchset"},
-            )
-
             result = [
                 response
                 async for response in fhir_graph_mixin.graph_async(
@@ -121,11 +116,9 @@ class TestFhirGraphMixin:
         with aioresponses() as m:
             # Mocking the HTTP response
             m.post(
-                "https://fhir-server/Patient/$graph?_count=1&_getpagesoffset=0",
+                "https://fhir-server/Patient/$graph?id=123%252C456%252C789",
                 payload={"resourceType": "Bundle", "type": "searchset"},
             )
-
-            batch_handler = AsyncMock(return_value=True)
 
             result = [
                 response
@@ -133,12 +126,9 @@ class TestFhirGraphMixin:
                     id_=["123", "456", "789"],
                     graph_definition=graph_definition,
                     contained=False,
-                    process_in_pages=True,
-                    fn_handle_batch=batch_handler,
                 )
             ]
 
-        batch_handler.assert_called()
         assert len(result) > 0
         assert isinstance(result[0], FhirGetResponse)
 
