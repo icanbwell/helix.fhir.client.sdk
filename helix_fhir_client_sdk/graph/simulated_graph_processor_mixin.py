@@ -110,6 +110,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 )
                 if not response.responses:
                     yield response
+                    return  # no resources to process
+
                 parent_bundle_entries: List[BundleEntry] = response.get_bundle_entries()
 
                 if logger:
