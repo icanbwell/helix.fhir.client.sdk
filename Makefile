@@ -3,7 +3,7 @@ LANG=en_US.utf-8
 export LANG
 
 Pipfile.lock: Pipfile
-	docker compose run --rm --name helix.fhir.client.sdk dev pipenv lock --dev
+	docker compose run --rm --name helix.fhir.client.sdk dev sh -c "rm -f Pipfile.lock && pipenv lock --dev"
 
 .PHONY:devdocker
 devdocker: ## Builds the docker for dev
@@ -25,8 +25,10 @@ up: Pipfile.lock
 	@echo Fhir server dashboard http://localhost:3000/
 
 .PHONY: down
-down:
-	docker compose down
+down: ## Brings down all the services in docker-compose
+	export DOCKER_CLIENT_TIMEOUT=300 && export COMPOSE_HTTP_TIMEOUT=300
+	docker compose down --remove-orphans && \
+	docker system prune -f
 
 .PHONY:clean-pre-commit
 clean-pre-commit: ## removes pre-commit hook
@@ -41,7 +43,7 @@ run-pre-commit: setup-pre-commit
 	./.git/hooks/pre-commit
 
 .PHONY:update
-update: down Pipfile.lock setup-pre-commit  ## Updates all the packages using Pipfile
+update: Pipfile.lock setup-pre-commit  ## Updates all the packages using Pipfile
 	docker compose run --rm --name helix.fhir.client.sdk dev pipenv sync && \
 	make devdocker && \
 	make pipenv-setup
