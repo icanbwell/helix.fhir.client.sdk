@@ -143,6 +143,8 @@ class FhirClient(
 
         self._compress: bool = True
 
+        self._throw_exception_on_error: bool = True
+
         FhirAuthMixin.__init__(self)
 
     def action(self, action: str) -> "FhirClient":
@@ -445,6 +447,15 @@ class FhirClient(
         self._compress = compress
         return self
 
+    def throw_exception_on_error(self, throw_exception_on_error: bool) -> "FhirClient":
+        """
+        Sets the throw_exception_on_error flag
+
+        :param throw_exception_on_error: whether to throw an exception on error
+        """
+        self._throw_exception_on_error = throw_exception_on_error
+        return self
+
     # noinspection PyUnusedLocal
     @staticmethod
     async def on_request_end(
@@ -696,6 +707,7 @@ class FhirClient(
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                 use_data_streaming=self._use_data_streaming,
                 compress=self._compress,
+                throw_exception_on_error=self._throw_exception_on_error,
             ) as client:
                 response: RetryableAioHttpResponse = (
                     await self._send_fhir_request_async(

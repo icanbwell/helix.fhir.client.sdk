@@ -94,6 +94,8 @@ class FhirClientProtocol(Protocol):
 
     _compress: bool
 
+    _throw_exception_on_error: bool
+
     async def get_access_token_async(self) -> Optional[str]: ...
 
     async def _send_fhir_request_async(

@@ -84,3 +84,21 @@ async def test_chunked_transfer_encoding() -> None:
                 await response.get_text_async()
                 == "4\r\nWiki\r\n5\r\npedia\r\n0\r\n\r\n"
             )
+
+
+async def test_no_exception_on_error() -> None:
+    """Test merge_async call when throw_exception_on_error is false."""
+    async with RetryableAioHttpClient(
+        use_data_streaming=True, throw_exception_on_error=False
+    ) as client:
+        with aioresponses() as m:
+            m.get(
+                "http://test.com",
+                status=400,
+                body="Error",
+                headers={"Transfer-Encoding": "chunked"},
+            )
+            response = await client.get(url="http://test.com", headers=None)
+            assert not response.ok
+            assert response.status == 400
+            assert await response.get_text_async() == ""

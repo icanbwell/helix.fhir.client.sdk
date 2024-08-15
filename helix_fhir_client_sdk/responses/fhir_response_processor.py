@@ -531,6 +531,8 @@ class FhirResponseProcessor:
             Reads the aiohttp response content async generator but returns only the chunked bytes
 
             """
+            if response.content is None:
+                return
             async for chunk1, end_of_http_chunk in response.content.iter_chunks():
                 yield chunk1
 
@@ -545,88 +547,106 @@ class FhirResponseProcessor:
             # for Transfer-Encoding: chunked, we can't use response.content.iter_chunked()
             if response.response_headers.get("Transfer-Encoding") == "chunked":
                 return get_iter_chunk_iterator()
-            else:
+            elif response.content is not None:
                 return response.content.iter_chunked(chunk_size)
+            else:
+                raise StopIteration
 
         total_resources: int = 0
         total_kilobytes: int = 0
         start_time: float = time.time()
         chunk: Optional[str] = None
         try:
-            # iterate over the chunks and return the completed resources as we get them
-            async for chunk_bytes in get_chunk_iterator():
-                # # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
-                # await asyncio.sleep(0)
-                chunk_number += 1
-                if fn_handle_streaming_chunk:
-                    await fn_handle_streaming_chunk(chunk_bytes, chunk_number)
-                chunk = chunk_bytes.decode("utf-8")
-                chunk_length = len(chunk_bytes)
-                total_kilobytes += chunk_length // 1024
-                completed_resources: List[Dict[str, Any]] = (
-                    nd_json_chunk_streaming_parser.add_chunk(
-                        chunk=chunk,
-                        logger=logger,
-                    )
+            if response.content is None:
+                yield FhirGetResponse(
+                    request_id=request_id,
+                    url=full_url,
+                    responses="",
+                    error="No content",
+                    access_token=access_token,
+                    total_count=0,
+                    status=response.status,
+                    next_url=next_url,
+                    extra_context_to_return=extra_context_to_return,
+                    resource_type=resource,
+                    id_=id_,
+                    response_headers=response_headers,
                 )
-                if completed_resources:
-                    total_time: float = time.time() - start_time
-                    if total_time == 0:
-                        total_time = 0.1  # avoid division by zero
-                    total_resources += len(completed_resources)
-                    total_time_str: str = datetime.fromtimestamp(total_time).strftime(
-                        "%H:%M:%S"
+            else:
+                # iterate over the chunks and return the completed resources as we get them
+                async for chunk_bytes in get_chunk_iterator():
+                    # # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
+                    # await asyncio.sleep(0)
+                    chunk_number += 1
+                    if fn_handle_streaming_chunk:
+                        await fn_handle_streaming_chunk(chunk_bytes, chunk_number)
+                    chunk = chunk_bytes.decode("utf-8")
+                    chunk_length = len(chunk_bytes)
+                    total_kilobytes += chunk_length // 1024
+                    completed_resources: List[Dict[str, Any]] = (
+                        nd_json_chunk_streaming_parser.add_chunk(
+                            chunk=chunk,
+                            logger=logger,
+                        )
                     )
-                    if logger:
-                        logger.debug(
-                            f"Chunk: {chunk_number:,}"
-                            + f" | Resources: {len(completed_resources):,}"
-                            + f" | Total Resources: {total_resources:,}"
-                            + f" | Resources/sec: {(total_resources / total_time):,.2f}"
-                            + f" | Chunk KB: {chunk_length / 1024:,}"
-                            + f" | Total KB: {total_kilobytes:,}"
-                            + f" | KB/sec: {(total_kilobytes / total_time):,.2f}"
-                            + f" | Url: {full_url}"
-                            + f" | Total time: {total_time_str}"
-                        )
-
-                    for completed_resource in completed_resources:
-                        if expand_fhir_bundle or separate_bundle_resources:
-                            resources_json, total_count = (
-                                await FhirResponseProcessor.expand_or_separate_bundle_async(
-                                    access_token=access_token,
-                                    expand_fhir_bundle=expand_fhir_bundle,
-                                    extra_context_to_return=extra_context_to_return,
-                                    resource_or_bundle=completed_resource,
-                                    separate_bundle_resources=separate_bundle_resources,
-                                    text=json.dumps(completed_resource),
-                                    total_count=total_count,
-                                    url=url,
-                                )
+                    if completed_resources:
+                        total_time: float = time.time() - start_time
+                        if total_time == 0:
+                            total_time = 0.1  # avoid division by zero
+                        total_resources += len(completed_resources)
+                        total_time_str: str = datetime.fromtimestamp(
+                            total_time
+                        ).strftime("%H:%M:%S")
+                        if logger:
+                            logger.debug(
+                                f"Chunk: {chunk_number:,}"
+                                + f" | Resources: {len(completed_resources):,}"
+                                + f" | Total Resources: {total_resources:,}"
+                                + f" | Resources/sec: {(total_resources / total_time):,.2f}"
+                                + f" | Chunk KB: {chunk_length / 1024:,}"
+                                + f" | Total KB: {total_kilobytes:,}"
+                                + f" | KB/sec: {(total_kilobytes / total_time):,.2f}"
+                                + f" | Url: {full_url}"
+                                + f" | Total time: {total_time_str}"
                             )
-                        else:
-                            resources_json = json.dumps(completed_resource)
 
-                        yield FhirGetResponse(
-                            request_id=request_id,
-                            url=full_url,
-                            responses=resources_json,
-                            # responses=(
-                            #     json.dumps(completed_resources[0])
-                            #     if len(completed_resources) == 1
-                            #     else json.dumps(completed_resources)
-                            # ),
-                            error=None,
-                            access_token=access_token,
-                            total_count=total_count,
-                            status=response.status,
-                            next_url=next_url,
-                            extra_context_to_return=extra_context_to_return,
-                            resource_type=resource,
-                            id_=id_,
-                            response_headers=response_headers,
-                            chunk_number=chunk_number,
-                        )
+                        for completed_resource in completed_resources:
+                            if expand_fhir_bundle or separate_bundle_resources:
+                                resources_json, total_count = (
+                                    await FhirResponseProcessor.expand_or_separate_bundle_async(
+                                        access_token=access_token,
+                                        expand_fhir_bundle=expand_fhir_bundle,
+                                        extra_context_to_return=extra_context_to_return,
+                                        resource_or_bundle=completed_resource,
+                                        separate_bundle_resources=separate_bundle_resources,
+                                        text=json.dumps(completed_resource),
+                                        total_count=total_count,
+                                        url=url,
+                                    )
+                                )
+                            else:
+                                resources_json = json.dumps(completed_resource)
+
+                            yield FhirGetResponse(
+                                request_id=request_id,
+                                url=full_url,
+                                responses=resources_json,
+                                # responses=(
+                                #     json.dumps(completed_resources[0])
+                                #     if len(completed_resources) == 1
+                                #     else json.dumps(completed_resources)
+                                # ),
+                                error=None,
+                                access_token=access_token,
+                                total_count=total_count,
+                                status=response.status,
+                                next_url=next_url,
+                                extra_context_to_return=extra_context_to_return,
+                                resource_type=resource,
+                                id_=id_,
+                                response_headers=response_headers,
+                                chunk_number=chunk_number,
+                            )
         except Exception as e:
             if logger:
                 logger.error(

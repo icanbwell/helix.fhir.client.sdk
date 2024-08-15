@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, List
 
 from aiohttp import ClientSession, ClientResponse
 from furl import furl
@@ -42,7 +42,8 @@ class AsyncFhirValidator:
             request_id = validation_response.headers.getone("X-Request-ID", None)
             if validation_response.ok:
                 operation_outcome: Dict[str, Any] = await validation_response.json()
-                if operation_outcome["issue"][0]["severity"] == "error":
+                issue: List[Dict[str, Any]] = operation_outcome.get("issue", [])
+                if len(issue) > 0 and issue[0].get("severity") == "error":
                     response_text = await validation_response.text()
                     raise FhirValidationException(
                         request_id=request_id,
@@ -64,5 +65,11 @@ class AsyncFhirValidator:
                     response_status_code=validation_response.status,
                     message="FhirSender: Validation Failed",
                     headers=headers,
-                    issue=None,
+                    issue=[
+                        {
+                            "severity": "error",
+                            "code": "invalid",
+                            "details": response_text,
+                        }
+                    ],
                 )

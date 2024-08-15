@@ -11,18 +11,20 @@ class RetryableAioHttpResponse:
         status: int,
         response_headers: Dict[str, str],
         response_text: str,
-        content: StreamReader,
+        content: StreamReader | None,
         use_data_streaming: Optional[bool],
     ) -> None:
         self.ok: bool = ok
         self.status: int = status
         self.response_headers: Dict[str, str] = response_headers
         self._response_text: str = response_text
-        self.content: StreamReader = content
+        self.content: StreamReader | None = content
         self.use_data_streaming: Optional[bool] = use_data_streaming
         self.text_read: Optional[str] = None
 
     async def get_text_async(self) -> str:
+        if self.content is None:
+            return self._response_text
         if self.use_data_streaming:
             if self.text_read is None:
                 # avoid reading the stream multiple times
