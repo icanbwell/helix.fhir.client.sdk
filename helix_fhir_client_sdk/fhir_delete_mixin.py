@@ -66,6 +66,7 @@ class FhirDeleteMixin(FhirClientProtocol):
                 error=f"{response.status}" if not response.status == 200 else None,
                 access_token=access_token,
                 status=response.status,
+                resource_type=self._resource,
             )
 
     def delete(self) -> FhirDeleteResponse:
@@ -140,4 +141,5 @@ class FhirDeleteMixin(FhirClientProtocol):
                 access_token=access_token,
                 status=response.status,
                 count=deleted_count,
+                resource_type=self._resource,
             )

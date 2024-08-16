@@ -108,6 +108,7 @@ class FhirPatchMixin(FhirClientProtocol):
             error=json.dumps(responses),
             access_token=access_token,
             status=response_status if response_status else 500,
+            resource_type=self._resource,
         )
 
     def send_patch_request(self, data: str) -> FhirUpdateResponse:

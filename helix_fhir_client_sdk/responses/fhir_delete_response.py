@@ -4,12 +4,14 @@ from typing import Optional
 class FhirDeleteResponse:
     def __init__(
         self,
+        *,
         request_id: Optional[str],
         url: str,
         responses: str,
         error: Optional[str],
         access_token: Optional[str],
         status: int,
+        resource_type: Optional[str],
         count: Optional[int] = None,
     ) -> None:
         """
@@ -23,10 +25,11 @@ class FhirDeleteResponse:
         """
         self.request_id: Optional[str] = request_id
         self.url: str = url
-        self.responses: str = responses
         """ Response text """
+        self.responses: str = responses
         self.error: Optional[str] = error
         self.access_token: Optional[str] = access_token
         self.status: int = status
-        self.count: Optional[int] = count
         """ Number of resources deleted """
+        self.count: Optional[int] = count
+        self.resource_type: Optional[str] = resource_type

@@ -74,6 +74,7 @@ class FhirUpdateMixin(FhirClientProtocol):
                 error=f"{response.status}" if not response.status == 200 else None,
                 access_token=access_token,
                 status=response.status,
+                resource_type=self._resource,
             )
 
     def update(self, json_data: str) -> FhirUpdateResponse:

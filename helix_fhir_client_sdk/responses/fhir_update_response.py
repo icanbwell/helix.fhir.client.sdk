@@ -4,12 +4,14 @@ from typing import Optional
 class FhirUpdateResponse:
     def __init__(
         self,
+        *,
         request_id: Optional[str],
         url: str,
         responses: str,
         error: Optional[str],
         access_token: Optional[str],
         status: int,
+        resource_type: Optional[str],
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -26,3 +28,4 @@ class FhirUpdateResponse:
         self.error: Optional[str] = error
         self.access_token: Optional[str] = access_token
         self.status: int = status
+        self.resource_type: Optional[str] = resource_type
