@@ -11,7 +11,15 @@ from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from helix_fhir_client_sdk.responses.bundle_expander import (
+    BundleExpander,
+    BundleExpanderResult,
+)
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.responses.resource_separator import (
+    ResourceSeparator,
+    ResourceSeparatorResult,
+)
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
 )
@@ -284,6 +292,9 @@ class FhirResponseProcessor:
                 resource=resource,
                 id_=id_,
                 logger=logger,
+                separate_bundle_resources=separate_bundle_resources,
+                expand_fhir_bundle=expand_fhir_bundle,
+                url=url,
             ):
                 yield r
         else:
@@ -369,41 +380,18 @@ class FhirResponseProcessor:
                             next_link: Dict[str, Any] = next_links[0]
                             next_url = next_link.get("url")
 
-                # see if this is a Resource Bundle and un-bundle it
-                if (
-                    expand_fhir_bundle
-                    and "resourceType" in response_json
-                    and response_json["resourceType"] == "Bundle"
-                ):
-                    (
-                        resources_json,
-                        total_count,
-                    ) = await FhirResponseProcessor._expand_bundle_async(
+                resources_json, total_count = (
+                    await FhirResponseProcessor.expand_or_separate_bundle_async(
                         access_token=access_token,
-                        total_count=total_count,
-                        resources=resources_json,
-                        response_json=response_json,
-                        url=url or "",
-                        separate_bundle_resources=separate_bundle_resources,
+                        expand_fhir_bundle=expand_fhir_bundle,
                         extra_context_to_return=extra_context_to_return,
+                        resource_or_bundle=response_json,
+                        separate_bundle_resources=separate_bundle_resources,
+                        text=text,
+                        total_count=total_count,
+                        url=url,
                     )
-                elif (
-                    separate_bundle_resources
-                    and "resourceType" in response_json
-                    and response_json["resourceType"] != "Bundle"
-                ):
-                    # single resource was returned
-                    resources_dict = {
-                        f'{response_json["resourceType"].lower()}': [response_json],
-                        "token": access_token,
-                        "url": url,
-                    }
-                    if extra_context_to_return:
-                        resources_dict.update(extra_context_to_return)
-
-                    resources_json = json.dumps(resources_dict)
-                else:
-                    resources_json = text
+                )
             yield FhirGetResponse(
                 request_id=request_id,
                 url=full_url,
@@ -439,6 +427,61 @@ class FhirResponseProcessor:
             )
 
     @staticmethod
+    async def expand_or_separate_bundle_async(
+        *,
+        access_token: Optional[str],
+        expand_fhir_bundle: Optional[bool],
+        extra_context_to_return: Optional[Dict[str, Any]],
+        resource_or_bundle: Dict[str, Any],
+        separate_bundle_resources: bool,
+        text: str,
+        total_count: int,
+        url: Optional[str],
+    ) -> Tuple[str, int]:
+
+        resources: List[Dict[str, Any]] | None = None
+        resources_json: str = ""
+        # see if this is a Resource Bundle and un-bundle it
+        if (
+            expand_fhir_bundle
+            and "resourceType" in resource_or_bundle
+            and resource_or_bundle["resourceType"] == "Bundle"
+        ):
+            bundle_expander_result: BundleExpanderResult = (
+                await BundleExpander.expand_bundle_async(
+                    total_count=total_count,
+                    bundle=resource_or_bundle,
+                )
+            )
+            resources = bundle_expander_result.resources
+            total_count = bundle_expander_result.total_count
+        else:
+            resources = [resource_or_bundle]
+            total_count = 1
+
+        if separate_bundle_resources:
+            resource_separator_result: ResourceSeparatorResult = (
+                await ResourceSeparator.separate_contained_resources_async(
+                    resources=resources,
+                    access_token=access_token,
+                    url=url,
+                    extra_context_to_return=extra_context_to_return,
+                )
+            )
+            resources_json = json.dumps(resource_separator_result.resources_dicts)
+            total_count = resource_separator_result.total_count
+        elif resources:
+            total_count = len(resources)
+            if len(resources) == 1:
+                resources_json = json.dumps(resources[0])
+            else:
+                resources_json = json.dumps(resources)
+        else:
+            resources_json = text
+
+        return resources_json, total_count
+
+    @staticmethod
     async def _handle_response_200_streaming(
         *,
         access_token: Optional[str],
@@ -455,6 +498,9 @@ class FhirResponseProcessor:
         resource: Optional[str],
         id_: Optional[Union[List[str], str]],
         logger: Optional[FhirLogger],
+        expand_fhir_bundle: bool,
+        separate_bundle_resources: bool,
+        url: Optional[str],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         This method is responsible for handling a 200 response from the FHIR server. A 200 response indicates that the
@@ -485,6 +531,8 @@ class FhirResponseProcessor:
             Reads the aiohttp response content async generator but returns only the chunked bytes
 
             """
+            if response.content is None:
+                return
             async for chunk1, end_of_http_chunk in response.content.iter_chunks():
                 yield chunk1
 
@@ -499,74 +547,106 @@ class FhirResponseProcessor:
             # for Transfer-Encoding: chunked, we can't use response.content.iter_chunked()
             if response.response_headers.get("Transfer-Encoding") == "chunked":
                 return get_iter_chunk_iterator()
-            else:
+            elif response.content is not None:
                 return response.content.iter_chunked(chunk_size)
+            else:
+                raise StopIteration
 
         total_resources: int = 0
         total_kilobytes: int = 0
         start_time: float = time.time()
         chunk: Optional[str] = None
         try:
-            # iterate over the chunks and return the completed resources as we get them
-            async for chunk_bytes in get_chunk_iterator():
-                # # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
-                # await asyncio.sleep(0)
-                chunk_number += 1
-                if fn_handle_streaming_chunk:
-                    await fn_handle_streaming_chunk(chunk_bytes, chunk_number)
-                chunk = chunk_bytes.decode("utf-8")
-                chunk_length = len(chunk_bytes)
-                total_kilobytes += chunk_length // 1024
-                completed_resources: List[Dict[str, Any]] = (
-                    nd_json_chunk_streaming_parser.add_chunk(
-                        chunk=chunk,
-                        logger=logger,
-                    )
+            if response.content is None:
+                yield FhirGetResponse(
+                    request_id=request_id,
+                    url=full_url,
+                    responses="",
+                    error="No content",
+                    access_token=access_token,
+                    total_count=0,
+                    status=response.status,
+                    next_url=next_url,
+                    extra_context_to_return=extra_context_to_return,
+                    resource_type=resource,
+                    id_=id_,
+                    response_headers=response_headers,
                 )
-                if completed_resources:
-                    total_time: float = time.time() - start_time
-                    if total_time == 0:
-                        total_time = 0.1  # avoid division by zero
-                    total_resources += len(completed_resources)
-                    total_time_str: str = datetime.fromtimestamp(total_time).strftime(
-                        "%H:%M:%S"
-                    )
-                    if logger:
-                        logger.debug(
-                            f"Chunk: {chunk_number:,}"
-                            + f" | Resources: {len(completed_resources):,}"
-                            + f" | Total Resources: {total_resources:,}"
-                            + f" | Resources/sec: {(total_resources / total_time):,.2f}"
-                            + f" | Chunk KB: {chunk_length/1024:,}"
-                            + f" | Total KB: {total_kilobytes:,}"
-                            + f" | KB/sec: {(total_kilobytes / total_time):,.2f}"
-                            + f" | Url: {full_url}"
-                            + f" | Total time: {total_time_str}"
+            else:
+                # iterate over the chunks and return the completed resources as we get them
+                async for chunk_bytes in get_chunk_iterator():
+                    # # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
+                    # await asyncio.sleep(0)
+                    chunk_number += 1
+                    if fn_handle_streaming_chunk:
+                        await fn_handle_streaming_chunk(chunk_bytes, chunk_number)
+                    chunk = chunk_bytes.decode("utf-8")
+                    chunk_length = len(chunk_bytes)
+                    total_kilobytes += chunk_length // 1024
+                    completed_resources: List[Dict[str, Any]] = (
+                        nd_json_chunk_streaming_parser.add_chunk(
+                            chunk=chunk,
+                            logger=logger,
                         )
-                    yield FhirGetResponse(
-                        request_id=request_id,
-                        url=full_url,
-                        responses=(
-                            json.dumps(completed_resources[0])
-                            if len(completed_resources) == 1
-                            else json.dumps(completed_resources)
-                        ),
-                        error=None,
-                        access_token=access_token,
-                        total_count=total_count,
-                        status=response.status,
-                        next_url=next_url,
-                        extra_context_to_return=extra_context_to_return,
-                        resource_type=resource,
-                        id_=id_,
-                        response_headers=response_headers,
-                        chunk_number=chunk_number,
                     )
-                # else:
-                #     if logger:
-                #         logger.debug(
-                #             f"No new complete resources from chunk {chunk_number} from {full_url}:"
-                #         )
+                    if completed_resources:
+                        total_time: float = time.time() - start_time
+                        if total_time == 0:
+                            total_time = 0.1  # avoid division by zero
+                        total_resources += len(completed_resources)
+                        total_time_str: str = datetime.fromtimestamp(
+                            total_time
+                        ).strftime("%H:%M:%S")
+                        if logger:
+                            logger.debug(
+                                f"Chunk: {chunk_number:,}"
+                                + f" | Resources: {len(completed_resources):,}"
+                                + f" | Total Resources: {total_resources:,}"
+                                + f" | Resources/sec: {(total_resources / total_time):,.2f}"
+                                + f" | Chunk KB: {chunk_length / 1024:,}"
+                                + f" | Total KB: {total_kilobytes:,}"
+                                + f" | KB/sec: {(total_kilobytes / total_time):,.2f}"
+                                + f" | Url: {full_url}"
+                                + f" | Total time: {total_time_str}"
+                            )
+
+                        for completed_resource in completed_resources:
+                            if expand_fhir_bundle or separate_bundle_resources:
+                                resources_json, total_count = (
+                                    await FhirResponseProcessor.expand_or_separate_bundle_async(
+                                        access_token=access_token,
+                                        expand_fhir_bundle=expand_fhir_bundle,
+                                        extra_context_to_return=extra_context_to_return,
+                                        resource_or_bundle=completed_resource,
+                                        separate_bundle_resources=separate_bundle_resources,
+                                        text=json.dumps(completed_resource),
+                                        total_count=total_count,
+                                        url=url,
+                                    )
+                                )
+                            else:
+                                resources_json = json.dumps(completed_resource)
+
+                            yield FhirGetResponse(
+                                request_id=request_id,
+                                url=full_url,
+                                responses=resources_json,
+                                # responses=(
+                                #     json.dumps(completed_resources[0])
+                                #     if len(completed_resources) == 1
+                                #     else json.dumps(completed_resources)
+                                # ),
+                                error=None,
+                                access_token=access_token,
+                                total_count=total_count,
+                                status=response.status,
+                                next_url=next_url,
+                                extra_context_to_return=extra_context_to_return,
+                                resource_type=resource,
+                                id_=id_,
+                                response_headers=response_headers,
+                                chunk_number=chunk_number,
+                            )
         except Exception as e:
             if logger:
                 logger.error(
@@ -662,100 +742,3 @@ class FhirResponseProcessor:
                     f"sending a get_with_session_async: {full_url} with client_id={client_id} "
                     + f"and scopes={auth_scopes} instance_id={uuid}"
                 )
-
-    @staticmethod
-    async def _expand_bundle_async(
-        *,
-        resources: str,
-        response_json: Dict[str, Any],
-        total_count: int,
-        access_token: Optional[str],
-        url: str,
-        separate_bundle_resources: bool,
-        extra_context_to_return: Optional[Dict[str, Any]],
-    ) -> Tuple[str, int]:
-        """
-        This method is responsible for expanding the FHIR bundle.
-
-        :param resources: The resources in JSON format.
-        :param response_json: The response JSON.
-        :param total_count: The total count.
-        :param access_token: The access token.
-        :param url: The URL.
-        :param separate_bundle_resources: Whether to separate the bundle resources.
-        :param extra_context_to_return: The extra context to return.
-
-        :return: A tuple of the resources in JSON format and the total count.
-        """
-        if "total" in response_json:
-            total_count = int(response_json["total"])
-        if "entry" in response_json:
-            entries: List[Dict[str, Any]] = response_json["entry"]
-            entry: Dict[str, Any]
-            resources_list: List[Dict[str, Any]] = []
-            for entry in entries:
-                if "resource" in entry:
-                    if separate_bundle_resources:
-                        await FhirResponseProcessor._separate_contained_resources_async(
-                            entry=entry,
-                            resources_list=resources_list,
-                            access_token=access_token,
-                            url=url,
-                            extra_context_to_return=extra_context_to_return,
-                        )
-                    else:
-                        resources_list.append(entry["resource"])
-
-            resources = json.dumps(resources_list)
-        return resources, total_count
-
-    @staticmethod
-    async def _separate_contained_resources_async(
-        *,
-        entry: Dict[str, Any],
-        resources_list: List[Dict[str, Any]],
-        access_token: Optional[str],
-        url: str,
-        extra_context_to_return: Optional[Dict[str, Any]],
-    ) -> None:
-        """
-        This method is responsible for separating the contained resources.
-
-        :param entry: The entry.
-        :param resources_list: The resources list.
-        :param access_token: The access token.
-        :param url: The URL.
-        :param extra_context_to_return: The extra context to return.
-
-        :return: None
-        """
-        # if self._action != "$graph":
-        #     raise Exception(
-        #         "only $graph action with _separate_bundle_resources=True"
-        #         " is supported at this moment"
-        #     )
-        resources_dict: Dict[str, Union[Optional[str], List[Any]]] = (
-            {}
-        )  # {resource type: [data]}}
-        # iterate through the entry list
-        # have to split these here otherwise when Spark loads them
-        # it can't handle
-        # that items in the entry array can have different schemas
-        resource_type: str = str(entry["resource"]["resourceType"]).lower()
-        parent_resource: Dict[str, Any] = entry["resource"]
-        resources_dict[resource_type] = [parent_resource]
-        # $graph returns "contained" if there is any related resources
-        if "contained" in entry["resource"]:
-            contained = parent_resource.pop("contained")
-            for contained_entry in contained:
-                resource_type = str(contained_entry["resourceType"]).lower()
-                if resource_type not in resources_dict:
-                    resources_dict[resource_type] = []
-
-                if isinstance(resources_dict[resource_type], list):
-                    resources_dict[resource_type].append(contained_entry)  # type: ignore
-        resources_dict["token"] = access_token
-        resources_dict["url"] = url
-        if extra_context_to_return:
-            resources_dict.update(extra_context_to_return)
-        resources_list.append(resources_dict)

@@ -1,3 +1,4 @@
+import json
 from typing import Dict, Optional, List
 
 from furl import furl
@@ -47,6 +48,7 @@ class FhirDeleteMixin(FhirClientProtocol):
             exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
             use_data_streaming=self._use_data_streaming,
             compress=False,
+            throw_exception_on_error=self._throw_exception_on_error,
         ) as client:
             response: RetryableAioHttpResponse = await client.delete(
                 url=full_uri.tostr(), headers=headers
@@ -64,6 +66,7 @@ class FhirDeleteMixin(FhirClientProtocol):
                 error=f"{response.status}" if not response.status == 200 else None,
                 access_token=access_token,
                 status=response.status,
+                resource_type=self._resource,
             )
 
     def delete(self) -> FhirDeleteResponse:
@@ -88,19 +91,12 @@ class FhirDeleteMixin(FhirClientProtocol):
             raise ValueError("delete requires a FHIR resource type")
         full_uri: furl = furl(self._url)
         full_uri /= self._resource
-        full_url: str = full_uri.url
-        if additional_parameters:
-            if len(full_uri.args) > 0:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += "&".join(additional_parameters)
-        elif self._additional_parameters:
-            if len(full_uri.args) > 0:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += "&".join(self._additional_parameters)
+        full_url = await self.build_url(
+            id_above=None,
+            page_number=None,
+            ids=None,
+            additional_parameters=additional_parameters,
+        )
         # setup retry
         # set up headers
         headers: Dict[str, str] = {}
@@ -118,9 +114,11 @@ class FhirDeleteMixin(FhirClientProtocol):
             retries=self._retry_count,
             exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
             use_data_streaming=self._use_data_streaming,
+            compress=False,
+            throw_exception_on_error=self._throw_exception_on_error,
         ) as client:
             response: RetryableAioHttpResponse = await client.delete(
-                url=full_uri.tostr(), headers=headers
+                url=full_url, headers=headers
             )
             request_id = response.response_headers.get("X-Request-ID", None)
             self._internal_logger.info(f"X-Request-ID={request_id}")
@@ -128,11 +126,20 @@ class FhirDeleteMixin(FhirClientProtocol):
                 if self._logger:
                     self._logger.info(f"Successfully deleted: {full_uri}")
 
+            deleted_count: Optional[int] = None
+            response_text = await response.get_text_async()
+            if response_text and response_text.startswith("{"):
+                # '{"deleted":0}'
+                deleted_info = json.loads(response_text)
+                deleted_count = deleted_info.get("deleted", None)
+
             return FhirDeleteResponse(
                 request_id=request_id,
-                url=full_uri.tostr(),
-                responses=await response.get_text_async(),
+                url=full_url,
+                responses=response_text,
                 error=f"{response.status}" if not response.status == 200 else None,
                 access_token=access_token,
                 status=response.status,
+                count=deleted_count,
+                resource_type=self._resource,
             )

@@ -54,7 +54,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/icanbwell/helix.fhir.client.sdk",
-    packages=find_packages(),
+    packages=find_packages(exclude=["**/test", "**/test/**"]),
     install_requires=[
         "furl",
         "requests",

@@ -119,8 +119,14 @@ class BundleEntry:
 
 
 class Bundle:
-    def __init__(self, *, entry: Optional[List[BundleEntry]] = None) -> None:
+    def __init__(
+        self,
+        *,
+        entry: Optional[List[BundleEntry]] = None,
+        total_count: Optional[int] = None,
+    ) -> None:
         self.entry: Optional[List[BundleEntry]] = entry
+        self.total_count: Optional[int] = total_count
 
     def to_dict(self) -> Dict[str, Any]:
         if self.entry:

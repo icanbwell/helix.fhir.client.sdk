@@ -1,4 +1,3 @@
-import asyncio
 import json
 from abc import ABC
 from datetime import datetime
@@ -26,7 +25,6 @@ from helix_fhir_client_sdk.graph.graph_definition import (
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.responses.paging_result import PagingResult
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.request_cache import RequestCache
@@ -97,7 +95,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         cache: RequestCache
         with RequestCache() as cache:
-            output_queue: asyncio.Queue[PagingResult] = asyncio.Queue()
             async with self.create_http_session() as session:
                 # first load the start resource
                 start: str = graph_definition.start
@@ -113,6 +110,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 )
                 if not response.responses:
                     yield response
+                    return  # no resources to process
+
                 parent_bundle_entries: List[BundleEntry] = response.get_bundle_entries()
 
                 if logger:

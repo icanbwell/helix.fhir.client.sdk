@@ -27,7 +27,7 @@ wheel = ">=0.43.0"
 # twine is needed for uploading the package to PyPI
 twine=">=5.1.1"
 # pre-commit is needed for running code quality checks
-pre-commit=">=3.7.1"
+pre-commit=">=3.8.0"
 # autoflake is needed for removing unused imports
 autoflake=">=2.3.1"
 # mypy is needed for type checking
@@ -54,6 +54,8 @@ myst-parser="==3.0.1"
 helix-mockserver-client=">=2.0.0"
 # httpx is needed for making HTTP requests
 httpx=">=0.23.3"
+# aioresponses is needed for mocking HTTP requests
+aioresponses=">=0.7.6"
 
 # These dependencies are required for pipenv-setup.  They conflict with ones above, so we install these
 # only when running pipenv-setup

@@ -32,7 +32,6 @@ from requests.adapters import BaseAdapter
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.fhir_auth_mixin import FhirAuthMixin
-from helix_fhir_client_sdk.fhir_composite_query_mixin import FhirCompositeQueryMixin
 from helix_fhir_client_sdk.fhir_delete_mixin import FhirDeleteMixin
 from helix_fhir_client_sdk.fhir_merge_mixin import FhirMergeMixin
 from helix_fhir_client_sdk.fhir_patch_mixin import FhirPatchMixin
@@ -66,7 +65,6 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
 class FhirClient(
     SimulatedGraphProcessorMixin,
     FhirMergeMixin,
-    FhirCompositeQueryMixin,
     FhirGraphMixin,
     FhirUpdateMixin,
     FhirPatchMixin,
@@ -142,6 +140,8 @@ class FhirClient(
         self._chunk_size: int = 1024
 
         self._compress: bool = True
+
+        self._throw_exception_on_error: bool = True
 
         FhirAuthMixin.__init__(self)
 
@@ -445,6 +445,15 @@ class FhirClient(
         self._compress = compress
         return self
 
+    def throw_exception_on_error(self, throw_exception_on_error: bool) -> "FhirClient":
+        """
+        Sets the throw_exception_on_error flag
+
+        :param throw_exception_on_error: whether to throw an exception on error
+        """
+        self._throw_exception_on_error = throw_exception_on_error
+        return self
+
     # noinspection PyUnusedLocal
     @staticmethod
     async def on_request_end(
@@ -653,7 +662,7 @@ class FhirClient(
 
         # create url and query to request from FHIR server
         resources_json: str = ""
-        full_url = await self._build_url(
+        full_url = await self.build_url(
             ids=ids,
             id_above=id_above,
             page_number=page_number,
@@ -696,6 +705,7 @@ class FhirClient(
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                 use_data_streaming=self._use_data_streaming,
                 compress=self._compress,
+                throw_exception_on_error=self._throw_exception_on_error,
             ) as client:
                 response: RetryableAioHttpResponse = (
                     await self._send_fhir_request_async(
@@ -759,7 +769,8 @@ class FhirClient(
                 elapsed_time=time.time() - start_time,
             )
 
-    async def _build_url(
+    # noinspection PyProtocol
+    async def build_url(
         self,
         *,
         additional_parameters: Optional[List[str]],

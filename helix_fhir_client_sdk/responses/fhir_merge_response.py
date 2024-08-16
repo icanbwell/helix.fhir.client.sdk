@@ -4,6 +4,7 @@ from typing import List, Optional, Dict, Any, AsyncGenerator
 class FhirMergeResponse:
     def __init__(
         self,
+        *,
         request_id: Optional[str],
         url: str,
         responses: List[Dict[str, Any]],

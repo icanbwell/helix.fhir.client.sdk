@@ -39,6 +39,7 @@ class FhirGetResponse:
             List[str]
         ],  # header name and value separated by a colon
         chunk_number: Optional[int] = None,
+        cache_hits: Optional[int] = None,
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -82,18 +83,19 @@ class FhirGetResponse:
         self.successful: bool = status == 200
         """ Headers returned by the server (can have duplicate header names) """ ""
         self.response_headers: Optional[List[str]] = response_headers
-        self.chunk_number: Optional[int] = chunk_number
         """ Chunk number for streaming """
+        self.chunk_number: Optional[int] = chunk_number
+        self.cache_hits: Optional[int] = cache_hits
 
-    def append(self, other: List["FhirGetResponse"]) -> "FhirGetResponse":
+    def append(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
         """
         Append the responses from other to self
 
-        :param other: list of FhirGetResponse objects
+        :param others: list of FhirGetResponse objects
         :return: self
         """
         bundle_entries: List[BundleEntry] = self.get_bundle_entries()
-        for other_response in other:
+        for other_response in others:
             if other_response.responses:
                 other_bundle_entries: List[BundleEntry] = (
                     other_response.get_bundle_entries()
@@ -105,13 +107,16 @@ class FhirGetResponse:
         }
         self.responses = json.dumps(bundle, cls=FhirJSONEncoder)
         latest_chunk_number: List[int] = sorted(
-            [o.chunk_number for o in other if o.chunk_number], reverse=True
+            [o.chunk_number for o in others if o.chunk_number], reverse=True
         )
         if len(latest_chunk_number) > 0:
             self.chunk_number = latest_chunk_number[0]
-        if len(other) > 0:
-            self.next_url = other[-1].next_url
-            self.access_token = other[-1].access_token
+        if len(others) > 0:
+            self.next_url = others[-1].next_url
+            self.access_token = others[-1].access_token
+        self.cache_hits = sum(
+            [r.cache_hits if r.cache_hits is not None else 0 for r in others]
+        )
         return self
 
     def get_resources(self) -> List[Dict[str, Any]]:
@@ -411,3 +416,11 @@ class FhirGetResponse:
             for r in self.get_resources()
             if r.get("resourceType") != "OperationOutcome"
         ]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Converts the object to a dictionary
+
+        :return: dictionary
+        """
+        return self.__dict__
