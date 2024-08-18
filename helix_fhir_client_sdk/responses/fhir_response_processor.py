@@ -387,7 +387,6 @@ class FhirResponseProcessor:
                         extra_context_to_return=extra_context_to_return,
                         resource_or_bundle=response_json,
                         separate_bundle_resources=separate_bundle_resources,
-                        text=text,
                         total_count=total_count,
                         url=url,
                     )
@@ -434,7 +433,6 @@ class FhirResponseProcessor:
         extra_context_to_return: Optional[Dict[str, Any]],
         resource_or_bundle: Dict[str, Any],
         separate_bundle_resources: bool,
-        text: str,
         total_count: int,
         url: Optional[str],
     ) -> Tuple[str, int]:
@@ -470,14 +468,14 @@ class FhirResponseProcessor:
             )
             resources_json = json.dumps(resource_separator_result.resources_dicts)
             total_count = resource_separator_result.total_count
-        elif resources:
+        elif len(resources) > 0:
             total_count = len(resources)
             if len(resources) == 1:
                 resources_json = json.dumps(resources[0])
             else:
                 resources_json = json.dumps(resources)
         else:
-            resources_json = text
+            resources_json = json.dumps(resources)
 
         return resources_json, total_count
 
@@ -619,7 +617,6 @@ class FhirResponseProcessor:
                                         extra_context_to_return=extra_context_to_return,
                                         resource_or_bundle=completed_resource,
                                         separate_bundle_resources=separate_bundle_resources,
-                                        text=json.dumps(completed_resource),
                                         total_count=total_count,
                                         url=url,
                                     )

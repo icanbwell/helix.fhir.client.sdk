@@ -28,7 +28,6 @@ async def test_expand_or_separate_bundle_async() -> None:
             extra_context_to_return=extra_context_to_return,
             resource_or_bundle=response_json,
             separate_bundle_resources=separate_bundle_resources,
-            text=text,
             total_count=total_count,
             url=url,
         )
