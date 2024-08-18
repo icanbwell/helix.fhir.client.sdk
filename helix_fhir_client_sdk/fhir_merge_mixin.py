@@ -297,7 +297,7 @@ class FhirMergeMixin(FhirClientProtocol):
         id_: Optional[str] = None,
         json_data_list: List[str],
         batch_size: Optional[int] = None,
-    ) -> FhirMergeResponse:
+    ) -> Optional[FhirMergeResponse]:
         """
         Calls $merge function on FHIR server
 
@@ -308,7 +308,7 @@ class FhirMergeMixin(FhirClientProtocol):
         :return: response
         """
 
-        result: FhirMergeResponse = AsyncRunner.run(
+        result: Optional[FhirMergeResponse] = AsyncRunner.run(
             FhirMergeResponse.from_async_generator(
                 self.merge_async(
                     id_=id_, json_data_list=json_data_list, batch_size=batch_size

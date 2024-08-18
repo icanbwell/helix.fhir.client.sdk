@@ -36,9 +36,12 @@ async def test_async_real_fhir_server_get_patients_large(
     fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
 
     resource = await FhirHelper.create_test_patients(count)
-    merge_response: FhirMergeResponse = await FhirMergeResponse.from_async_generator(
-        fhir_client.merge_async(json_data_list=[json.dumps(resource)])
+    merge_response: Optional[FhirMergeResponse] = (
+        await FhirMergeResponse.from_async_generator(
+            fhir_client.merge_async(json_data_list=[json.dumps(resource)])
+        )
     )
+    assert merge_response is not None
     print(merge_response.responses)
     assert merge_response.status == 200, merge_response.responses
     assert len(merge_response.responses) == count, merge_response.responses
@@ -68,7 +71,7 @@ async def test_async_real_fhir_server_get_patients_large(
             if not response:
                 response = response1
             else:
-                response.append([response1])
+                response.append(response1)
 
         assert response is not None
         assert response.response_headers is not None

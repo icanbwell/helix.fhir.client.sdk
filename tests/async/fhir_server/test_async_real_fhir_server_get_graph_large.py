@@ -76,9 +76,12 @@ async def test_async_real_fhir_server_get_graph_large(
     expected_resource_count = len(bundle["entry"])
     print("expected_resource_count", expected_resource_count)
 
-    merge_response: FhirMergeResponse = await FhirMergeResponse.from_async_generator(
-        fhir_client.merge_async(json_data_list=[json.dumps(bundle)])
+    merge_response: Optional[FhirMergeResponse] = (
+        await FhirMergeResponse.from_async_generator(
+            fhir_client.merge_async(json_data_list=[json.dumps(bundle)])
+        )
     )
+    assert merge_response is not None
     print(json.dumps(merge_response.responses))
     assert merge_response.status == 200, merge_response.responses
     assert (
@@ -166,7 +169,7 @@ async def test_async_real_fhir_server_get_graph_large(
             if not response:
                 response = response1
             else:
-                response.append([response1])
+                response.append(response1)
 
         assert response is not None
         resources: List[Dict[str, Any]] = response.get_resources()

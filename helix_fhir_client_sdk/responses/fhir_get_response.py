@@ -87,7 +87,35 @@ class FhirGetResponse:
         self.chunk_number: Optional[int] = chunk_number
         self.cache_hits: Optional[int] = cache_hits
 
-    def append(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
+    def append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
+        """
+        Append the responses from other to self
+
+        :param other_response: FhirGetResponse object to append to current one
+        :return: self
+        """
+        bundle_entries: List[BundleEntry] = self.get_bundle_entries()
+        if other_response.responses:
+            other_bundle_entries: List[BundleEntry] = (
+                other_response.get_bundle_entries()
+            )
+            bundle_entries.extend(other_bundle_entries)
+        bundle = {
+            "resourceType": "Bundle",
+            "entry": bundle_entries,
+        }
+        self.responses = json.dumps(bundle, cls=FhirJSONEncoder)
+        if other_response.chunk_number and (other_response.chunk_number or 0) > (
+            self.chunk_number or 0
+        ):
+            self.chunk_number = other_response.chunk_number
+        if other_response.next_url:
+            self.next_url = other_response.next_url
+            self.access_token = other_response.access_token
+        self.cache_hits = (self.cache_hits or 0) + (other_response.cache_hits or 0)
+        return self
+
+    def extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
         """
         Append the responses from other to self
 
@@ -373,10 +401,10 @@ class FhirGetResponse:
                 f"Could not get resourceType and id from resources: {json.dumps(resources, cls=FhirJSONEncoder)}"
             ) from e
 
-    @staticmethod
+    @classmethod
     async def from_async_generator(
-        generator: AsyncGenerator["FhirGetResponse", None]
-    ) -> "FhirGetResponse":
+        cls, generator: AsyncGenerator["FhirGetResponse", None]
+    ) -> Optional["FhirGetResponse"]:
         """
         Reads a generator of FhirGetResponse and returns a single FhirGetResponse by appending all the FhirGetResponse
 
@@ -388,7 +416,7 @@ class FhirGetResponse:
             if not result:
                 result = value
             else:
-                result.append([value])
+                result.append(value)
 
         assert result
         return result

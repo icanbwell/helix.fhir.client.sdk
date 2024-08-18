@@ -69,7 +69,7 @@ class FhirGraphMixin(FhirClientProtocol):
         *,
         graph_definition: GraphDefinition,
         contained: bool,
-    ) -> FhirGetResponse:
+    ) -> Optional[FhirGetResponse]:
 
         return AsyncRunner.run(
             FhirGetResponse.from_async_generator(
