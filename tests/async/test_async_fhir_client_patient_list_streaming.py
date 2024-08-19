@@ -73,7 +73,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
         if not response:
             response = response1
         else:
-            response.append([response1])
+            response.append(response1)
         responses.append(response1)
 
     assert response is not None

@@ -1,3 +1,5 @@
+from typing_extensions import Optionalfrom helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponsefrom build.lib.helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponsefrom helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+
 # helix.fhir.client.sdk
 
 <p align="left">
@@ -40,3 +42,40 @@ https://github.com/icanbwell/fhir-server-performance
 * 1.x supports python 3.7+ 
 * 2.x supports python 3.10+
 * 3.x supports python 3.12+
+
+# Asynchronous Support
+When communicating with FHIR servers, a lot of time is spent waiting for the server to respond. 
+This is a good use case for using asynchronous programming. 
+This SDK supports asynchronous programming using the `async` and `await` keywords.
+
+The return types are Python AsyncGenerators.  Python makes it very easy to work with AsyncGenerators.
+
+For example, if the SDK provides a function like this:
+```python
+
+async def get_resources(self) -> AsyncGenerator[FhirGetResponse, None]:
+    ...
+```
+
+You can iterate over the results as they become available:
+```python
+response: Optional[FhirGetResponse]
+async for response in client.get_resources():
+    print(response.resource)
+```
+
+Or you can get a list of responses (which will return AFTER all the responses are received:
+```python
+
+responses: List[FhirGetResponse] = [response async for response in client.get_resources()]
+```
+
+Or you can aggregate the responses into one response (which will return AFTER all the responses are received:
+```python
+
+response: Optional[FhirGetResponse] = await FhirGetResponse.from_async_generator(client.get_resources())
+```
+
+# Data Streaming
+For FHIR servers that support data streaming (e.g., b.well FHIR server), you can just set the `use_data_streaming` parameter to stream the data as it i received.
+The data will be streamed in AsyncGenerators as described above.

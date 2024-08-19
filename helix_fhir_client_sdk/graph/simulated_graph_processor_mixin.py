@@ -494,7 +494,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         )
 
             if cached_response:
-                result.append([cached_response])
+                result.append(cached_response)
         elif cached_response:
             result = cached_response
         assert result
@@ -540,7 +540,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             assert self._additional_parameters is not None
             self._additional_parameters.append("contained=true")
 
-        result: FhirGetResponse = await FhirGetResponse.from_async_generator(
+        result: Optional[FhirGetResponse] = await FhirGetResponse.from_async_generator(
             self.process_simulate_graph_async(
                 id_=id_,
                 graph_json=graph_json,
@@ -559,6 +559,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 auth_scopes=self._auth_scopes,
             )
         )
+        assert result, "No result returned from simulate_graph_async"
         return result
 
     # noinspection PyPep8Naming

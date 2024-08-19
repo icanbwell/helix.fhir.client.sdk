@@ -1,6 +1,6 @@
 import json
 from os import environ
-from typing import Any, List, Dict
+from typing import Any, List, Dict, Optional
 
 import pytest
 
@@ -39,9 +39,12 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
             ],
         },
     }
-    merge_response: FhirMergeResponse = await FhirMergeResponse.from_async_generator(
-        fhir_client.merge_async(json_data_list=[json.dumps(resource)])
+    merge_response: Optional[FhirMergeResponse] = (
+        await FhirMergeResponse.from_async_generator(
+            fhir_client.merge_async(json_data_list=[json.dumps(resource)])
+        )
     )
+    assert merge_response is not None
     print(merge_response.responses)
     assert merge_response.status == 200, merge_response.responses
     assert len(merge_response.responses) == 1, merge_response.responses

@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
@@ -93,7 +93,7 @@ async def test_fhir_simulated_graph_with_url_column_async() -> None:
     fhir_client = fhir_client.expand_fhir_bundle(False)
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     fhir_client = fhir_client.extra_context_to_return({"slug": "1234"})
-    response: FhirGetResponse = await FhirGetResponse.from_async_generator(
+    response: Optional[FhirGetResponse] = await FhirGetResponse.from_async_generator(
         fhir_client.simulate_graph_streaming_async(
             id_="1",
             graph_json=graph_json,
@@ -101,6 +101,7 @@ async def test_fhir_simulated_graph_with_url_column_async() -> None:
             separate_bundle_resources=False,
         )
     )
+    assert response is not None
     print(response.responses)
 
     assert (
