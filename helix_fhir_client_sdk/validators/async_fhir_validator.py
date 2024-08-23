@@ -42,8 +42,8 @@ class AsyncFhirValidator:
         async with RetryableAioHttpClient(
             fn_get_session=fn_get_session,
             use_data_streaming=False,
-        ) as http:
-            validation_response: RetryableAioHttpResponse = await http.post(
+        ) as client:
+            validation_response: RetryableAioHttpResponse = await client.post(
                 url=full_validation_uri.url,
                 data=json_data,
                 headers=headers,
