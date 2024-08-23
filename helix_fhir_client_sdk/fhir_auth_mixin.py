@@ -91,7 +91,7 @@ class FhirAuthMixin(FhirClientProtocol):
 
         :return: auth server url
         """
-        if not self._auth_server_url and self._auth_wellknown_url:
+        if not self._auth_server_url:
             auth_server_url = (
                 await self._get_auth_server_url_from_well_known_configuration_async()
             )
