@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from aioresponses import aioresponses
 
 from helix_fhir_client_sdk.fhir_auth_mixin import FhirAuthMixin
@@ -21,7 +21,7 @@ async def test_get_auth_url_async_from_cache(fhir_auth_mixin: FhirAuthMixin) -> 
     fhir_auth_mixin._well_known_configuration_cache = {
         "test_host": WellKnownConfigurationCacheEntry(
             auth_url="https://auth.test/token",
-            last_updated_utc=datetime.utcnow() - timedelta(seconds=300),
+            last_updated_utc=datetime.now(UTC) - timedelta(seconds=300),
         )
     }
     fhir_auth_mixin._auth_wellknown_url = (

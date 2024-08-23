@@ -50,19 +50,17 @@ class FhirGraphMixin(FhirClientProtocol):
         else:
             id_list.append("1")
         self.id_(id_list)  # this is needed because the $graph endpoint requires an id
-        async with self.create_http_session() as http:
-            result: Optional[FhirGetResponse]
-            chunk_size: int = self._page_size or 1
-            for chunk in ListChunker.divide_into_chunks(id_list, chunk_size):
-                async for result1 in self._get_with_session_async(  # type: ignore[attr-defined]
-                    session=http,
-                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                    additional_parameters=self._additional_parameters,
-                    id_above=None,
-                    page_number=self._page_number,
-                    ids=chunk,
-                ):
-                    yield result1
+        result: Optional[FhirGetResponse]
+        chunk_size: int = self._page_size or 1
+        for chunk in ListChunker.divide_into_chunks(id_list, chunk_size):
+            async for result1 in self._get_with_session_async(  # type: ignore[attr-defined]
+                fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+                additional_parameters=self._additional_parameters,
+                id_above=None,
+                page_number=self._page_number,
+                ids=chunk,
+            ):
+                yield result1
 
     def graph(
         self,
