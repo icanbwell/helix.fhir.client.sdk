@@ -86,6 +86,7 @@ class FhirMergeMixin(FhirClientProtocol):
             else:
                 resource_json_list_clean = resource_json_list_incoming
 
+            resource_uri: furl = full_uri.copy()
             if len(resource_json_list_clean) > 0:
                 chunks: Generator[List[Dict[str, Any]], None, None] = (
                     ListChunker.divide_into_chunks(
@@ -94,7 +95,6 @@ class FhirMergeMixin(FhirClientProtocol):
                 )
                 chunk: List[Dict[str, Any]]
                 for chunk in chunks:
-                    resource_uri: furl = full_uri.copy()
                     # if there is only item in the list then send it instead of having it in a list
                     json_payload: str = (
                         json.dumps(chunk[0]) if len(chunk) == 1 else json.dumps(chunk)
@@ -215,7 +215,7 @@ class FhirMergeMixin(FhirClientProtocol):
                 json_payload = json.dumps(json_data_list)
                 yield FhirMergeResponse(
                     request_id=request_id,
-                    url=full_uri.url,
+                    url=resource_uri.url,
                     responses=responses + errors,
                     error=(
                         json.dumps(responses + errors)
