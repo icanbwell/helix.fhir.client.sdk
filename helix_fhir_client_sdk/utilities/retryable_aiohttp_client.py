@@ -228,6 +228,18 @@ class RetryableAioHttpClient:
                             use_data_streaming=self.use_data_streaming,
                         )
                 await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
+            except Exception as e:
+                if self._throw_exception_on_error:
+                    raise
+                else:
+                    return RetryableAioHttpResponse(
+                        ok=False,
+                        status=500,
+                        response_headers={},
+                        response_text=str(e),
+                        content=None,
+                        use_data_streaming=self.use_data_streaming,
+                    )
 
         # Raise an exception if all retries fail
         raise Exception("All retries failed")
