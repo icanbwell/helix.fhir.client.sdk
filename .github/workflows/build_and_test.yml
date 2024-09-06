@@ -21,6 +21,15 @@ jobs:
         with:
           python-version: '3.12'
 
+      # Cache pipenv dependencies
+      - name: Cache pipenv dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.local/share/virtualenvs
+          key: ${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pipenv-
+
 #      - name: Docker Compose Setup
 #        run: |
 #          sudo apt-get install docker-compose-plugin
@@ -28,6 +37,11 @@ jobs:
 
       - name: pre-commit
         run: make run-pre-commit
+
+      # Run Docker Compose, passing the cache to the container
+      - name: Run with Docker Compose
+        run: |
+          docker compose up --build
 
       # setup and install everything and run tests
       - name: up
