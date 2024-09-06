@@ -37,9 +37,6 @@ jobs:
         run: mkdir -p /home/runner/work/${{ github.repository }}/reports
 
       - name: tests
-        run: docker compose run --rm --name spf_tests -v /home/runner/work/${{ github.repository }}/reports:/reports dev pytest tests spark_pipeline_framework --junitxml=/reports/test-results.xml
-
-      - name: tests
         run: |
           docker compose run --rm --name helix.fhir.client.sdk -v /home/runner/work/${{ github.repository }}/reports:/reports dev pytest tests --junitxml=/reports/test-results.xml
 	      docker compose run --rm --name helix.fhir.client.sdk -v /home/runner/work/${{ github.repository }}/reports:/reports dev pytest tests_integration --junitxml=/reports/test-results-integration.xml
