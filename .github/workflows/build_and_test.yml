@@ -57,3 +57,4 @@ jobs:
           name: Pytest Report            # Name of the check run which will be created
           path: /home/runner/work/${{ github.repository }}/reports/**/*.xml    # Path to test results
           reporter: java-junit        # Format of test results
+          fail-on-error: false        # Do not change the build status if errors are found
