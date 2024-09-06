@@ -39,7 +39,7 @@ jobs:
       - name: tests
         run: |
           docker compose run --rm --name helix.fhir.client.sdk -v /home/runner/work/${{ github.repository }}/reports:/reports dev pytest tests --junitxml=/reports/test-results.xml
-	      docker compose run --rm --name helix.fhir.client.sdk -v /home/runner/work/${{ github.repository }}/reports:/reports dev pytest tests_integration --junitxml=/reports/test-results-integration.xml
+          docker compose run --rm --name helix.fhir.client.sdk -v /home/runner/work/${{ github.repository }}/reports:/reports dev pytest tests_integration --junitxml=/reports/test-results-integration.xml
 
       - name: Upload pytest test results
         uses: actions/upload-artifact@v4
