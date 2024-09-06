@@ -108,3 +108,5 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
 
     print(response.responses)
     assert response.responses == response_text
+
+    assert response_text == ""
