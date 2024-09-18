@@ -268,7 +268,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             child_response,
                             cache_hits,
                         ) = await self._get_resources_by_parameters_async(
-                            session=session,
                             resource_type=target_type,
                             id_=child_id,
                             cache=cache,
@@ -301,7 +300,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     child_response,
                     cache_hits,
                 ) = await self._get_resources_by_parameters_async(
-                    session=session,
                     resource_type=target_type,
                     id_=child_id,
                     cache=cache,
