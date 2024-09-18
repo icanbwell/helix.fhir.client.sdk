@@ -290,7 +290,7 @@ class RetryableAioHttpClient:
         # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
         # read the Retry-After header
         # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
-        retry_after_text: str = str(response.headers.getone("Retry-After"))
+        retry_after_text: str = str(response.headers.get("Retry-After"))
         if retry_after_text:
             if retry_after_text.isnumeric():  # it is number of seconds
                 await asyncio.sleep(int(retry_after_text))
