@@ -91,12 +91,17 @@ class RetryableAioHttpClient:
         while retry_attempts < self.retries:
             retry_attempts += 1
             try:
-                if self.send_data_as_chunked:
-                    kwargs["chunked"] = self.send_data_as_chunked
-                if self.compress:
-                    kwargs["compress"] = self.compress
                 if headers:
                     kwargs["headers"] = headers
+                # if there is no data then remove from kwargs so as not to confuse aiohttp
+                if "data" in kwargs and kwargs["data"] is None:
+                    del kwargs["data"]
+                # compression and chunked can only be enabled if there is content sent
+                if "data" in kwargs and kwargs["data"] is not None:
+                    if self.send_data_as_chunked:
+                        kwargs["chunked"] = self.send_data_as_chunked
+                    if self.compress:
+                        kwargs["compress"] = self.compress
                 assert self.session is not None
                 async with async_timeout.timeout(self.timeout_in_seconds):
                     response: ClientResponse = await self.session.request(

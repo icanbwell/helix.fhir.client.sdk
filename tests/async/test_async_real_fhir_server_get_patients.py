@@ -58,6 +58,7 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
     fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
     fhir_client = fhir_client.expand_fhir_bundle(False)
     fhir_client = fhir_client.use_data_streaming(use_data_streaming)
+    # fhir_client = fhir_client.send_data_as_chunked(True)
     response: FhirGetResponse = await fhir_client.get_async()
     response_text = response.responses
 
