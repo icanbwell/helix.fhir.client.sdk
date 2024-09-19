@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Callable, Type, Union
 
 import async_timeout
@@ -24,6 +24,7 @@ class RetryableAioHttpClient:
         exclude_status_codes_from_retry: List[int] | None = None,
         use_data_streaming: Optional[bool],
         compress: Optional[bool] = False,
+        send_data_as_chunked: Optional[bool] = None,
         throw_exception_on_error: bool = True,
     ) -> None:
         self.retries: int = retries
@@ -44,8 +45,8 @@ class RetryableAioHttpClient:
             exclude_status_codes_from_retry
         )
         self.use_data_streaming: Optional[bool] = use_data_streaming
-        self.chunked = use_data_streaming
-        self.compress = compress
+        self.send_data_as_chunked: Optional[bool] = send_data_as_chunked
+        self.compress: Optional[bool] = compress
         self.session: Optional[ClientSession] = None
         self._throw_exception_on_error: bool = throw_exception_on_error
 
@@ -90,12 +91,17 @@ class RetryableAioHttpClient:
         while retry_attempts < self.retries:
             retry_attempts += 1
             try:
-                if self.chunked:
-                    kwargs["chunked"] = self.chunked
-                if self.compress:
-                    kwargs["compress"] = self.compress
                 if headers:
                     kwargs["headers"] = headers
+                # if there is no data then remove from kwargs so as not to confuse aiohttp
+                if "data" in kwargs and kwargs["data"] is None:
+                    del kwargs["data"]
+                # compression and chunked can only be enabled if there is content sent
+                if "data" in kwargs and kwargs["data"] is not None:
+                    if self.send_data_as_chunked:
+                        kwargs["chunked"] = self.send_data_as_chunked
+                    if self.compress:
+                        kwargs["compress"] = self.compress
                 assert self.session is not None
                 async with async_timeout.timeout(self.timeout_in_seconds):
                     response: ClientResponse = await self.session.request(
@@ -304,13 +310,25 @@ class RetryableAioHttpClient:
         # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
         retry_after_text: str = str(response.headers.get("Retry-After", ""))
         if retry_after_text:
-            if retry_after_text.isnumeric():  # it is number of seconds
-                await asyncio.sleep(int(retry_after_text))
-            else:
-                wait_till: datetime = datetime.strptime(
-                    retry_after_text, "%a, %d %b %Y %H:%M:%S GMT"
-                )
-                while datetime.now(UTC) < wait_till:
-                    await asyncio.sleep(10)
+            # noinspection PyBroadException
+            try:
+                if retry_after_text.isnumeric():  # it is number of seconds
+                    await asyncio.sleep(int(retry_after_text))
+                else:
+                    wait_till: datetime = datetime.strptime(
+                        retry_after_text, "%a, %d %b %Y %H:%M:%S GMT"
+                    )
+                    # Ensure the parsed time is in UTC
+                    wait_till = wait_till.replace(tzinfo=timezone.utc)
+
+                    # Calculate the time difference
+                    time_diff = (wait_till - datetime.now(timezone.utc)).total_seconds()
+
+                    # If the time difference is positive, sleep for that amount of time
+                    if time_diff > 0:
+                        await asyncio.sleep(time_diff)
+            except Exception:
+                # if there was some exception parsing the Retry-After header, sleep for 60 seconds
+                await asyncio.sleep(60)
         else:
             await asyncio.sleep(60)

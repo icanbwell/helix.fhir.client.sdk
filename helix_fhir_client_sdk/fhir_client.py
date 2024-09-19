@@ -115,6 +115,7 @@ class FhirClient(
         self._last_page: Optional[int] = None
 
         self._use_data_streaming: bool = False
+        self._send_data_as_chunked: bool = False
         self._last_page_lock: Lock = Lock()
 
         self._use_post_for_search: bool = False
@@ -353,6 +354,16 @@ class FhirClient(
         if use:
             self._accept = "application/fhir+ndjson"
 
+        return self
+
+    def send_data_as_chunked(self, send_data_as_chunked: bool) -> "FhirClient":
+        """
+        Send data as chunked
+
+
+        :param send_data_as_chunked: whether to send data as chunked
+        """
+        self._send_data_as_chunked = send_data_as_chunked
         return self
 
     def use_post_for_search(self, use: bool) -> "FhirClient":
@@ -664,7 +675,9 @@ class FhirClient(
         )
 
         # set up headers
-        payload: Dict[str, str] = self._action_payload if self._action_payload else {}
+        payload: Dict[str, str] | None = (
+            self._action_payload if self._action_payload else None
+        )
         headers = {
             "Accept": self._accept,
             "Content-Type": self._content_type,

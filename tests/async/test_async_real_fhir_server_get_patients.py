@@ -61,9 +61,14 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
     response: FhirGetResponse = await fhir_client.get_async()
     response_text = response.responses
 
+    assert response.status == 200, response_text
+    print("----- response_text -----")
+    print(response_text)
+    print("----- end response_text -----")
+
     if use_data_streaming:
         resources: List[Dict[str, Any]] = response.get_resources()
-        assert len(resources) == 1
+        assert len(resources) == 1, response_text
         assert resources[0]["id"] == "12355"
         assert resources[0]["resourceType"] == "Patient"
         assert response.chunk_number == 1
