@@ -2,7 +2,9 @@ LANG=en_US.utf-8
 
 export LANG
 
-Pipfile.lock: Pipfile
+.PHONY: Pipfile.lock
+Pipfile.lock:
+	docker compose build
 	docker compose run --rm --name helix.fhir.client.sdk dev sh -c "rm -f Pipfile.lock && pipenv lock --dev"
 
 .PHONY:devdocker
@@ -13,7 +15,7 @@ devdocker: ## Builds the docker for dev
 init: devdocker up setup-pre-commit  ## Initializes the local developer environment
 
 .PHONY: up
-up: Pipfile.lock
+up:
 	docker compose up --build -d --remove-orphans && \
 	echo "\nwaiting for Mongo server to become healthy" && \
 	while [ "`docker inspect --format {{.State.Health.Status}} helixfhirclientsdk-mongo-1`" != "healthy" ] && [ "`docker inspect --format {{.State.Health.Status}} helixfhirclientsdk-mongo-1`" != "unhealthy" ] && [ "`docker inspect --format {{.State.Status}} helixfhirclientsdk-mongo-1`" != "restarting" ]; do printf "." && sleep 2; done && \
@@ -44,7 +46,6 @@ run-pre-commit: setup-pre-commit
 
 .PHONY:update
 update: Pipfile.lock setup-pre-commit  ## Updates all the packages using Pipfile
-	docker compose run --rm --name helix.fhir.client.sdk dev pipenv sync && \
 	make devdocker && \
 	make pipenv-setup
 
