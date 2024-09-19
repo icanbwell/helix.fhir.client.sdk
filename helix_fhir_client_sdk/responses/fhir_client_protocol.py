@@ -62,6 +62,7 @@ class FhirClientProtocol(Protocol):
     _last_page: Optional[int]
 
     _use_data_streaming: bool = False
+    _send_data_as_chunked: bool = False
     _last_page_lock: Lock
 
     _use_post_for_search: bool = False

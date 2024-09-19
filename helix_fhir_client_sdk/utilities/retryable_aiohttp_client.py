@@ -24,6 +24,7 @@ class RetryableAioHttpClient:
         exclude_status_codes_from_retry: List[int] | None = None,
         use_data_streaming: Optional[bool],
         compress: Optional[bool] = False,
+        send_data_as_chunked: Optional[bool] = None,
         throw_exception_on_error: bool = True,
     ) -> None:
         self.retries: int = retries
@@ -44,8 +45,8 @@ class RetryableAioHttpClient:
             exclude_status_codes_from_retry
         )
         self.use_data_streaming: Optional[bool] = use_data_streaming
-        self.chunked = use_data_streaming
-        self.compress = compress
+        self.send_data_as_chunked: Optional[bool] = send_data_as_chunked
+        self.compress: Optional[bool] = compress
         self.session: Optional[ClientSession] = None
         self._throw_exception_on_error: bool = throw_exception_on_error
 
@@ -90,8 +91,8 @@ class RetryableAioHttpClient:
         while retry_attempts < self.retries:
             retry_attempts += 1
             try:
-                if self.chunked:
-                    kwargs["chunked"] = self.chunked
+                if self.send_data_as_chunked:
+                    kwargs["chunked"] = self.send_data_as_chunked
                 if self.compress:
                     kwargs["compress"] = self.compress
                 if headers:
