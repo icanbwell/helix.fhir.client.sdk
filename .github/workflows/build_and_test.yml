@@ -76,8 +76,9 @@ jobs:
           title: Test results
 
       # Publish all test results in the GitHub UI
+      # https://github.com/dorny/test-reporter/issues/67
       - name: Publish test results
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@main
         if: ${{ always() }}
         with:
           name: Pytest Summary
