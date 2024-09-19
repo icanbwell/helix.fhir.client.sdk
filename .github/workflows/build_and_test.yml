@@ -53,6 +53,7 @@ jobs:
         if: ${{ always() }}
         run: ls -halt /home/runner/work/${{ github.repository }}/reports/
 
+      # Publish all test results in the GitHub UI
       - name: Surface failing tests
         if: always()
         uses: pmeier/pytest-results-action@main # https://github.com/pmeier/pytest-results-action
@@ -74,15 +75,3 @@ jobs:
 
           # (Optional) Title of the test results section in the workflow summary
           title: Test results
-
-      # Publish all test results in the GitHub UI
-      # https://github.com/dorny/test-reporter/issues/67
-      - name: Publish test results
-        uses: dorny/test-reporter@main
-        if: ${{ always() }}
-        with:
-          name: Pytest Summary
-          path: /home/runner/work/${{ github.repository }}/reports/*.xml    # Path to test results
-          reporter: java-junit        # Format of test results
-          fail-on-error: false        # Do not change the build status if errors are found
-          list-tests: 'failed'       # List failed tests in the summary
