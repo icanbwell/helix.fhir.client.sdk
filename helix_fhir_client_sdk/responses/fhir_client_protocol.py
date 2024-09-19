@@ -108,7 +108,6 @@ class FhirClientProtocol(Protocol):
     async def _get_with_session_async(
         self,
         *,
-        session: Optional[ClientSession],
         page_number: Optional[int],
         ids: Optional[List[str]],
         id_above: Optional[str],

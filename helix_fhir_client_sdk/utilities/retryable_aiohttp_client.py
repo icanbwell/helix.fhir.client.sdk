@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Optional, Dict, Any, List, Callable, Type, Union
 
 import async_timeout
@@ -228,12 +228,24 @@ class RetryableAioHttpClient:
                             use_data_streaming=self.use_data_streaming,
                         )
                 await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
+            except Exception as e:
+                if self._throw_exception_on_error:
+                    raise
+                else:
+                    return RetryableAioHttpResponse(
+                        ok=False,
+                        status=500,
+                        response_headers={},
+                        response_text=str(e),
+                        content=None,
+                        use_data_streaming=self.use_data_streaming,
+                    )
 
         # Raise an exception if all retries fail
         raise Exception("All retries failed")
 
     async def get(
-        self, *, url: str, headers: Optional[Dict[str, str]], **kwargs: Any
+        self, *, url: str, headers: Optional[Dict[str, str]] = None, **kwargs: Any
     ) -> RetryableAioHttpResponse:
         return await self.fetch(url=url, method="GET", headers=headers, **kwargs)
 
@@ -298,7 +310,7 @@ class RetryableAioHttpClient:
                 wait_till: datetime = datetime.strptime(
                     retry_after_text, "%a, %d %b %Y %H:%M:%S GMT"
                 )
-                while datetime.utcnow() < wait_till:
+                while datetime.now(UTC) < wait_till:
                     await asyncio.sleep(10)
         else:
             await asyncio.sleep(60)

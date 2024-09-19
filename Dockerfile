@@ -8,7 +8,7 @@ WORKDIR /src
 #RUN apt-get install -y git && git --version && git config --global --add safe.directory /src
 
 RUN python -m pip install --no-cache-dir pipenv
-RUN pipenv lock && pipenv sync --dev --system
+RUN pipenv sync --dev --system
 
 COPY . /src
 

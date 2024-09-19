@@ -579,17 +579,15 @@ class FhirClient(
         if self._id:
             ids = self._id if isinstance(self._id, list) else [self._id]
         # actually make the request
-        async with self.create_http_session() as http:
-            full_response: Optional[FhirGetResponse] = None
-            async for response in self._get_with_session_async(
-                session=http,
-                ids=ids,
-                fn_handle_streaming_chunk=data_chunk_handler,
-            ):
-                if response:
-                    full_response = response
-            assert full_response
-            return full_response
+        full_response: Optional[FhirGetResponse] = None
+        async for response in self._get_with_session_async(
+            ids=ids,
+            fn_handle_streaming_chunk=data_chunk_handler,
+        ):
+            if response:
+                full_response = response
+        assert full_response
+        return full_response
 
     async def get_streaming_async(
         self,
@@ -616,14 +614,12 @@ class FhirClient(
         if self._id:
             ids = self._id if isinstance(self._id, list) else [self._id]
         # actually make the request
-        async with self.create_http_session() as http:
-            full_response: Optional[FhirGetResponse]
-            async for response in self._get_with_session_async(
-                session=http,
-                ids=ids,
-                fn_handle_streaming_chunk=data_chunk_handler,
-            ):
-                yield response
+        full_response: Optional[FhirGetResponse]
+        async for response in self._get_with_session_async(
+            ids=ids,
+            fn_handle_streaming_chunk=data_chunk_handler,
+        ):
+            yield response
 
     def get(self) -> FhirGetResponse:
         """
@@ -634,10 +630,9 @@ class FhirClient(
         result: FhirGetResponse = AsyncRunner.run(self.get_async())
         return result
 
-    async def _get_with_session_async(  # type: ignore[override]
+    async def _get_with_session_async(  # type:ignore[override]
         self,
         *,
-        session: Optional[ClientSession],
         page_number: Optional[int] = None,
         ids: Optional[List[str]] = None,
         id_above: Optional[str] = None,
@@ -648,7 +643,6 @@ class FhirClient(
         issues a GET call with the specified session, page_number and ids
 
 
-        :param session:
         :param page_number:
         :param ids:
         :param id_above: return ids greater than this
@@ -923,27 +917,11 @@ class FhirClient(
                     )
             return await client.get(url=full_url, headers=headers, data=payload)
 
-    # noinspection SpellCheckingInspection
     def create_http_session(self) -> ClientSession:
         """
         Creates an HTTP Session
 
         """
-        # retry_strategy = Retry(
-        #     total=5,
-        #     status_forcelist=[429, 500, 502, 503, 504],
-        #     method_whitelist=[
-        #         "HEAD",
-        #         "GET",
-        #         "PUT",
-        #         "DELETE",
-        #         "OPTIONS",
-        #         "TRACE",
-        #         "POST",
-        #     ],
-        #     backoff_factor=5,
-        # )
-        # session: ClientSession = aiohttp.ClientSession()
         trace_config = aiohttp.TraceConfig()
         # trace_config.on_request_start.append(on_request_start)
         if self._log_level == "DEBUG":
