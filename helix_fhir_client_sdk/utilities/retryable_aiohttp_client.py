@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Callable, Type, Union
 
 import async_timeout
@@ -316,7 +316,14 @@ class RetryableAioHttpClient:
                 wait_till: datetime = datetime.strptime(
                     retry_after_text, "%a, %d %b %Y %H:%M:%S GMT"
                 )
-                while datetime.now(UTC) < wait_till:
-                    await asyncio.sleep(10)
+                # Ensure the parsed time is in UTC
+                wait_till = wait_till.replace(tzinfo=timezone.utc)
+
+                # Calculate the time difference
+                time_diff = (wait_till - datetime.now(timezone.utc)).total_seconds()
+
+                # If the time difference is positive, sleep for that amount of time
+                if time_diff > 0:
+                    await asyncio.sleep(time_diff)
         else:
             await asyncio.sleep(60)
