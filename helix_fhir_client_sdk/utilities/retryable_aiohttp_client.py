@@ -310,20 +310,25 @@ class RetryableAioHttpClient:
         # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
         retry_after_text: str = str(response.headers.get("Retry-After", ""))
         if retry_after_text:
-            if retry_after_text.isnumeric():  # it is number of seconds
-                await asyncio.sleep(int(retry_after_text))
-            else:
-                wait_till: datetime = datetime.strptime(
-                    retry_after_text, "%a, %d %b %Y %H:%M:%S GMT"
-                )
-                # Ensure the parsed time is in UTC
-                wait_till = wait_till.replace(tzinfo=timezone.utc)
+            # noinspection PyBroadException
+            try:
+                if retry_after_text.isnumeric():  # it is number of seconds
+                    await asyncio.sleep(int(retry_after_text))
+                else:
+                    wait_till: datetime = datetime.strptime(
+                        retry_after_text, "%a, %d %b %Y %H:%M:%S GMT"
+                    )
+                    # Ensure the parsed time is in UTC
+                    wait_till = wait_till.replace(tzinfo=timezone.utc)
 
-                # Calculate the time difference
-                time_diff = (wait_till - datetime.now(timezone.utc)).total_seconds()
+                    # Calculate the time difference
+                    time_diff = (wait_till - datetime.now(timezone.utc)).total_seconds()
 
-                # If the time difference is positive, sleep for that amount of time
-                if time_diff > 0:
-                    await asyncio.sleep(time_diff)
+                    # If the time difference is positive, sleep for that amount of time
+                    if time_diff > 0:
+                        await asyncio.sleep(time_diff)
+            except Exception:
+                # if there was some exception parsing the Retry-After header, sleep for 60 seconds
+                await asyncio.sleep(60)
         else:
             await asyncio.sleep(60)
