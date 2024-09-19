@@ -53,6 +53,28 @@ jobs:
         if: ${{ always() }}
         run: ls -halt /home/runner/work/${{ github.repository }}/reports/
 
+      - name: Surface failing tests
+        if: always()
+        uses: pmeier/pytest-results-action@main # https://github.com/pmeier/pytest-results-action
+        with:
+          # A list of JUnit XML files, directories containing the former, and wildcard
+          # patterns to process.
+          # See @actions/glob for supported patterns.
+          path: /home/runner/work/${{ github.repository }}/reports/*.xml
+
+          # (Optional) Add a summary of the results at the top of the report
+          summary: true
+
+          # (Optional) Select which results should be included in the report.
+          # Follows the same syntax as `pytest -r`
+          display-options: fEX
+
+          # (Optional) Fail the workflow if no JUnit XML was found.
+          fail-on-empty: true
+
+          # (Optional) Title of the test results section in the workflow summary
+          title: Test results
+
       # Publish all test results in the GitHub UI
       - name: Publish test results
         uses: dorny/test-reporter@v1
