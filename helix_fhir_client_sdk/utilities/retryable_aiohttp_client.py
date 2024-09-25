@@ -1,10 +1,9 @@
 import asyncio
-from datetime import datetime
-from typing import Optional, Dict, Any, List
+from datetime import datetime, timezone
+from typing import Optional, Dict, Any, List, Callable, Type, Union
 
-import aiohttp
 import async_timeout
-from aiohttp import ClientSession, ClientResponse
+from aiohttp import ClientResponse, ClientError, ClientResponseError, ClientSession
 
 from helix_fhir_client_sdk.function_types import SimpleRefreshTokenFunction
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
@@ -21,10 +20,12 @@ class RetryableAioHttpClient:
         backoff_factor: float = 0.5,
         retry_status_codes: Optional[List[int]] = None,
         simple_refresh_token_func: Optional[SimpleRefreshTokenFunction] = None,
-        session: Optional[aiohttp.ClientSession] = None,
-        exclude_status_codes_from_retry: List[int] | None,
+        fn_get_session: Optional[Callable[[], ClientSession]] = None,
+        exclude_status_codes_from_retry: List[int] | None = None,
         use_data_streaming: Optional[bool],
         compress: Optional[bool] = False,
+        send_data_as_chunked: Optional[bool] = None,
+        throw_exception_on_error: bool = True,
     ) -> None:
         self.retries: int = retries
         self.timeout_in_seconds: Optional[float] = timeout_in_seconds
@@ -37,13 +38,30 @@ class RetryableAioHttpClient:
         self.simple_refresh_token_func: Optional[SimpleRefreshTokenFunction] = (
             simple_refresh_token_func
         )
-        self.session: Optional[ClientSession] = session
+        self.fn_get_session: Callable[[], ClientSession] = (
+            fn_get_session if fn_get_session is not None else lambda: ClientSession()
+        )
         self.exclude_status_codes_from_retry: List[int] | None = (
             exclude_status_codes_from_retry
         )
         self.use_data_streaming: Optional[bool] = use_data_streaming
-        self.chunked = use_data_streaming
-        self.compress = compress
+        self.send_data_as_chunked: Optional[bool] = send_data_as_chunked
+        self.compress: Optional[bool] = compress
+        self.session: Optional[ClientSession] = None
+        self._throw_exception_on_error: bool = throw_exception_on_error
+
+    async def __aenter__(self) -> "RetryableAioHttpClient":
+        self.session = self.fn_get_session()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Union[Type[BaseException], None]],
+    ) -> None:
+        if self.session is not None:
+            await self.session.close()
 
     @staticmethod
     async def get_safe_response_text_async(
@@ -73,16 +91,20 @@ class RetryableAioHttpClient:
         while retry_attempts < self.retries:
             retry_attempts += 1
             try:
-                if self.session is None:
-                    self.session = aiohttp.ClientSession()
-                if self.chunked:
-                    kwargs["chunked"] = self.chunked
-                if self.compress:
-                    kwargs["compress"] = self.compress
                 if headers:
                     kwargs["headers"] = headers
+                # if there is no data then remove from kwargs so as not to confuse aiohttp
+                if "data" in kwargs and kwargs["data"] is None:
+                    del kwargs["data"]
+                # compression and chunked can only be enabled if there is content sent
+                if "data" in kwargs and kwargs["data"] is not None:
+                    if self.send_data_as_chunked:
+                        kwargs["chunked"] = self.send_data_as_chunked
+                    if self.compress:
+                        kwargs["compress"] = self.compress
+                assert self.session is not None
                 async with async_timeout.timeout(self.timeout_in_seconds):
-                    response = await self.session.request(
+                    response: ClientResponse = await self.session.request(
                         method,
                         url,
                         **kwargs,
@@ -152,7 +174,7 @@ class RetryableAioHttpClient:
                         self.retry_status_codes
                         and response.status in self.retry_status_codes
                     ):
-                        raise aiohttp.ClientResponseError(
+                        raise ClientResponseError(
                             status=response.status,
                             message="Retryable status code received",
                             headers=response.headers,
@@ -166,7 +188,7 @@ class RetryableAioHttpClient:
                             headers = {}
                         headers["Authorization"] = f"Bearer {access_token}"
                         if retry_attempts >= self.retries:
-                            raise aiohttp.ClientResponseError(
+                            raise ClientResponseError(
                                 status=response.status,
                                 message="Unauthorized",
                                 headers=response.headers,
@@ -177,17 +199,59 @@ class RetryableAioHttpClient:
                             self.backoff_factor * (2 ** (retry_attempts - 1))
                         )
                     else:
-                        response.raise_for_status()
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                        if self._throw_exception_on_error:
+                            raise ClientResponseError(
+                                status=response.status,
+                                message="Non-retryable status code received",
+                                headers=response.headers,
+                                history=response.history,
+                                request_info=response.request_info,
+                            )
+                        else:
+                            return RetryableAioHttpResponse(
+                                ok=response.ok,
+                                status=response.status,
+                                response_headers={
+                                    k: v for k, v in response.headers.items()
+                                },
+                                response_text=await self.get_safe_response_text_async(
+                                    response=response
+                                ),
+                                content=response.content,
+                                use_data_streaming=self.use_data_streaming,
+                            )
+            except (ClientError, asyncio.TimeoutError) as e:
                 if retry_attempts >= self.retries:
-                    raise e
+                    if self._throw_exception_on_error:
+                        raise
+                    else:
+                        return RetryableAioHttpResponse(
+                            ok=False,
+                            status=500,
+                            response_headers={},
+                            response_text=str(e),
+                            content=None,
+                            use_data_streaming=self.use_data_streaming,
+                        )
                 await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
+            except Exception as e:
+                if self._throw_exception_on_error:
+                    raise
+                else:
+                    return RetryableAioHttpResponse(
+                        ok=False,
+                        status=500,
+                        response_headers={},
+                        response_text=str(e),
+                        content=None,
+                        use_data_streaming=self.use_data_streaming,
+                    )
 
         # Raise an exception if all retries fail
         raise Exception("All retries failed")
 
     async def get(
-        self, *, url: str, headers: Optional[Dict[str, str]], **kwargs: Any
+        self, *, url: str, headers: Optional[Dict[str, str]] = None, **kwargs: Any
     ) -> RetryableAioHttpResponse:
         return await self.fetch(url=url, method="GET", headers=headers, **kwargs)
 
@@ -244,15 +308,27 @@ class RetryableAioHttpClient:
         # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
         # read the Retry-After header
         # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
-        retry_after_text: str = str(response.headers.getone("Retry-After"))
+        retry_after_text: str = str(response.headers.get("Retry-After", ""))
         if retry_after_text:
-            if retry_after_text.isnumeric():  # it is number of seconds
-                await asyncio.sleep(int(retry_after_text))
-            else:
-                wait_till: datetime = datetime.strptime(
-                    retry_after_text, "%a, %d %b %Y %H:%M:%S GMT"
-                )
-                while datetime.utcnow() < wait_till:
-                    await asyncio.sleep(10)
+            # noinspection PyBroadException
+            try:
+                if retry_after_text.isnumeric():  # it is number of seconds
+                    await asyncio.sleep(int(retry_after_text))
+                else:
+                    wait_till: datetime = datetime.strptime(
+                        retry_after_text, "%a, %d %b %Y %H:%M:%S GMT"
+                    )
+                    # Ensure the parsed time is in UTC
+                    wait_till = wait_till.replace(tzinfo=timezone.utc)
+
+                    # Calculate the time difference
+                    time_diff = (wait_till - datetime.now(timezone.utc)).total_seconds()
+
+                    # If the time difference is positive, sleep for that amount of time
+                    if time_diff > 0:
+                        await asyncio.sleep(time_diff)
+            except Exception:
+                # if there was some exception parsing the Retry-After header, sleep for 60 seconds
+                await asyncio.sleep(60)
         else:
             await asyncio.sleep(60)

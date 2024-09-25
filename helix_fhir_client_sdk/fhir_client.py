@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 import uuid
@@ -26,7 +25,6 @@ from aiohttp import (
     TraceRequestEndParams,
     TraceResponseChunkReceivedParams,
 )
-
 from furl import furl
 
 from requests.adapters import BaseAdapter
@@ -34,7 +32,6 @@ from requests.adapters import BaseAdapter
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.fhir_auth_mixin import FhirAuthMixin
-from helix_fhir_client_sdk.fhir_composite_query_mixin import FhirCompositeQueryMixin
 from helix_fhir_client_sdk.fhir_delete_mixin import FhirDeleteMixin
 from helix_fhir_client_sdk.fhir_merge_mixin import FhirMergeMixin
 from helix_fhir_client_sdk.fhir_patch_mixin import FhirPatchMixin
@@ -44,7 +41,6 @@ from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
     RefreshTokenFunction,
-    SimpleRefreshTokenFunction,
 )
 from helix_fhir_client_sdk.graph.fhir_graph_mixin import FhirGraphMixin
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
@@ -56,6 +52,7 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
 )
+from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
@@ -68,7 +65,6 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
 class FhirClient(
     SimulatedGraphProcessorMixin,
     FhirMergeMixin,
-    FhirCompositeQueryMixin,
     FhirGraphMixin,
     FhirUpdateMixin,
     FhirPatchMixin,
@@ -116,10 +112,10 @@ class FhirClient(
         self._expand_fhir_bundle: bool = True
 
         self._stop_processing: bool = False
-        self._authentication_token_lock: Lock = Lock()
         self._last_page: Optional[int] = None
 
         self._use_data_streaming: bool = False
+        self._send_data_as_chunked: bool = False
         self._last_page_lock: Lock = Lock()
 
         self._use_post_for_search: bool = False
@@ -145,6 +141,8 @@ class FhirClient(
         self._chunk_size: int = 1024
 
         self._compress: bool = True
+
+        self._throw_exception_on_error: bool = True
 
         FhirAuthMixin.__init__(self)
 
@@ -351,10 +349,21 @@ class FhirClient(
         :param use: where to use data streaming
         """
         self._use_data_streaming = use
+        # The b.well FHIR server as of version 5.3.16 has a bug that it cannot parse an accept string with multiple
+        # accepts.  We should remove this when that is fixed.
         if use:
             self._accept = "application/fhir+ndjson"
-        else:
-            self._accept = "application/fhir+json"
+
+        return self
+
+    def send_data_as_chunked(self, send_data_as_chunked: bool) -> "FhirClient":
+        """
+        Send data as chunked
+
+
+        :param send_data_as_chunked: whether to send data as chunked
+        """
+        self._send_data_as_chunked = send_data_as_chunked
         return self
 
     def use_post_for_search(self, use: bool) -> "FhirClient":
@@ -447,6 +456,15 @@ class FhirClient(
         self._compress = compress
         return self
 
+    def throw_exception_on_error(self, throw_exception_on_error: bool) -> "FhirClient":
+        """
+        Sets the throw_exception_on_error flag
+
+        :param throw_exception_on_error: whether to throw an exception on error
+        """
+        self._throw_exception_on_error = throw_exception_on_error
+        return self
+
     # noinspection PyUnusedLocal
     @staticmethod
     async def on_request_end(
@@ -454,16 +472,53 @@ class FhirClient(
         trace_config_ctx: SimpleNamespace,
         params: TraceRequestEndParams,
     ) -> None:
-        FhirClient._internal_logger.info(f"{params.method} {params.url}")
+        accept: Optional[str] = params.response.request_info.headers.get("Accept", "")
+        accept_encoding: Optional[str] = params.response.request_info.headers.get(
+            "Accept-Encoding", ""
+        )
+        content_type_sent: Optional[str] = params.response.request_info.headers.get(
+            "Content-Type", ""
+        )
+        content_encoding_sent: Optional[str] = params.response.request_info.headers.get(
+            "Content-Encoding", ""
+        )
+        transfer_encoding_sent: Optional[str] = (
+            params.response.request_info.headers.get("Transfer-Encoding", "")
+        )
+        FhirClient._internal_logger.info(
+            f"Sent: {params.method} {params.url}"
+            + f" | Accept: {accept}"
+            + f" | Accept-Encoding: {accept_encoding}"
+            + f" | Content-Type: {content_type_sent}"
+            + f" | Content-Encoding: {content_encoding_sent}"
+            + f" | Transfer-Encoding: {transfer_encoding_sent}"
+        )
         sent_headers: List[str] = [
             f"{key}:{value}"
             for key, value in params.response.request_info.headers.items()
         ]
-        FhirClient._internal_logger.info(f"Sent headers: {sent_headers}")
+        FhirClient._internal_logger.debug(f"Sent headers: {sent_headers}")
         received_headers: List[str] = [
             f"{key}:{value}" for key, value in params.response.headers.items()
         ]
-        FhirClient._internal_logger.info(f"Received headers: {received_headers}")
+        FhirClient._internal_logger.debug(f"Received headers: {received_headers}")
+
+        # Log that we received a response
+        content_type: Optional[str] = params.response.headers.get("Content-Type", "")
+        content_encoding: Optional[str] = params.response.headers.get(
+            "Content-Encoding", ""
+        )
+        transfer_encoding: Optional[str] = params.response.headers.get(
+            "Transfer-Encoding", ""
+        )
+
+        FhirClient._internal_logger.info(
+            f"Received: {params.method} {params.url}"
+            + f" | Status: {params.response.status}"
+            + f" | Content-Type: {content_type}"
+            + f" | Transfer-Encoding: {transfer_encoding}"
+            + f" | Content-Encoding: {content_encoding}"
+        )
 
     @staticmethod
     async def on_response_chunk_received(
@@ -477,7 +532,7 @@ class FhirClient(
         )
 
     def get_access_token(self) -> Optional[str]:
-        return asyncio.run(self.get_access_token_async())
+        return AsyncRunner.run(self.get_access_token_async())
 
     def set_access_token(self, value: str | None) -> "FhirClient":
         """
@@ -535,17 +590,15 @@ class FhirClient(
         if self._id:
             ids = self._id if isinstance(self._id, list) else [self._id]
         # actually make the request
-        async with self.create_http_session() as http:
-            full_response: Optional[FhirGetResponse] = None
-            async for response in self._get_with_session_async(
-                session=http,
-                ids=ids,
-                fn_handle_streaming_chunk=data_chunk_handler,
-            ):
-                if response:
-                    full_response = response
-            assert full_response
-            return full_response
+        full_response: Optional[FhirGetResponse] = None
+        async for response in self._get_with_session_async(
+            ids=ids,
+            fn_handle_streaming_chunk=data_chunk_handler,
+        ):
+            if response:
+                full_response = response
+        assert full_response
+        return full_response
 
     async def get_streaming_async(
         self,
@@ -572,14 +625,12 @@ class FhirClient(
         if self._id:
             ids = self._id if isinstance(self._id, list) else [self._id]
         # actually make the request
-        async with self.create_http_session() as http:
-            full_response: Optional[FhirGetResponse]
-            async for response in self._get_with_session_async(
-                session=http,
-                ids=ids,
-                fn_handle_streaming_chunk=data_chunk_handler,
-            ):
-                yield response
+        full_response: Optional[FhirGetResponse]
+        async for response in self._get_with_session_async(
+            ids=ids,
+            fn_handle_streaming_chunk=data_chunk_handler,
+        ):
+            yield response
 
     def get(self) -> FhirGetResponse:
         """
@@ -587,13 +638,12 @@ class FhirClient(
 
         :return: response
         """
-        result: FhirGetResponse = asyncio.run(self.get_async())
+        result: FhirGetResponse = AsyncRunner.run(self.get_async())
         return result
 
-    async def _get_with_session_async(  # type: ignore[override]
+    async def _get_with_session_async(  # type:ignore[override]
         self,
         *,
-        session: Optional[ClientSession],
         page_number: Optional[int] = None,
         ids: Optional[List[str]] = None,
         id_above: Optional[str] = None,
@@ -604,7 +654,6 @@ class FhirClient(
         issues a GET call with the specified session, page_number and ids
 
 
-        :param session:
         :param page_number:
         :param ids:
         :param id_above: return ids greater than this
@@ -618,7 +667,7 @@ class FhirClient(
 
         # create url and query to request from FHIR server
         resources_json: str = ""
-        full_url = await self._build_url(
+        full_url = await self.build_url(
             ids=ids,
             id_above=id_above,
             page_number=page_number,
@@ -626,7 +675,9 @@ class FhirClient(
         )
 
         # set up headers
-        payload: Dict[str, str] = self._action_payload if self._action_payload else {}
+        payload: Dict[str, str] | None = (
+            self._action_payload if self._action_payload else None
+        )
         headers = {
             "Accept": self._accept,
             "Content-Type": self._content_type,
@@ -644,12 +695,6 @@ class FhirClient(
             if access_token:
                 headers["Authorization"] = f"Bearer {access_token}"
 
-            # actually make the request
-            if session is None:
-                http = self.create_http_session()
-            else:
-                http = session
-
             await FhirResponseProcessor.log_request(
                 full_url=full_url,
                 client_id=self._client_id,
@@ -660,57 +705,62 @@ class FhirClient(
                 internal_logger=self._internal_logger,
             )
 
-            response: RetryableAioHttpResponse = await self._send_fhir_request_async(
-                http=http,
-                full_url=full_url,
-                headers=headers,
-                payload=payload,
-                simple_refresh_token_func=lambda: self._refresh_token_function(
-                    auth_server_url=self._auth_server_url,
-                    auth_scopes=self._auth_scopes,
-                    login_token=self._login_token,
-                ),
+            async with RetryableAioHttpClient(
+                fn_get_session=lambda: self.create_http_session(),
+                simple_refresh_token_func=lambda: self._refresh_token_function(),
+                retries=self._retry_count,
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
-            )
-            assert isinstance(response, RetryableAioHttpResponse)
-            last_status_code = response.status
-            response_headers: List[str] = [
-                f"{key}:{value}" for key, value in response.response_headers.items()
-            ]
-            await FhirResponseProcessor.log_response(
-                full_url=full_url,
-                response_status=response.status,
-                client_id=self._client_id,
-                internal_logger=self._internal_logger,
-                log_level=self._log_level,
-                logger=self._logger,
-                auth_scopes=self._auth_scopes,
-                uuid=self._uuid,
-            )
-
-            request_id = response.response_headers.get("X-Request-ID", None)
-            self._internal_logger.info(f"X-Request-ID={request_id}")
-
-            async for r in FhirResponseProcessor.handle_response(
-                internal_logger=self._internal_logger,
-                access_token=access_token,
-                response_headers=response_headers,
-                response=response,
-                logger=self._logger,
-                resources_json=resources_json,
-                full_url=full_url,
-                request_id=request_id,
-                resource=self._resource,
-                id_=self._id,
-                chunk_size=self._chunk_size,
-                expand_fhir_bundle=self._expand_fhir_bundle,
-                separate_bundle_resources=self._separate_bundle_resources,
-                url=self._url,
-                extra_context_to_return=self._extra_context_to_return,
                 use_data_streaming=self._use_data_streaming,
-                fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-            ):
-                yield r
+                compress=self._compress,
+                throw_exception_on_error=self._throw_exception_on_error,
+            ) as client:
+                response: RetryableAioHttpResponse = (
+                    await self._send_fhir_request_async(
+                        client=client,
+                        full_url=full_url,
+                        headers=headers,
+                        payload=payload,
+                    )
+                )
+                assert isinstance(response, RetryableAioHttpResponse)
+                last_status_code = response.status
+                response_headers: List[str] = [
+                    f"{key}:{value}" for key, value in response.response_headers.items()
+                ]
+                await FhirResponseProcessor.log_response(
+                    full_url=full_url,
+                    response_status=response.status,
+                    client_id=self._client_id,
+                    internal_logger=self._internal_logger,
+                    log_level=self._log_level,
+                    logger=self._logger,
+                    auth_scopes=self._auth_scopes,
+                    uuid=self._uuid,
+                )
+
+                request_id = response.response_headers.get("X-Request-ID", None)
+                self._internal_logger.info(f"X-Request-ID={request_id}")
+
+                async for r in FhirResponseProcessor.handle_response(
+                    internal_logger=self._internal_logger,
+                    access_token=access_token,
+                    response_headers=response_headers,
+                    response=response,
+                    logger=self._logger,
+                    resources_json=resources_json,
+                    full_url=full_url,
+                    request_id=request_id,
+                    resource=self._resource,
+                    id_=self._id,
+                    chunk_size=self._chunk_size,
+                    expand_fhir_bundle=self._expand_fhir_bundle,
+                    separate_bundle_resources=self._separate_bundle_resources,
+                    url=self._url,
+                    extra_context_to_return=self._extra_context_to_return,
+                    use_data_streaming=self._use_data_streaming,
+                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+                ):
+                    yield r
 
         except Exception as ex:
             raise FhirSenderException(
@@ -726,7 +776,8 @@ class FhirClient(
                 elapsed_time=time.time() - start_time,
             )
 
-    async def _build_url(
+    # noinspection PyProtocol
+    async def build_url(
         self,
         *,
         additional_parameters: Optional[List[str]],
@@ -831,37 +882,25 @@ class FhirClient(
     async def _send_fhir_request_async(
         self,
         *,
-        http: ClientSession,
+        client: RetryableAioHttpClient,
         full_url: str,
         headers: Dict[str, str],
         payload: Dict[str, Any] | None,
-        simple_refresh_token_func: Optional[SimpleRefreshTokenFunction],
-        exclude_status_codes_from_retry: List[int] | None,
     ) -> RetryableAioHttpResponse:
         """
         Sends a request to the server
 
 
-        :param http: session to use
         :param full_url: url to call
         :param headers: headers to send
         :param payload: payload to send
         """
-        assert http is not None
+        assert client is not None
         assert full_url
         assert headers
         assert isinstance(headers, dict)
         if payload:
             assert isinstance(payload, dict)
-
-        client: RetryableAioHttpClient = RetryableAioHttpClient(
-            session=http,
-            simple_refresh_token_func=simple_refresh_token_func,
-            retries=self._retry_count,
-            exclude_status_codes_from_retry=exclude_status_codes_from_retry,
-            use_data_streaming=self._use_data_streaming,
-            compress=self._compress,
-        )
 
         if self._action == "$graph":
             if self._logger:
@@ -891,27 +930,11 @@ class FhirClient(
                     )
             return await client.get(url=full_url, headers=headers, data=payload)
 
-    # noinspection SpellCheckingInspection
     def create_http_session(self) -> ClientSession:
         """
         Creates an HTTP Session
 
         """
-        # retry_strategy = Retry(
-        #     total=5,
-        #     status_forcelist=[429, 500, 502, 503, 504],
-        #     method_whitelist=[
-        #         "HEAD",
-        #         "GET",
-        #         "PUT",
-        #         "DELETE",
-        #         "OPTIONS",
-        #         "TRACE",
-        #         "POST",
-        #     ],
-        #     backoff_factor=5,
-        # )
-        # session: ClientSession = aiohttp.ClientSession()
         trace_config = aiohttp.TraceConfig()
         # trace_config.on_request_start.append(on_request_start)
         if self._log_level == "DEBUG":

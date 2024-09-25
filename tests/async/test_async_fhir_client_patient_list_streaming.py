@@ -73,12 +73,15 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
         if not response:
             response = response1
         else:
-            response.append([response1])
+            response.append(response1)
         responses.append(response1)
 
     assert response is not None
 
     resources: List[Dict[str, Any]] = response.get_resources()
+
+    mock_client.verify_expectations()
+
     assert len(resources) == 100
 
     assert len(responses) > 1

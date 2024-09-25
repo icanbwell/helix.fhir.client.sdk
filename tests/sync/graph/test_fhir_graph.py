@@ -1,4 +1,5 @@
 import json
+from typing import Optional
 
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
@@ -73,7 +74,8 @@ def test_fhir_graph() -> None:
     fhir_client = FhirClient()
 
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
-    response: FhirGetResponse = fhir_client.graph(
+    response: Optional[FhirGetResponse] = fhir_client.graph(
         graph_definition=graph_definition, contained=False
     )
+    assert response is not None
     assert json.loads(response.responses) == response_text

@@ -4,6 +4,7 @@ from typing import List, Optional, Dict, Any, AsyncGenerator
 class FhirMergeResponse:
     def __init__(
         self,
+        *,
         request_id: Optional[str],
         url: str,
         responses: List[Dict[str, Any]],
@@ -29,22 +30,21 @@ class FhirMergeResponse:
         self.data: str = json_data
         self.successful: bool = status != 200
 
-    def append(self, other: Optional[List["FhirMergeResponse"]]) -> None:
+    def append(self, other: Optional["FhirMergeResponse"]) -> None:
         """
         Appends another FhirMergeResponse to this one
 
         :param other: FhirMergeResponse to append
         """
         if other:
-            for r in other:
-                self.responses.extend(r.responses)
-                self.error = (self.error or "") + (r.error or "")
-                self.successful = self.successful and r.successful
+            self.responses.extend(other.responses)
+            self.error = (self.error or "") + (other.error or "")
+            self.successful = self.successful and other.successful
 
-    @staticmethod
+    @classmethod
     async def from_async_generator(
-        generator: AsyncGenerator["FhirMergeResponse", None]
-    ) -> "FhirMergeResponse":
+        cls, generator: AsyncGenerator["FhirMergeResponse", None]
+    ) -> Optional["FhirMergeResponse"]:
         """
         Reads a generator of FhirGetResponse and returns a single FhirGetResponse by appending all the FhirGetResponse
 
@@ -56,7 +56,7 @@ class FhirMergeResponse:
             if not result:
                 result = value
             else:
-                result.append([value])
+                result.append(value)
 
         assert result
         return result

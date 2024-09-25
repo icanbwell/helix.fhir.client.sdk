@@ -17,10 +17,10 @@ from tests.test_logger import TestLogger
 async def test_async_real_fhir_server_get_graph_large(
     use_data_streaming: bool,
 ) -> None:
+    environ["LOGLEVEL"] = "DEBUG"
+
     resource_type = "Practitioner"
     await FhirServerHelpers.clean_fhir_server_async(resource_type=resource_type)
-
-    environ["LOGLEVEL"] = "DEBUG"
 
     fhir_server_url: str = environ["FHIR_SERVER_URL"]
     auth_client_id = environ["FHIR_CLIENT_ID"]
@@ -37,7 +37,7 @@ async def test_async_real_fhir_server_get_graph_large(
     )
     fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
 
-    count: int = 10
+    count: int = 100
     roles_per_practitioner: int = 10
 
     id_dict: Dict[str, List[str]] = PractitionerGenerator.get_ids(
@@ -76,9 +76,12 @@ async def test_async_real_fhir_server_get_graph_large(
     expected_resource_count = len(bundle["entry"])
     print("expected_resource_count", expected_resource_count)
 
-    merge_response: FhirMergeResponse = await FhirMergeResponse.from_async_generator(
-        fhir_client.merge_async(json_data_list=[json.dumps(bundle)])
+    merge_response: Optional[FhirMergeResponse] = (
+        await FhirMergeResponse.from_async_generator(
+            fhir_client.merge_async(json_data_list=[json.dumps(bundle)])
+        )
     )
+    assert merge_response is not None
     print(json.dumps(merge_response.responses))
     assert merge_response.status == 200, merge_response.responses
     assert (
@@ -166,7 +169,7 @@ async def test_async_real_fhir_server_get_graph_large(
             if not response:
                 response = response1
             else:
-                response.append([response1])
+                response.append(response1)
 
         assert response is not None
         resources: List[Dict[str, Any]] = response.get_resources()

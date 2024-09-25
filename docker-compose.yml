@@ -2,12 +2,17 @@ version: '3.5'
 services:
   dev:
     user: root
+    depends_on:
+      - fhir
+      - keycloak
+      - mock-server
     build:
       dockerfile: Dockerfile
       context: .
     volumes:
       - ./:/src/
-#      - ../mockserver_client/mockserver_client:/usr/local/lib/python3.10/site-packages/mockserver_client
+      - ~/.local/share/virtualenvs:/root/.local/share/virtualenvs
+    #      - ../mockserver_client/mockserver_client:/usr/local/lib/python3.12/site-packages/mockserver_client
     container_name: fhir_client_sdk_dev
     working_dir: /src
     env_file:
@@ -32,7 +37,7 @@ services:
   fhir:
     depends_on:
       - mongo
-    image: imranq2/node-fhir-server-mongo:5.3.11
+    image: imranq2/node-fhir-server-mongo:5.5.3
     # To use local fhir code, comment above line and uncomment below
 #    build:
 #      dockerfile: Dockerfile
@@ -92,8 +97,6 @@ services:
       - '27017:27017'
     environment:
       - ALLOW_EMPTY_PASSWORD=yes
-    volumes:
-      - mongo_data:/data/db
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongo mongo:27017/test --quiet
 
@@ -144,6 +147,3 @@ services:
     command: ["start-dev", "--import-realm", "--verbose"]
     volumes:
       - ./keycloak-config/realm-import.json:/opt/keycloak/data/import/realm-import.json
-
-volumes:
-  mongo_data:

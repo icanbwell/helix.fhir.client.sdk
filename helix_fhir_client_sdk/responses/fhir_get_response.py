@@ -39,6 +39,7 @@ class FhirGetResponse:
             List[str]
         ],  # header name and value separated by a colon
         chunk_number: Optional[int] = None,
+        cache_hits: Optional[int] = None,
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -82,18 +83,47 @@ class FhirGetResponse:
         self.successful: bool = status == 200
         """ Headers returned by the server (can have duplicate header names) """ ""
         self.response_headers: Optional[List[str]] = response_headers
-        self.chunk_number: Optional[int] = chunk_number
         """ Chunk number for streaming """
+        self.chunk_number: Optional[int] = chunk_number
+        self.cache_hits: Optional[int] = cache_hits
 
-    def append(self, other: List["FhirGetResponse"]) -> "FhirGetResponse":
+    def append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
         """
         Append the responses from other to self
 
-        :param other: list of FhirGetResponse objects
+        :param other_response: FhirGetResponse object to append to current one
         :return: self
         """
         bundle_entries: List[BundleEntry] = self.get_bundle_entries()
-        for other_response in other:
+        if other_response.responses:
+            other_bundle_entries: List[BundleEntry] = (
+                other_response.get_bundle_entries()
+            )
+            bundle_entries.extend(other_bundle_entries)
+        bundle = {
+            "resourceType": "Bundle",
+            "entry": bundle_entries,
+        }
+        self.responses = json.dumps(bundle, cls=FhirJSONEncoder)
+        if other_response.chunk_number and (other_response.chunk_number or 0) > (
+            self.chunk_number or 0
+        ):
+            self.chunk_number = other_response.chunk_number
+        if other_response.next_url:
+            self.next_url = other_response.next_url
+            self.access_token = other_response.access_token
+        self.cache_hits = (self.cache_hits or 0) + (other_response.cache_hits or 0)
+        return self
+
+    def extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
+        """
+        Append the responses from other to self
+
+        :param others: list of FhirGetResponse objects
+        :return: self
+        """
+        bundle_entries: List[BundleEntry] = self.get_bundle_entries()
+        for other_response in others:
             if other_response.responses:
                 other_bundle_entries: List[BundleEntry] = (
                     other_response.get_bundle_entries()
@@ -105,13 +135,16 @@ class FhirGetResponse:
         }
         self.responses = json.dumps(bundle, cls=FhirJSONEncoder)
         latest_chunk_number: List[int] = sorted(
-            [o.chunk_number for o in other if o.chunk_number], reverse=True
+            [o.chunk_number for o in others if o.chunk_number], reverse=True
         )
         if len(latest_chunk_number) > 0:
             self.chunk_number = latest_chunk_number[0]
-        if len(other) > 0:
-            self.next_url = other[-1].next_url
-            self.access_token = other[-1].access_token
+        if len(others) > 0:
+            self.next_url = others[-1].next_url
+            self.access_token = others[-1].access_token
+        self.cache_hits = sum(
+            [r.cache_hits if r.cache_hits is not None else 0 for r in others]
+        )
         return self
 
     def get_resources(self) -> List[Dict[str, Any]]:
@@ -368,10 +401,10 @@ class FhirGetResponse:
                 f"Could not get resourceType and id from resources: {json.dumps(resources, cls=FhirJSONEncoder)}"
             ) from e
 
-    @staticmethod
+    @classmethod
     async def from_async_generator(
-        generator: AsyncGenerator["FhirGetResponse", None]
-    ) -> "FhirGetResponse":
+        cls, generator: AsyncGenerator["FhirGetResponse", None]
+    ) -> Optional["FhirGetResponse"]:
         """
         Reads a generator of FhirGetResponse and returns a single FhirGetResponse by appending all the FhirGetResponse
 
@@ -383,7 +416,39 @@ class FhirGetResponse:
             if not result:
                 result = value
             else:
-                result.append([value])
+                result.append(value)
 
         assert result
         return result
+
+    def get_operation_outcomes(self) -> List[Dict[str, Any]]:
+        """
+        Gets the operation outcomes from the response
+
+        :return: list of operation outcomes
+        """
+        return [
+            r
+            for r in self.get_resources()
+            if r.get("resourceType") == "OperationOutcome"
+        ]
+
+    def get_resources_except_operation_outcomes(self) -> List[Dict[str, Any]]:
+        """
+        Gets the normal FHIR resources by skipping any OperationOutcome resources
+
+        :return: list of valid resources
+        """
+        return [
+            r
+            for r in self.get_resources()
+            if r.get("resourceType") != "OperationOutcome"
+        ]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Converts the object to a dictionary
+
+        :return: dictionary
+        """
+        return self.__dict__

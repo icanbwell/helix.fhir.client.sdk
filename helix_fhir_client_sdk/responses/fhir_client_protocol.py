@@ -1,9 +1,9 @@
-import asyncio
 import uuid
 from datetime import datetime
 from logging import Logger
 from threading import Lock
-from typing import Protocol, Optional, Dict, Any, List, Union, AsyncGenerator, Generator
+from typing import Protocol, Optional, Dict, Any, List, Union, AsyncGenerator
+
 from aiohttp import ClientSession
 from requests.adapters import BaseAdapter
 
@@ -12,13 +12,12 @@ from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.function_types import (
     RefreshTokenFunction,
     HandleStreamingChunkFunction,
-    HandleBatchFunction,
-    HandleErrorFunction,
-    SimpleRefreshTokenFunction,
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.responses.paging_result import PagingResult
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
+    RetryableAioHttpClient,
+)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
@@ -60,10 +59,10 @@ class FhirClientProtocol(Protocol):
     _expand_fhir_bundle: bool
 
     _stop_processing: bool = False
-    _authentication_token_lock: Lock
     _last_page: Optional[int]
 
     _use_data_streaming: bool = False
+    _send_data_as_chunked: bool = False
     _last_page_lock: Lock
 
     _use_post_for_search: bool = False
@@ -92,17 +91,17 @@ class FhirClientProtocol(Protocol):
 
     _compress: bool
 
+    _throw_exception_on_error: bool
+
     async def get_access_token_async(self) -> Optional[str]: ...
 
     async def _send_fhir_request_async(
         self,
         *,
-        http: ClientSession,
+        client: RetryableAioHttpClient,
         full_url: str,
         headers: Dict[str, str],
         payload: Dict[str, Any] | None,
-        simple_refresh_token_func: Optional[SimpleRefreshTokenFunction],
-        exclude_status_codes_from_retry: List[int] | None,
     ) -> RetryableAioHttpResponse: ...
 
     def create_http_session(self) -> ClientSession: ...
@@ -110,7 +109,6 @@ class FhirClientProtocol(Protocol):
     async def _get_with_session_async(
         self,
         *,
-        session: Optional[ClientSession],
         page_number: Optional[int],
         ids: Optional[List[str]],
         id_above: Optional[str],
@@ -134,15 +132,6 @@ class FhirClientProtocol(Protocol):
 
     def filter(self, filter_: List[BaseFilter]) -> "FhirClientProtocol": ...
 
-    async def get_by_query_in_pages_async(
-        self,
-        concurrent_requests: int,
-        output_queue: asyncio.Queue[PagingResult],
-        fn_handle_batch: Optional[HandleBatchFunction],
-        fn_handle_error: Optional[HandleErrorFunction],
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
-    ) -> AsyncGenerator[FhirGetResponse, None]: ...
-
     def clone(self) -> "FhirClientProtocol": ...
 
     def last_page(self, last_page: int) -> "FhirClientProtocol": ...
@@ -150,16 +139,6 @@ class FhirClientProtocol(Protocol):
     def page_number(self, page_number: int) -> "FhirClientProtocol": ...
 
     def id_(self, id_: Union[List[str], str] | None) -> "FhirClientProtocol": ...
-
-    async def get_resources_by_id_in_parallel_batches_async(
-        self,
-        concurrent_requests: int,
-        chunks: Generator[List[str], None, None],
-        fn_handle_batch: Optional[HandleBatchFunction],
-        fn_handle_error: Optional[HandleErrorFunction],
-        fn_handle_ids: Optional[HandleBatchFunction] = None,
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
-    ) -> List[Dict[str, Any]]: ...
 
     def additional_parameters(
         self, additional_parameters: List[str]
@@ -170,3 +149,16 @@ class FhirClientProtocol(Protocol):
     ) -> "FhirClientProtocol": ...
 
     def action(self, action: str) -> "FhirClientProtocol": ...
+
+    async def build_url(
+        self,
+        *,
+        additional_parameters: Optional[List[str]],
+        id_above: Optional[str],
+        ids: Optional[List[str]],
+        page_number: Optional[int],
+    ) -> str: ...
+
+    def throw_exception_on_error(
+        self, throw_exception_on_error: bool
+    ) -> "FhirClientProtocol": ...

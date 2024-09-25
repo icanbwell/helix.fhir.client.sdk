@@ -1,9 +1,8 @@
-import asyncio
-
 from furl import furl
 
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_update_response import FhirUpdateResponse
+from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
 )
@@ -30,39 +29,36 @@ class FhirUpdateMixin(FhirClientProtocol):
         full_uri: furl = furl(self._url)
         full_uri /= self._resource
         full_uri /= self._id
-        async with self.create_http_session() as http:
-            # set up headers
-            headers = {"Content-Type": "application/fhir+json"}
-            headers.update(self._additional_request_headers)
-            self._internal_logger.debug(f"Request headers: {headers}")
+        # set up headers
+        headers = {"Content-Type": "application/fhir+json"}
+        headers.update(self._additional_request_headers)
+        self._internal_logger.debug(f"Request headers: {headers}")
 
-            access_token = await self.get_access_token_async()
-            # set access token in request if present
-            if access_token:
-                headers["Authorization"] = f"Bearer {access_token}"
+        access_token = await self.get_access_token_async()
+        # set access token in request if present
+        if access_token:
+            headers["Authorization"] = f"Bearer {access_token}"
 
-            if self._validation_server_url:
-                await AsyncFhirValidator.validate_fhir_resource(
-                    http=http,
-                    json_data=json_data,
-                    resource_name=self._resource,
-                    validation_server_url=self._validation_server_url,
-                    access_token=access_token,
-                )
-
-            # actually make the request
-            client: RetryableAioHttpClient = RetryableAioHttpClient(
-                session=http,
-                simple_refresh_token_func=lambda: self._refresh_token_function(
-                    auth_server_url=self._auth_server_url,
-                    auth_scopes=self._auth_scopes,
-                    login_token=self._login_token,
-                ),
-                retries=self._retry_count,
-                exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
-                use_data_streaming=self._use_data_streaming,
-                compress=self._compress,
+        if self._validation_server_url:
+            await AsyncFhirValidator.validate_fhir_resource(
+                fn_get_session=lambda: self.create_http_session(),
+                json_data=json_data,
+                resource_name=self._resource,
+                validation_server_url=self._validation_server_url,
+                access_token=access_token,
             )
+
+        # actually make the request
+        async with RetryableAioHttpClient(
+            fn_get_session=lambda: self.create_http_session(),
+            simple_refresh_token_func=lambda: self._refresh_token_function(),
+            retries=self._retry_count,
+            exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
+            use_data_streaming=self._use_data_streaming,
+            send_data_as_chunked=self._send_data_as_chunked,
+            compress=self._compress,
+            throw_exception_on_error=self._throw_exception_on_error,
+        ) as client:
             response = await client.put(
                 url=full_uri.url, data=json_data, headers=headers
             )
@@ -79,6 +75,7 @@ class FhirUpdateMixin(FhirClientProtocol):
                 error=f"{response.status}" if not response.status == 200 else None,
                 access_token=access_token,
                 status=response.status,
+                resource_type=self._resource,
             )
 
     def update(self, json_data: str) -> FhirUpdateResponse:
@@ -89,5 +86,5 @@ class FhirUpdateMixin(FhirClientProtocol):
 
         :param json_data: data to update the resource with
         """
-        result: FhirUpdateResponse = asyncio.run(self.update_async(json_data))
+        result: FhirUpdateResponse = AsyncRunner.run(self.update_async(json_data))
         return result

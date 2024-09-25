@@ -2,8 +2,10 @@ LANG=en_US.utf-8
 
 export LANG
 
-Pipfile.lock: Pipfile
-	docker compose run --rm --name helix.fhir.client.sdk dev pipenv lock --dev
+.PHONY: Pipfile.lock
+Pipfile.lock:
+	docker compose build
+	docker compose run --rm --name helix.fhir.client.sdk dev sh -c "rm -f Pipfile.lock && pipenv lock --dev"
 
 .PHONY:devdocker
 devdocker: ## Builds the docker for dev
@@ -13,7 +15,7 @@ devdocker: ## Builds the docker for dev
 init: devdocker up setup-pre-commit  ## Initializes the local developer environment
 
 .PHONY: up
-up: Pipfile.lock
+up:
 	docker compose up --build -d --remove-orphans && \
 	echo "\nwaiting for Mongo server to become healthy" && \
 	while [ "`docker inspect --format {{.State.Health.Status}} helixfhirclientsdk-mongo-1`" != "healthy" ] && [ "`docker inspect --format {{.State.Health.Status}} helixfhirclientsdk-mongo-1`" != "unhealthy" ] && [ "`docker inspect --format {{.State.Status}} helixfhirclientsdk-mongo-1`" != "restarting" ]; do printf "." && sleep 2; done && \
@@ -25,8 +27,10 @@ up: Pipfile.lock
 	@echo Fhir server dashboard http://localhost:3000/
 
 .PHONY: down
-down:
-	docker compose down
+down: ## Brings down all the services in docker-compose
+	export DOCKER_CLIENT_TIMEOUT=300 && export COMPOSE_HTTP_TIMEOUT=300
+	docker compose down --remove-orphans && \
+	docker system prune -f
 
 .PHONY:clean-pre-commit
 clean-pre-commit: ## removes pre-commit hook
@@ -41,8 +45,7 @@ run-pre-commit: setup-pre-commit
 	./.git/hooks/pre-commit
 
 .PHONY:update
-update: down Pipfile.lock setup-pre-commit  ## Updates all the packages using Pipfile
-	docker compose run --rm --name helix.fhir.client.sdk dev pipenv sync && \
+update: Pipfile.lock setup-pre-commit  ## Updates all the packages using Pipfile
 	make devdocker && \
 	make pipenv-setup
 

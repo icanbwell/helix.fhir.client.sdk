@@ -2,6 +2,7 @@ import json
 from os import environ
 from typing import List
 
+import pytest
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
     mock_request,
@@ -18,7 +19,8 @@ from helix_fhir_client_sdk.graph.graph_definition import (
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 
-async def test_fhir_graph_async() -> None:
+@pytest.mark.parametrize("use_data_streaming", [False])
+async def test_fhir_graph_async(use_data_streaming: bool) -> None:
     print("")
     test_name = "test_fhir_graph_async"
 
@@ -79,6 +81,7 @@ async def test_fhir_graph_async() -> None:
     fhir_client = FhirClient()
 
     fhir_client = fhir_client.url(absolute_url).resource("Patient").id_("1")
+    fhir_client = fhir_client.use_data_streaming(use_data_streaming)
     responses: List[FhirGetResponse] = []
     async for response in fhir_client.graph_async(
         id_="1", graph_definition=graph_definition, contained=False

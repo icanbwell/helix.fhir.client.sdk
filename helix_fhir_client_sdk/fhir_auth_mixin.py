@@ -2,15 +2,21 @@ from __future__ import annotations
 
 import base64
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 from threading import Lock
 from typing import Optional, List, Dict, Any, TYPE_CHECKING, cast
 
-from aiohttp import ClientResponse, ClientSession
 from furl import furl
 
 from helix_fhir_client_sdk.function_types import RefreshTokenFunction
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
+
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
+    RetryableAioHttpClient,
+)
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
+    RetryableAioHttpResponse,
+)
 from helix_fhir_client_sdk.well_known_configuration import (
     WellKnownConfigurationCacheEntry,
 )
@@ -77,6 +83,21 @@ class FhirAuthMixin(FhirClientProtocol):
         self._login_token = login_token
         return cast("FhirClient", self)
 
+    async def get_auth_url_async(self) -> Optional[str]:
+        """
+        Gets the auth server url
+
+
+        :return: auth server url
+        """
+        if not self._auth_server_url:
+            auth_server_url = (
+                await self._get_auth_server_url_from_well_known_configuration_async()
+            )
+            self.auth_server_url(auth_server_url)
+
+        return self._auth_server_url
+
     async def get_access_token_async(self) -> Optional[str]:
         """
         Gets current access token
@@ -86,19 +107,7 @@ class FhirAuthMixin(FhirClientProtocol):
         """
         if self._access_token:
             return self._access_token
-        # if we have an auth server url but no access token then get access token
-        if self._login_token and not self._auth_server_url:
-            # try to get auth_server_url from well known configuration
-            self.auth_server_url(
-                await self._get_auth_server_url_from_well_known_configuration_async()
-            )
-        self.set_access_token(
-            await self._refresh_token_function(
-                auth_server_url=self._auth_server_url,
-                auth_scopes=self._auth_scopes,
-                login_token=self._login_token,
-            )
-        )
+        self.set_access_token(await self._refresh_token_function())
         return self._access_token
 
     def authenticate_async_wrapper(self) -> RefreshTokenFunction:
@@ -109,27 +118,14 @@ class FhirAuthMixin(FhirClientProtocol):
         :return: refresh token function
         """
 
-        async def refresh_token(
-            auth_server_url: Optional[str],
-            auth_scopes: Optional[List[str]],
-            login_token: Optional[str],
-        ) -> Optional[str]:
+        async def refresh_token() -> Optional[str]:
             """
             This function creates the session and then calls authenticate_async()
 
-            :param auth_server_url: auth server url
-            :param auth_scopes: auth scopes
-            :param login_token: login token
             :return: access token
             """
-            async with self.create_http_session() as session:
-                with self._authentication_token_lock:
-                    return await self.authenticate_async(
-                        session=session,
-                        auth_server_url=auth_server_url,
-                        auth_scopes=auth_scopes,
-                        login_token=login_token,
-                    )
+
+            return await self.authenticate_async()
 
         return refresh_token
 
@@ -142,26 +138,34 @@ class FhirAuthMixin(FhirClientProtocol):
 
         :return: auth server url or None
         """
-        if self._auth_wellknown_url:
-            host_name: str = furl(self._auth_wellknown_url).host
-            if host_name in self._well_known_configuration_cache:
-                entry: Optional[WellKnownConfigurationCacheEntry] = (
-                    self._well_known_configuration_cache.get(host_name)
-                )
-                if entry and (
-                    (datetime.utcnow() - entry.last_updated_utc).seconds
-                    < self._time_to_live_in_secs_for_cache
-                ):
-                    cached_endpoint: Optional[str] = entry.auth_url
-                    if self._logger:
-                        self._logger.debug(
-                            f"Returning auth_url from cache for {host_name}: {cached_endpoint}"
-                        )
-                    return cached_endpoint
-            async with self.create_http_session() as http:
+        async with RetryableAioHttpClient(
+            fn_get_session=lambda: self.create_http_session(),
+            exclude_status_codes_from_retry=[404],
+            throw_exception_on_error=False,
+            use_data_streaming=False,
+            compress=False,
+        ) as client:
+            if self._auth_wellknown_url:
+                host_name: str = furl(self._auth_wellknown_url).host
+                if host_name in self._well_known_configuration_cache:
+                    entry: Optional[WellKnownConfigurationCacheEntry] = (
+                        self._well_known_configuration_cache.get(host_name)
+                    )
+                    if entry and (
+                        (datetime.now(UTC) - entry.last_updated_utc).seconds
+                        < self._time_to_live_in_secs_for_cache
+                    ):
+                        cached_endpoint: Optional[str] = entry.auth_url
+                        if self._logger:
+                            self._logger.debug(
+                                f"Returning auth_url from cache for {host_name}: {cached_endpoint}"
+                            )
+                        return cached_endpoint
                 try:
-                    response: ClientResponse = await http.get(self._auth_wellknown_url)
-                    text_ = await response.text()
+                    response: RetryableAioHttpResponse = await client.get(
+                        url=self._auth_wellknown_url
+                    )
+                    text_ = await response.get_text_async()
                     if response and response.status == 200 and text_:
                         content: Dict[str, Any] = json.loads(text_)
                         token_endpoint: Optional[str] = str(content["token_endpoint"])
@@ -169,7 +173,7 @@ class FhirAuthMixin(FhirClientProtocol):
                             self._well_known_configuration_cache[host_name] = (
                                 WellKnownConfigurationCacheEntry(
                                     auth_url=token_endpoint,
-                                    last_updated_utc=datetime.utcnow(),
+                                    last_updated_utc=datetime.now(UTC),
                                 )
                             )
                         if self._logger:
@@ -181,7 +185,8 @@ class FhirAuthMixin(FhirClientProtocol):
                         with self._well_known_configuration_cache_lock:
                             self._well_known_configuration_cache[host_name] = (
                                 WellKnownConfigurationCacheEntry(
-                                    auth_url=None, last_updated_utc=datetime.utcnow()
+                                    auth_url=None,
+                                    last_updated_utc=datetime.now(UTC),
                                 )
                             )
                         return None
@@ -189,26 +194,25 @@ class FhirAuthMixin(FhirClientProtocol):
                     raise Exception(
                         f"Error getting well known configuration from {self._auth_wellknown_url}"
                     ) from e
-        else:
-            full_uri: furl = furl(furl(self._url).origin)
-            host_name = full_uri.tostr()
-            if host_name in self._well_known_configuration_cache:
-                entry = self._well_known_configuration_cache.get(host_name)
-                if entry and (
-                    (datetime.utcnow() - entry.last_updated_utc).seconds
-                    < self._time_to_live_in_secs_for_cache
-                ):
-                    cached_endpoint = entry.auth_url
-                    # self._internal_logger.info(
-                    #     f"Returning auth_url from cache for {host_name}: {cached_endpoint}"
-                    # )
-                    return cached_endpoint
-            full_uri /= ".well-known/smart-configuration"
-            self._internal_logger.info(f"Calling {full_uri.tostr()}")
-            async with self.create_http_session() as http:
+            else:
+                full_uri: furl = furl(furl(self._url).origin)
+                host_name = full_uri.tostr()
+                if host_name in self._well_known_configuration_cache:
+                    entry = self._well_known_configuration_cache.get(host_name)
+                    if entry and (
+                        (datetime.now(UTC) - entry.last_updated_utc).seconds
+                        < self._time_to_live_in_secs_for_cache
+                    ):
+                        cached_endpoint = entry.auth_url
+                        # self._internal_logger.info(
+                        #     f"Returning auth_url from cache for {host_name}: {cached_endpoint}"
+                        # )
+                        return cached_endpoint
+                full_uri /= ".well-known/smart-configuration"
+                self._internal_logger.info(f"Calling {full_uri.tostr()}")
                 try:
-                    response = await http.get(full_uri.tostr())
-                    text_ = await response.text()
+                    response = await client.get(url=full_uri.tostr())
+                    text_ = await response.get_text_async()
                     if response and response.status == 200 and text_:
                         content = json.loads(text_)
                         token_endpoint = str(content["token_endpoint"])
@@ -216,7 +220,7 @@ class FhirAuthMixin(FhirClientProtocol):
                             self._well_known_configuration_cache[host_name] = (
                                 WellKnownConfigurationCacheEntry(
                                     auth_url=token_endpoint,
-                                    last_updated_utc=datetime.utcnow(),
+                                    last_updated_utc=datetime.now(UTC),
                                 )
                             )
                         return token_endpoint
@@ -224,7 +228,7 @@ class FhirAuthMixin(FhirClientProtocol):
                         with self._well_known_configuration_cache_lock:
                             self._well_known_configuration_cache[host_name] = (
                                 WellKnownConfigurationCacheEntry(
-                                    auth_url=None, last_updated_utc=datetime.utcnow()
+                                    auth_url=None, last_updated_utc=datetime.now(UTC)
                                 )
                             )
                         return None
@@ -233,44 +237,48 @@ class FhirAuthMixin(FhirClientProtocol):
                         f"Error getting well known configuration from {full_uri.tostr()}"
                     ) from e
 
-    @staticmethod
     async def authenticate_async(
-        *,
-        session: ClientSession,
-        auth_server_url: Optional[str],
-        auth_scopes: Optional[List[str]],
-        login_token: Optional[str],
+        self,
     ) -> Optional[str]:
-        if not auth_server_url or not login_token:
+        auth_server_url: Optional[str] = await self.get_auth_url_async()
+        if not auth_server_url or not self._login_token:
             return None
         assert auth_server_url, "No auth server url was set"
-        assert login_token, "No login token was set"
+        assert self._login_token, "No login token was set"
         payload: str = (
-            "grant_type=client_credentials&scope=" + "%20".join(auth_scopes)
-            if auth_scopes
+            "grant_type=client_credentials&scope=" + "%20".join(self._auth_scopes)
+            if self._auth_scopes
             else "grant_type=client_credentials"
         )
         # noinspection SpellCheckingInspection
         headers: Dict[str, str] = {
             "Accept": "application/json",
-            "Authorization": "Basic " + login_token,
+            "Authorization": "Basic " + self._login_token,
             "Content-Type": "application/x-www-form-urlencoded",
         }
 
-        response: ClientResponse = await session.request(
-            "POST", auth_server_url, headers=headers, data=payload
-        )
+        async with RetryableAioHttpClient(
+            fn_get_session=lambda: self.create_http_session(),
+            use_data_streaming=False,
+            compress=False,
+            exclude_status_codes_from_retry=None,
+        ) as client:
+            response: RetryableAioHttpResponse = await client.post(
+                url=auth_server_url, headers=headers, data=payload
+            )
+            # token = response.text.encode('utf8')
+            token_text: str = await response.get_text_async()
+            if not token_text:
+                self._internal_logger.error(f"No token found in {token_text}")
+                raise Exception(f"No access token found in {token_text}")
 
-        # token = response.text.encode('utf8')
-        token_text: str = await response.text()
-        if not token_text:
-            return None
-        token_json: Dict[str, Any] = json.loads(token_text)
+            token_json: Dict[str, Any] = json.loads(token_text)
 
-        if "access_token" not in token_json:
-            raise Exception(f"No access token found in {token_json}")
-        access_token: str = token_json["access_token"]
-        return access_token
+            if "access_token" not in token_json:
+                self._internal_logger.error(f"No token found in {token_json}")
+                raise Exception(f"No access token found in {token_json}")
+            access_token: str = token_json["access_token"]
+            return access_token
 
     @staticmethod
     def _create_login_token(client_id: str, client_secret: str) -> str:

@@ -1,4 +1,4 @@
-FROM python:3.10-slim-bookworm
+FROM python:3.12-slim
 USER root
 
 RUN apt-get update && apt-get install make
@@ -8,7 +8,7 @@ WORKDIR /src
 #RUN apt-get install -y git && git --version && git config --global --add safe.directory /src
 
 RUN python -m pip install --no-cache-dir pipenv
-RUN pipenv lock && pipenv sync --dev --system
+RUN pipenv sync --dev --system
 
 COPY . /src
 

@@ -7,7 +7,9 @@ from helix_fhir_client_sdk.responses.fhir_delete_response import FhirDeleteRespo
 
 class FhirServerHelpers:
     @staticmethod
-    async def clean_fhir_server_async(resource_type: str) -> None:
+    async def clean_fhir_server_async(
+        resource_type: str, owner_tag: str = "bwell"
+    ) -> None:
         # clean the fhir server
         fhir_server_url: str = environ["FHIR_SERVER_URL"]
         auth_client_id = environ["FHIR_CLIENT_ID"]
@@ -22,6 +24,9 @@ class FhirServerHelpers:
         response: FhirDeleteResponse = (
             await fhir_client.url(fhir_server_url)
             .resource(resource_type)
+            .additional_parameters(["_security=https://www.icanbwell.com/owner|bwell"])
+            # .additional_parameters(["source=http://www.icanbwell.com"])
             .delete_by_query_async()
         )
         assert response.status == 200, response.responses
+        print(f"Deleted {response.count} {resource_type} resources")

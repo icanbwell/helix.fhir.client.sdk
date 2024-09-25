@@ -54,13 +54,14 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/icanbwell/helix.fhir.client.sdk",
-    packages=find_packages(),
+    packages=find_packages(exclude=["**/test", "**/test/**"]),
     install_requires=[
         "furl",
         "requests",
         "urllib3",
         "chardet",
         "aiohttp",
+        "async-timeout>=4.0.3",
         "python-dateutil",
     ],
     classifiers=[
