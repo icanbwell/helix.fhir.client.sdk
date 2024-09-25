@@ -283,7 +283,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 + f" [{path}]"
                                 + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
                                 + f", {','.join(child_response.get_resource_type_and_ids())}"
-
                             )
         elif (
             path
