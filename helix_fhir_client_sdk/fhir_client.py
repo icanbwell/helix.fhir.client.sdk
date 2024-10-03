@@ -831,47 +831,54 @@ class FhirClient(
             full_uri.args["_sort"] = ",".join([str(s) for s in self._sort_fields])
         # create full url by adding on any query parameters
         full_url: str = full_uri.url
+        query_param_exists: bool = True if len(full_uri.args) > 0 else False
         if additional_parameters:
-            if len(full_uri.args) > 0:
+            if query_param_exists:
                 full_url += "&"
             else:
+                query_param_exists = True
                 full_url += "?"
             full_url += "&".join(additional_parameters)
         elif self._additional_parameters:
-            if len(full_uri.args) > 0:
+            if query_param_exists:
                 full_url += "&"
             else:
+                query_param_exists = True
                 full_url += "?"
             full_url += "&".join(self._additional_parameters)
         if self._include_total:
-            if len(full_uri.args) > 0:
+            if query_param_exists:
                 full_url += "&"
             else:
+                query_param_exists = True
                 full_url += "?"
             full_url += "_total=accurate"
         if self._filters and len(self._filters) > 0:
-            if len(full_uri.args) > 0:
+            if query_param_exists:
                 full_url += "&"
             else:
+                query_param_exists = True
                 full_url += "?"
             full_url += "&".join(
                 set([str(f) for f in self._filters])
             )  # remove any duplicates
         # have to be done here since this arg can be used twice
         if self._last_updated_before:
-            if len(full_uri.args) > 0:
+            if query_param_exists:
                 full_url += "&"
             else:
+                query_param_exists = True
                 full_url += "?"
             full_url += f"_lastUpdated=lt{self._last_updated_before.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         if self._last_updated_after:
-            if len(full_uri.args) > 0:
+            if query_param_exists:
                 full_url += "&"
             else:
+                query_param_exists = True
                 full_url += "?"
             full_url += f"_lastUpdated=ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         if id_above is not None:
-            if len(full_uri.args) > 0:
+            if query_param_exists:
                 full_url += "&"
             else:
                 full_url += "?"
