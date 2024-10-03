@@ -881,7 +881,6 @@ class FhirClient(
             if query_param_exists:
                 full_url += "&"
             else:
-                query_param_exists = True
                 full_url += "?"
             full_url += f"id:above={id_above}"
         return full_url
