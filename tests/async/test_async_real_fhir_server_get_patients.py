@@ -1,3 +1,4 @@
+import datetime
 import json
 from os import environ
 from typing import Any, List, Dict, Optional
@@ -57,6 +58,12 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
     )
     fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
     fhir_client = fhir_client.expand_fhir_bundle(False)
+    fhir_client = fhir_client.last_updated_before(
+        datetime.datetime.strptime("2025-06-15", "%Y-%m-%d")
+    )
+    fhir_client = fhir_client.last_updated_after(
+        datetime.datetime.strptime("2024-06-13", "%Y-%m-%d")
+    )
     fhir_client = fhir_client.use_data_streaming(use_data_streaming)
     response: FhirGetResponse = await fhir_client.get_async()
     response_text = response.responses
