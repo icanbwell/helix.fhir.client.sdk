@@ -23,11 +23,23 @@ from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
                 "foo": {
                     "status": [
                         {"bar": [{"reference": "123"}]},
-                        {"bar": [{"reference": "456"}]},
+                        {"bar": [{"reference": "456"}, {"reference": "789"}]},
                     ]
                 }
             },
             "foo.status[x].bar[x].reference",
+            ["123", "456", "789"],
+        ),
+        (
+            {
+                "foo": {
+                    "status": [
+                        {"bar": {"reference": "123"}},
+                        {"bar": {"reference": "456"}},
+                    ]
+                }
+            },
+            "foo.status[x].bar.reference",
             ["123", "456"],
         ),
         (
@@ -40,13 +52,25 @@ from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
             "content[x].attachment.url",
             ["Binary/123", "Binary/456"],
         ),
+        (
+            {
+                "insurance": [
+                    {"coverage": {"reference": "Coverage/123"}},
+                    {"coverage": {"reference": "Coverage/456"}},
+                ]
+            },
+            "insurance[x].coverage.reference",
+            ["Coverage/123", "Coverage/456"],
+        ),
     ],
     ids=[
         "simple",
-        "list",
-        "nested list",
+        "list at end of field",
+        "list in a list",
+        "list in middle of field",
         "nested list two level",
         "nested property is a url",
+        "real example",
     ],
 )
 def test_get_nested_property(
