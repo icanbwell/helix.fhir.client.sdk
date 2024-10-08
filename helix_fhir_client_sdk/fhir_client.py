@@ -812,11 +812,10 @@ class FhirClient(
         # add a query for just desired properties
         if self._include_only_properties:
             full_uri.args["_elements"] = ",".join(self._include_only_properties)
-        if self._page_size and (
-            self._page_number is not None or page_number is not None
-        ):
+        if self._page_size:
             # noinspection SpellCheckingInspection
             full_uri.args["_count"] = self._page_size
+        if self._page_number is not None or page_number is not None:
             # noinspection SpellCheckingInspection
             full_uri.args["_getpagesoffset"] = page_number or self._page_number
         if (
