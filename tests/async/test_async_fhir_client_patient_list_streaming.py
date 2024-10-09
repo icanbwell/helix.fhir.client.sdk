@@ -32,14 +32,19 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
             path=f"/{relative_url}/Patient",
             method="GET",
             headers={"Accept": "application/fhir+ndjson"},
+            querystring={"_getpagesoffset": "3"},
         ),
         mock_response(body=response_text),
         timing=times(2),
     )
 
     fhir_client = FhirClient()
-    fhir_client = fhir_client.url(absolute_url).resource("Patient")
-    fhir_client = fhir_client.use_data_streaming(True)
+    fhir_client = (
+        fhir_client.url(absolute_url)
+        .resource("Patient")
+        .page_number(3)
+        .use_data_streaming(True)
+    )
 
     async def on_chunk(data: bytes, chunk_number: Optional[int]) -> bool:
         print(f"Got chunk {chunk_number}: {data.decode('utf-8')}")
@@ -49,3 +54,29 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
 
     print(response.responses)
     assert response.responses == response_text
+    # test page_number can se set independent of page_size param
+    assert response.url == f"{absolute_url}/Patient?_getpagesoffset=3"
+
+    # test page_size can se set independent of page_number
+    mock_client.expect(
+        mock_request(
+            path=f"/{relative_url}/Patient",
+            method="GET",
+            headers={"Accept": "application/fhir+ndjson"},
+            querystring={"_count": "2"},
+        ),
+        mock_response(body=response_text),
+        timing=times(2),
+    )
+    fhir_client._page_size = None
+    fhir_client._page_number = None
+    fhir_client = (
+        fhir_client.url(absolute_url)
+        .resource("Patient")
+        .page_size(2)
+        .use_data_streaming(True)
+    )
+    fhir_response: FhirGetResponse = await fhir_client.get_async(
+        data_chunk_handler=on_chunk
+    )
+    assert fhir_response.url == f"{absolute_url}/Patient?_count=2"
