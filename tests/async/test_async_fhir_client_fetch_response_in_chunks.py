@@ -70,7 +70,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
                 response_headers=response_headers,
                 content=cast(StreamReader, ContentIterator(content)),
                 response_text=response_text,
-                use_data_streaming=False,
+                use_data_streaming=True,
             )
 
     class ContentIterator:
@@ -88,6 +88,9 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
         async def iter_chunked(self, chunk_size: int) -> AsyncGenerator[bytes, None]:
             for content, chunk_number in self._content:
                 yield content
+
+        def at_eof(self) -> bool:
+            return False
 
     # Mocking send_fhir_request_async method of fhir client class
     with patch.object(

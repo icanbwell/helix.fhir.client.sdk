@@ -555,7 +555,9 @@ class FhirResponseProcessor:
         start_time: float = time.time()
         chunk: Optional[str] = None
         try:
-            if response.content is None:
+            # Check if the response content is empty or the stream has reached the end. If either condition is true,
+            # yield a FhirGetResponse indicating no content was received from the request.
+            if response.content is None or response.content.at_eof():
                 yield FhirGetResponse(
                     request_id=request_id,
                     url=full_url,
