@@ -8,7 +8,7 @@ from typing import Any
 class FhirJSONEncoder(json.JSONEncoder):
     def default(self, o: Any) -> Any:
         if dataclasses.is_dataclass(o):
-            return dataclasses.asdict(o)  # type:ignore[call-overload]
+            return dataclasses.asdict(o)  # type:ignore
         if isinstance(o, Enum):
             return o.value
         if isinstance(o, (datetime, date)):
