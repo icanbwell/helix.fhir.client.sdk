@@ -8,7 +8,9 @@ from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
     SimulatedGraphProcessorMixin,
 )
+from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from tests.test_logger import TestLogger
 
 
 @pytest.fixture
@@ -41,6 +43,9 @@ async def test_process_simulate_graph_async(
     """
     Test the process_simulate_graph_async method.
     """
+
+    logger: FhirLogger = TestLogger()
+
     graph_json: Dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
@@ -68,7 +73,7 @@ async def test_process_simulate_graph_async(
             retrieve_and_restrict_to_capability_statement=None,
             ifModifiedSince=None,
             eTag=None,
-            logger=None,
+            logger=logger,
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
@@ -127,6 +132,9 @@ async def test_graph_definition_with_single_link(
     """
     Test GraphDefinition with a single link.
     """
+
+    logger: FhirLogger = TestLogger()
+
     graph_json: Dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
@@ -159,7 +167,7 @@ async def test_graph_definition_with_single_link(
             retrieve_and_restrict_to_capability_statement=None,
             ifModifiedSince=None,
             eTag=None,
-            logger=None,
+            logger=logger,
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
@@ -179,6 +187,9 @@ async def test_graph_definition_with_nested_links(
     """
     Test GraphDefinition with nested links.
     """
+
+    logger: FhirLogger = TestLogger()
+
     graph_json: Dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
@@ -235,7 +246,7 @@ async def test_graph_definition_with_nested_links(
             retrieve_and_restrict_to_capability_statement=None,
             ifModifiedSince=None,
             eTag=None,
-            logger=None,
+            logger=logger,
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
@@ -259,6 +270,8 @@ async def test_graph_definition_with_multiple_targets(
     """
     Test GraphDefinition with multiple targets.
     """
+    logger: FhirLogger = TestLogger()
+
     graph_json: Dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
@@ -303,7 +316,7 @@ async def test_graph_definition_with_multiple_targets(
             retrieve_and_restrict_to_capability_statement=None,
             ifModifiedSince=None,
             eTag=None,
-            logger=None,
+            logger=logger,
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
@@ -327,6 +340,9 @@ async def test_graph_definition_with_no_links(
     """
     Test GraphDefinition with no links (only the start resource).
     """
+
+    logger: FhirLogger = TestLogger()
+
     graph_json: Dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
@@ -354,7 +370,7 @@ async def test_graph_definition_with_no_links(
             retrieve_and_restrict_to_capability_statement=None,
             ifModifiedSince=None,
             eTag=None,
-            logger=None,
+            logger=logger,
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
@@ -374,6 +390,9 @@ async def test_process_simulate_graph_async_multiple_patients(
     """
     Test processing of multiple patients.
     """
+
+    logger: FhirLogger = TestLogger()
+
     graph_json: Dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
@@ -407,7 +426,7 @@ async def test_process_simulate_graph_async_multiple_patients(
             retrieve_and_restrict_to_capability_statement=None,
             ifModifiedSince=None,
             eTag=None,
-            logger=None,
+            logger=logger,
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
@@ -464,7 +483,7 @@ async def test_process_simulate_graph_async_multiple_patients(
 #             retrieve_and_restrict_to_capability_statement=None,
 #             ifModifiedSince=None,
 #             eTag=None,
-#             logger=None,
+#             logger=logger,
 #             url=None,
 #             expand_fhir_bundle=False,
 #             auth_scopes=[],
@@ -534,7 +553,7 @@ async def test_process_simulate_graph_async_multiple_patients(
 #             retrieve_and_restrict_to_capability_statement=None,
 #             ifModifiedSince=None,
 #             eTag=None,
-#             logger=None,
+#             logger=logger,
 #             url=None,
 #             expand_fhir_bundle=False,
 #             auth_scopes=[],

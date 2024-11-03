@@ -123,17 +123,32 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
             async def process_link_async(
                 row: GraphDefinitionLink,
-                parameters: Optional[Dict[str, Any]],
+                name: str,
                 log_level: Optional[str],
+                task_index: int,
+                total_task_count: int,
                 **kwargs: Any,
             ) -> List[FhirGetResponse]:
-                return await self._process_link_async(
+                start_time: datetime = datetime.now()
+                if logger:
+                    logger.debug(
+                        f"Processing link | task_index: {task_index} | path={row.path}"
+                        f" | processor: {name} | start_time: {start_time}"
+                    )
+                result: List[FhirGetResponse] = await self._process_link_async(
                     link=row,
                     parent_bundle_entry=parent_bundle_entry,
                     logger=logger,
                     cache=cache,
                     scope_parser=scope_parser,
                 )
+                end_time: datetime = datetime.now()
+                if logger:
+                    logger.debug(
+                        f"Finished Processing link | task_index: {task_index} | path={row.path} | processor: {name}"
+                        f" | end_time: {end_time} | duration: {end_time - start_time}"
+                    )
+                return result
 
             # now process the graph links
             responses: List[FhirGetResponse] = []
@@ -142,8 +157,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 parent_bundle_entry: BundleEntry
                 for parent_bundle_entry in parent_bundle_entries:
                     link_responses: List[FhirGetResponse]
+                    # noinspection PyTypeChecker
                     async for link_responses in AsyncParallelProcessor(
-                        max_concurrent_tasks=concurrent_requests
+                        name="process_link_async",
+                        max_concurrent_tasks=concurrent_requests,
                     ).process_rows_in_parallel(
                         rows=graph_definition.link,
                         process_row_fn=process_link_async,
@@ -258,6 +275,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         parent_resource: Optional[Dict[str, Any]] = (
             parent_bundle_entry.resource if parent_bundle_entry else None
         )
+        reference: Optional[Union[Dict[str, Any], str]] = None
 
         # forward link and iterate over list
         if path and "[x]" in path:
