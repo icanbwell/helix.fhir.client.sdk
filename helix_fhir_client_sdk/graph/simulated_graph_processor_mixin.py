@@ -25,6 +25,7 @@ from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProto
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.async_parallel_processor.v1.async_parallel_processor import (
     AsyncParallelProcessor,
+    ParallelFunctionContext,
 )
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
@@ -122,11 +123,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             bundle = Bundle(entry=parent_bundle_entries)
 
             async def process_link_async(
+                context: ParallelFunctionContext,
                 row: GraphDefinitionLink,
-                name: str,
-                log_level: Optional[str],
-                task_index: int,
-                total_task_count: int,
                 **kwargs: Any,
             ) -> List[FhirGetResponse]:
                 start_time: datetime = datetime.now()
@@ -137,13 +135,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 )
                 if logger:
                     logger.debug(
-                        f"Processing link | task_index: {task_index}"
+                        f"Processing link"
+                        + f" | task_index: {context.task_index}/{context.total_task_count}"
                         + (
                             f" | path: {row.path}"
                             if row.path
                             else f" | target: {target_resource_type}"
                         )
-                        + f" | parallel_processor: {name}"
+                        + f" | parallel_processor: {context.name}"
                         + f" | start_time: {start_time}"
                     )
                 result: List[FhirGetResponse] = await self._process_link_async(
@@ -156,13 +155,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 end_time: datetime = datetime.now()
                 if logger:
                     logger.debug(
-                        f"Finished Processing link | task_index: {task_index}"
+                        f"Finished Processing link"
+                        + f" | task_index: {context.task_index}/{context.total_task_count}"
                         + (
                             f" | path: {row.path}"
                             if row.path
                             else f" | target: {target_resource_type}"
                         )
-                        + f" | parallel_processor: {name}"
+                        + f" | parallel_processor: {context.name}"
                         + f" | end_time: {end_time}"
                         + f" | duration: {end_time - start_time}"
                         + f" | resource_count: {len(result)}"
