@@ -44,9 +44,10 @@ run-pre-commit: setup-pre-commit
 	./.git/hooks/pre-commit
 
 .PHONY:update
-update: Pipfile.lock setup-pre-commit  ## Updates all the packages using Pipfile
+update: down Pipfile.lock setup-pre-commit  ## Updates all the packages using Pipfile
 	make devdocker && \
-	make pipenv-setup
+	make pipenv-setup && \
+	make up
 
 .PHONY:tests
 tests: up
@@ -95,8 +96,8 @@ console_test:  ## runs the test via console to download resources from FHIR serv
 	python ./console_test.py
 
 .PHONY:pipenv-setup
-pipenv-setup:devdocker ## Brings up the bash shell in dev docker
-	docker compose run --rm --name helix.fhir.client.sdk dev sh -c "pipenv run pipenv install --skip-lock --categories \"pipenvsetup\" && pipenv run pipenv-setup sync --pipfile" && \
+pipenv-setup:devdocker ## Run pipenv-setup to update setup.py with latest dependencies
+	docker compose run --rm --name helix_fhir_client dev sh -c "pipenv run pipenv install --skip-lock --categories \"pipenvsetup\" && pipenv run pipenv-setup sync --pipfile" && \
 	make run-pre-commit
 
 .PHONY:clean

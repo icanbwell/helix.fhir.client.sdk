@@ -141,17 +141,15 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 link: GraphDefinitionLink
                 parent_bundle_entry: BundleEntry
                 for parent_bundle_entry in parent_bundle_entries:
-                    # noinspection PyTypeChecker
-                    link_responses: List[FhirGetResponse] = (
-                        await AsyncParallelProcessor.process_rows_in_parallel(
+                    link_responses: List[FhirGetResponse]
+                    async for link_responses in AsyncParallelProcessor(max_concurrent_tasks=concurrent_requests).process_rows_in_parallel(
                             rows=graph_definition.link,
-                            process_row_fn=self._process_link_async,
-                            max_concurrent_tasks=concurrent_requests,
+                            process_row_fn=process_link_async,
                             parameters={},
                             log_level=self._log_level,
-                        )
-                    )
-                    responses.extend(link_responses)
+                        ):
+                        responses.extend(link_responses)
+
             FhirBundleAppender.append_responses(responses=responses, bundle=bundle)
 
             bundle = FhirBundleAppender.remove_duplicate_resources(bundle=bundle)
