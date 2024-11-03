@@ -1,8 +1,10 @@
-from typing import Dict, Any, List, Optional, cast
+import asyncio
+import json
+from typing import Dict, Any, List, Optional, cast, Callable, Awaitable
 
 import aiohttp
 import pytest
-from aioresponses import aioresponses
+from aioresponses import aioresponses, CallbackResult
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
@@ -37,6 +39,29 @@ def get_graph_processor(*, max_concurrent_requests: Optional[int] = None) -> Fhi
         FhirClient, processor.set_max_concurrent_requests(max_concurrent_requests)
     )
     return processor
+
+
+def get_payload_function(
+    payload: Dict[str, Any], delay: int = 0, status: int = 200
+) -> Callable[[str, Any], Awaitable[CallbackResult]]:
+    """
+    This function returns a function that will return a delayed response with the given payload.
+
+    :param payload: The payload to return in the response.
+    :param delay: The delay in seconds before returning the response.
+    :param status: The status code to return in the response.
+    :return: The function that will return the delayed response.
+    """
+
+    async def delayed_response(url: str, **kwargs: Any) -> CallbackResult:
+        await asyncio.sleep(delay)  # 2 second delay
+        return CallbackResult(
+            status=status,
+            headers={},
+            body=json.dumps(payload),
+        )
+
+    return delayed_response  # type: ignore[return-value]
 
 
 @pytest.mark.asyncio
@@ -578,17 +603,17 @@ async def test_graph_definition_with_multiple_links_concurrent_requests() -> Non
         # Mock the HTTP GET request for the initial resource
         m.get(
             "http://example.com/fhir/Patient/1",
-            payload={"resourceType": "Patient", "id": "1"},
+            callback=get_payload_function({"resourceType": "Patient", "id": "1"}),
         )
         # Mock the HTTP GET request for the linked Observation
         m.get(
             "http://example.com/fhir/Observation?subject=1",
-            payload={"resourceType": "Observation", "id": "1"},
+            callback=get_payload_function({"resourceType": "Observation", "id": "1"}),
         )
         # Mock the HTTP GET request for the linked Condition
         m.get(
             "http://example.com/fhir/Condition?subject=1",
-            payload={"resourceType": "Condition", "id": "1"},
+            callback=get_payload_function({"resourceType": "Condition", "id": "1"}),
         )
 
         async_gen = graph_processor.process_simulate_graph_async(
@@ -652,17 +677,17 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests() -> N
         # Mock the HTTP GET request for the initial resource
         m.get(
             "http://example.com/fhir/Patient/1",
-            payload={"resourceType": "Patient", "id": "1"},
+            callback=get_payload_function({"resourceType": "Patient", "id": "1"}),
         )
         # Mock the HTTP GET request for the linked Observation
         m.get(
             "http://example.com/fhir/Observation?subject=1",
-            payload={"resourceType": "Observation", "id": "1"},
+            callback=get_payload_function({"resourceType": "Observation", "id": "1"}),
         )
         # Mock the HTTP GET request for the linked Condition
         m.get(
             "http://example.com/fhir/Condition?subject=1",
-            payload={"resourceType": "Condition", "id": "1"},
+            callback=get_payload_function({"resourceType": "Condition", "id": "1"}),
         )
 
         async_gen = graph_processor.process_simulate_graph_async(
