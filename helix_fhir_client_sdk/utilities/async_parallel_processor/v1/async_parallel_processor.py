@@ -62,6 +62,7 @@ class AsyncParallelProcessor:
         TInput, TOutput, TParameters: Dict[str, Any] | object
     ](
         self,
+        *,
         rows: List[TInput],
         process_row_fn: ParallelFunction[TInput, TOutput, TParameters],
         parameters: Optional[TParameters],
@@ -85,12 +86,14 @@ class AsyncParallelProcessor:
         ) -> TOutput:
             async with self.semaphore:
                 return await process_row_fn(
-                    name=name,
+                    context=ParallelFunctionContext(
+                        name=name,
+                        log_level=log_level,
+                        task_index=task_index,
+                        total_task_count=total_task_count,
+                    ),
                     row=row1,
                     parameters=parameters,
-                    log_level=log_level,
-                    task_index=task_index,
-                    total_task_count=total_task_count,
                     **kwargs,
                 )
 
