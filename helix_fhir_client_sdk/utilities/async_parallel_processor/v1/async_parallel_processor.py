@@ -47,16 +47,20 @@ class ParallelFunction[TInput, TOutput, TParameters](Protocol):
 
 
 class AsyncParallelProcessor:
-    def __init__(self, *, name: str, max_concurrent_tasks: int) -> None:
+    def __init__(
+        self, *, name: str, max_concurrent_tasks: Optional[int] = None
+    ) -> None:
         """
         This class is used to process rows in parallel
 
         :param name: name of the processor
-        :param max_concurrent_tasks: maximum number of concurrent tasks
+        :param max_concurrent_tasks: maximum number of concurrent tasks.  If None, there is no limit
         """
         self.name: str = name
-        self.max_concurrent_tasks: int = max_concurrent_tasks
-        self.semaphore: asyncio.Semaphore = asyncio.Semaphore(max_concurrent_tasks)
+        self.max_concurrent_tasks: Optional[int] = max_concurrent_tasks
+        self.semaphore: Optional[asyncio.Semaphore] = (
+            asyncio.Semaphore(max_concurrent_tasks) if max_concurrent_tasks else None
+        )
 
     async def process_rows_in_parallel[
         TInput, TOutput, TParameters: Dict[str, Any] | object
@@ -84,7 +88,7 @@ class AsyncParallelProcessor:
         async def process_with_semaphore(
             *, name: str, row1: TInput, task_index: int, total_task_count: int
         ) -> TOutput:
-            async with self.semaphore:
+            if self.semaphore is None:
                 return await process_row_fn(
                     context=ParallelFunctionContext(
                         name=name,
@@ -96,6 +100,19 @@ class AsyncParallelProcessor:
                     parameters=parameters,
                     **kwargs,
                 )
+            else:
+                async with self.semaphore:
+                    return await process_row_fn(
+                        context=ParallelFunctionContext(
+                            name=name,
+                            log_level=log_level,
+                            task_index=task_index,
+                            total_task_count=total_task_count,
+                        ),
+                        row=row1,
+                        parameters=parameters,
+                        **kwargs,
+                    )
 
         total_task_count: int = len(rows)
         # Create all tasks at once with their indices
