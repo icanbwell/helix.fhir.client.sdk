@@ -583,9 +583,12 @@ async def test_graph_definition_with_multiple_links_concurrent_requests(
         assert (
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
-        assert resources[0] == {"resourceType": "Patient", "id": "1"}
-        assert resources[1] == {"resourceType": "Observation", "id": "1"}
-        assert resources[2] == {"resourceType": "Condition", "id": "1"}
+        patient = [r for r in resources if r["resourceType"] == "Patient"][0]
+        assert patient == {"resourceType": "Patient", "id": "1"}
+        observation = [r for r in resources if r["resourceType"] == "Observation"][0]
+        assert observation == {"resourceType": "Observation", "id": "1"}
+        condition = [r for r in resources if r["resourceType"] == "Condition"][0]
+        assert condition == {"resourceType": "Condition", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -653,6 +656,9 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests(
         assert (
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
-        assert resources[0] == {"resourceType": "Patient", "id": "1"}
-        assert resources[1] == {"resourceType": "Observation", "id": "1"}
-        assert resources[2] == {"resourceType": "Condition", "id": "1"}
+        patient = [r for r in resources if r["resourceType"] == "Patient"][0]
+        assert patient == {"resourceType": "Patient", "id": "1"}
+        observation = [r for r in resources if r["resourceType"] == "Observation"][0]
+        assert observation == {"resourceType": "Observation", "id": "1"}
+        condition = [r for r in resources if r["resourceType"] == "Condition"][0]
+        assert condition == {"resourceType": "Condition", "id": "1"}

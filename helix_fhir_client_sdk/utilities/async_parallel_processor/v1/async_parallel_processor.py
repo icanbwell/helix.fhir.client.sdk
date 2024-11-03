@@ -19,6 +19,7 @@ class ParallelFunctionContext:
     """ index of the task """
     task_index: int
 
+    """ total number of tasks """
     total_task_count: int
 
 
@@ -54,7 +55,7 @@ class AsyncParallelProcessor:
         This class is used to process rows in parallel
 
         :param name: name of the processor
-        :param max_concurrent_tasks: maximum number of concurrent tasks.  If None, there is no limit
+        :param max_concurrent_tasks: maximum number of concurrent tasks. If None, there is no limit
         """
         self.name: str = name
         self.max_concurrent_tasks: Optional[int] = max_concurrent_tasks
@@ -115,6 +116,7 @@ class AsyncParallelProcessor:
                     )
 
         total_task_count: int = len(rows)
+
         # Create all tasks at once with their indices
         pending: Set[Task[TOutput]] = {
             asyncio.create_task(
