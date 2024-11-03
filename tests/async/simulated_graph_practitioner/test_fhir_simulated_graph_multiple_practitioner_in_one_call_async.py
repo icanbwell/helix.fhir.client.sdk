@@ -197,11 +197,35 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
             {
                 "request": {
                     "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/PractitionerRole?practitioner=2",
+                },
+                "resource": {
+                    "id": "12",
+                    "practitioner": {"reference": "Practitioner/2"},
+                    "resourceType": "PractitionerRole",
+                },
+                "response": {"status": "200"},
+            },
+            {
+                "request": {
+                    "method": "GET",
                     "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Schedule?actor=10",
                 },
                 "resource": {
                     "actor": {"reference": "PractitionerRole/10"},
                     "id": "100",
+                    "resourceType": "Schedule",
+                },
+                "response": {"status": "200"},
+            },
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Schedule?actor=12",
+                },
+                "resource": {
+                    "actor": {"reference": "PractitionerRole/12"},
+                    "id": "120",
                     "resourceType": "Schedule",
                 },
                 "response": {"status": "200"},
@@ -215,30 +239,6 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
                     "id": "1000",
                     "resourceType": "Slot",
                     "schedule": {"reference": "Schedule/100"},
-                },
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/PractitionerRole?practitioner=2",
-                },
-                "resource": {
-                    "id": "12",
-                    "practitioner": {"reference": "Practitioner/2"},
-                    "resourceType": "PractitionerRole",
-                },
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Schedule?actor=12",
-                },
-                "resource": {
-                    "actor": {"reference": "PractitionerRole/12"},
-                    "id": "120",
-                    "resourceType": "Schedule",
                 },
                 "response": {"status": "200"},
             },

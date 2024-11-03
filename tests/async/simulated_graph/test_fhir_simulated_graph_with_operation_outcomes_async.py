@@ -406,5 +406,7 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
 
     bundle = json.loads(response.responses)
     # sort the entries by resource id
-    bundle["entry"] = sorted(bundle["entry"], key=lambda x: int(x["resource"]["id"]))
+    bundle["entry"] = sorted(
+        bundle["entry"], key=lambda x: int(x["resource"].get("id") or 0)
+    )
     assert bundle == expected_json
