@@ -131,7 +131,7 @@ async def test_fhir_simulated_graph_async() -> None:
     assert response is not None
     print(response.responses)
 
-    expected_json = {
+    expected_json: Dict[str, Any] = {
         "Patient": [
             {
                 "resourceType": "Patient",
@@ -193,36 +193,6 @@ async def test_fhir_simulated_graph_async() -> None:
                             "coding": [
                                 {
                                     "system": "https://www.icanbwell.com/url",
-                                    "code": "http://mock-server:1080/test_fhir_simulated_graph_async/MedicationRequest?patient=1",
-                                },
-                                {
-                                    "system": "https://www.icanbwell.com/resourceType",
-                                    "code": "MedicationRequest",
-                                },
-                                {
-                                    "system": "https://www.icanbwell.com/statuscode",
-                                    "code": 404,
-                                },
-                                {
-                                    "system": "https://www.icanbwell.com/accessToken",
-                                    "code": "my_access_token",
-                                },
-                            ]
-                        },
-                        "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_async/MedicationRequest?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"service_slug": "medstar"}, "accessToken": "my_access_token", "requestId": null, "resourceType": "MedicationRequest", "id": null}',
-                    }
-                ],
-            },
-            {
-                "resourceType": "OperationOutcome",
-                "issue": [
-                    {
-                        "severity": "error",
-                        "code": "not-found",
-                        "details": {
-                            "coding": [
-                                {
-                                    "system": "https://www.icanbwell.com/url",
                                     "code": "http://mock-server:1080/test_fhir_simulated_graph_async/MedicationDispense?patient=1",
                                 },
                                 {
@@ -243,8 +213,41 @@ async def test_fhir_simulated_graph_async() -> None:
                     }
                 ],
             },
+            {
+                "resourceType": "OperationOutcome",
+                "issue": [
+                    {
+                        "severity": "error",
+                        "code": "not-found",
+                        "details": {
+                            "coding": [
+                                {
+                                    "system": "https://www.icanbwell.com/url",
+                                    "code": "http://mock-server:1080/test_fhir_simulated_graph_async/MedicationRequest?patient=1",
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/resourceType",
+                                    "code": "MedicationRequest",
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/statuscode",
+                                    "code": 404,
+                                },
+                                {
+                                    "system": "https://www.icanbwell.com/accessToken",
+                                    "code": "my_access_token",
+                                },
+                            ]
+                        },
+                        "diagnostics": '{"url": "http://mock-server:1080/test_fhir_simulated_graph_async/MedicationRequest?patient=1", "error": "NotFound", "status": 404, "extra_context_to_return": {"service_slug": "medstar"}, "accessToken": "my_access_token", "requestId": null, "resourceType": "MedicationRequest", "id": null}',
+                    }
+                ],
+            },
         ],
         "Observation": [{"resourceType": "Observation", "id": "8"}],
     }
 
-    assert json.loads(response.responses) == expected_json
+    result = json.loads(response.responses)
+    result = dict(sorted(result.items()))
+    expected_json = dict(sorted(expected_json.items()))
+    assert result == expected_json
