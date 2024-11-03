@@ -131,7 +131,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             ) -> List[FhirGetResponse]:
                 start_time: datetime = datetime.now()
                 target_resource_type: Optional[str] = (
-                    row.target[0].type_ if row.target else None
+                    ", ".join([target.type_ for target in row.target])
+                    if row.target
+                    else None
                 )
                 if logger:
                     logger.debug(
