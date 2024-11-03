@@ -30,18 +30,14 @@ class ParallelFunction[TInput, TOutput, TParameters](Protocol):
         context: ParallelFunctionContext,
         row: TInput,
         parameters: Optional[TParameters],
-        **kwargs: Any,
+        additional_parameters: Optional[Dict[str, Any]],
     ) -> TOutput:
         """
         Handle a batch of data
 
-        :param name: name of the processor
         :param row: row to process
         :param parameters: parameters to pass to the process_row_fn
-        :param log_level: log level
-        :param task_index: index of the task
-        :param total_task_count: total number of tasks
-        :param kwargs: additional parameters
+        :param additional_parameters: additional parameters
         :return: result of processing
         """
         ...
@@ -99,7 +95,7 @@ class AsyncParallelProcessor:
                     ),
                     row=row1,
                     parameters=parameters,
-                    **kwargs,
+                    additional_parameters=kwargs,
                 )
             else:
                 async with self.semaphore:
@@ -112,7 +108,7 @@ class AsyncParallelProcessor:
                         ),
                         row=row1,
                         parameters=parameters,
-                        **kwargs,
+                        additional_parameters=kwargs,
                     )
 
         total_task_count: int = len(rows)

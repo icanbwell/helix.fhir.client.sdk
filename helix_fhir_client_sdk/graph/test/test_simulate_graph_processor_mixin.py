@@ -183,8 +183,10 @@ async def test_graph_definition_with_single_link() -> None:
         response = [r async for r in async_gen]
         assert len(response) == 1
         resources: List[Dict[str, Any]] = response[0].get_resources()
-        assert resources[0] == {"resourceType": "Patient", "id": "1"}
-        assert resources[1] == {"resourceType": "Observation", "id": "1"}
+        patient = [r for r in resources if r["resourceType"] == "Patient"][0]
+        assert patient == {"resourceType": "Patient", "id": "1"}
+        observation = [r for r in resources if r["resourceType"] == "Observation"][0]
+        assert observation == {"resourceType": "Observation", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -266,9 +268,12 @@ async def test_graph_definition_with_nested_links() -> None:
         assert (
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
-        assert resources[0] == {"resourceType": "Patient", "id": "1"}
-        assert resources[1] == {"resourceType": "Observation", "id": "1"}
-        assert resources[2] == {"resourceType": "DiagnosticReport", "id": "1"}
+        patient = [r for r in resources if r["resourceType"] == "Patient"][0]
+        assert patient == {"resourceType": "Patient", "id": "1"}
+        observation = [r for r in resources if r["resourceType"] == "Observation"][0]
+        assert observation == {"resourceType": "Observation", "id": "1"}
+        condition = [r for r in resources if r["resourceType"] == "DiagnosticReport"][0]
+        assert condition == {"resourceType": "DiagnosticReport", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -341,9 +346,12 @@ async def test_graph_definition_with_multiple_links() -> None:
         assert (
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
-        assert resources[0] == {"resourceType": "Patient", "id": "1"}
-        assert resources[1] == {"resourceType": "Observation", "id": "1"}
-        assert resources[2] == {"resourceType": "Condition", "id": "1"}
+        patient = [r for r in resources if r["resourceType"] == "Patient"][0]
+        assert patient == {"resourceType": "Patient", "id": "1"}
+        observation = [r for r in resources if r["resourceType"] == "Observation"][0]
+        assert observation == {"resourceType": "Observation", "id": "1"}
+        condition = [r for r in resources if r["resourceType"] == "Condition"][0]
+        assert condition == {"resourceType": "Condition", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -412,9 +420,12 @@ async def test_graph_definition_with_multiple_targets() -> None:
         assert (
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
-        assert resources[0] == {"resourceType": "Patient", "id": "1"}
-        assert resources[1] == {"resourceType": "Observation", "id": "1"}
-        assert resources[2] == {"resourceType": "Condition", "id": "1"}
+        patient = [r for r in resources if r["resourceType"] == "Patient"][0]
+        assert patient == {"resourceType": "Patient", "id": "1"}
+        observation = [r for r in resources if r["resourceType"] == "Observation"][0]
+        assert observation == {"resourceType": "Observation", "id": "1"}
+        condition = [r for r in resources if r["resourceType"] == "Condition"][0]
+        assert condition == {"resourceType": "Condition", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -519,9 +530,18 @@ async def test_process_simulate_graph_async_multiple_patients() -> None:
         response = [r async for r in async_gen]
         assert len(response) == 1
         resources: List[Dict[str, Any]] = response[0].get_resources()
-        assert resources[0] == {"resourceType": "Patient", "id": "1"}
-        assert resources[1] == {"resourceType": "Patient", "id": "2"}
-        assert resources[2] == {"resourceType": "Patient", "id": "3"}
+        patient = [
+            r for r in resources if r["resourceType"] == "Patient" and r["id"] == "1"
+        ][0]
+        assert patient == {"resourceType": "Patient", "id": "1"}
+        patient = [
+            r for r in resources if r["resourceType"] == "Patient" and r["id"] == "2"
+        ][0]
+        assert patient == {"resourceType": "Patient", "id": "2"}
+        patient = [
+            r for r in resources if r["resourceType"] == "Patient" and r["id"] == "3"
+        ][0]
+        assert patient == {"resourceType": "Patient", "id": "3"}
 
 
 @pytest.mark.asyncio
