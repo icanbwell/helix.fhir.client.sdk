@@ -725,3 +725,116 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests() -> N
         assert observation == {"resourceType": "Observation", "id": "1"}
         condition = [r for r in resources if r["resourceType"] == "Condition"][0]
         assert condition == {"resourceType": "Condition", "id": "1"}
+
+
+@pytest.mark.asyncio
+async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
+    """
+    Test GraphDefinition with multiple targets.
+    """
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
+        max_concurrent_requests=3
+    )
+
+    logger: FhirLogger = TestLogger()
+
+    graph_json: Dict[str, Any] = {
+        "id": "1",
+        "name": "Test Graph",
+        "resourceType": "GraphDefinition",
+        "start": "Patient",
+        "link": [
+            {
+                "target": [
+                    {
+                        "type": "Encounter",
+                        "params": "patient={ref}",
+                        "link": [
+                            {
+                                "path": "participant.individual[x]",
+                                "target": [{"type": "Practitioner"}],
+                            },
+                            {
+                                "path": "location.location[x]",
+                                "target": [{"type": "Location"}],
+                            },
+                            {
+                                "path": "serviceProvider",
+                                "target": [{"type": "Organization"}],
+                            },
+                        ],
+                    }
+                ]
+            },
+        ],
+    }
+
+    with aioresponses() as m:
+        # Mock the HTTP GET request for the initial resource
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            callback=get_payload_function({"resourceType": "Patient", "id": "1"}),
+        )
+        # Mock the HTTP GET request for the linked Observation
+        m.get(
+            "http://example.com/fhir/Encounter?patient=1",
+            callback=get_payload_function(
+                {
+                    "entry": [
+                        {
+                            "resource": {
+                                "resourceType": "Encounter",
+                                "id": "8",
+                                "participant": [
+                                    {"individual": {"reference": "Practitioner/12345"}}
+                                ],
+                            }
+                        },
+                        {
+                            "resource": {
+                                "resourceType": "Encounter",
+                                "id": "10",
+                                "participant": [
+                                    {"individual": {"reference": "Practitioner/12345"}}
+                                ],
+                            }
+                        },
+                    ]
+                }
+            ),
+        )
+
+        async_gen = graph_processor.process_simulate_graph_async(
+            id_="1",
+            graph_json=graph_json,
+            contained=False,
+            separate_bundle_resources=False,
+            restrict_to_scope=None,
+            restrict_to_resources=None,
+            restrict_to_capability_statement=None,
+            retrieve_and_restrict_to_capability_statement=None,
+            ifModifiedSince=None,
+            eTag=None,
+            logger=logger,
+            url=None,
+            expand_fhir_bundle=False,
+            auth_scopes=[],
+        )
+
+        response = [r async for r in async_gen]
+        assert len(response) == 1
+
+        m.assert_any_call(url="http://example.com/fhir/Patient/1")
+        m.assert_any_call(url="http://example.com/fhir/Encounter?patient=1")
+        m.assert_any_call(url="http://example.com/fhir/Practitioner/12345")
+
+        resources: List[Dict[str, Any]] = response[0].get_resources()
+        assert (
+            len(resources) == 3
+        ), f"Expected 3 resources, got {len(resources)}: {resources}"
+        patient = [r for r in resources if r["resourceType"] == "Patient"][0]
+        assert patient == {"resourceType": "Patient", "id": "1"}
+        observation = [r for r in resources if r["resourceType"] == "Encounter"][0]
+        assert observation == {"resourceType": "Encounter", "id": "1"}
+        condition = [r for r in resources if r["resourceType"] == "Practitioner"][0]
+        assert condition == {"resourceType": "Practitioner", "id": "1"}
