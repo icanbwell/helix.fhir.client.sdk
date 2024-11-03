@@ -143,7 +143,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             if row.path
                             else f" | target: {target_resource_type}"
                         )
-                        + f" | processor: {name} | start_time: {start_time}"
+                        + f" | parallel_processor: {name}"
+                        + f" | start_time: {start_time}"
                     )
                 result: List[FhirGetResponse] = await self._process_link_async(
                     link=row,
@@ -161,8 +162,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             if row.path
                             else f" | target: {target_resource_type}"
                         )
-                        + f" | processor: {name}"
-                        + f" | end_time: {end_time} | duration: {end_time - start_time}"
+                        + f" | parallel_processor: {name}"
+                        + f" | end_time: {end_time}"
+                        + f" | duration: {end_time - start_time}"
                         + f" | resource_count: {len(result)}"
                     )
                 return result
