@@ -281,4 +281,7 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
         ]
     }
 
-    assert json.loads(response.responses) == expected_json
+    bundle = json.loads(response.responses)
+    # sort the entries by request url
+    bundle["entry"] = sorted(bundle["entry"], key=lambda x: int(x["resource"]["id"]))
+    assert bundle == expected_json

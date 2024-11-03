@@ -56,6 +56,8 @@ helix-mockserver-client=">=2.0.0"
 httpx=">=0.23.3"
 # aioresponses is needed for mocking HTTP requests
 aioresponses=">=0.7.6"
+# deepdiff is a Python library for comparing objects
+deepdiff = { version = ">=8.0.1" }
 
 # These dependencies are required for pipenv-setup.  They conflict with ones above, so we install these
 # only when running pipenv-setup

@@ -1,5 +1,7 @@
 import asyncio
 import json
+import logging
+from logging import Logger
 from typing import Dict, Any, List, Optional, cast, Callable, Awaitable
 
 import aiohttp
@@ -54,7 +56,11 @@ def get_payload_function(
     """
 
     async def delayed_response(url: str, **kwargs: Any) -> CallbackResult:
+        logger: Logger = logging.getLogger(__name__)
+        logger.setLevel(logging.INFO)
+        logger.info(f"Mock Request Received: {url}")
         await asyncio.sleep(delay)  # 2 second delay
+        logger.info(f"Mock Response Sent: {url}")
         return CallbackResult(
             status=status,
             headers={},

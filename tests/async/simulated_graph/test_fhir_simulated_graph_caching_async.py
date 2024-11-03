@@ -303,4 +303,10 @@ async def test_fhir_simulated_graph_caching_async() -> None:
         for e in bundle["entry"]
         if e["resource"]["resourceType"] != "OperationOutcome"
     ]
+
+    # diff = DeepDiff(bundle, expected_json, ignore_order=True)
+    # assert not diff, f"Diff: {diff}"
+
+    # sort the entries by request url
+    bundle["entry"] = sorted(bundle["entry"], key=lambda x: int(x["resource"]["id"]))
     assert bundle == expected_json
