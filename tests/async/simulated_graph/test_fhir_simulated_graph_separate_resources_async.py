@@ -250,4 +250,12 @@ async def test_fhir_simulated_graph_async() -> None:
     result = json.loads(response.responses)
     result = dict(sorted(result.items()))
     expected_json = dict(sorted(expected_json.items()))
+    result["OperationOutcome"] = sorted(
+        result["OperationOutcome"],
+        key=lambda x: x["issue"][0]["details"]["coding"][0]["code"],
+    )
+    expected_json["OperationOutcome"] = sorted(
+        expected_json["OperationOutcome"],
+        key=lambda x: x["issue"][0]["details"]["coding"][0]["code"],
+    )
     assert result == expected_json
