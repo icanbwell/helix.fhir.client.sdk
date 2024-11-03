@@ -40,7 +40,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         id_: Union[List[str], str],
         graph_json: Dict[str, Any],
         contained: bool,
-        concurrent_requests: int = 1,
         separate_bundle_resources: bool = False,
         restrict_to_scope: Optional[str] = None,
         restrict_to_resources: Optional[List[str]] = None,
@@ -59,7 +58,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         :param separate_bundle_resources:
         :param id_: single id or list of ids (ids can be comma separated too)
-        :param concurrent_requests: how many concurrent requests to make.  default is 1 which is sequential
         :param graph_json: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
                             parent resources in a contained property
@@ -179,7 +177,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     # noinspection PyTypeChecker
                     async for link_responses in AsyncParallelProcessor(
                         name="process_link_async",
-                        max_concurrent_tasks=concurrent_requests,
                     ).process_rows_in_parallel(
                         rows=graph_definition.link,
                         process_row_fn=process_link_async,
@@ -548,7 +545,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         id_: Union[List[str], str],
         graph_json: Dict[str, Any],
         contained: bool,
-        concurrent_requests: int = 1,
         separate_bundle_resources: bool = False,
         restrict_to_scope: Optional[str] = None,
         restrict_to_resources: Optional[List[str]] = None,
@@ -563,7 +559,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         :param separate_bundle_resources:
         :param id_: single id or list of ids (ids can be comma separated too)
-        :param concurrent_requests: number of concurrent requests to make.  Default is 1 (sequential)
         :param graph_json: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
                             parent resources in a contained property
@@ -586,7 +581,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 id_=id_,
                 graph_json=graph_json,
                 contained=contained,
-                concurrent_requests=concurrent_requests,
                 separate_bundle_resources=separate_bundle_resources,
                 restrict_to_scope=restrict_to_scope,
                 restrict_to_resources=restrict_to_resources,
@@ -610,7 +604,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         id_: Union[List[str], str],
         graph_json: Dict[str, Any],
         contained: bool,
-        concurrent_requests: int = 1,
         separate_bundle_resources: bool = False,
         restrict_to_scope: Optional[str] = None,
         restrict_to_resources: Optional[List[str]] = None,
@@ -625,7 +618,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         :param separate_bundle_resources:
         :param id_: single id or list of ids (ids can be comma separated too)
-        :param concurrent_requests: number of concurrent requests to make.  Default is 1 (sequential)
         :param graph_json: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
                             parent resources in a contained property
@@ -647,7 +639,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             id_=id_,
             graph_json=graph_json,
             contained=contained,
-            concurrent_requests=concurrent_requests,
             separate_bundle_resources=separate_bundle_resources,
             restrict_to_scope=restrict_to_scope,
             restrict_to_resources=restrict_to_resources,

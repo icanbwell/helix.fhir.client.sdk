@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional, cast
 
 import aiohttp
 import pytest
@@ -13,38 +13,43 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from tests.test_logger import TestLogger
 
 
-@pytest.fixture
-def graph_processor() -> FhirClient:
+class TestGraphProcessor(FhirClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.url("http://example.com/fhir")
+        self.id_("1")
+        self.log_level("DEBUG")
+        self.page_size(1)
+
+    def create_http_session(self) -> aiohttp.ClientSession:
+        """
+        Create a mock HTTP session.
+        """
+        return aiohttp.ClientSession()
+
+
+def get_graph_processor(*, max_concurrent_requests: Optional[int] = None) -> FhirClient:
     """
     Fixture to create an instance of the SimulatedGraphProcessorMixin class.
     """
-
-    class TestGraphProcessor(FhirClient):
-        def __init__(self) -> None:
-            super().__init__()
-            self.url("http://example.com/fhir")
-            self.id_("1")
-            self.log_level("DEBUG")
-            self.page_size(1)
-
-        def create_http_session(self) -> aiohttp.ClientSession:
-            """
-            Create a mock HTTP session.
-            """
-            return aiohttp.ClientSession()
-
-    return TestGraphProcessor()
+    processor: FhirClient = TestGraphProcessor()
+    processor = cast(
+        FhirClient, processor.set_max_concurrent_requests(max_concurrent_requests)
+    )
+    return processor
 
 
 @pytest.mark.asyncio
-async def test_process_simulate_graph_async(
-    graph_processor: SimulatedGraphProcessorMixin,
-) -> None:
+async def test_process_simulate_graph_async() -> None:
     """
     Test the process_simulate_graph_async method.
     """
 
     logger: FhirLogger = TestLogger()
+
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
+        max_concurrent_requests=1
+    )
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -65,7 +70,6 @@ async def test_process_simulate_graph_async(
             id_="1",
             graph_json=graph_json,
             contained=False,
-            concurrent_requests=1,
             separate_bundle_resources=False,
             restrict_to_scope=None,
             restrict_to_resources=None,
@@ -86,12 +90,15 @@ async def test_process_simulate_graph_async(
 
 
 @pytest.mark.asyncio
-async def test_simulate_graph_async(
-    graph_processor: SimulatedGraphProcessorMixin,
-) -> None:
+async def test_simulate_graph_async() -> None:
     """
     Test the simulate_graph_async method.
     """
+
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
+        max_concurrent_requests=1
+    )
+
     graph_json: Dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
@@ -111,7 +118,6 @@ async def test_simulate_graph_async(
             id_="1",
             graph_json=graph_json,
             contained=False,
-            concurrent_requests=1,
             separate_bundle_resources=False,
             restrict_to_scope=None,
             restrict_to_resources=None,
@@ -126,12 +132,14 @@ async def test_simulate_graph_async(
 
 
 @pytest.mark.asyncio
-async def test_graph_definition_with_single_link(
-    graph_processor: SimulatedGraphProcessorMixin,
-) -> None:
+async def test_graph_definition_with_single_link() -> None:
     """
     Test GraphDefinition with a single link.
     """
+
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
+        max_concurrent_requests=1
+    )
 
     logger: FhirLogger = TestLogger()
 
@@ -159,7 +167,6 @@ async def test_graph_definition_with_single_link(
             id_="1",
             graph_json=graph_json,
             contained=False,
-            concurrent_requests=1,
             separate_bundle_resources=False,
             restrict_to_scope=None,
             restrict_to_resources=None,
@@ -181,12 +188,14 @@ async def test_graph_definition_with_single_link(
 
 
 @pytest.mark.asyncio
-async def test_graph_definition_with_nested_links(
-    graph_processor: SimulatedGraphProcessorMixin,
-) -> None:
+async def test_graph_definition_with_nested_links() -> None:
     """
     Test GraphDefinition with nested links.
     """
+
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
+        max_concurrent_requests=1
+    )
 
     logger: FhirLogger = TestLogger()
 
@@ -238,7 +247,6 @@ async def test_graph_definition_with_nested_links(
             id_="1",
             graph_json=graph_json,
             contained=False,
-            concurrent_requests=1,
             separate_bundle_resources=False,
             restrict_to_scope=None,
             restrict_to_resources=None,
@@ -264,12 +272,14 @@ async def test_graph_definition_with_nested_links(
 
 
 @pytest.mark.asyncio
-async def test_graph_definition_with_multiple_links(
-    graph_processor: SimulatedGraphProcessorMixin,
-) -> None:
+async def test_graph_definition_with_multiple_links() -> None:
     """
     Test GraphDefinition with multiple targets.
     """
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
+        max_concurrent_requests=1
+    )
+
     logger: FhirLogger = TestLogger()
 
     graph_json: Dict[str, Any] = {
@@ -312,7 +322,6 @@ async def test_graph_definition_with_multiple_links(
             id_="1",
             graph_json=graph_json,
             contained=False,
-            concurrent_requests=1,
             separate_bundle_resources=False,
             restrict_to_scope=None,
             restrict_to_resources=None,
@@ -338,12 +347,14 @@ async def test_graph_definition_with_multiple_links(
 
 
 @pytest.mark.asyncio
-async def test_graph_definition_with_multiple_targets(
-    graph_processor: SimulatedGraphProcessorMixin,
-) -> None:
+async def test_graph_definition_with_multiple_targets() -> None:
     """
     Test GraphDefinition with multiple targets.
     """
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
+        max_concurrent_requests=1
+    )
+
     logger: FhirLogger = TestLogger()
 
     graph_json: Dict[str, Any] = {
@@ -382,7 +393,6 @@ async def test_graph_definition_with_multiple_targets(
             id_="1",
             graph_json=graph_json,
             contained=False,
-            concurrent_requests=1,
             separate_bundle_resources=False,
             restrict_to_scope=None,
             restrict_to_resources=None,
@@ -408,12 +418,13 @@ async def test_graph_definition_with_multiple_targets(
 
 
 @pytest.mark.asyncio
-async def test_graph_definition_with_no_links(
-    graph_processor: SimulatedGraphProcessorMixin,
-) -> None:
+async def test_graph_definition_with_no_links() -> None:
     """
     Test GraphDefinition with no links (only the start resource).
     """
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
+        max_concurrent_requests=1
+    )
 
     logger: FhirLogger = TestLogger()
 
@@ -436,7 +447,6 @@ async def test_graph_definition_with_no_links(
             id_="1",
             graph_json=graph_json,
             contained=False,
-            concurrent_requests=1,
             separate_bundle_resources=False,
             restrict_to_scope=None,
             restrict_to_resources=None,
@@ -458,12 +468,13 @@ async def test_graph_definition_with_no_links(
 
 
 @pytest.mark.asyncio
-async def test_process_simulate_graph_async_multiple_patients(
-    graph_processor: SimulatedGraphProcessorMixin,
-) -> None:
+async def test_process_simulate_graph_async_multiple_patients() -> None:
     """
     Test processing of multiple patients.
     """
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
+        max_concurrent_requests=1
+    )
 
     logger: FhirLogger = TestLogger()
 
@@ -492,7 +503,6 @@ async def test_process_simulate_graph_async_multiple_patients(
             id_=["1", "2", "3"],
             graph_json=graph_json,
             contained=False,
-            concurrent_requests=1,
             separate_bundle_resources=False,
             restrict_to_scope=None,
             restrict_to_resources=None,
@@ -515,12 +525,14 @@ async def test_process_simulate_graph_async_multiple_patients(
 
 
 @pytest.mark.asyncio
-async def test_graph_definition_with_multiple_links_concurrent_requests(
-    graph_processor: SimulatedGraphProcessorMixin,
-) -> None:
+async def test_graph_definition_with_multiple_links_concurrent_requests() -> None:
     """
     Test GraphDefinition with multiple targets.
     """
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
+        max_concurrent_requests=3
+    )
+
     logger: FhirLogger = TestLogger()
 
     graph_json: Dict[str, Any] = {
@@ -563,7 +575,6 @@ async def test_graph_definition_with_multiple_links_concurrent_requests(
             id_="1",
             graph_json=graph_json,
             contained=False,
-            concurrent_requests=3,
             separate_bundle_resources=False,
             restrict_to_scope=None,
             restrict_to_resources=None,
@@ -592,12 +603,14 @@ async def test_graph_definition_with_multiple_links_concurrent_requests(
 
 
 @pytest.mark.asyncio
-async def test_graph_definition_with_multiple_targets_concurrent_requests(
-    graph_processor: SimulatedGraphProcessorMixin,
-) -> None:
+async def test_graph_definition_with_multiple_targets_concurrent_requests() -> None:
     """
     Test GraphDefinition with multiple targets.
     """
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
+        max_concurrent_requests=3
+    )
+
     logger: FhirLogger = TestLogger()
 
     graph_json: Dict[str, Any] = {
@@ -636,7 +649,6 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests(
             id_="1",
             graph_json=graph_json,
             contained=False,
-            concurrent_requests=3,
             separate_bundle_resources=False,
             restrict_to_scope=None,
             restrict_to_resources=None,
