@@ -59,6 +59,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         id_above: Optional[str] = None,
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
         additional_parameters: Optional[List[str]] = None,
+        resource_type: Optional[str] = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         issues a GET call with the specified session, page_number and ids
@@ -72,7 +73,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         :return: response
         """
         assert self._url, "No FHIR server url was set"
-        assert self._resource, "No Resource was set"
+        assert resource_type or self._resource, "No Resource was set"
         request_id: Optional[str] = None
 
         # create url and query to request from FHIR server
@@ -82,6 +83,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
             id_above=id_above,
             page_number=page_number,
             additional_parameters=additional_parameters,
+            resource_type=resource_type or self._resource,
         )
 
         # set up headers
@@ -160,7 +162,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                     resources_json=resources_json,
                     full_url=full_url,
                     request_id=request_id,
-                    resource=self._resource,
+                    resource=resource_type or self._resource,
                     id_=self._id,
                     chunk_size=self._chunk_size,
                     expand_fhir_bundle=self._expand_fhir_bundle,

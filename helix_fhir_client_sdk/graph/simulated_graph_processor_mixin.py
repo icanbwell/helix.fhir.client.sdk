@@ -500,8 +500,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 0,
             )
 
-        self.resource(resource=resource_type)
-
         id_list: Optional[List[str]]
         if id_ and not isinstance(id_, list):
             id_list = [id_]
@@ -558,6 +556,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 additional_parameters=parameters,
                 id_above=None,
                 fn_handle_streaming_chunk=None,
+                resource_type=resource_type,
             ):
                 result = result1
             assert result

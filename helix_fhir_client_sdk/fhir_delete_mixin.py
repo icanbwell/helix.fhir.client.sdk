@@ -96,6 +96,7 @@ class FhirDeleteMixin(FhirClientProtocol):
             page_number=None,
             ids=None,
             additional_parameters=additional_parameters,
+            resource_type=self._resource,
         )
         # setup retry
         # set up headers

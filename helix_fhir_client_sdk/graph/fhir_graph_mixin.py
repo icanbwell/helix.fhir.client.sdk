@@ -59,6 +59,7 @@ class FhirGraphMixin(FhirClientProtocol):
                 id_above=None,
                 page_number=self._page_number,
                 ids=chunk,
+                resource_type=self._resource,
             ):
                 yield result1
 

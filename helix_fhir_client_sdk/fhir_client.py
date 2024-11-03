@@ -640,9 +640,10 @@ class FhirClient(
         id_above: Optional[str],
         ids: Optional[List[str]],
         page_number: Optional[int],
+        resource_type: Optional[str],
     ) -> str:
         full_uri: furl = furl(self._url)
-        full_uri /= self._resource
+        full_uri /= resource_type or self._resource
         if self._obj_id:
             full_uri /= parse.quote(str(self._obj_id), safe="")
         if ids is not None and len(ids) > 0:
