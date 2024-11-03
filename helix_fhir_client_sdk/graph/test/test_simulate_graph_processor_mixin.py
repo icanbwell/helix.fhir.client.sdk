@@ -804,6 +804,13 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
             ),
         )
 
+        m.get(
+            "http://example.com/fhir/Practitioner/12345",
+            callback=get_payload_function(
+                {"resourceType": "Practitioner", "id": "12345"}
+            ),
+        )
+
         async_gen = graph_processor.process_simulate_graph_async(
             id_="1",
             graph_json=graph_json,
@@ -830,11 +837,25 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
 
         resources: List[Dict[str, Any]] = response[0].get_resources()
         assert (
-            len(resources) == 3
+            len(resources) == 4
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient == {"resourceType": "Patient", "id": "1"}
-        observation = [r for r in resources if r["resourceType"] == "Encounter"][0]
-        assert observation == {"resourceType": "Encounter", "id": "1"}
+        encounter = [
+            r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "8"
+        ][0]
+        assert encounter == {
+            "resourceType": "Encounter",
+            "id": "8",
+            "participant": [{"individual": {"reference": "Practitioner/12345"}}],
+        }
+        encounter = [
+            r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "10"
+        ][0]
+        assert encounter == {
+            "resourceType": "Encounter",
+            "id": "10",
+            "participant": [{"individual": {"reference": "Practitioner/12345"}}],
+        }
         condition = [r for r in resources if r["resourceType"] == "Practitioner"][0]
-        assert condition == {"resourceType": "Practitioner", "id": "1"}
+        assert condition == {"resourceType": "Practitioner", "id": "12345"}

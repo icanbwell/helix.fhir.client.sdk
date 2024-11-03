@@ -161,9 +161,7 @@ async def test_fhir_simulated_graph_caching_async() -> None:
         timing=times(1),
     )
 
-    response_text = {
-        "entry": [{"resource": {"resourceType": "Practitioner", "id": "12345"}}]
-    }
+    response_text = {"resourceType": "Practitioner", "id": "12345"}
     mock_client.expect(
         request=mock_request(
             path=f"/{relative_url}/Practitioner/12345",
