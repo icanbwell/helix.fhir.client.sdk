@@ -23,6 +23,9 @@ from helix_fhir_client_sdk.graph.graph_definition import (
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.utilities.async_parallel_processor.v1.async_parallel_processor import (
+    AsyncParallelProcessor,
+)
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.request_cache import RequestCache
@@ -55,7 +58,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         :param separate_bundle_resources:
         :param id_: single id or list of ids (ids can be comma separated too)
-        :param concurrent_requests:
+        :param concurrent_requests: how many concurrent requests to make.  default is 1 which is sequential
         :param graph_json: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
                             parent resources in a contained property
@@ -118,22 +121,37 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # turn into a bundle if not already a bundle
             bundle = Bundle(entry=parent_bundle_entries)
 
+            async def process_link_async(
+                row: GraphDefinitionLink,
+                parameters: Optional[Dict[str, Any]],
+                log_level: Optional[str],
+                **kwargs: Any,
+            ) -> List[FhirGetResponse]:
+                return await self._process_link_async(
+                    link=row,
+                    parent_bundle_entry=parent_bundle_entry,
+                    logger=logger,
+                    cache=cache,
+                    scope_parser=scope_parser,
+                )
+
             # now process the graph links
             responses: List[FhirGetResponse] = []
             if graph_definition.link and len(graph_definition.link) > 0:
                 link: GraphDefinitionLink
-                for link in graph_definition.link:
-                    parent_bundle_entry: BundleEntry
-                    for parent_bundle_entry in parent_bundle_entries:
-                        responses.extend(
-                            await self._process_link_async(
-                                link=link,
-                                parent_bundle_entry=parent_bundle_entry,
-                                logger=logger,
-                                cache=cache,
-                                scope_parser=scope_parser,
-                            )
+                parent_bundle_entry: BundleEntry
+                for parent_bundle_entry in parent_bundle_entries:
+                    # noinspection PyTypeChecker
+                    link_responses: List[FhirGetResponse] = (
+                        await AsyncParallelProcessor.process_rows_in_parallel(
+                            rows=graph_definition.link,
+                            process_row_fn=self._process_link_async,
+                            max_concurrent_tasks=concurrent_requests,
+                            parameters={},
+                            log_level=self._log_level,
                         )
+                    )
+                    responses.extend(link_responses)
             FhirBundleAppender.append_responses(responses=responses, bundle=bundle)
 
             bundle = FhirBundleAppender.remove_duplicate_resources(bundle=bundle)
@@ -508,7 +526,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         :param separate_bundle_resources:
         :param id_: single id or list of ids (ids can be comma separated too)
-        :param concurrent_requests:
+        :param concurrent_requests: number of concurrent requests to make.  Default is 1 (sequential)
         :param graph_json: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
                             parent resources in a contained property
@@ -570,7 +588,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         :param separate_bundle_resources:
         :param id_: single id or list of ids (ids can be comma separated too)
-        :param concurrent_requests:
+        :param concurrent_requests: number of concurrent requests to make.  Default is 1 (sequential)
         :param graph_json: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
                             parent resources in a contained property

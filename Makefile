@@ -3,9 +3,8 @@ LANG=en_US.utf-8
 export LANG
 
 .PHONY: Pipfile.lock
-Pipfile.lock:
-	docker compose build
-	docker compose run --rm --name helix.fhir.client.sdk dev sh -c "rm -f Pipfile.lock && pipenv lock --dev"
+Pipfile.lock: build
+	docker compose run --rm --name helix_fhir_sdk dev /bin/bash -c "rm -f Pipfile.lock && pipenv lock --dev --verbose"
 
 .PHONY:devdocker
 devdocker: ## Builds the docker for dev
@@ -37,7 +36,7 @@ clean-pre-commit: ## removes pre-commit hook
 	rm -f .git/hooks/pre-commit
 
 .PHONY:setup-pre-commit
-setup-pre-commit: Pipfile.lock
+setup-pre-commit:
 	cp ./pre-commit-hook ./.git/hooks/pre-commit
 
 .PHONY:run-pre-commit
@@ -63,9 +62,8 @@ shell:devdocker ## Brings up the bash shell in dev docker
 	docker compose run --rm --name helix.fhir.client.sdk dev /bin/bash
 
 .PHONY:build
-build:
-	docker compose run --rm --name helix.fhir.client.sdk dev rm -rf dist/
-	docker compose run --rm --name helix.fhir.client.sdk dev python3 setup.py sdist bdist_wheel
+build: ## Builds the docker for dev
+	docker compose build --progress=plain --parallel
 
 .PHONY:testpackage
 testpackage:build

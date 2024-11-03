@@ -7,6 +7,7 @@ COPY Pipfile* /src/
 WORKDIR /src
 #RUN apt-get install -y git && git --version && git config --global --add safe.directory /src
 
+RUN python -m pip install --upgrade pip
 RUN python -m pip install --no-cache-dir pipenv
 RUN pipenv sync --dev --system
 
