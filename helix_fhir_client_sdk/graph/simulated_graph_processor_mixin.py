@@ -130,10 +130,18 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 **kwargs: Any,
             ) -> List[FhirGetResponse]:
                 start_time: datetime = datetime.now()
+                target_resource_type: Optional[str] = (
+                    row.target[0].type_ if row.target else None
+                )
                 if logger:
                     logger.debug(
-                        f"Processing link | task_index: {task_index} | path={row.path}"
-                        f" | processor: {name} | start_time: {start_time}"
+                        f"Processing link | task_index: {task_index}"
+                        + (
+                            f" | path: {row.path}"
+                            if row.path
+                            else f" | target: {target_resource_type}"
+                        )
+                        + f" | processor: {name} | start_time: {start_time}"
                     )
                 result: List[FhirGetResponse] = await self._process_link_async(
                     link=row,
@@ -145,8 +153,15 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 end_time: datetime = datetime.now()
                 if logger:
                     logger.debug(
-                        f"Finished Processing link | task_index: {task_index} | path={row.path} | processor: {name}"
-                        f" | end_time: {end_time} | duration: {end_time - start_time}"
+                        f"Finished Processing link | task_index: {task_index}"
+                        + (
+                            f" | path: {row.path}"
+                            if row.path
+                            else f" | target: {target_resource_type}"
+                        )
+                        + f" | processor: {name}"
+                        + f" | end_time: {end_time} | duration: {end_time - start_time}"
+                        + f" | resource_count: {len(result)}"
                     )
                 return result
 
