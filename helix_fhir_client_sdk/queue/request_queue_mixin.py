@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import time
 from abc import ABC
+from asyncio import Semaphore
 from typing import (
     Dict,
     Optional,
@@ -31,6 +32,25 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
 
 
 class RequestQueueMixin(ABC, FhirClientProtocol):
+
+    def __init__(self) -> None:
+        self._max_concurrent_requests: Optional[int] = None
+        self._max_concurrent_requests_semaphore: Optional[Semaphore] = None
+
+    def set_max_concurrent_requests(
+        self, max_concurrent_requests: Optional[int]
+    ) -> "FhirClientProtocol":
+        """
+        Sets the maximum number of concurrent requests to make to the FHIR server
+
+        :param max_concurrent_requests: maximum number of concurrent requests to make to the FHIR server
+
+        """
+        self._max_concurrent_requests = max_concurrent_requests
+        if max_concurrent_requests:
+            self._max_concurrent_requests_semaphore = Semaphore(max_concurrent_requests)
+        return self
+
     async def _get_with_session_async(  # type:ignore[override]
         self,
         *,
@@ -168,6 +188,35 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
 
     # noinspection PyProtocol
     async def _send_fhir_request_async(
+        self,
+        *,
+        client: RetryableAioHttpClient,
+        full_url: str,
+        headers: Dict[str, str],
+        payload: Dict[str, Any] | None,
+    ) -> RetryableAioHttpResponse:
+        """
+        Sends a request to the server
+
+
+        :param full_url: url to call
+        :param headers: headers to send
+        :param payload: payload to send
+        """
+        if self._max_concurrent_requests_semaphore:
+            async with self._max_concurrent_requests_semaphore:
+                return await self._send_fhir_request_internal_async(
+                    client=client,
+                    full_url=full_url,
+                    headers=headers,
+                    payload=payload,
+                )
+        else:
+            return await self._send_fhir_request_internal_async(
+                client=client, full_url=full_url, headers=headers, payload=payload
+            )
+
+    async def _send_fhir_request_internal_async(
         self,
         *,
         client: RetryableAioHttpClient,

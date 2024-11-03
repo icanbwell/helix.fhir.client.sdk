@@ -135,6 +135,8 @@ class FhirClient(
 
         FhirAuthMixin.__init__(self)
 
+        RequestQueueMixin.__init__(self)
+
     def action(self, action: str) -> "FhirClient":
         """
         Set the action
