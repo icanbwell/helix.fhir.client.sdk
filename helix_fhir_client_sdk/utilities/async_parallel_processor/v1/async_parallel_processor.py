@@ -85,7 +85,7 @@ class AsyncParallelProcessor:
         """
 
         # noinspection PyShadowingNames
-        async def process_with_semaphore(
+        async def process_with_semaphore_async(
             *, name: str, row1: TInput, task_index: int, total_task_count: int
         ) -> TOutput:
             if self.semaphore is None:
@@ -118,7 +118,7 @@ class AsyncParallelProcessor:
         # Create all tasks at once with their indices
         pending: Set[Task[TOutput]] = {
             asyncio.create_task(
-                process_with_semaphore(
+                process_with_semaphore_async(
                     name=self.name,
                     row1=row,
                     task_index=i,
