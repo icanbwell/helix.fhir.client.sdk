@@ -21,3 +21,4 @@ jobs:
               uses: JetBrains/qodana-action@v2024.2
               with: # Specify the linter that you would like to run
                   args: --linter,jetbrains/qodana-python-community:2024.2
+                  upload-result: true
