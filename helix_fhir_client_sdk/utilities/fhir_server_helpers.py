@@ -24,7 +24,9 @@ class FhirServerHelpers:
         response: FhirDeleteResponse = (
             await fhir_client.url(fhir_server_url)
             .resource(resource_type)
-            .additional_parameters(["_security=https://www.icanbwell.com/owner|bwell"])
+            .additional_parameters(
+                [f"_security=https://www.icanbwell.com/owner|{owner_tag}"]
+            )
             # .additional_parameters(["source=http://www.icanbwell.com"])
             .delete_by_query_async()
         )
