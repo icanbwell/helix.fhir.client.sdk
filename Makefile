@@ -3,9 +3,8 @@ LANG=en_US.utf-8
 export LANG
 
 .PHONY: Pipfile.lock
-Pipfile.lock:
-	docker compose build
-	docker compose run --rm --name helix.fhir.client.sdk dev sh -c "rm -f Pipfile.lock && pipenv lock --dev"
+Pipfile.lock: build
+	docker compose run --rm --name helix_fhir_sdk dev /bin/bash -c "rm -f Pipfile.lock && pipenv lock --dev --verbose"
 
 .PHONY:devdocker
 devdocker: ## Builds the docker for dev
@@ -37,7 +36,7 @@ clean-pre-commit: ## removes pre-commit hook
 	rm -f .git/hooks/pre-commit
 
 .PHONY:setup-pre-commit
-setup-pre-commit: Pipfile.lock
+setup-pre-commit:
 	cp ./pre-commit-hook ./.git/hooks/pre-commit
 
 .PHONY:run-pre-commit
@@ -45,9 +44,10 @@ run-pre-commit: setup-pre-commit
 	./.git/hooks/pre-commit
 
 .PHONY:update
-update: Pipfile.lock setup-pre-commit  ## Updates all the packages using Pipfile
+update: down Pipfile.lock setup-pre-commit  ## Updates all the packages using Pipfile
 	make devdocker && \
-	make pipenv-setup
+	make pipenv-setup && \
+	make up
 
 .PHONY:tests
 tests: up
@@ -63,9 +63,8 @@ shell:devdocker ## Brings up the bash shell in dev docker
 	docker compose run --rm --name helix.fhir.client.sdk dev /bin/bash
 
 .PHONY:build
-build:
-	docker compose run --rm --name helix.fhir.client.sdk dev rm -rf dist/
-	docker compose run --rm --name helix.fhir.client.sdk dev python3 setup.py sdist bdist_wheel
+build: ## Builds the docker for dev
+	docker compose build --progress=plain --parallel
 
 .PHONY:testpackage
 testpackage:build
@@ -97,8 +96,8 @@ console_test:  ## runs the test via console to download resources from FHIR serv
 	python ./console_test.py
 
 .PHONY:pipenv-setup
-pipenv-setup:devdocker ## Brings up the bash shell in dev docker
-	docker compose run --rm --name helix.fhir.client.sdk dev sh -c "pipenv run pipenv install --skip-lock --categories \"pipenvsetup\" && pipenv run pipenv-setup sync --pipfile" && \
+pipenv-setup:devdocker ## Run pipenv-setup to update setup.py with latest dependencies
+	docker compose run --rm --name helix_fhir_client dev sh -c "pipenv run pipenv install --skip-lock --categories \"pipenvsetup\" && pipenv run pipenv-setup sync --pipfile" && \
 	make run-pre-commit
 
 .PHONY:clean

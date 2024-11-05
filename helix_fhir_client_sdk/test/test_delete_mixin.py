@@ -121,6 +121,7 @@ class TestFhirDeleteMixin:
             id_above: Optional[str],
             ids: Optional[List[str]],
             page_number: Optional[int],
+            resource_type: Optional[str],
         ) -> str:
             return "https://example.com/Patient?_query=example"
 
@@ -166,6 +167,7 @@ class TestFhirDeleteMixin:
             id_above: Optional[str],
             ids: Optional[List[str]],
             page_number: Optional[int],
+            resource_type: Optional[str],
         ) -> str:
             return "https://example.com/Patient?_query=example"
 

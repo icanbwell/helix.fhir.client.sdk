@@ -20,9 +20,15 @@ from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinitionLink,
     GraphDefinitionTarget,
 )
+from helix_fhir_client_sdk.graph.graph_link_parameters import GraphLinkParameters
+from helix_fhir_client_sdk.graph.graph_target_parameters import GraphTargetParameters
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.utilities.async_parallel_processor.v1.async_parallel_processor import (
+    AsyncParallelProcessor,
+    ParallelFunctionContext,
+)
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.request_cache import RequestCache
@@ -36,7 +42,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         id_: Union[List[str], str],
         graph_json: Dict[str, Any],
         contained: bool,
-        concurrent_requests: int = 1,
         separate_bundle_resources: bool = False,
         restrict_to_scope: Optional[str] = None,
         restrict_to_resources: Optional[List[str]] = None,
@@ -55,7 +60,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         :param separate_bundle_resources:
         :param id_: single id or list of ids (ids can be comma separated too)
-        :param concurrent_requests:
         :param graph_json: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
                             parent resources in a contained property
@@ -122,18 +126,24 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             responses: List[FhirGetResponse] = []
             if graph_definition.link and len(graph_definition.link) > 0:
                 link: GraphDefinitionLink
-                for link in graph_definition.link:
-                    parent_bundle_entry: BundleEntry
-                    for parent_bundle_entry in parent_bundle_entries:
-                        responses.extend(
-                            await self._process_link_async(
-                                link=link,
-                                parent_bundle_entry=parent_bundle_entry,
-                                logger=logger,
-                                cache=cache,
-                                scope_parser=scope_parser,
-                            )
-                        )
+                parent_bundle_entry: BundleEntry
+                for parent_bundle_entry in parent_bundle_entries:
+                    link_responses: List[FhirGetResponse]
+                    async for link_responses in AsyncParallelProcessor(
+                        name="process_link_async_parallel_function",
+                    ).process_rows_in_parallel(
+                        rows=graph_definition.link,
+                        process_row_fn=self.process_link_async_parallel_function,
+                        parameters=GraphLinkParameters(
+                            parent_bundle_entry=parent_bundle_entry,
+                            logger=logger,
+                            cache=cache,
+                            scope_parser=scope_parser,
+                        ),
+                        log_level=self._log_level,
+                    ):
+                        responses.extend(link_responses)
+
             FhirBundleAppender.append_responses(responses=responses, bundle=bundle)
 
             bundle = FhirBundleAppender.remove_duplicate_resources(bundle=bundle)
@@ -173,6 +183,64 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 )
             yield response
 
+    # noinspection PyUnusedLocal
+    async def process_link_async_parallel_function(
+        self,
+        context: ParallelFunctionContext,
+        row: GraphDefinitionLink,
+        parameters: Optional[GraphLinkParameters],
+        additional_parameters: Optional[Dict[str, Any]],
+    ) -> List[FhirGetResponse]:
+        """
+        This function is called by AsyncParallelProcessor to process a link in parallel.
+        It has to match the function definition of ParallelFunction
+
+
+        """
+        start_time: datetime = datetime.now()
+        target_resource_type: Optional[str] = (
+            ", ".join([target.type_ for target in row.target]) if row.target else None
+        )
+        assert parameters
+        if parameters.logger:
+            parameters.logger.debug(
+                f"Processing link"
+                + f" | task_index: {context.task_index}/{context.total_task_count}"
+                + (
+                    f" | path: {row.path}"
+                    if row.path
+                    else f" | target: {target_resource_type}"
+                )
+                + f" | parallel_processor: {context.name}"
+                + f" | start_time: {start_time}"
+            )
+        result: List[FhirGetResponse] = []
+        link_result: FhirGetResponse
+        async for link_result in self._process_link_async(
+            link=row,
+            parent_bundle_entry=parameters.parent_bundle_entry,
+            logger=parameters.logger,
+            cache=parameters.cache,
+            scope_parser=parameters.scope_parser,
+        ):
+            result.append(link_result)
+        end_time: datetime = datetime.now()
+        if parameters.logger:
+            parameters.logger.debug(
+                f"Finished Processing link"
+                + f" | task_index: {context.task_index}/{context.total_task_count}"
+                + (
+                    f" | path: {row.path}"
+                    if row.path
+                    else f" | target: {target_resource_type}"
+                )
+                + f" | parallel_processor: {context.name}"
+                + f" | end_time: {end_time}"
+                + f" | duration: {end_time - start_time}"
+                + f" | resource_count: {len(result)}"
+            )
+        return result
+
     async def _process_link_async(
         self,
         *,
@@ -181,7 +249,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         logger: Optional[FhirLogger],
         cache: RequestCache,
         scope_parser: FhirScopeParser,
-    ) -> List[FhirGetResponse]:
+    ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Process a GraphDefinition link object
 
@@ -194,21 +262,47 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :return: list of FhirGetResponse objects
         """
         assert link
-        responses: List[FhirGetResponse] = []
         targets: List[GraphDefinitionTarget] = link.target
         target: GraphDefinitionTarget
-        for target in targets:
-            responses.extend(
-                await self._process_target_async(
-                    target=target,
-                    path=link.path,
-                    parent_bundle_entry=parent_bundle_entry,
-                    logger=logger,
-                    cache=cache,
-                    scope_parser=scope_parser,
-                )
-            )
-        return responses
+
+        target_responses: List[FhirGetResponse]
+        async for target_responses in AsyncParallelProcessor(
+            name="process_target_async",
+        ).process_rows_in_parallel(
+            rows=targets,
+            process_row_fn=self.process_target_async_parallel_function,
+            parameters=GraphTargetParameters(
+                path=link.path,
+                parent_bundle_entry=parent_bundle_entry,
+                logger=logger,
+                cache=cache,
+                scope_parser=scope_parser,
+            ),
+        ):
+            for target_response in target_responses:
+                yield target_response
+
+    # noinspection PyUnusedLocal
+    async def process_target_async_parallel_function(
+        self,
+        context: ParallelFunctionContext,
+        row: GraphDefinitionTarget,
+        parameters: Optional[GraphTargetParameters],
+        additional_parameters: Optional[Dict[str, Any]],
+    ) -> List[FhirGetResponse]:
+        assert parameters
+        result: List[FhirGetResponse] = []
+        target_result: FhirGetResponse
+        async for target_result in self._process_target_async(
+            target=row,
+            path=parameters.path,
+            parent_bundle_entry=parameters.parent_bundle_entry,
+            logger=parameters.logger,
+            cache=parameters.cache,
+            scope_parser=parameters.scope_parser,
+        ):
+            result.append(target_result)
+        return result
 
     async def _process_target_async(
         self,
@@ -219,7 +313,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         logger: Optional[FhirLogger],
         cache: RequestCache,
         scope_parser: FhirScopeParser,
-    ) -> List[FhirGetResponse]:
+    ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Process a GraphDefinition target
 
@@ -232,7 +326,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param scope_parser: scope parser to use
         :return: list of FhirGetResponse objects
         """
-        responses: List[FhirGetResponse] = []
         children: List[BundleEntry] = []
         child_response: FhirGetResponse
         child_response_resources: Union[Dict[str, Any], List[Dict[str, Any]]]
@@ -240,6 +333,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         parent_resource: Optional[Dict[str, Any]] = (
             parent_bundle_entry.resource if parent_bundle_entry else None
         )
+        reference: Optional[Union[Dict[str, Any], str]] = None
 
         # forward link and iterate over list
         if path and "[x]" in path:
@@ -274,7 +368,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             scope_parser=scope_parser,
                             logger=logger,
                         )
-                        responses.append(child_response)
+                        yield child_response
                         children = child_response.get_bundle_entries()
                         if logger:
                             logger.info(
@@ -305,7 +399,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     scope_parser=scope_parser,
                     logger=logger,
                 )
-                responses.append(child_response)
+                yield child_response
                 children = child_response.get_bundle_entries()
                 if logger:
                     logger.info(
@@ -342,7 +436,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     scope_parser=scope_parser,
                     logger=logger,
                 )
-                responses.append(child_response)
+                yield child_response
                 if logger:
                     logger.debug(
                         f"Received child resources with params:{target.params} "
@@ -354,20 +448,24 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 children = child_response.get_bundle_entries()
 
         if target.link:
-            child_link: GraphDefinitionLink
-            for child_link in target.link:
-                child: BundleEntry
-                for child in children:
-                    responses.extend(
-                        await self._process_link_async(
-                            link=child_link,
-                            parent_bundle_entry=child,
-                            logger=logger,
-                            cache=cache,
-                            scope_parser=scope_parser,
-                        )
-                    )
-        return responses
+
+            child: BundleEntry
+            for child in children:
+                child_responses: List[FhirGetResponse]
+                async for child_responses in AsyncParallelProcessor(
+                    name="process_child_link_async",
+                ).process_rows_in_parallel(
+                    rows=target.link,
+                    process_row_fn=self.process_link_async_parallel_function,
+                    parameters=GraphLinkParameters(
+                        parent_bundle_entry=child,
+                        logger=logger,
+                        cache=cache,
+                        scope_parser=scope_parser,
+                    ),
+                ):
+                    for child_response in child_responses:
+                        yield child_response
 
     async def _get_resources_by_parameters_async(
         self: FhirClientProtocol,
@@ -401,8 +499,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 ),
                 0,
             )
-
-        self.resource(resource=resource_type)
 
         id_list: Optional[List[str]]
         if id_ and not isinstance(id_, list):
@@ -460,6 +556,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 additional_parameters=parameters,
                 id_above=None,
                 fn_handle_streaming_chunk=None,
+                resource_type=resource_type,
             ):
                 result = result1
             assert result
@@ -493,7 +590,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         id_: Union[List[str], str],
         graph_json: Dict[str, Any],
         contained: bool,
-        concurrent_requests: int = 1,
         separate_bundle_resources: bool = False,
         restrict_to_scope: Optional[str] = None,
         restrict_to_resources: Optional[List[str]] = None,
@@ -508,7 +604,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         :param separate_bundle_resources:
         :param id_: single id or list of ids (ids can be comma separated too)
-        :param concurrent_requests:
         :param graph_json: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
                             parent resources in a contained property
@@ -531,7 +626,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 id_=id_,
                 graph_json=graph_json,
                 contained=contained,
-                concurrent_requests=concurrent_requests,
                 separate_bundle_resources=separate_bundle_resources,
                 restrict_to_scope=restrict_to_scope,
                 restrict_to_resources=restrict_to_resources,
@@ -555,7 +649,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         id_: Union[List[str], str],
         graph_json: Dict[str, Any],
         contained: bool,
-        concurrent_requests: int = 1,
         separate_bundle_resources: bool = False,
         restrict_to_scope: Optional[str] = None,
         restrict_to_resources: Optional[List[str]] = None,
@@ -570,7 +663,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         :param separate_bundle_resources:
         :param id_: single id or list of ids (ids can be comma separated too)
-        :param concurrent_requests:
         :param graph_json: definition of a graph to execute
         :param contained: whether we should return the related resources as top level list or nest them inside their
                             parent resources in a contained property
@@ -592,7 +684,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             id_=id_,
             graph_json=graph_json,
             contained=contained,
-            concurrent_requests=concurrent_requests,
             separate_bundle_resources=separate_bundle_resources,
             restrict_to_scope=restrict_to_scope,
             restrict_to_resources=restrict_to_resources,

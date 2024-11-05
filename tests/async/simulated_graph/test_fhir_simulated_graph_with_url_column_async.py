@@ -166,4 +166,6 @@ async def test_fhir_simulated_graph_with_url_column_async() -> None:
         for e in bundle["entry"]
         if e["resource"]["resourceType"] != "OperationOutcome"
     ]
+    # sort the entries by request url
+    bundle["entry"] = sorted(bundle["entry"], key=lambda x: x["resource"]["id"])
     assert bundle == expected_json

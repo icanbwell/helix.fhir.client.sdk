@@ -21,21 +21,21 @@ python-dateutil = "*"
 
 [dev-packages]
 # setuptools is needed for building the package
-setuptools=">=72.0.0"
+setuptools=">=72.1.0"
 # wheel is needed for building the package
 wheel = ">=0.43.0"
 # twine is needed for uploading the package to PyPI
 twine=">=5.1.1"
 # pre-commit is needed for running code quality checks
-pre-commit=">=3.8.0"
+pre-commit=">=4.0.1"
 # autoflake is needed for removing unused imports
 autoflake=">=2.3.1"
 # mypy is needed for type checking
-mypy = ">=1.11.1"
+mypy = ">=1.13.0"
 # pytest is needed for running tests
-pytest = ">=8.2.2"
+pytest = ">=8.3.3"
 # black is needed for formatting code
-black = ">=24.8.0"
+black = ">=24.10.0"
 # pytest-ayncio is needed for running async tests
 pytest-asyncio = ">=0.23.8"
 # types-requests is needed for type hints for requests
@@ -56,6 +56,8 @@ helix-mockserver-client=">=2.0.0"
 httpx=">=0.23.3"
 # aioresponses is needed for mocking HTTP requests
 aioresponses=">=0.7.6"
+# deepdiff is a Python library for comparing objects
+deepdiff = { version = ">=8.0.1" }
 
 # These dependencies are required for pipenv-setup.  They conflict with ones above, so we install these
 # only when running pipenv-setup
@@ -69,6 +71,3 @@ pipenv-setup = ">=3.2.0"
 
 [requires]
 python_version = "3.12"
-
-[pipenv]
-allow_prereleases = false

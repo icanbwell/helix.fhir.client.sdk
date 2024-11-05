@@ -107,7 +107,7 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
     assert response.url == f"http://mock-server:1080/{test_name}"
     assert response.extra_context_to_return == {"slug": "1234"}
 
-    expected_json = {
+    expected_json: Dict[str, Any] = {
         "entry": [
             {
                 "resource": {
@@ -281,4 +281,22 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
         ]
     }
 
-    assert json.loads(response.responses) == expected_json
+    bundle = json.loads(response.responses)
+    # sort the entries by request url
+    bundle["entry"] = sorted(
+        bundle["entry"],
+        key=lambda x: (
+            int(x["resource"].get("id"))
+            if x["resource"].get("id")
+            else hash(x["request"]["url"])
+        ),
+    )
+    expected_json["entry"] = sorted(
+        expected_json["entry"],
+        key=lambda x: (
+            int(x["resource"].get("id"))
+            if x["resource"].get("id")
+            else hash(x["request"]["url"])
+        ),
+    )
+    assert bundle == expected_json

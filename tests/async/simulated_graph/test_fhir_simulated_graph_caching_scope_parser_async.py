@@ -167,7 +167,7 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
     assert response is not None
     print(response.responses)
 
-    expected_json = {
+    expected_json: Dict[str, Any] = {
         "entry": [
             {
                 "request": {
@@ -214,4 +214,13 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
         for e in bundle["entry"]
         if e["resource"]["resourceType"] != "OperationOutcome"
     ]
+
+    bundle["entry"] = sorted(
+        bundle["entry"],
+        key=lambda x: x["resource"]["resourceType"] + x["resource"]["id"],
+    )
+    expected_json["entry"] = sorted(
+        expected_json["entry"],
+        key=lambda x: x["resource"]["resourceType"] + x["resource"]["id"],
+    )
     assert bundle == expected_json

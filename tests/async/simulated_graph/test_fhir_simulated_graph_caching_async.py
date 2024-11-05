@@ -161,9 +161,7 @@ async def test_fhir_simulated_graph_caching_async() -> None:
         timing=times(1),
     )
 
-    response_text = {
-        "entry": [{"resource": {"resourceType": "Practitioner", "id": "12345"}}]
-    }
+    response_text = {"resourceType": "Practitioner", "id": "12345"}
     mock_client.expect(
         request=mock_request(
             path=f"/{relative_url}/Practitioner/12345",
@@ -258,14 +256,6 @@ async def test_fhir_simulated_graph_caching_async() -> None:
             {
                 "request": {
                     "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Practitioner/12345",
-                },
-                "resource": {"id": "12345", "resourceType": "Practitioner"},
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
                     "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/DocumentReference?patient=1",
                 },
                 "resource": {
@@ -294,6 +284,14 @@ async def test_fhir_simulated_graph_caching_async() -> None:
                 "resource": {"id": "13", "resourceType": "Binary"},
                 "response": {"status": "200"},
             },
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Practitioner/12345",
+                },
+                "resource": {"id": "12345", "resourceType": "Practitioner"},
+                "response": {"status": "200"},
+            },
         ]
     }
 
@@ -303,4 +301,10 @@ async def test_fhir_simulated_graph_caching_async() -> None:
         for e in bundle["entry"]
         if e["resource"]["resourceType"] != "OperationOutcome"
     ]
+
+    # diff = DeepDiff(bundle, expected_json, ignore_order=True)
+    # assert not diff, f"Diff: {diff}"
+
+    # sort the entries by request url
+    bundle["entry"] = sorted(bundle["entry"], key=lambda x: int(x["resource"]["id"]))
     assert bundle == expected_json
