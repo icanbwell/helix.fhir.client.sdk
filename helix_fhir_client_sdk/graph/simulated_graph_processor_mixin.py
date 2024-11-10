@@ -148,6 +148,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
             bundle = FhirBundleAppender.remove_duplicate_resources(bundle=bundle)
 
+            bundle = FhirBundleAppender.sort_resources(bundle=bundle)
+
             # token, url, service_slug
             if separate_bundle_resources:
                 resources: Dict[str, Union[str, List[Dict[str, Any]]]] = {}
