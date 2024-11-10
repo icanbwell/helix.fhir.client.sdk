@@ -45,7 +45,11 @@ class ParallelFunction[TInput, TOutput, TParameters](Protocol):
 
 class AsyncParallelProcessor:
     def __init__(
-        self, *, name: str, max_concurrent_tasks: Optional[int] = None
+        self,
+        *,
+        name: str,
+        max_concurrent_tasks: Optional[int] = None,
+        run_in_parallel: Optional[bool],
     ) -> None:
         """
         This class is used to process rows in parallel
@@ -58,6 +62,7 @@ class AsyncParallelProcessor:
         self.semaphore: Optional[asyncio.Semaphore] = (
             asyncio.Semaphore(max_concurrent_tasks) if max_concurrent_tasks else None
         )
+        self.run_in_parallel: Optional[bool] = run_in_parallel
 
     async def process_rows_in_parallel[
         TInput, TOutput, TParameters: Dict[str, Any] | object
@@ -80,6 +85,21 @@ class AsyncParallelProcessor:
         :param kwargs: additional parameters
         :return: results of processing
         """
+
+        if not self.run_in_parallel:
+            for i, row in enumerate(rows):
+                yield await process_row_fn(
+                    context=ParallelFunctionContext(
+                        name=self.name,
+                        log_level=log_level,
+                        task_index=i,
+                        total_task_count=len(rows),
+                    ),
+                    row=row,
+                    parameters=parameters,
+                    additional_parameters=kwargs,
+                )
+            return
 
         # noinspection PyShadowingNames
         async def process_with_semaphore_async(

@@ -25,3 +25,5 @@ class GraphTargetParameters:
     cache: RequestCache
 
     scope_parser: FhirScopeParser
+
+    run_in_parallel: Optional[bool]
