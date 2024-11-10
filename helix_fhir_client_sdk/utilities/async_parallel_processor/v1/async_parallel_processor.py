@@ -49,20 +49,19 @@ class AsyncParallelProcessor:
         *,
         name: str,
         max_concurrent_tasks: Optional[int] = None,
-        run_in_parallel: Optional[bool],
     ) -> None:
         """
         This class is used to process rows in parallel
 
         :param name: name of the processor
-        :param max_concurrent_tasks: maximum number of concurrent tasks. If None, there is no limit
+        :param max_concurrent_tasks: maximum number of concurrent tasks. If None, there is no limit.
+                                    If 1 then the tasks are processed sequentially else they are processed in parallel
         """
         self.name: str = name
         self.max_concurrent_tasks: Optional[int] = max_concurrent_tasks
         self.semaphore: Optional[asyncio.Semaphore] = (
             asyncio.Semaphore(max_concurrent_tasks) if max_concurrent_tasks else None
         )
-        self.run_in_parallel: Optional[bool] = run_in_parallel
 
     async def process_rows_in_parallel[
         TInput, TOutput, TParameters: Dict[str, Any] | object
@@ -86,7 +85,7 @@ class AsyncParallelProcessor:
         :return: results of processing
         """
 
-        if not self.run_in_parallel:
+        if self.max_concurrent_tasks == 1:
             for i, row in enumerate(rows):
                 yield await process_row_fn(
                     context=ParallelFunctionContext(

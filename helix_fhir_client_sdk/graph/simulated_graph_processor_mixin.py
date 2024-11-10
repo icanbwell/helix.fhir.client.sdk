@@ -53,7 +53,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         url: Optional[str],
         expand_fhir_bundle: Optional[bool],
         auth_scopes: Optional[List[str]],
-        run_in_parallel: Optional[bool],
+        max_concurrent_tasks: Optional[int],
         sort_resources: Optional[bool],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -75,7 +75,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param url: Optional url to use
         :param expand_fhir_bundle: Optional flag to expand the FHIR bundle
         :param auth_scopes: Optional list of scopes to use
-        :param run_in_parallel: Optional flag to run in parallel
+        :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially
         :param sort_resources: Optional flag to sort resources
         :return: FhirGetResponse
         """
@@ -135,7 +135,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     link_responses: List[FhirGetResponse]
                     async for link_responses in AsyncParallelProcessor(
                         name="process_link_async_parallel_function",
-                        run_in_parallel=run_in_parallel,
+                        max_concurrent_tasks=max_concurrent_tasks,
                     ).process_rows_in_parallel(
                         rows=graph_definition.link,
                         process_row_fn=self.process_link_async_parallel_function,
@@ -144,7 +144,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             logger=logger,
                             cache=cache,
                             scope_parser=scope_parser,
-                            run_in_parallel=run_in_parallel,
+                            max_concurrent_tasks=max_concurrent_tasks,
                         ),
                         log_level=self._log_level,
                     ):
@@ -231,7 +231,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             logger=parameters.logger,
             cache=parameters.cache,
             scope_parser=parameters.scope_parser,
-            run_in_parallel=parameters.run_in_parallel,
+            max_concurrent_tasks=parameters.max_concurrent_tasks,
         ):
             result.append(link_result)
         end_time: datetime = datetime.now()
@@ -259,7 +259,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         logger: Optional[FhirLogger],
         cache: RequestCache,
         scope_parser: FhirScopeParser,
-        run_in_parallel: Optional[bool],
+        max_concurrent_tasks: Optional[int],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Process a GraphDefinition link object
@@ -270,7 +270,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param logger: logger to use
         :param cache: cache to use
         :param scope_parser: scope parser to use
-        :param run_in_parallel: flag to run in parallel
+        :param max_concurrent_tasks: number of concurrent tasks. If 1 then the tasks are processed sequentially
         :return: list of FhirGetResponse objects
         """
         assert link
@@ -280,7 +280,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         target_responses: List[FhirGetResponse]
         async for target_responses in AsyncParallelProcessor(
             name="process_target_async",
-            run_in_parallel=run_in_parallel,
+            max_concurrent_tasks=max_concurrent_tasks,
         ).process_rows_in_parallel(
             rows=targets,
             process_row_fn=self.process_target_async_parallel_function,
@@ -290,7 +290,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 logger=logger,
                 cache=cache,
                 scope_parser=scope_parser,
-                run_in_parallel=run_in_parallel,
+                max_concurrent_tasks=max_concurrent_tasks,
             ),
         ):
             for target_response in target_responses:
@@ -320,7 +320,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             logger=parameters.logger,
             cache=parameters.cache,
             scope_parser=parameters.scope_parser,
-            run_in_parallel=parameters.run_in_parallel,
+            max_concurrent_tasks=parameters.max_concurrent_tasks,
         ):
             result.append(target_result)
         return result
@@ -334,7 +334,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         logger: Optional[FhirLogger],
         cache: RequestCache,
         scope_parser: FhirScopeParser,
-        run_in_parallel: Optional[bool],
+        max_concurrent_tasks: Optional[int],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Process a GraphDefinition target
@@ -346,7 +346,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param logger: logger to use
         :param cache: cache to use
         :param scope_parser: scope parser to use
-        :param run_in_parallel: flag to run in parallel
+        :param max_concurrent_tasks: number of concurrent tasks. If 1 then the tasks are processed sequentially
         :return: list of FhirGetResponse objects
         """
         children: List[BundleEntry] = []
@@ -477,7 +477,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 child_responses: List[FhirGetResponse]
                 async for child_responses in AsyncParallelProcessor(
                     name="process_child_link_async",
-                    run_in_parallel=run_in_parallel,
+                    max_concurrent_tasks=max_concurrent_tasks,
                 ).process_rows_in_parallel(
                     rows=target.link,
                     process_row_fn=self.process_link_async_parallel_function,
@@ -486,7 +486,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         logger=logger,
                         cache=cache,
                         scope_parser=scope_parser,
-                        run_in_parallel=run_in_parallel,
+                        max_concurrent_tasks=max_concurrent_tasks,
                     ),
                 ):
                     for child_response in child_responses:
@@ -622,7 +622,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         retrieve_and_restrict_to_capability_statement: Optional[bool] = None,
         ifModifiedSince: Optional[datetime] = None,
         eTag: Optional[str] = None,
-        run_in_parallel: Optional[bool] = False,
+        max_concurrent_tasks: Optional[int] = 1,
         sort_resources: Optional[bool] = False,
     ) -> FhirGetResponse:
         """
@@ -640,7 +640,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param retrieve_and_restrict_to_capability_statement: Optional capability statement to retrieve and restrict to
         :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
         :param eTag: Optional ETag to use for If-None-Match header
-        :param run_in_parallel: Optional flag to run in parallel
+        :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially.
         :param sort_resources: Optional flag to sort resources
         :return: FhirGetResponse
         """
@@ -666,7 +666,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 expand_fhir_bundle=self._expand_fhir_bundle,
                 logger=self._logger,
                 auth_scopes=self._auth_scopes,
-                run_in_parallel=run_in_parallel,
+                max_concurrent_tasks=max_concurrent_tasks,
                 sort_resources=sort_resources,
             )
         )
@@ -687,7 +687,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         retrieve_and_restrict_to_capability_statement: Optional[bool] = None,
         ifModifiedSince: Optional[datetime] = None,
         eTag: Optional[str] = None,
-        run_in_parallel: Optional[bool] = False,
+        max_concurrent_tasks: Optional[int] = 1,
         sort_resources: Optional[bool] = False,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -705,7 +705,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param retrieve_and_restrict_to_capability_statement: Optional capability statement to retrieve and restrict to
         :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
         :param eTag: Optional ETag to use for If-None-Match header
-        :param run_in_parallel: Optional flag to run in parallel
+        :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially
         :param sort_resources: Optional flag to sort resources
         :return: FhirGetResponse
         """
@@ -730,7 +730,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             expand_fhir_bundle=self._expand_fhir_bundle,
             logger=self._logger,
             auth_scopes=self._auth_scopes,
-            run_in_parallel=run_in_parallel,
+            max_concurrent_tasks=max_concurrent_tasks,
             sort_resources=sort_resources,
         ):
             yield r

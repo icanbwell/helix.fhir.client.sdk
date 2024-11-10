@@ -26,4 +26,4 @@ class GraphTargetParameters:
 
     scope_parser: FhirScopeParser
 
-    run_in_parallel: Optional[bool]
+    max_concurrent_tasks: Optional[int]

@@ -114,7 +114,7 @@ async def test_process_simulate_graph_async() -> None:
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
-            run_in_parallel=True,
+            max_concurrent_tasks=None,
             sort_resources=True,
         )
 
@@ -213,7 +213,7 @@ async def test_graph_definition_with_single_link() -> None:
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
-            run_in_parallel=True,
+            max_concurrent_tasks=None,
             sort_resources=True,
         )
 
@@ -297,7 +297,7 @@ async def test_graph_definition_with_nested_links() -> None:
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
-            run_in_parallel=True,
+            max_concurrent_tasks=None,
             sort_resources=True,
         )
 
@@ -377,7 +377,7 @@ async def test_graph_definition_with_multiple_links() -> None:
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
-            run_in_parallel=True,
+            max_concurrent_tasks=None,
             sort_resources=True,
         )
 
@@ -453,7 +453,7 @@ async def test_graph_definition_with_multiple_targets() -> None:
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
-            run_in_parallel=True,
+            max_concurrent_tasks=None,
             sort_resources=True,
         )
 
@@ -512,7 +512,7 @@ async def test_graph_definition_with_no_links() -> None:
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
-            run_in_parallel=True,
+            max_concurrent_tasks=None,
             sort_resources=True,
         )
 
@@ -570,7 +570,7 @@ async def test_process_simulate_graph_async_multiple_patients() -> None:
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
-            run_in_parallel=True,
+            max_concurrent_tasks=None,
             sort_resources=True,
         )
 
@@ -653,7 +653,7 @@ async def test_graph_definition_with_multiple_links_concurrent_requests() -> Non
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
-            run_in_parallel=True,
+            max_concurrent_tasks=None,
             sort_resources=True,
         )
 
@@ -729,7 +729,7 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests() -> N
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
-            run_in_parallel=True,
+            max_concurrent_tasks=None,
             sort_resources=True,
         )
 
@@ -846,7 +846,7 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
-            run_in_parallel=True,
+            max_concurrent_tasks=None,
             sort_resources=True,
         )
 
