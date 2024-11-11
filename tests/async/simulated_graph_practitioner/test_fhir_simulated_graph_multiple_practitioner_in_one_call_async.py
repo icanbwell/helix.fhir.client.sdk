@@ -57,90 +57,84 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
     )
 
     response_text = {
-        "resourceType": "PractitionerRole",
-        "id": "10",
-        "practitioner": {"reference": "Practitioner/1"},
+        "entry": [
+            {
+                "resource": {
+                    "resourceType": "PractitionerRole",
+                    "id": "10",
+                    "practitioner": {"reference": "Practitioner/1"},
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "PractitionerRole",
+                    "id": "12",
+                    "practitioner": {"reference": "Practitioner/2"},
+                }
+            },
+        ]
     }
     mock_client.expect(
         request=mock_request(
             path=f"/{relative_url}/PractitionerRole",
             method="GET",
-            querystring={"practitioner": "1"},
+            querystring={"practitioner": "1,2"},
         ),
         response=mock_response(body=response_text),
         timing=times(1),
     )
 
     response_text = {
-        "resourceType": "PractitionerRole",
-        "id": "12",
-        "practitioner": {"reference": "Practitioner/2"},
-    }
-    mock_client.expect(
-        request=mock_request(
-            path=f"/{relative_url}/PractitionerRole",
-            method="GET",
-            querystring={"practitioner": "2"},
-        ),
-        response=mock_response(body=response_text),
-        timing=times(1),
-    )
-
-    response_text = {
-        "resourceType": "Schedule",
-        "id": "100",
-        "actor": {"reference": "PractitionerRole/10"},
-    }
-    mock_client.expect(
-        request=mock_request(
-            path=f"/{relative_url}/Schedule",
-            method="GET",
-            querystring={"actor": "10"},
-        ),
-        response=mock_response(body=response_text),
-        timing=times(1),
-    )
-
-    response_text = {
-        "resourceType": "Schedule",
-        "id": "120",
-        "actor": {"reference": "PractitionerRole/12"},
+        "entry": [
+            {
+                "resource": {
+                    "resourceType": "Schedule",
+                    "id": "100",
+                    "actor": {"reference": "PractitionerRole/10"},
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Schedule",
+                    "id": "120",
+                    "actor": {"reference": "PractitionerRole/12"},
+                }
+            },
+        ]
     }
     mock_client.expect(
         request=mock_request(
             path=f"/{relative_url}/Schedule",
             method="GET",
-            querystring={"actor": "12"},
+            querystring={"actor": "10,12"},
         ),
         response=mock_response(body=response_text),
         timing=times(1),
     )
 
     response_text = {
-        "resourceType": "Slot",
-        "id": "1000",
-        "schedule": {"reference": "Schedule/100"},
+        "entry": [
+            {
+                "resource": {
+                    "resourceType": "Slot",
+                    "id": "1000",
+                    "schedule": {"reference": "Schedule/100"},
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Slot",
+                    "id": "1200",
+                    "schedule": {"reference": "Schedule/120"},
+                }
+            },
+        ]
     }
     mock_client.expect(
         request=mock_request(
             path=f"/{relative_url}/Slot",
             method="GET",
-            querystring={"schedule": "100"},
-        ),
-        response=mock_response(body=response_text),
-        timing=times(1),
-    )
-
-    response_text = {
-        "resourceType": "Slot",
-        "id": "1200",
-        "schedule": {"reference": "Schedule/120"},
-    }
-    mock_client.expect(
-        request=mock_request(
-            path=f"/{relative_url}/Slot",
-            method="GET",
-            querystring={"schedule": "120"},
+            querystring={"schedule": "100,120"},
         ),
         response=mock_response(body=response_text),
         timing=times(1),
@@ -159,6 +153,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
             graph_json=graph_json,
             contained=False,
             separate_bundle_resources=False,
+            request_size=10,
         )
     )
     assert response is not None
@@ -185,7 +180,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
             {
                 "request": {
                     "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/PractitionerRole?practitioner=1",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/PractitionerRole?practitioner=1,2",
                 },
                 "resource": {
                     "id": "10",
@@ -197,7 +192,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
             {
                 "request": {
                     "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/PractitionerRole?practitioner=2",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/PractitionerRole?practitioner=1,2",
                 },
                 "resource": {
                     "id": "12",
@@ -209,7 +204,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
             {
                 "request": {
                     "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Schedule?actor=10",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Schedule?actor=10,12",
                 },
                 "resource": {
                     "actor": {"reference": "PractitionerRole/10"},
@@ -221,7 +216,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
             {
                 "request": {
                     "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Schedule?actor=12",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Schedule?actor=10,12",
                 },
                 "resource": {
                     "actor": {"reference": "PractitionerRole/12"},
@@ -233,7 +228,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
             {
                 "request": {
                     "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Slot?schedule=100",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Slot?schedule=100,120",
                 },
                 "resource": {
                     "id": "1000",
@@ -245,7 +240,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
             {
                 "request": {
                     "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Slot?schedule=120",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Slot?schedule=100,120",
                 },
                 "resource": {
                     "id": "1200",
