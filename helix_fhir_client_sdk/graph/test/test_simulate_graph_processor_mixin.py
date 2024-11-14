@@ -20,6 +20,7 @@ from tests.test_logger import TestLogger
 class TestGraphProcessor(FhirClient):
     def __init__(self) -> None:
         super().__init__()
+        # noinspection HttpUrlsUsage
         self.url("http://example.com/fhir")
         self.id_("1")
         self.log_level("DEBUG")
@@ -55,6 +56,7 @@ def get_payload_function(
     :return: The function that will return the delayed response.
     """
 
+    # noinspection PyUnusedLocal
     async def delayed_response(url: str, **kwargs: Any) -> CallbackResult:
         logger: Logger = logging.getLogger(__name__)
         logger.setLevel(logging.INFO)
@@ -112,6 +114,8 @@ async def test_process_simulate_graph_async() -> None:
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
+            max_concurrent_tasks=None,
+            sort_resources=True,
         )
 
         response = [r async for r in async_gen]
@@ -209,6 +213,8 @@ async def test_graph_definition_with_single_link() -> None:
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
+            max_concurrent_tasks=None,
+            sort_resources=True,
         )
 
         response = [r async for r in async_gen]
@@ -291,6 +297,8 @@ async def test_graph_definition_with_nested_links() -> None:
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
+            max_concurrent_tasks=None,
+            sort_resources=True,
         )
 
         response = [r async for r in async_gen]
@@ -369,6 +377,8 @@ async def test_graph_definition_with_multiple_links() -> None:
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
+            max_concurrent_tasks=None,
+            sort_resources=True,
         )
 
         response = [r async for r in async_gen]
@@ -443,6 +453,8 @@ async def test_graph_definition_with_multiple_targets() -> None:
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
+            max_concurrent_tasks=None,
+            sort_resources=True,
         )
 
         response = [r async for r in async_gen]
@@ -500,6 +512,8 @@ async def test_graph_definition_with_no_links() -> None:
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
+            max_concurrent_tasks=None,
+            sort_resources=True,
         )
 
         response = [r async for r in async_gen]
@@ -556,6 +570,8 @@ async def test_process_simulate_graph_async_multiple_patients() -> None:
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
+            max_concurrent_tasks=None,
+            sort_resources=True,
         )
 
         response = [r async for r in async_gen]
@@ -637,6 +653,8 @@ async def test_graph_definition_with_multiple_links_concurrent_requests() -> Non
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
+            max_concurrent_tasks=None,
+            sort_resources=True,
         )
 
         response = [r async for r in async_gen]
@@ -711,6 +729,8 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests() -> N
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
+            max_concurrent_tasks=None,
+            sort_resources=True,
         )
 
         response = [r async for r in async_gen]
@@ -826,6 +846,8 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
             url=None,
             expand_fhir_bundle=False,
             auth_scopes=[],
+            max_concurrent_tasks=None,
+            sort_resources=True,
         )
 
         response = [r async for r in async_gen]
