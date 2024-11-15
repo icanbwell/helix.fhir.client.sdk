@@ -1,5 +1,5 @@
 import json
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any, Union, Callable
 
 from helix_fhir_client_sdk.fhir_bundle import (
     Bundle,
@@ -227,4 +227,28 @@ class FhirBundleAppender:
         unique_bundle_entries.extend(null_id_bundle_entries)
         bundle.entry = unique_bundle_entries
 
+        return bundle
+
+    @staticmethod
+    def sort_resources(
+        *, bundle: Bundle, fn_sort: Callable[[BundleEntry], str] | None = None
+    ) -> Bundle:
+        """
+        Sorts the resources in the bundle
+
+        :param bundle: The bundle to sort
+        :param fn_sort: The function to use to sort the resources (Optional).  if not provided, the resources will be sorted by resourceType/id
+        """
+        if not bundle.entry:
+            return bundle
+        if not fn_sort:
+            fn_sort = lambda e: (
+                (e.resource.get("resourceType", "") + "/" + e.resource.get("id", ""))
+                if e.resource
+                else ""
+            )
+        bundle.entry = sorted(
+            bundle.entry,
+            key=fn_sort,
+        )
         return bundle

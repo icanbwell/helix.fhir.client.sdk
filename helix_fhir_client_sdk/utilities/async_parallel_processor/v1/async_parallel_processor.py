@@ -45,13 +45,17 @@ class ParallelFunction[TInput, TOutput, TParameters](Protocol):
 
 class AsyncParallelProcessor:
     def __init__(
-        self, *, name: str, max_concurrent_tasks: Optional[int] = None
+        self,
+        *,
+        name: str,
+        max_concurrent_tasks: Optional[int] = None,
     ) -> None:
         """
         This class is used to process rows in parallel
 
         :param name: name of the processor
-        :param max_concurrent_tasks: maximum number of concurrent tasks. If None, there is no limit
+        :param max_concurrent_tasks: maximum number of concurrent tasks. If None, there is no limit.
+                                    If 1 then the tasks are processed sequentially else they are processed in parallel
         """
         self.name: str = name
         self.max_concurrent_tasks: Optional[int] = max_concurrent_tasks
@@ -80,6 +84,21 @@ class AsyncParallelProcessor:
         :param kwargs: additional parameters
         :return: results of processing
         """
+
+        if self.max_concurrent_tasks == 1:
+            for i, row in enumerate(rows):
+                yield await process_row_fn(
+                    context=ParallelFunctionContext(
+                        name=self.name,
+                        log_level=log_level,
+                        task_index=i,
+                        total_task_count=len(rows),
+                    ),
+                    row=row,
+                    parameters=parameters,
+                    additional_parameters=kwargs,
+                )
+            return
 
         # noinspection PyShadowingNames
         async def process_with_semaphore_async(

@@ -20,3 +20,5 @@ class GraphLinkParameters:
     cache: RequestCache
 
     scope_parser: FhirScopeParser
+
+    max_concurrent_tasks: Optional[int]
