@@ -13,7 +13,7 @@ class GraphLinkParameters:
     This class contains the parameters for a graph target
     """
 
-    parent_bundle_entry: List[BundleEntry] | None
+    parent_bundle_entries: List[BundleEntry] | None
 
     logger: Optional[FhirLogger]
 

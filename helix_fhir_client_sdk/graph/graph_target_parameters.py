@@ -16,7 +16,7 @@ class GraphTargetParameters:
     path: Optional[str]
     """ path to the target """
 
-    parent_bundle_entry: List[BundleEntry] | None
+    parent_bundle_entries: List[BundleEntry] | None
     """ parent bundle entry """
 
     logger: Optional[FhirLogger]
