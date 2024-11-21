@@ -53,6 +53,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         url: Optional[str],
         expand_fhir_bundle: Optional[bool],
         auth_scopes: Optional[List[str]],
+        request_size: Optional[int] = 1,
         max_concurrent_tasks: Optional[int],
         sort_resources: Optional[bool],
     ) -> AsyncGenerator[FhirGetResponse, None]:
@@ -75,6 +76,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param url: Optional url to use
         :param expand_fhir_bundle: Optional flag to expand the FHIR bundle
         :param auth_scopes: Optional list of scopes to use
+        :param request_size: No. of resources to request in one FHIR request
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially
         :param sort_resources: Optional flag to sort resources
         :return: FhirGetResponse
@@ -128,28 +130,36 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
             # now process the graph links
             responses: List[FhirGetResponse] = []
-            if graph_definition.link and len(graph_definition.link) > 0:
-                link: GraphDefinitionLink
-                parent_bundle_entry: BundleEntry
-                for parent_bundle_entry in parent_bundle_entries:
+            parent_link_map: List[
+                Tuple[List[GraphDefinitionLink], List[BundleEntry]]
+            ] = []
+            if graph_definition.link and parent_bundle_entries:
+                parent_link_map.append((graph_definition.link, parent_bundle_entries))
+            while len(parent_link_map):
+                new_parent_link_map: List[
+                    Tuple[List[GraphDefinitionLink], List[BundleEntry]]
+                ] = []
+                for link, parent_bundle_entries in parent_link_map:
                     link_responses: List[FhirGetResponse]
                     async for link_responses in AsyncParallelProcessor(
                         name="process_link_async_parallel_function",
                         max_concurrent_tasks=max_concurrent_tasks,
                     ).process_rows_in_parallel(
-                        rows=graph_definition.link,
+                        rows=link,
                         process_row_fn=self.process_link_async_parallel_function,
                         parameters=GraphLinkParameters(
-                            parent_bundle_entry=parent_bundle_entry,
+                            parent_bundle_entries=parent_bundle_entries,
                             logger=logger,
                             cache=cache,
                             scope_parser=scope_parser,
                             max_concurrent_tasks=max_concurrent_tasks,
                         ),
                         log_level=self._log_level,
+                        parent_link_map=new_parent_link_map,
+                        request_size=request_size,
                     ):
                         responses.extend(link_responses)
-
+                parent_link_map = new_parent_link_map
             FhirBundleAppender.append_responses(responses=responses, bundle=bundle)
 
             bundle = FhirBundleAppender.remove_duplicate_resources(bundle=bundle)
@@ -227,10 +237,18 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         link_result: FhirGetResponse
         async for link_result in self._process_link_async(
             link=row,
-            parent_bundle_entry=parameters.parent_bundle_entry,
+            parent_bundle_entries=parameters.parent_bundle_entries,
             logger=parameters.logger,
             cache=parameters.cache,
             scope_parser=parameters.scope_parser,
+            parent_link_map=(
+                additional_parameters["parent_link_map"]
+                if additional_parameters
+                else []
+            ),
+            request_size=(
+                additional_parameters["request_size"] if additional_parameters else 1
+            ),
             max_concurrent_tasks=parameters.max_concurrent_tasks,
         ):
             result.append(link_result)
@@ -255,10 +273,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         self,
         *,
         link: GraphDefinitionLink,
-        parent_bundle_entry: Optional[BundleEntry],
+        parent_bundle_entries: Optional[List[BundleEntry]],
         logger: Optional[FhirLogger],
         cache: RequestCache,
         scope_parser: FhirScopeParser,
+        parent_link_map: List[Tuple[List[GraphDefinitionLink], List[BundleEntry]]],
+        request_size: int,
         max_concurrent_tasks: Optional[int],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -266,7 +286,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
 
         :param link: link to process
-        :param parent_bundle_entry: parent bundle entry
+        :param parent_bundle_entries: list of parent bundle entry
         :param logger: logger to use
         :param cache: cache to use
         :param scope_parser: scope parser to use
@@ -275,8 +295,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         """
         assert link
         targets: List[GraphDefinitionTarget] = link.target
-        target: GraphDefinitionTarget
-
         target_responses: List[FhirGetResponse]
         async for target_responses in AsyncParallelProcessor(
             name="process_target_async",
@@ -286,12 +304,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             process_row_fn=self.process_target_async_parallel_function,
             parameters=GraphTargetParameters(
                 path=link.path,
-                parent_bundle_entry=parent_bundle_entry,
+                parent_bundle_entries=parent_bundle_entries,
                 logger=logger,
                 cache=cache,
                 scope_parser=scope_parser,
                 max_concurrent_tasks=max_concurrent_tasks,
             ),
+            parent_link_map=parent_link_map,
+            request_size=request_size,
         ):
             for target_response in target_responses:
                 yield target_response
@@ -307,8 +327,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         """
         This function is called by AsyncParallelProcessor to process a link in parallel.
         It has to match the function definition of ParallelFunction
-
-
         """
         assert parameters
         result: List[FhirGetResponse] = []
@@ -316,25 +334,65 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         async for target_result in self._process_target_async(
             target=row,
             path=parameters.path,
-            parent_bundle_entry=parameters.parent_bundle_entry,
+            parent_bundle_entries=parameters.parent_bundle_entries,
             logger=parameters.logger,
             cache=parameters.cache,
             scope_parser=parameters.scope_parser,
-            max_concurrent_tasks=parameters.max_concurrent_tasks,
+            parent_link_map=(
+                additional_parameters["parent_link_map"]
+                if additional_parameters
+                else []
+            ),
+            request_size=(
+                additional_parameters["request_size"] if additional_parameters else 1
+            ),
         ):
             result.append(target_result)
         return result
+
+    async def _process_child_group(
+        self,
+        *,
+        id_: Optional[Union[List[str], str]] = None,
+        resource_type: str,
+        parameters: Optional[List[str]] = None,
+        path: Optional[str],
+        cache: RequestCache,
+        scope_parser: FhirScopeParser,
+        logger: Optional[FhirLogger],
+    ) -> FhirGetResponse:
+        (
+            child_response,
+            cache_hits,
+        ) = await self._get_resources_by_parameters_async(
+            resource_type=resource_type,
+            id_=id_,
+            parameters=parameters,
+            cache=cache,
+            scope_parser=scope_parser,
+            logger=logger,
+        )
+        if logger:
+            logger.info(
+                f"Received child resources"
+                + f" from parent {resource_type}/{id_}"
+                + f" [{path}]"
+                + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
+                + f", {','.join(child_response.get_resource_type_and_ids())}"
+            )
+        return child_response
 
     async def _process_target_async(
         self,
         *,
         target: GraphDefinitionTarget,
         path: Optional[str],
-        parent_bundle_entry: Optional[BundleEntry],
+        parent_bundle_entries: Optional[List[BundleEntry]],
         logger: Optional[FhirLogger],
         cache: RequestCache,
         scope_parser: FhirScopeParser,
-        max_concurrent_tasks: Optional[int],
+        parent_link_map: List[Tuple[List[GraphDefinitionLink], List[BundleEntry]]],
+        request_size: int,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Process a GraphDefinition target
@@ -342,96 +400,109 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         :param target: target to process
         :param path: path to process
-        :param parent_bundle_entry: parent bundle entry
+        :param parent_bundle_entries: list of parent bundle entry
         :param logger: logger to use
         :param cache: cache to use
         :param scope_parser: scope parser to use
-        :param max_concurrent_tasks: number of concurrent tasks. If 1 then the tasks are processed sequentially
         :return: list of FhirGetResponse objects
         """
         children: List[BundleEntry] = []
         child_response: FhirGetResponse
-        child_response_resources: Union[Dict[str, Any], List[Dict[str, Any]]]
         target_type: Optional[str] = target.type_
-        parent_resource: Optional[Dict[str, Any]] = (
-            parent_bundle_entry.resource if parent_bundle_entry else None
-        )
         reference: Optional[Union[Dict[str, Any], str]] = None
+        assert target_type
 
         # forward link and iterate over list
-        if path and "[x]" in path:
-            references: Union[List[Dict[str, Any]], Dict[str, Any], str, None] = (
-                DictionaryParser.get_nested_property(parent_resource, path)
-                if parent_resource
-                else None
-            )
-            # remove null references
-            if references and isinstance(references, list):
-                references = [r for r in references if r is not None]
+        if path and "[x]" in path and parent_bundle_entries:
+            child_ids = []
+            for parent_bundle_entry in parent_bundle_entries:
+                parent_resource = parent_bundle_entry.resource
+                references: Union[List[Dict[str, Any]], Dict[str, Any], str, None] = (
+                    DictionaryParser.get_nested_property(parent_resource, path)
+                    if parent_resource
+                    else None
+                )
+                # remove null references
+                if references and isinstance(references, list):
+                    references = [r for r in references if r is not None]
 
-            if parent_resource and references and target_type:
-                reference_ids = []
-                for r in references:
-                    # TODO: consider removing assumption of "reference" and require as part of path instead
-                    if isinstance(r, dict) and "reference" in r:
-                        reference_ids.append(r["reference"])
-                    elif isinstance(r, str) and r.startswith("Binary/"):
-                        reference_ids.append(r)
-                for reference_id in reference_ids:
-                    reference_parts = reference_id.split("/")
-                    if reference_parts[0] == target_type:
-                        child_id = reference_parts[1]
-                        (
-                            child_response,
-                            cache_hits,
-                        ) = await self._get_resources_by_parameters_async(
-                            resource_type=target_type,
-                            id_=child_id,
-                            cache=cache,
-                            scope_parser=scope_parser,
-                            logger=logger,
-                        )
-                        yield child_response
-                        children = child_response.get_bundle_entries()
-                        if logger:
-                            logger.info(
-                                f"Received child resources"
-                                + f" from parent {parent_resource.get('resourceType')}/{parent_resource.get('id')}"
-                                + f" [{path}]"
-                                + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
-                                + f", {','.join(child_response.get_resource_type_and_ids())}"
+                if parent_resource and references and target_type:
+                    for r in references:
+                        reference_id = None
+                        # TODO: consider removing assumption of "reference" and require as part of path instead
+                        if isinstance(r, dict) and "reference" in r:
+                            reference_id = r["reference"]
+                        elif isinstance(r, str) and r.startswith("Binary/"):
+                            reference_id = r
+                        if reference_id:
+                            reference_parts = reference_id.split("/")
+                            if (
+                                reference_parts[0] == target_type
+                                and reference_parts[1]
+                                and reference_parts[1] not in child_ids
+                            ):
+                                child_ids.append(reference_parts[1])
+                        if request_size and len(child_ids) == request_size:
+                            child_response = await self._process_child_group(
+                                resource_type=target_type,
+                                id_=child_ids,
+                                path=path,
+                                cache=cache,
+                                scope_parser=scope_parser,
+                                logger=logger,
                             )
-        elif (
-            path
-            and parent_resource
-            and (reference := parent_resource.get(path, {}))
-            and "reference" in reference
-            and target_type
-        ):
-            reference_id = reference["reference"]
-            reference_parts = reference_id.split("/")
-            if reference_parts[0] == target_type:
-                child_id = reference_parts[1]
-                (
-                    child_response,
-                    cache_hits,
-                ) = await self._get_resources_by_parameters_async(
+                            yield child_response
+                            children.extend(child_response.get_bundle_entries())
+                            child_ids = []
+            if child_ids:
+                child_response = await self._process_child_group(
                     resource_type=target_type,
-                    id_=child_id,
+                    id_=child_ids,
+                    path=path,
                     cache=cache,
                     scope_parser=scope_parser,
                     logger=logger,
                 )
                 yield child_response
-                children = child_response.get_bundle_entries()
-                if logger:
-                    logger.info(
-                        f"Received child resources"
-                        + f" from parent {parent_resource.get('resourceType')}/{parent_resource.get('id')}"
-                        + f" [{path}]"
-                        + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
-                        + f", {','.join(child_response.get_resource_type_and_ids())}"
-                    )
+                children.extend(child_response.get_bundle_entries())
+        elif path and parent_bundle_entries and target_type:
+            child_ids = []
+            for parent_bundle_entry in parent_bundle_entries:
+                parent_resource = parent_bundle_entry.resource
+                reference = parent_resource.get(path, {}) if parent_resource else None
+                if reference and "reference" in reference:
+                    reference_id = reference["reference"]
+                    reference_parts = reference_id.split("/")
+                    if (
+                        reference_parts[0] == target_type
+                        and reference_parts[1]
+                        and reference_parts[1] not in child_ids
+                    ):
+                        child_ids.append(reference_parts[1])
+                    if request_size and len(child_ids) == request_size:
+                        child_response = await self._process_child_group(
+                            resource_type=target_type,
+                            id_=child_ids,
+                            path=path,
+                            cache=cache,
+                            scope_parser=scope_parser,
+                            logger=logger,
+                        )
+                        yield child_response
+                        children.extend(child_response.get_bundle_entries())
+                        child_ids = []
+            if child_ids:
+                child_response = await self._process_child_group(
+                    resource_type=target_type,
+                    id_=child_ids,
+                    path=path,
+                    cache=cache,
+                    scope_parser=scope_parser,
+                    logger=logger,
+                )
+                yield child_response
+                children.extend(child_response.get_bundle_entries())
+
         elif target.params:  # reverse path
             # for a reverse link, get the ids of the current resource, put in a view and
             # add a stage to get that
@@ -439,58 +510,47 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             ref_param = [p for p in param_list if p.endswith("{ref}")][0]
             additional_parameters = [p for p in param_list if not p.endswith("{ref}")]
             property_name: str = ref_param.split("=")[0]
-            if (
-                parent_resource
-                and property_name
-                and parent_resource.get("id")
-                and target_type
-            ):
-                parent_id = parent_resource.get("id")
-                request_parameters: List[str] = [
-                    f"{property_name}={parent_id}"
-                ] + additional_parameters
-                (
-                    child_response,
-                    cache_hits,
-                ) = await self._get_resources_by_parameters_async(
-                    resource_type=target_type,
-                    parameters=request_parameters,
-                    cache=cache,
-                    scope_parser=scope_parser,
-                    logger=logger,
-                )
-                yield child_response
-                if logger:
-                    logger.debug(
-                        f"Received child resources with params:{target.params} "
-                        + f" from parent {parent_resource.get('resourceType')}/{parent_resource.get('id')}"
-                        + f" [{'&'.join(request_parameters)}]"
-                        + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
-                        + f", {','.join(child_response.get_resource_type_and_ids())}"
+            if parent_bundle_entries and property_name and target_type:
+                parent_ids = []
+                for parent_bundle_entry in parent_bundle_entries:
+                    parent_id = (
+                        parent_bundle_entry.resource.get("id")
+                        if parent_bundle_entry.resource
+                        else None
                     )
-                children = child_response.get_bundle_entries()
-
-        if target.link:
-
-            child: BundleEntry
-            for child in children:
-                child_responses: List[FhirGetResponse]
-                async for child_responses in AsyncParallelProcessor(
-                    name="process_child_link_async",
-                    max_concurrent_tasks=max_concurrent_tasks,
-                ).process_rows_in_parallel(
-                    rows=target.link,
-                    process_row_fn=self.process_link_async_parallel_function,
-                    parameters=GraphLinkParameters(
-                        parent_bundle_entry=child,
-                        logger=logger,
+                    if parent_id and parent_id not in parent_ids:
+                        parent_ids.append(parent_id)
+                    if request_size and len(parent_ids) == request_size:
+                        request_parameters = [
+                            f"{property_name}={','.join(parent_ids)}"
+                        ] + additional_parameters
+                        child_response = await self._process_child_group(
+                            resource_type=target_type,
+                            parameters=request_parameters,
+                            path=path,
+                            cache=cache,
+                            scope_parser=scope_parser,
+                            logger=logger,
+                        )
+                        yield child_response
+                        children.extend(child_response.get_bundle_entries())
+                        parent_ids = []
+                if parent_ids:
+                    request_parameters = [
+                        f"{property_name}={','.join(parent_ids)}"
+                    ] + additional_parameters
+                    child_response = await self._process_child_group(
+                        resource_type=target_type,
+                        parameters=request_parameters,
+                        path=path,
                         cache=cache,
                         scope_parser=scope_parser,
-                        max_concurrent_tasks=max_concurrent_tasks,
-                    ),
-                ):
-                    for child_response in child_responses:
-                        yield child_response
+                        logger=logger,
+                    )
+                    yield child_response
+                    children.extend(child_response.get_bundle_entries())
+        if target.link:
+            parent_link_map.append((target.link, children))
 
     async def _get_resources_by_parameters_async(
         self: FhirClientProtocol,
@@ -622,6 +682,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         retrieve_and_restrict_to_capability_statement: Optional[bool] = None,
         ifModifiedSince: Optional[datetime] = None,
         eTag: Optional[str] = None,
+        request_size: Optional[int] = 1,
         max_concurrent_tasks: Optional[int] = 1,
         sort_resources: Optional[bool] = False,
     ) -> FhirGetResponse:
@@ -640,6 +701,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param retrieve_and_restrict_to_capability_statement: Optional capability statement to retrieve and restrict to
         :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
         :param eTag: Optional ETag to use for If-None-Match header
+        :param request_size: Optional Count of resoucres to request in one request
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially.
         :param sort_resources: Optional flag to sort resources
         :return: FhirGetResponse
@@ -666,6 +728,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 expand_fhir_bundle=self._expand_fhir_bundle,
                 logger=self._logger,
                 auth_scopes=self._auth_scopes,
+                request_size=request_size,
                 max_concurrent_tasks=max_concurrent_tasks,
                 sort_resources=sort_resources,
             )
@@ -687,6 +750,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         retrieve_and_restrict_to_capability_statement: Optional[bool] = None,
         ifModifiedSince: Optional[datetime] = None,
         eTag: Optional[str] = None,
+        request_size: Optional[int] = 1,
         max_concurrent_tasks: Optional[int] = 1,
         sort_resources: Optional[bool] = False,
     ) -> AsyncGenerator[FhirGetResponse, None]:
@@ -705,6 +769,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param retrieve_and_restrict_to_capability_statement: Optional capability statement to retrieve and restrict to
         :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
         :param eTag: Optional ETag to use for If-None-Match header
+        :param request_size: Optional Count of resoucres to request in one request
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially
         :param sort_resources: Optional flag to sort resources
         :return: FhirGetResponse
@@ -730,6 +795,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             expand_fhir_bundle=self._expand_fhir_bundle,
             logger=self._logger,
             auth_scopes=self._auth_scopes,
+            request_size=request_size,
             max_concurrent_tasks=max_concurrent_tasks,
             sort_resources=sort_resources,
         ):
