@@ -408,7 +408,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         """
         children: List[BundleEntry] = []
         child_response: FhirGetResponse
-        child_response_resources: Union[Dict[str, Any], List[Dict[str, Any]]]
         target_type: Optional[str] = target.type_
         reference: Optional[Union[Dict[str, Any], str]] = None
         assert target_type
@@ -453,7 +452,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 logger=logger,
                             )
                             yield child_response
-                            children = child_response.get_bundle_entries()
+                            children.extend(child_response.get_bundle_entries())
                             child_ids = []
             if child_ids:
                 child_response = await self._process_child_group(
@@ -465,7 +464,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     logger=logger,
                 )
                 yield child_response
-                children = child_response.get_bundle_entries()
+                children.extend(child_response.get_bundle_entries())
         elif path and parent_bundle_entries and target_type:
             child_ids = []
             for parent_bundle_entry in parent_bundle_entries:
@@ -490,7 +489,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             logger=logger,
                         )
                         yield child_response
-                        children = child_response.get_bundle_entries()
+                        children.extend(child_response.get_bundle_entries())
                         child_ids = []
             if child_ids:
                 child_response = await self._process_child_group(
@@ -502,7 +501,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     logger=logger,
                 )
                 yield child_response
-                children = child_response.get_bundle_entries()
+                children.extend(child_response.get_bundle_entries())
 
         elif target.params:  # reverse path
             # for a reverse link, get the ids of the current resource, put in a view and
@@ -534,7 +533,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             logger=logger,
                         )
                         yield child_response
-                        children = child_response.get_bundle_entries()
+                        children.extend(child_response.get_bundle_entries())
                         parent_ids = []
                 if parent_ids:
                     request_parameters = [
@@ -549,7 +548,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         logger=logger,
                     )
                     yield child_response
-                    children = child_response.get_bundle_entries()
+                    children.extend(child_response.get_bundle_entries())
         if target.link:
             parent_link_map.append((target.link, children))
 
