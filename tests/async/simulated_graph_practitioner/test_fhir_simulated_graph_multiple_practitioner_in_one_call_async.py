@@ -257,7 +257,6 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
         ]
     }
 
-    print(response.responses, "====----232323fewfew===")
     bundle = json.loads(response.responses)
     # sort the entries by resource id
     bundle["entry"] = sorted(bundle["entry"], key=lambda x: int(x["resource"]["id"]))
