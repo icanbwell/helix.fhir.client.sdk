@@ -1,19 +1,26 @@
-FROM python:3.12-slim
-USER root
+FROM public.ecr.aws/docker/library/python:3.12-alpine3.20
 
-RUN apt-get update && apt-get install make
+# Install system dependencies
+RUN apk add --no-cache \
+    make \
+    git \
+    build-base \
+    python3-dev \
+    libffi-dev \
+    openssl-dev
 
-COPY Pipfile* /src/
+# Set working directory
 WORKDIR /src
-#RUN apt-get install -y git && git --version && git config --global --add safe.directory /src
 
-RUN python -m pip install --upgrade pip
-RUN python -m pip install --no-cache-dir pipenv
+# Copy Pipfile first to leverage Docker cache
+COPY Pipfile* /src/
+
+# Upgrade pip and install pipenv
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir pipenv
+
+# Install project dependencies
 RUN pipenv sync --dev --system
 
+# Copy the rest of the project files
 COPY . /src
-
-# run pre-commit once so it installs all the hooks and subsequent runs are fast
-#RUN cd /src && pre-commit install
-
-# USER 1001
