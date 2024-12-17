@@ -38,7 +38,9 @@ async def test_patch_async_success() -> None:
     print(json.dumps(obs_updated_payload))
 
     with aioresponses() as m:
-        # m.post("http://validation-server.com/Observation/$validate", status=200, payload={})
+        m.post(
+            "http://validation-server.com/Observation/$validate", status=200, payload={}
+        )
         m.post(url, status=200, payload=obs_updated_payload)
         fhir_client._url = "http://example.com"
         fhir_client._resource = "Observation"
