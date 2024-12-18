@@ -15,6 +15,7 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
+from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValidator
 
 
 class FhirPatchMixin(FhirClientProtocol):
@@ -45,10 +46,21 @@ class FhirPatchMixin(FhirClientProtocol):
         headers = {"Content-Type": "application/json-patch+json"}
         headers.update(self._additional_request_headers)
         self._internal_logger.debug(f"Request headers: {headers}")
+
         access_token = await self.get_access_token_async()
         # set access token in request if present
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
+
+        if self._validation_server_url:
+            await AsyncFhirValidator.validate_fhir_resource(
+                fn_get_session=lambda: self.create_http_session(),
+                json_data=data,
+                resource_name=self._resource,
+                validation_server_url=self._validation_server_url,
+                access_token=access_token,
+            )
+
         try:
             deserialized_data = json.loads(data)
             # actually make the request
@@ -93,6 +105,7 @@ class FhirPatchMixin(FhirClientProtocol):
                 message=f"Error: {e}",
                 elapsed_time=time.time() - start_time,
             ) from e
+
         # check if response is json
         response_text = await response.get_text_async()
         if response_text:
