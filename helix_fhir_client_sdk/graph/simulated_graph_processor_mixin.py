@@ -198,7 +198,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             response.url = url or response.url  # set url to top level url
             if logger:
                 logger.info(
-                    f"Request Cache hits: {cache.cache_hits}, misses: {cache.cache_misses}"
+                    f"Request Cache for: id_=${id_},  start={graph_definition.start}, hits: {cache.cache_hits}, misses: {cache.cache_misses}"
                 )
             yield response
 
@@ -355,6 +355,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         *,
         id_: Optional[Union[List[str], str]] = None,
         resource_type: str,
+        parent_ids: List[str],
+        parent_resource_type: str,
         parameters: Optional[List[str]] = None,
         path: Optional[str],
         cache: RequestCache,
@@ -375,7 +377,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         if logger:
             logger.info(
                 f"Received child resources"
-                + f" from parent {resource_type}/{id_}"
+                + f" from parent {parent_resource_type}/{parent_ids}"
                 + f" [{path}]"
                 + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
                 + f", {','.join(child_response.get_resource_type_and_ids())}"
@@ -411,6 +413,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         target_type: Optional[str] = target.type_
         reference: Optional[Union[Dict[str, Any], str]] = None
         assert target_type
+        parent_resource_type: str = ""
+        parent_ids: List[str] = []
 
         # forward link and iterate over list
         if path and "[x]" in path and parent_bundle_entries:
@@ -427,6 +431,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     references = [r for r in references if r is not None]
 
                 if parent_resource and references and target_type:
+                    parent_resource_type = parent_resource.get("resourceType", "")
+                    parent_ids.append(parent_resource.get("id", ""))
                     for r in references:
                         reference_id = None
                         # TODO: consider removing assumption of "reference" and require as part of path instead
@@ -446,6 +452,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             child_response = await self._process_child_group(
                                 resource_type=target_type,
                                 id_=child_ids,
+                                parent_ids=parent_ids,
+                                parent_resource_type=parent_resource_type,
                                 path=path,
                                 cache=cache,
                                 scope_parser=scope_parser,
@@ -454,10 +462,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             yield child_response
                             children.extend(child_response.get_bundle_entries())
                             child_ids = []
+                            parent_ids = []
             if child_ids:
                 child_response = await self._process_child_group(
                     resource_type=target_type,
                     id_=child_ids,
+                    parent_ids=parent_ids,
+                    parent_resource_type=parent_resource_type,
                     path=path,
                     cache=cache,
                     scope_parser=scope_parser,
@@ -470,7 +481,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             for parent_bundle_entry in parent_bundle_entries:
                 parent_resource = parent_bundle_entry.resource
                 reference = parent_resource.get(path, {}) if parent_resource else None
-                if reference and "reference" in reference:
+                if parent_resource and reference and "reference" in reference:
+                    parent_ids.append(parent_resource.get("id", ""))
+                    parent_resource_type = parent_resource.get("resourceType", "")
                     reference_id = reference["reference"]
                     reference_parts = reference_id.split("/")
                     if (
@@ -483,6 +496,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         child_response = await self._process_child_group(
                             resource_type=target_type,
                             id_=child_ids,
+                            parent_ids=parent_ids,
+                            parent_resource_type=parent_resource_type,
                             path=path,
                             cache=cache,
                             scope_parser=scope_parser,
@@ -491,10 +506,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         yield child_response
                         children.extend(child_response.get_bundle_entries())
                         child_ids = []
+                        parent_ids = []
             if child_ids:
                 child_response = await self._process_child_group(
                     resource_type=target_type,
                     id_=child_ids,
+                    parent_ids=parent_ids,
+                    parent_resource_type=parent_resource_type,
                     path=path,
                     cache=cache,
                     scope_parser=scope_parser,
@@ -511,13 +529,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             additional_parameters = [p for p in param_list if not p.endswith("{ref}")]
             property_name: str = ref_param.split("=")[0]
             if parent_bundle_entries and property_name and target_type:
-                parent_ids = []
                 for parent_bundle_entry in parent_bundle_entries:
-                    parent_id = (
-                        parent_bundle_entry.resource.get("id")
-                        if parent_bundle_entry.resource
-                        else None
-                    )
+                    parent_resource = parent_bundle_entry.resource
+                    if parent_resource:
+                        parent_id = parent_resource.get("id", "")
+                        parent_resource_type = parent_resource.get("resourceType", "")
                     if parent_id and parent_id not in parent_ids:
                         parent_ids.append(parent_id)
                     if request_size and len(parent_ids) == request_size:
@@ -526,6 +542,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         ] + additional_parameters
                         child_response = await self._process_child_group(
                             resource_type=target_type,
+                            parent_ids=parent_ids,
+                            parent_resource_type=parent_resource_type,
                             parameters=request_parameters,
                             path=path,
                             cache=cache,
@@ -541,6 +559,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     ] + additional_parameters
                     child_response = await self._process_child_group(
                         resource_type=target_type,
+                        parent_ids=parent_ids,
+                        parent_resource_type=parent_resource_type,
                         parameters=request_parameters,
                         path=path,
                         cache=cache,
