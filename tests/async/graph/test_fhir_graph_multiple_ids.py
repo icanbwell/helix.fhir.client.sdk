@@ -77,7 +77,7 @@ async def test_fhir_graph_multiple_ids_async() -> None:
         request=mock_request(
             path=f"/{relative_url}/Patient/$graph",
             method="POST",
-            querystring={"id": "1,2"},
+            querystring={"_id": "1,2"},
         ),
         response=mock_response(body=response_text),
         timing=times(1),
