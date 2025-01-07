@@ -662,7 +662,7 @@ class FhirClient(
                 if len(ids) == 1 and not self._obj_id:
                     full_uri /= ids
                 else:
-                    full_uri.args["id"] = ",".join(sorted(ids))
+                    full_uri.args["_id"] = ",".join(sorted(ids))
         # add action to url
         if self._action:
             full_uri /= self._action

@@ -50,7 +50,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
         request=mock_request(
             path=f"/{relative_url}/Practitioner",
             method="GET",
-            querystring={"id": "1,2"},
+            querystring={"_id": "1,2"},
         ),
         response=mock_response(body=response_text),
         timing=times(1),
@@ -164,7 +164,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
             {
                 "request": {
                     "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Practitioner?id=1%2C2",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Practitioner?_id=1%2C2",
                 },
                 "resource": {"id": "1", "resourceType": "Practitioner"},
                 "response": {"status": "200"},
@@ -172,7 +172,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
             {
                 "request": {
                     "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Practitioner?id=1%2C2",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_multiple_graph_in_one_call_async/Practitioner?_id=1%2C2",
                 },
                 "resource": {"id": "2", "resourceType": "Practitioner"},
                 "response": {"status": "200"},
