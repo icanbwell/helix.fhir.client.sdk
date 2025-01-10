@@ -386,7 +386,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             logger.info(
                 f"Received child resources"
                 + f" from parent {parent_resource_type}/{parent_ids}"
-                + f" [{path}]"
+                + f" path:[{path}]. id_:{id_}. resource_type:{resource_type}"
                 + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
                 + f", {','.join(child_response.get_resource_type_and_ids())}"
             )
@@ -689,7 +689,18 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             ):
                 result = result1
         if (not result or result.status != 200) and len(non_cached_id_list) > 1:
-            result = None
+            if result:
+                shared_vars["id_search_unsupported_resources"].add(
+                    resource_type.lower()
+                )
+                (
+                    logger.info(
+                        f"_id is not supported for resource_type={resource_type}. Fetching one by one ids: {non_cached_id_list}."
+                    )
+                    if logger
+                    else None
+                )
+                result = None
             # For some resources if search by _id doesn't work then fetch one by one.
             for single_id in non_cached_id_list:
                 async for (
@@ -706,9 +717,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         result.append(result2)
                     else:
                         result = result2
-                    shared_vars["id_search_unsupported_resources"].add(
-                        resource_type.lower()
-                    )
         if result:
             non_cached_bundle_entry: BundleEntry
             for non_cached_bundle_entry in result.get_bundle_entries():
