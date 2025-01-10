@@ -99,6 +99,8 @@ async def test_fhir_simulated_graph_caching_async() -> None:
                     "content": [
                         {"attachment": {"url": "Binary/12"}},
                         {"attachment": {"url": "Binary/13"}},
+                        {"attachment": {"url": "Binary/14"}},
+                        {"attachment": {"url": "Binary/15"}},
                     ],
                 }
             }
@@ -116,6 +118,19 @@ async def test_fhir_simulated_graph_caching_async() -> None:
         timing=times(1),
     )
 
+    # Mock request to return 403 so that Binaries could be fetched one by one
+    mock_client.expect(
+        request=mock_request(
+            path=f"/{relative_url}/Binary",
+            querystring={
+                "_id": "12,13",
+            },
+            method="GET",
+        ),
+        response=mock_response(code=403),
+        timing=times(1),
+    )
+
     response_text = {"entry": [{"resource": {"resourceType": "Binary", "id": "12"}}]}
     mock_client.expect(
         request=mock_request(path=f"/{relative_url}/Binary/12", method="GET"),
@@ -125,6 +140,19 @@ async def test_fhir_simulated_graph_caching_async() -> None:
     response_text = {"entry": [{"resource": {"resourceType": "Binary", "id": "13"}}]}
     mock_client.expect(
         request=mock_request(path=f"/{relative_url}/Binary/13", method="GET"),
+        response=mock_response(body=response_text),
+        timing=times(1),
+    )
+
+    response_text = {"entry": [{"resource": {"resourceType": "Binary", "id": "14"}}]}
+    mock_client.expect(
+        request=mock_request(path=f"/{relative_url}/Binary/14", method="GET"),
+        response=mock_response(body=response_text),
+        timing=times(1),
+    )
+    response_text = {"entry": [{"resource": {"resourceType": "Binary", "id": "15"}}]}
+    mock_client.expect(
+        request=mock_request(path=f"/{relative_url}/Binary/15", method="GET"),
         response=mock_response(body=response_text),
         timing=times(1),
     )
@@ -189,6 +217,7 @@ async def test_fhir_simulated_graph_caching_async() -> None:
             graph_json=graph_json,
             contained=False,
             separate_bundle_resources=False,
+            request_size=2,
         )
     )
     assert response is not None
@@ -264,6 +293,8 @@ async def test_fhir_simulated_graph_caching_async() -> None:
                     "content": [
                         {"attachment": {"url": "Binary/12"}},
                         {"attachment": {"url": "Binary/13"}},
+                        {"attachment": {"url": "Binary/14"}},
+                        {"attachment": {"url": "Binary/15"}},
                     ],
                 },
                 "response": {"status": "200"},
@@ -279,9 +310,25 @@ async def test_fhir_simulated_graph_caching_async() -> None:
             {
                 "request": {
                     "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/13",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/12",
                 },
                 "resource": {"id": "13", "resourceType": "Binary"},
+                "response": {"status": "200"},
+            },
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/14",
+                },
+                "resource": {"id": "14", "resourceType": "Binary"},
+                "response": {"status": "200"},
+            },
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/14",
+                },
+                "resource": {"id": "15", "resourceType": "Binary"},
                 "response": {"status": "200"},
             },
             {

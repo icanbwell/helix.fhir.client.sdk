@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 from helix_fhir_client_sdk.fhir_bundle import BundleEntry
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
@@ -22,3 +22,5 @@ class GraphLinkParameters:
     scope_parser: FhirScopeParser
 
     max_concurrent_tasks: Optional[int]
+
+    shared_vars: Dict[str, Any]
