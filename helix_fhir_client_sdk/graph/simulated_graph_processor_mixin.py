@@ -100,7 +100,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         if not isinstance(id_, list):
             id_ = id_.split(",")
-        shared_vars: Dict[str, Any] = {"id_search_unsupported_resources": set()}
+        id_search_unsupported_resources: List[str] = []
         cache: RequestCache
         with RequestCache() as cache:
             # first load the start resource
@@ -113,7 +113,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 cache=cache,
                 scope_parser=scope_parser,
                 logger=logger,
-                shared_vars=shared_vars,
+                id_search_unsupported_resources=id_search_unsupported_resources,
             )
             if not response.responses:
                 yield response
@@ -154,11 +154,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             cache=cache,
                             scope_parser=scope_parser,
                             max_concurrent_tasks=max_concurrent_tasks,
-                            shared_vars=shared_vars,
                         ),
                         log_level=self._log_level,
                         parent_link_map=new_parent_link_map,
                         request_size=request_size,
+                        id_search_unsupported_resources=id_search_unsupported_resources,
                     ):
                         responses.extend(link_responses)
                 parent_link_map = new_parent_link_map
@@ -251,7 +251,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             request_size=(
                 additional_parameters["request_size"] if additional_parameters else 1
             ),
-            shared_vars=parameters.shared_vars,
+            id_search_unsupported_resources=(
+                additional_parameters["id_search_unsupported_resources"]
+                if additional_parameters
+                else []
+            ),
             max_concurrent_tasks=parameters.max_concurrent_tasks,
         ):
             result.append(link_result)
@@ -282,7 +286,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         scope_parser: FhirScopeParser,
         parent_link_map: List[Tuple[List[GraphDefinitionLink], List[BundleEntry]]],
         request_size: int,
-        shared_vars: Dict[str, Any],
+        id_search_unsupported_resources: List[str],
         max_concurrent_tasks: Optional[int],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -313,10 +317,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 cache=cache,
                 scope_parser=scope_parser,
                 max_concurrent_tasks=max_concurrent_tasks,
-                shared_vars=shared_vars,
             ),
             parent_link_map=parent_link_map,
             request_size=request_size,
+            id_search_unsupported_resources=id_search_unsupported_resources,
         ):
             for target_response in target_responses:
                 yield target_response
@@ -351,7 +355,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             request_size=(
                 additional_parameters["request_size"] if additional_parameters else 1
             ),
-            shared_vars=parameters.shared_vars,
+            id_search_unsupported_resources=(
+                additional_parameters["id_search_unsupported_resources"]
+                if additional_parameters
+                else []
+            ),
         ):
             result.append(target_result)
         return result
@@ -368,7 +376,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         cache: RequestCache,
         scope_parser: FhirScopeParser,
         logger: Optional[FhirLogger],
-        shared_vars: Dict[str, Any],
+        id_search_unsupported_resources: List[str],
     ) -> FhirGetResponse:
         (
             child_response,
@@ -380,7 +388,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             cache=cache,
             scope_parser=scope_parser,
             logger=logger,
-            shared_vars=shared_vars,
+            id_search_unsupported_resources=id_search_unsupported_resources,
         )
         if logger:
             logger.info(
@@ -403,7 +411,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         scope_parser: FhirScopeParser,
         parent_link_map: List[Tuple[List[GraphDefinitionLink], List[BundleEntry]]],
         request_size: int,
-        shared_vars: Dict[str, Any],
+        id_search_unsupported_resources: List[str],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Process a GraphDefinition target
@@ -467,7 +475,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 cache=cache,
                                 scope_parser=scope_parser,
                                 logger=logger,
-                                shared_vars=shared_vars,
+                                id_search_unsupported_resources=id_search_unsupported_resources,
                             )
                             yield child_response
                             children.extend(child_response.get_bundle_entries())
@@ -483,7 +491,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     cache=cache,
                     scope_parser=scope_parser,
                     logger=logger,
-                    shared_vars=shared_vars,
+                    id_search_unsupported_resources=id_search_unsupported_resources,
                 )
                 yield child_response
                 children.extend(child_response.get_bundle_entries())
@@ -513,7 +521,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             cache=cache,
                             scope_parser=scope_parser,
                             logger=logger,
-                            shared_vars=shared_vars,
+                            id_search_unsupported_resources=id_search_unsupported_resources,
                         )
                         yield child_response
                         children.extend(child_response.get_bundle_entries())
@@ -529,7 +537,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     cache=cache,
                     scope_parser=scope_parser,
                     logger=logger,
-                    shared_vars=shared_vars,
+                    id_search_unsupported_resources=id_search_unsupported_resources,
                 )
                 yield child_response
                 children.extend(child_response.get_bundle_entries())
@@ -562,7 +570,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             cache=cache,
                             scope_parser=scope_parser,
                             logger=logger,
-                            shared_vars=shared_vars,
+                            id_search_unsupported_resources=id_search_unsupported_resources,
                         )
                         yield child_response
                         children.extend(child_response.get_bundle_entries())
@@ -580,7 +588,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         cache=cache,
                         scope_parser=scope_parser,
                         logger=logger,
-                        shared_vars=shared_vars,
+                        id_search_unsupported_resources=id_search_unsupported_resources,
                     )
                     yield child_response
                     children.extend(child_response.get_bundle_entries())
@@ -596,7 +604,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         cache: RequestCache,
         scope_parser: FhirScopeParser,
         logger: Optional[FhirLogger],
-        shared_vars: Dict[str, Any],
+        id_search_unsupported_resources: List[str],
     ) -> Tuple[FhirGetResponse, int]:
         assert resource_type
 
@@ -671,8 +679,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         if (
             (
                 len(non_cached_id_list) > 1
-                and resource_type.lower()
-                not in shared_vars["id_search_unsupported_resources"]
+                and resource_type.lower() not in id_search_unsupported_resources
             )
             or len(non_cached_id_list) == 1
             or not id_
@@ -690,16 +697,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 result = result1
         if (not result or result.status != 200) and len(non_cached_id_list) > 1:
             if result:
-                shared_vars["id_search_unsupported_resources"].add(
-                    resource_type.lower()
-                )
-                (
+                if resource_type.lower() not in id_search_unsupported_resources:
+                    id_search_unsupported_resources.append(resource_type.lower())
+                if logger:
                     logger.info(
                         f"_id is not supported for resource_type={resource_type}. Fetching one by one ids: {non_cached_id_list}."
                     )
-                    if logger
-                    else None
-                )
                 result = None
             # For some resources if search by _id doesn't work then fetch one by one.
             for single_id in non_cached_id_list:
