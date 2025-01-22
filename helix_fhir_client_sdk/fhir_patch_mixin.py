@@ -49,6 +49,10 @@ class FhirPatchMixin(FhirClientProtocol):
         # set access token in request if present
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
+
+        response_text: Optional[str] = None
+        response_status: Optional[int] = None
+
         try:
             deserialized_data = json.loads(data)
             # actually make the request
@@ -66,6 +70,7 @@ class FhirPatchMixin(FhirClientProtocol):
                     url=full_uri.url, json=deserialized_data, headers=headers
                 )
                 response_status = response.status
+                response_text = await response.get_text_async()
                 request_id = response.response_headers.get("X-Request-ID", None)
                 self._internal_logger.info(f"X-Request-ID={request_id}")
 
@@ -86,15 +91,14 @@ class FhirPatchMixin(FhirClientProtocol):
                 url=full_uri.url,
                 headers=headers,
                 json_data=data,
-                response_text=await response.get_text_async(),
-                response_status_code=response.status if response else None,
+                response_text=response_text,
+                response_status_code=response_status,
                 exception=e,
                 variables=FhirClientLogger.get_variables_to_log(vars(self)),
                 message=f"Error: {e}",
                 elapsed_time=time.time() - start_time,
             ) from e
         # check if response is json
-        response_text = await response.get_text_async()
         if response_text:
             try:
                 responses = json.loads(response_text)
