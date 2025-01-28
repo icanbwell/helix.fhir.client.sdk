@@ -26,7 +26,7 @@ RUN pipenv sync --dev --system
 COPY . /src
 
 # Creating and switching to non root user
-RUN groupadd -g 1001 nonrootgroup && \
-    useradd -m -u 1001 -g 1001 -s /bin/bash nonrootuser
+RUN addgroup -g 1001 nonrootgroup && \
+    adduser -u 1001 -G nonrootgroup -s /bin/sh nonrootuser
 
 USER nonrootuser
