@@ -24,9 +24,9 @@ jobs:
         pip install setuptools wheel twine
     - name: Get Previous tag
       id: previoustag
-      uses: WyriHaximus/github-action-get-previous-tag@master
+      uses: WyriHaximus/github-action-get-previous-tag@04e8485ecb6487243907e330d522ff60f02283ce
     - name: Set release tag in VERSION
-      uses: DamianReeves/write-file-action@master
+      uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42
       with:
         path: VERSION
         contents: |
