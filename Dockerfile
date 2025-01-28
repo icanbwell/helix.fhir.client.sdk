@@ -24,3 +24,9 @@ RUN pipenv sync --dev --system
 
 # Copy the rest of the project files
 COPY . /src
+
+# Creating and switching to non root user
+RUN groupadd -g 1001 nonrootgroup && \
+    useradd -m -u 1001 -g 1001 -s /bin/bash nonrootuser
+
+USER nonrootuser

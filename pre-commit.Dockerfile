@@ -16,5 +16,11 @@ WORKDIR /sourcecode
 # Clean up unnecessary files
 RUN git config --global --add safe.directory /sourcecode
 
+# Creating and switching to non root user
+RUN groupadd -g 1001 nonrootgroup && \
+    useradd -m -u 1001 -g 1001 -s /bin/bash nonrootuser
+
+USER nonrootuser
+
 # Define the command to run
 CMD ["pre-commit", "run", "--all-files"]
