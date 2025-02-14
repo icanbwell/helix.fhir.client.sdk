@@ -587,7 +587,10 @@ class FhirClient(
             fn_handle_streaming_chunk=data_chunk_handler,
         ):
             if response:
-                full_response = response
+                if full_response:
+                    full_response.append(response)
+                else:
+                    full_response = response
         assert full_response
         return full_response
 
