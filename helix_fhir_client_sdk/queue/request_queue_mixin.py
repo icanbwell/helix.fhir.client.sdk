@@ -131,7 +131,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                     response: RetryableAioHttpResponse = (
                         await self._send_fhir_request_async(
                             client=client,
-                            full_url=full_url,
+                            full_url=next_url,
                             headers=headers,
                             payload=payload,
                         )
