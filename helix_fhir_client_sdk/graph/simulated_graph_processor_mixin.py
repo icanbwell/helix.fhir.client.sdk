@@ -743,13 +743,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                     bundle_entry=non_cached_bundle_entry,
                                 )
 
-            if cached_response:
-                if all_result:
-                    all_result.append(cached_response)
-                else:
-                    all_result = cached_response
-        elif cached_response:
-            all_result = cached_response
+        if cached_response:
+            if all_result:
+                all_result.append(cached_response)
+            else:
+                all_result = cached_response
         assert all_result
         return all_result, cache_hits
 
