@@ -676,14 +676,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         all_result: Optional[FhirGetResponse] = None
         # either we have non-cached ids or this is a query without id but has other parameters
-        if (
-            (
-                len(non_cached_id_list) > 1
-                and resource_type.lower() not in id_search_unsupported_resources
-            )
-            or len(non_cached_id_list) == 1
-            or not id_
-        ):
+        if True:
             async for (
                 result1
             ) in self._get_with_session_async(  # type:ignore[attr-defined]
