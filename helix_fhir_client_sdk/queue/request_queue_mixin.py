@@ -142,7 +142,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         f"{key}:{value}" for key, value in response.response_headers.items()
                     ]
                     await FhirResponseProcessor.log_response(
-                        full_url=full_url,
+                        full_url=next_url,
                         response_status=response.status,
                         client_id=self._client_id,
                         internal_logger=self._internal_logger,
@@ -162,7 +162,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         response=response,
                         logger=self._logger,
                         resources_json=resources_json,
-                        full_url=full_url,
+                        full_url=next_url,
                         request_id=request_id,
                         resource=resource_type or self._resource,
                         id_=self._id,
@@ -181,7 +181,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
             raise FhirSenderException(
                 request_id=request_id,
                 exception=ex,
-                url=full_url,
+                url=next_url,
                 headers=headers,
                 json_data="",
                 variables=FhirClientLogger.get_variables_to_log(vars(self)),
