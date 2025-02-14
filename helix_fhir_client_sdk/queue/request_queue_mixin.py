@@ -117,7 +117,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 internal_logger=self._internal_logger,
             )
 
-            next_url: str = full_url
+            next_url: Optional[str] = full_url
             async with RetryableAioHttpClient(
                 fn_get_session=lambda: self.create_http_session(),
                 simple_refresh_token_func=lambda: self._refresh_token_function(),
@@ -139,7 +139,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                     assert isinstance(response, RetryableAioHttpResponse)
                     last_status_code = response.status
                     response_headers: List[str] = [
-                        f"{key}:{value}" for key, value in response.response_headers.items()
+                        f"{key}:{value}"
+                        for key, value in response.response_headers.items()
                     ]
                     await FhirResponseProcessor.log_response(
                         full_url=next_url,
@@ -181,7 +182,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
             raise FhirSenderException(
                 request_id=request_id,
                 exception=ex,
-                url=next_url,
+                url=str(next_url),
                 headers=headers,
                 json_data="",
                 variables=FhirClientLogger.get_variables_to_log(vars(self)),

@@ -698,7 +698,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 if (not result or result.status != 200) and len(non_cached_id_list) > 1:
                     if result:
                         if resource_type.lower() not in id_search_unsupported_resources:
-                            id_search_unsupported_resources.append(resource_type.lower())
+                            id_search_unsupported_resources.append(
+                                resource_type.lower()
+                            )
                         if logger:
                             logger.info(
                                 f"_id is not supported for resource_type={resource_type}. Fetching one by one ids: {non_cached_id_list}."
@@ -731,8 +733,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             non_cached_resource: Dict[str, Any] = (
                                 non_cached_bundle_entry.resource
                             )
-                            non_cached_resource_id: Optional[str] = non_cached_resource.get(
-                                "id"
+                            non_cached_resource_id: Optional[str] = (
+                                non_cached_resource.get("id")
                             )
                             if non_cached_resource_id:
                                 cache.add(
