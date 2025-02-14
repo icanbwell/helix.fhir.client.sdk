@@ -674,7 +674,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 error=None,
             )
 
-        result: Optional[FhirGetResponse] = None
+        all_result: Optional[FhirGetResponse] = None
         # either we have non-cached ids or this is a query without id but has other parameters
         if (
             (
@@ -695,54 +695,55 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 resource_type=resource_type,
             ):
                 result = result1
-        if (not result or result.status != 200) and len(non_cached_id_list) > 1:
-            if result:
-                if resource_type.lower() not in id_search_unsupported_resources:
-                    id_search_unsupported_resources.append(resource_type.lower())
-                if logger:
-                    logger.info(
-                        f"_id is not supported for resource_type={resource_type}. Fetching one by one ids: {non_cached_id_list}."
-                    )
-                result = None
-            # For some resources if search by _id doesn't work then fetch one by one.
-            for single_id in non_cached_id_list:
-                async for (
-                    result2
-                ) in self._get_with_session_async(  # type:ignore[attr-defined]
-                    page_number=None,
-                    ids=[single_id],
-                    additional_parameters=parameters,
-                    id_above=None,
-                    fn_handle_streaming_chunk=None,
-                    resource_type=resource_type,
-                ):
+                if (not result or result.status != 200) and len(non_cached_id_list) > 1:
                     if result:
-                        result.append(result2)
-                    else:
-                        result = result2
-        if result:
-            non_cached_bundle_entry: BundleEntry
-            for non_cached_bundle_entry in result.get_bundle_entries():
-                if non_cached_bundle_entry.resource:
-                    non_cached_resource: Dict[str, Any] = (
-                        non_cached_bundle_entry.resource
-                    )
-                    non_cached_resource_id: Optional[str] = non_cached_resource.get(
-                        "id"
-                    )
-                    if non_cached_resource_id:
-                        cache.add(
+                        if resource_type.lower() not in id_search_unsupported_resources:
+                            id_search_unsupported_resources.append(resource_type.lower())
+                        if logger:
+                            logger.info(
+                                f"_id is not supported for resource_type={resource_type}. Fetching one by one ids: {non_cached_id_list}."
+                            )
+                        result = None
+                    # For some resources if search by _id doesn't work then fetch one by one.
+                    for single_id in non_cached_id_list:
+                        async for (
+                            result2
+                        ) in self._get_with_session_async(  # type:ignore[attr-defined]
+                            page_number=None,
+                            ids=[single_id],
+                            additional_parameters=parameters,
+                            id_above=None,
+                            fn_handle_streaming_chunk=None,
                             resource_type=resource_type,
-                            resource_id=non_cached_resource_id,
-                            bundle_entry=non_cached_bundle_entry,
-                        )
+                        ):
+                            if result:
+                                result.append(result2)
+                            else:
+                                result = result2
+                if result:
+                    all_result.append(result)
+                    non_cached_bundle_entry: BundleEntry
+                    for non_cached_bundle_entry in result.get_bundle_entries():
+                        if non_cached_bundle_entry.resource:
+                            non_cached_resource: Dict[str, Any] = (
+                                non_cached_bundle_entry.resource
+                            )
+                            non_cached_resource_id: Optional[str] = non_cached_resource.get(
+                                "id"
+                            )
+                            if non_cached_resource_id:
+                                cache.add(
+                                    resource_type=resource_type,
+                                    resource_id=non_cached_resource_id,
+                                    bundle_entry=non_cached_bundle_entry,
+                                )
 
             if cached_response:
-                result.append(cached_response)
+                all_result.append(cached_response)
         elif cached_response:
-            result = cached_response
-        assert result
-        return result, cache_hits
+            all_result = cached_response
+        assert all_result
+        return all_result, cache_hits
 
     # noinspection PyPep8Naming
     async def simulate_graph_async(

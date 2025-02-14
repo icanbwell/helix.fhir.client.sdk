@@ -117,6 +117,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 internal_logger=self._internal_logger,
             )
 
+            next_url: bool = True
             async with RetryableAioHttpClient(
                 fn_get_session=lambda: self.create_http_session(),
                 simple_refresh_token_func=lambda: self._refresh_token_function(),
@@ -126,53 +127,56 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 compress=self._compress,
                 throw_exception_on_error=self._throw_exception_on_error,
             ) as client:
-                response: RetryableAioHttpResponse = (
-                    await self._send_fhir_request_async(
-                        client=client,
-                        full_url=full_url,
-                        headers=headers,
-                        payload=payload,
+                while next_url:
+                    response: RetryableAioHttpResponse = (
+                        await self._send_fhir_request_async(
+                            client=client,
+                            full_url=full_url,
+                            headers=headers,
+                            payload=payload,
+                        )
                     )
-                )
-                assert isinstance(response, RetryableAioHttpResponse)
-                last_status_code = response.status
-                response_headers: List[str] = [
-                    f"{key}:{value}" for key, value in response.response_headers.items()
-                ]
-                await FhirResponseProcessor.log_response(
-                    full_url=full_url,
-                    response_status=response.status,
-                    client_id=self._client_id,
-                    internal_logger=self._internal_logger,
-                    log_level=self._log_level,
-                    logger=self._logger,
-                    auth_scopes=self._auth_scopes,
-                    uuid=self._uuid,
-                )
+                    assert isinstance(response, RetryableAioHttpResponse)
+                    last_status_code = response.status
+                    response_headers: List[str] = [
+                        f"{key}:{value}" for key, value in response.response_headers.items()
+                    ]
+                    await FhirResponseProcessor.log_response(
+                        full_url=full_url,
+                        response_status=response.status,
+                        client_id=self._client_id,
+                        internal_logger=self._internal_logger,
+                        log_level=self._log_level,
+                        logger=self._logger,
+                        auth_scopes=self._auth_scopes,
+                        uuid=self._uuid,
+                    )
 
-                request_id = response.response_headers.get("X-Request-ID", None)
-                self._internal_logger.info(f"X-Request-ID={request_id}")
+                    request_id = response.response_headers.get("X-Request-ID", None)
+                    self._internal_logger.info(f"X-Request-ID={request_id}")
 
-                async for r in FhirResponseProcessor.handle_response(
-                    internal_logger=self._internal_logger,
-                    access_token=access_token,
-                    response_headers=response_headers,
-                    response=response,
-                    logger=self._logger,
-                    resources_json=resources_json,
-                    full_url=full_url,
-                    request_id=request_id,
-                    resource=resource_type or self._resource,
-                    id_=self._id,
-                    chunk_size=self._chunk_size,
-                    expand_fhir_bundle=self._expand_fhir_bundle,
-                    separate_bundle_resources=self._separate_bundle_resources,
-                    url=self._url,
-                    extra_context_to_return=self._extra_context_to_return,
-                    use_data_streaming=self._use_data_streaming,
-                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                ):
-                    yield r
+                    async for r in FhirResponseProcessor.handle_response(
+                        internal_logger=self._internal_logger,
+                        access_token=access_token,
+                        response_headers=response_headers,
+                        response=response,
+                        logger=self._logger,
+                        resources_json=resources_json,
+                        full_url=full_url,
+                        request_id=request_id,
+                        resource=resource_type or self._resource,
+                        id_=self._id,
+                        chunk_size=self._chunk_size,
+                        expand_fhir_bundle=self._expand_fhir_bundle,
+                        separate_bundle_resources=self._separate_bundle_resources,
+                        url=self._url,
+                        extra_context_to_return=self._extra_context_to_return,
+                        use_data_streaming=self._use_data_streaming,
+                        fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+                    ):
+                        if not r.next_url:
+                            next_url = False
+                        yield r
 
         except Exception as ex:
             raise FhirSenderException(
