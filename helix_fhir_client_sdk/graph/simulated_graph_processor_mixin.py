@@ -721,7 +721,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             else:
                                 result = result2
                 if result:
-                    all_result.append(result)
+                    if all_result:
+                        all_result.append(result)
+                    else:
+                        all_result = result
                     non_cached_bundle_entry: BundleEntry
                     for non_cached_bundle_entry in result.get_bundle_entries():
                         if non_cached_bundle_entry.resource:
@@ -739,7 +742,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 )
 
             if cached_response:
-                all_result.append(cached_response)
+                if all_result:
+                    all_result.append(cached_response)
+                else:
+                    all_result = cached_response
         elif cached_response:
             all_result = cached_response
         assert all_result
