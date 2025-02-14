@@ -117,7 +117,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 internal_logger=self._internal_logger,
             )
 
-            next_url: bool = True
+            next_url: str = full_url
             async with RetryableAioHttpClient(
                 fn_get_session=lambda: self.create_http_session(),
                 simple_refresh_token_func=lambda: self._refresh_token_function(),
@@ -174,8 +174,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         use_data_streaming=self._use_data_streaming,
                         fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                     ):
-                        if not r.next_url:
-                            next_url = False
+                        next_url = r.next_url
                         yield r
 
         except Exception as ex:
