@@ -10,7 +10,7 @@ from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeRespons
 from helix_fhir_client_sdk.utilities.fhir_helper import FhirHelper
 from helix_fhir_client_sdk.utilities.fhir_server_helpers import FhirServerHelpers
 from helix_fhir_client_sdk.utilities.practitioner_generator import PractitionerGenerator
-from tests.test_logger import TestLogger
+from tests.logger_for_test import LoggerForTest
 
 
 @pytest.mark.parametrize("use_data_streaming", [True, False])
@@ -27,7 +27,7 @@ async def test_async_real_fhir_server_get_graph_large(
     auth_client_secret = environ["FHIR_CLIENT_SECRET"]
     auth_well_known_url = environ["AUTH_CONFIGURATION_URI"]
 
-    logger = TestLogger()
+    logger = LoggerForTest()
 
     fhir_client = FhirClient()
     fhir_client.logger(logger=logger)

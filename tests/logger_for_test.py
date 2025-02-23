@@ -5,7 +5,7 @@ from typing import Any
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 
 
-class TestLogger(FhirLogger):
+class LoggerForTest(FhirLogger):
     def __init__(self) -> None:
         self.logger: Logger = Logger("FhirLogger")
         handler = logging.StreamHandler()

@@ -72,6 +72,7 @@ async def test_async_real_fhir_server_get_patients_large(
                 response = response1
             else:
                 response.append(response1)
+            response.chunk_number = response1.chunk_number
 
         assert response is not None
         assert response.response_headers is not None
@@ -83,7 +84,7 @@ async def test_async_real_fhir_server_get_patients_large(
         assert len(responses) > 1
         assert resources[0]["id"].startswith("example-")
         assert resources[0]["resourceType"] == resource_type
-        assert response.chunk_number == 7
+        assert response.chunk_number == 8
     else:
         response = await fhir_client.get_async()
         assert response.response_headers is not None

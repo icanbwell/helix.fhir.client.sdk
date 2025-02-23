@@ -31,7 +31,7 @@ pre-commit=">=4.0.1"
 # autoflake is needed for removing unused imports
 autoflake=">=2.3.1"
 # mypy is needed for type checking
-mypy = ">=1.13.0"
+mypy = ">=1.15.0"
 # pytest is needed for running tests
 pytest = ">=8.3.3"
 # black is needed for formatting code
@@ -51,7 +51,7 @@ sphinx-rtd-theme="==2.0.0"
 # myst-parser is needed for parsing Markdown
 myst-parser="==3.0.1"
 # helix-mockserver-client is needed for mocking servers
-helix-mockserver-client=">=2.0.0"
+helix-mockserver-client=">=2.0.4"
 # httpx is needed for making HTTP requests
 httpx=">=0.23.3"
 # aioresponses is needed for mocking HTTP requests

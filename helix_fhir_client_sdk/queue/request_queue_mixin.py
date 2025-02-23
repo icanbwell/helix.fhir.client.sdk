@@ -29,6 +29,7 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
+from helix_fhir_client_sdk.utilities.url_checker import UrlChecker
 
 
 class RequestQueueMixin(ABC, FhirClientProtocol):
@@ -128,6 +129,10 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 throw_exception_on_error=self._throw_exception_on_error,
             ) as client:
                 while next_url:
+                    if not UrlChecker.is_absolute_url(url=next_url):
+                        next_url = UrlChecker.convert_relative_url_to_absolute_url(
+                            base_url=self._url, relative_url=next_url
+                        )
                     response: RetryableAioHttpResponse = (
                         await self._send_fhir_request_async(
                             client=client,
