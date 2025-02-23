@@ -91,7 +91,7 @@ services:
         test: ["CMD-SHELL", "wget --spider --quiet localhost:3000/health || exit 1"]
 
   mongo:
-    image: mongo:5.0.28
+    image: mongo:5.0.31
     ports:
       - '27017:27017'
     environment:
