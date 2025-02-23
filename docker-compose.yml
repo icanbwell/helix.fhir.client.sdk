@@ -91,13 +91,13 @@ services:
         test: ["CMD-SHELL", "wget --spider --quiet localhost:3000/health || exit 1"]
 
   mongo:
-    image: mongo:5.0.31
+    image: mongo:8.0.4
     ports:
       - '27017:27017'
     environment:
       - ALLOW_EMPTY_PASSWORD=yes
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongo mongo:27017/test --quiet
+      test: echo 'db.runCommand("ping").ok' | mongosh mongo:27017/test --quiet
 
   keycloak:
     # https://github.com/keycloak/keycloak/releases
