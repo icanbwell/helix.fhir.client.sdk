@@ -552,7 +552,7 @@ async def test_process_simulate_graph_async_multiple_patients() -> None:
             ],
         }
         # Mock the HTTP GET requests for multiple patient resources
-        m.get("http://example.com/fhir/Patient?id=1%252C2%252C3", payload=payload)
+        m.get("http://example.com/fhir/Patient?_id=1%252C2%252C3", payload=payload)
 
         graph_processor.page_size(3)
         async_gen = graph_processor.process_simulate_graph_async(

@@ -70,7 +70,7 @@ class TestFhirGraphMixin:
         with aioresponses() as m:
             # Mocking the HTTP response
             m.post(
-                "https://fhir-server/Patient/$graph?contained=true&id=123%252C456",
+                "https://fhir-server/Patient/$graph?contained=true&_id=123%252C456",
                 payload={"resourceType": "Bundle", "type": "searchset"},
             )
             result = [
@@ -116,7 +116,7 @@ class TestFhirGraphMixin:
         with aioresponses() as m:
             # Mocking the HTTP response
             m.post(
-                "https://fhir-server/Patient/$graph?id=123%252C456%252C789",
+                "https://fhir-server/Patient/$graph?_id=123%252C456%252C789",
                 payload={"resourceType": "Bundle", "type": "searchset"},
             )
 
