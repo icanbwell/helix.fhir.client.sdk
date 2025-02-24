@@ -1,4 +1,5 @@
 import json
+import threading
 from typing import Any, Dict, List, Union, cast
 from datetime import datetime, date
 
@@ -66,3 +67,17 @@ class FhirClientJsonHelpers:
             instance_variables, default=FhirClientJsonHelpers.json_serial
         )
         return instance_variables_text
+
+    @staticmethod
+    def get_variables_to_log(vars_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Method to return the variables which we need to log
+        :param vars_dict: (dict) dictionary of variables names with their values
+        """
+        variables_to_log = {}
+        for key, value in vars_dict.items():
+            if not isinstance(value, type(threading.Lock)):
+                variables_to_log[key] = value
+        variables_to_log.pop("_access_token", None)
+        variables_to_log.pop("_login_token", None)
+        return variables_to_log

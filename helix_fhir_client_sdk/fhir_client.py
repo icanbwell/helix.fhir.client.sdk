@@ -72,6 +72,7 @@ from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeRespons
 from helix_fhir_client_sdk.responses.fhir_update_response import FhirUpdateResponse
 from helix_fhir_client_sdk.responses.get_result import GetResult
 from helix_fhir_client_sdk.responses.paging_result import PagingResult
+from helix_fhir_client_sdk.utilities.json_helpers import FhirClientJsonHelpers
 from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValidator
 from helix_fhir_client_sdk.well_known_configuration import (
     WellKnownConfigurationCacheEntry,
@@ -606,7 +607,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
 
         :return: response
         """
-        instance_variables_text = convert_dict_to_str(vars(self))
+        instance_variables_text = convert_dict_to_str(
+            FhirClientJsonHelpers.get_variables_to_log(vars(self))
+        )
         if self._logger:
             # self._logger.info(f"LOGLEVEL: {self._log_level}")
             self._logger.info(f"parameters: {instance_variables_text}")
@@ -1689,7 +1692,9 @@ class FhirClient(SimulatedGraphProcessorMixin):
         self._internal_logger.debug(
             f"Calling $merge on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
         )
-        instance_variables_text = convert_dict_to_str(vars(self))
+        instance_variables_text = convert_dict_to_str(
+            FhirClientJsonHelpers.get_variables_to_log(vars(self))
+        )
         if self._internal_logger:
             self._internal_logger.info(f"parameters: {instance_variables_text}")
         else:
@@ -1912,7 +1917,7 @@ class FhirClient(SimulatedGraphProcessorMixin):
                         self._logger.error(
                             Exception(
                                 f"Assertion: FHIR send failed: {str(e)} for resource: {json_data_list}. "
-                                + f"variables={convert_dict_to_str(vars(self))}"
+                                + f"variables={convert_dict_to_str(FhirClientJsonHelpers.get_variables_to_log(vars(self)))}"
                             )
                         )
 
