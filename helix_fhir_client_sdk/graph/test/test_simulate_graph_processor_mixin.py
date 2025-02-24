@@ -14,7 +14,7 @@ from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from tests.test_logger import TestLogger
+from tests.logger_for_test import LoggerForTest
 
 
 class TestGraphProcessor(FhirClient):
@@ -78,7 +78,7 @@ async def test_process_simulate_graph_async() -> None:
     Test the process_simulate_graph_async method.
     """
 
-    logger: FhirLogger = TestLogger()
+    logger: FhirLogger = LoggerForTest()
 
     graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
         max_concurrent_requests=1
@@ -176,7 +176,7 @@ async def test_graph_definition_with_single_link() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = TestLogger()
+    logger: FhirLogger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -236,7 +236,7 @@ async def test_graph_definition_with_nested_links() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = TestLogger()
+    logger: FhirLogger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -324,7 +324,7 @@ async def test_graph_definition_with_multiple_links() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = TestLogger()
+    logger: FhirLogger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -404,7 +404,7 @@ async def test_graph_definition_with_multiple_targets() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = TestLogger()
+    logger: FhirLogger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -480,7 +480,7 @@ async def test_graph_definition_with_no_links() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = TestLogger()
+    logger: FhirLogger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -532,7 +532,7 @@ async def test_process_simulate_graph_async_multiple_patients() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = TestLogger()
+    logger: FhirLogger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -552,7 +552,7 @@ async def test_process_simulate_graph_async_multiple_patients() -> None:
             ],
         }
         # Mock the HTTP GET requests for multiple patient resources
-        m.get("http://example.com/fhir/Patient?id=1%252C2%252C3", payload=payload)
+        m.get("http://example.com/fhir/Patient?_id=1%252C2%252C3", payload=payload)
 
         graph_processor.page_size(3)
         async_gen = graph_processor.process_simulate_graph_async(
@@ -600,7 +600,7 @@ async def test_graph_definition_with_multiple_links_concurrent_requests() -> Non
         max_concurrent_requests=3
     )
 
-    logger: FhirLogger = TestLogger()
+    logger: FhirLogger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -680,7 +680,7 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests() -> N
         max_concurrent_requests=3
     )
 
-    logger: FhirLogger = TestLogger()
+    logger: FhirLogger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -756,7 +756,7 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
         max_concurrent_requests=3
     )
 
-    logger: FhirLogger = TestLogger()
+    logger: FhirLogger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",

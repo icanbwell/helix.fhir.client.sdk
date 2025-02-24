@@ -4,7 +4,7 @@ export LANG
 
 .PHONY: Pipfile.lock
 Pipfile.lock: build
-	docker compose run --rm --name helix_fhir_sdk dev /bin/bash -c "rm -f Pipfile.lock && pipenv lock --dev --verbose"
+	docker compose run --rm --name helix_fhir_sdk dev sh -c "rm -f Pipfile.lock && pipenv lock --dev --verbose"
 
 .PHONY:devdocker
 devdocker: ## Builds the docker for dev
