@@ -1,7 +1,9 @@
+from copy import deepcopy
 import traceback
 from typing import Optional, Dict, Any
 
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
+from helix_fhir_client_sdk.utilities.json_helpers import FhirClientJsonHelpers
 
 
 class FhirSenderException(Exception):
@@ -38,16 +40,25 @@ class FhirSenderException(Exception):
         self.elapsed_time: float = elapsed_time
         self.response_text: Optional[str] = response_text
         self.response_status_code: Optional[int] = response_status_code
+        # Hide sensitive tokens to protect against unauthorized access
+        headers_to_log = deepcopy(self.headers)
+        if headers_to_log.get("Authorization"):
+            headers_to_log["Authorization"] = "[FILTERED]"
+        variables_to_log = deepcopy(self.variables)
+        if isinstance(variables, Dict):
+            FhirClientJsonHelpers.get_variables_to_log(variables_to_log)
         json = {
             "message": f"FHIR send failed: {message}",
             "request_id": request_id,
             "url": url,
             "status_code": response_status_code,
             "headers": headers,
-            "variables": variables,
+            "variables": variables_to_log,
             "elapsed_time": elapsed_time,
             "response_text": response_text,
-            "json_data": json_data,
+            "json_data": (
+                "[FILTERED]" if self.data else ""
+            ),  # Hide and protect sensitive JSON data
             "exception": "".join(
                 traceback.TracebackException.from_exception(exception).format()
             ),
