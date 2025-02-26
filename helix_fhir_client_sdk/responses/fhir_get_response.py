@@ -132,6 +132,7 @@ class FhirGetResponse:
                 responses_json.extend(other_response_json)
             else:
                 responses_json.append(other_response_json)
+            self.responses = json.dumps(responses_json, cls=FhirJSONEncoder)
         return self
 
     def extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
