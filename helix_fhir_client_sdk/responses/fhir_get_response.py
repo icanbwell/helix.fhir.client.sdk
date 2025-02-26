@@ -126,7 +126,7 @@ class FhirGetResponse:
                 responses_json.append(other_response_json)
             self.responses = json.dumps(responses_json, cls=FhirJSONEncoder)
         if other_response.chunk_number and (other_response.chunk_number or 0) > (
-                self.chunk_number or 0
+            self.chunk_number or 0
         ):
             self.chunk_number = other_response.chunk_number
         if other_response.next_url:
