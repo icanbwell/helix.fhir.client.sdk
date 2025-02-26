@@ -116,14 +116,6 @@ class FhirGetResponse:
                 "entry": bundle_entries,
             }
             self.responses = json.dumps(bundle, cls=FhirJSONEncoder)
-            if other_response.chunk_number and (other_response.chunk_number or 0) > (
-                self.chunk_number or 0
-            ):
-                self.chunk_number = other_response.chunk_number
-            if other_response.next_url:
-                self.next_url = other_response.next_url
-                self.access_token = other_response.access_token
-            self.cache_hits = (self.cache_hits or 0) + (other_response.cache_hits or 0)
         else:
             responses_json = self.parse_json(self.responses)
             if not isinstance(responses_json, list):
@@ -133,6 +125,14 @@ class FhirGetResponse:
             else:
                 responses_json.append(other_response_json)
             self.responses = json.dumps(responses_json, cls=FhirJSONEncoder)
+        if other_response.chunk_number and (other_response.chunk_number or 0) > (
+                self.chunk_number or 0
+        ):
+            self.chunk_number = other_response.chunk_number
+        if other_response.next_url:
+            self.next_url = other_response.next_url
+            self.access_token = other_response.access_token
+        self.cache_hits = (self.cache_hits or 0) + (other_response.cache_hits or 0)
         return self
 
     def extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
