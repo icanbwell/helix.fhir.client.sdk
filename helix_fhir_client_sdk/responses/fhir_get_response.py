@@ -94,17 +94,37 @@ class FhirGetResponse:
         :param other_response: FhirGetResponse object to append to current one
         :return: self
         """
-        bundle_entries: List[BundleEntry] = self.get_bundle_entries()
-        if other_response.responses:
-            other_bundle_entries: List[BundleEntry] = (
-                other_response.get_bundle_entries()
-            )
-            bundle_entries.extend(other_bundle_entries)
-        bundle = {
-            "resourceType": "Bundle",
-            "entry": bundle_entries,
-        }
-        self.responses = json.dumps(bundle, cls=FhirJSONEncoder)
+        parse_bundle = False
+        other_response_json = other_response.parse_json(other_response.responses)
+        if isinstance(other_response_json, list):
+            # in case when expand_fhir_bundle is True, there will definitely be a key with entry in the response,
+            # it will be empty when there is no data on fhir associated to the filter passed.
+            if len(other_response_json) > 0 and "entry" in other_response_json[0]:
+                parse_bundle = True
+        elif "entry" in other_response_json:
+            parse_bundle = True
+
+        if parse_bundle:
+            bundle_entries: List[BundleEntry] = self.get_bundle_entries()
+            if other_response.responses:
+                other_bundle_entries: List[BundleEntry] = (
+                    other_response.get_bundle_entries()
+                )
+                bundle_entries.extend(other_bundle_entries)
+            bundle = {
+                "resourceType": "Bundle",
+                "entry": bundle_entries,
+            }
+            self.responses = json.dumps(bundle, cls=FhirJSONEncoder)
+        else:
+            responses_json = self.parse_json(self.responses)
+            if not isinstance(responses_json, list):
+                responses_json = [responses_json]
+            if isinstance(other_response_json, list):
+                responses_json.extend(other_response_json)
+            else:
+                responses_json.append(other_response_json)
+            self.responses = json.dumps(responses_json, cls=FhirJSONEncoder)
         if other_response.chunk_number and (other_response.chunk_number or 0) > (
             self.chunk_number or 0
         ):
