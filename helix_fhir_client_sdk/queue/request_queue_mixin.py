@@ -102,6 +102,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         start_time: float = time.time()
         last_status_code: Optional[int] = None
         last_response_text: Optional[str] = None
+        next_url: Optional[str] = full_url
         try:
             # set access token in request if present
             access_token: Optional[str] = await self.get_access_token_async()
@@ -118,7 +119,6 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 internal_logger=self._internal_logger,
             )
 
-            next_url: Optional[str] = full_url
             async with RetryableAioHttpClient(
                 fn_get_session=lambda: self.create_http_session(),
                 simple_refresh_token_func=lambda: self._refresh_token_function(),
