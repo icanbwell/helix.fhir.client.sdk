@@ -555,8 +555,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     if parent_resource:
                         parent_id = parent_resource.get("id", "")
                         parent_resource_type = parent_resource.get("resourceType", "")
-                    if parent_id and parent_id not in parent_ids:
-                        parent_ids.append(parent_id)
+                        if parent_id and parent_id not in parent_ids:
+                            parent_ids.append(parent_id)
                     if request_size and len(parent_ids) == request_size:
                         request_parameters = [
                             f"{property_name}={','.join(parent_ids)}"
