@@ -87,7 +87,8 @@ class RetryableAioHttpClient:
         headers: Dict[str, str] | None,
         **kwargs: Any,
     ) -> RetryableAioHttpResponse:
-        retry_attempts = -1
+        retry_attempts: int = -1
+        count_of_errors: int = 0
         while retry_attempts < self.retries:
             retry_attempts += 1
             try:
@@ -126,11 +127,13 @@ class RetryableAioHttpClient:
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
                             access_token=None,
+                            count_of_errors=count_of_errors,
                         )
                     elif (
                         self.exclude_status_codes_from_retry
                         and response.status in self.exclude_status_codes_from_retry
                     ):
+                        count_of_errors += 1
                         return RetryableAioHttpResponse(
                             ok=response.ok,
                             status=response.status,
@@ -143,8 +146,10 @@ class RetryableAioHttpClient:
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
                             access_token=None,
+                            count_of_errors=count_of_errors,
                         )
                     elif response.status == 400:
+                        count_of_errors += 1
                         return RetryableAioHttpResponse(
                             ok=response.ok,
                             status=response.status,
@@ -157,6 +162,7 @@ class RetryableAioHttpClient:
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
                             access_token=None,
+                            count_of_errors=count_of_errors,
                         )
                     elif response.status in [403, 404]:
                         return RetryableAioHttpResponse(
@@ -171,13 +177,16 @@ class RetryableAioHttpClient:
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
                             access_token=None,
+                            count_of_errors=count_of_errors,
                         )
                     elif response.status == 429:
+                        count_of_errors += 1
                         await self._handle_429(response=response, full_url=url)
                     elif (
                         self.retry_status_codes
                         and response.status in self.retry_status_codes
                     ):
+                        count_of_errors += 1
                         raise ClientResponseError(
                             status=response.status,
                             message="Retryable status code received",
@@ -191,6 +200,7 @@ class RetryableAioHttpClient:
                         if not headers:
                             headers = {}
                         headers["Authorization"] = f"Bearer {access_token}"
+                        count_of_errors += 1
                         if retry_attempts >= self.retries:
                             raise ClientResponseError(
                                 status=response.status,
@@ -203,6 +213,7 @@ class RetryableAioHttpClient:
                             self.backoff_factor * (2 ** (retry_attempts - 1))
                         )
                     else:
+                        count_of_errors += 1
                         if self._throw_exception_on_error:
                             raise ClientResponseError(
                                 status=response.status,
@@ -224,8 +235,10 @@ class RetryableAioHttpClient:
                                 content=response.content,
                                 use_data_streaming=self.use_data_streaming,
                                 access_token=access_token,
+                                count_of_errors=count_of_errors,
                             )
             except (ClientError, asyncio.TimeoutError) as e:
+                count_of_errors += 1
                 if retry_attempts >= self.retries:
                     if self._throw_exception_on_error:
                         raise
@@ -238,9 +251,11 @@ class RetryableAioHttpClient:
                             content=None,
                             use_data_streaming=self.use_data_streaming,
                             access_token=None,
+                            count_of_errors=count_of_errors,
                         )
                 await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
             except Exception as e:
+                count_of_errors += 1
                 if self._throw_exception_on_error:
                     raise
                 else:
@@ -252,6 +267,7 @@ class RetryableAioHttpClient:
                         content=None,
                         use_data_streaming=self.use_data_streaming,
                         access_token=None,
+                        count_of_errors=count_of_errors,
                     )
 
         # Raise an exception if all retries fail

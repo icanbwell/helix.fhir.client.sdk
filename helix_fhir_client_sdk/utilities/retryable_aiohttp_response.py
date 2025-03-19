@@ -15,6 +15,7 @@ class RetryableAioHttpResponse:
         content: StreamReader | None,
         use_data_streaming: Optional[bool],
         access_token: Optional[str],
+        count_of_errors: Optional[int]
     ) -> None:
         """
         Response object for retryable aiohttp requests
@@ -22,14 +23,31 @@ class RetryableAioHttpResponse:
 
         """
         self.ok: bool = ok
+        """ True if status is less than 400 """
+
         self.status: int = status
+        """ Status code of the response """
+
         self.response_headers: Dict[str, str] = response_headers
+        """ Headers of the response """
+
         self._response_text: str = response_text
+        """ Text of the response """
+
         self.content: StreamReader | None = content
+        """ Content of the response as a stream """
+
         self.use_data_streaming: Optional[bool] = use_data_streaming
+        """ If the response should be read as a stream """
+
         self.text_read: Optional[str] = None
+        """ Text of the response if the response is read as a stream """
+
         self.access_token: Optional[str] = access_token
         """ If there was a new access token issued because the old access token was expired """
+
+        self.count_of_errors: Optional[int] = count_of_errors
+        """ Count of errors in the response """
 
     async def get_text_async(self) -> str:
         if self.content is None:
