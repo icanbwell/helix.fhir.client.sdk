@@ -14,7 +14,13 @@ class RetryableAioHttpResponse:
         response_text: str,
         content: StreamReader | None,
         use_data_streaming: Optional[bool],
+        access_token: Optional[str],
     ) -> None:
+        """
+        Response object for retryable aiohttp requests
+
+
+        """
         self.ok: bool = ok
         self.status: int = status
         self.response_headers: Dict[str, str] = response_headers
@@ -22,6 +28,8 @@ class RetryableAioHttpResponse:
         self.content: StreamReader | None = content
         self.use_data_streaming: Optional[bool] = use_data_streaming
         self.text_read: Optional[str] = None
+        self.access_token: Optional[str] = access_token
+        """ If there was a new access token issued because the old access token was expired """
 
     async def get_text_async(self) -> str:
         if self.content is None:
