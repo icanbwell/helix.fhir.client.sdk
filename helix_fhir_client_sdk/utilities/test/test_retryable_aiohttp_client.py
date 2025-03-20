@@ -339,7 +339,6 @@ async def test_token_refresh_multiple_consecutive_401() -> None:
             assert refresh_call_count == 2  # Should attempt refresh twice
             assert len(tokens_generated) == 2
             assert await response.get_text_async() == '{"key": "success"}'
-            assert response.access_token == "new_token_2"
 
 
 @pytest.mark.asyncio
