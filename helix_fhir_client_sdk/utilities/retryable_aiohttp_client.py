@@ -89,6 +89,7 @@ class RetryableAioHttpClient:
     ) -> RetryableAioHttpResponse:
         retry_attempts: int = -1
         count_of_errors: int = 0
+        access_token: Optional[str] = None
         while retry_attempts < self.retries:
             retry_attempts += 1
             try:
@@ -126,7 +127,7 @@ class RetryableAioHttpClient:
                             ),
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
-                            access_token=None,
+                            access_token=access_token,
                             count_of_errors=count_of_errors,
                         )
                     elif (
