@@ -49,6 +49,9 @@ class RetryableAioHttpResponse:
         self.count_of_errors: Optional[int] = count_of_errors
         """ Count of errors in the response """
 
+        self.count_of_errors_by_status: Optional[Dict[int, int]] = None
+        """ Count of errors by status code """
+
     async def get_text_async(self) -> str:
         if self.content is None:
             return self._response_text

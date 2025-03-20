@@ -40,6 +40,8 @@ class FhirGetResponse:
         ],  # header name and value separated by a colon
         chunk_number: Optional[int] = None,
         cache_hits: Optional[int] = None,
+        count_of_errors: Optional[int],
+        count_of_errors_by_status: Optional[Dict[int, int]],
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -59,6 +61,9 @@ class FhirGetResponse:
         :param status: status code
         :param next_url: next url to use for pagination
         :param response_headers: headers returned by the server (can have duplicate header names)
+        :param chunk_number: chunk number for streaming
+        :param cache_hits: count of cache hits
+        :param count_of_errors: count of errors in the response
         :return: None
         """
         self.id_: Optional[Union[List[str], str]] = id_
@@ -67,25 +72,32 @@ class FhirGetResponse:
         self.url: str = url
         """ string that holds the response from the fhir server """
         self.responses: str = responses
-        """ Any error returned by the fhir server """
         self.error: Optional[str] = error
-        """ Access token used to make the request to the fhir server """
+        """ Any error returned by the fhir server """
         self.access_token: Optional[str] = access_token
-        """ Total count of resources returned by the fhir serer """
+        """ Access token used to make the request to the fhir server """
         self.total_count: Optional[int] = total_count
-        """ Status code returned by the fhir server """ ""
+        """ Total count of resources returned by the fhir serer """
         self.status: int = status
-        """ Next url to use for pagination """
+        """ Status code returned by the fhir server """ ""
         self.next_url: Optional[str] = next_url
-        """ Extra context to return with every row (separate_bundle_resources is set) or with FhirGetResponse"""
+        """ Next url to use for pagination """
         self.extra_context_to_return: Optional[Dict[str, Any]] = extra_context_to_return
-        """ True if the request was successful """
+        """ Extra context to return with every row (separate_bundle_resources is set) or with FhirGetResponse"""
         self.successful: bool = status == 200
-        """ Headers returned by the server (can have duplicate header names) """ ""
+        """ True if the request was successful """
         self.response_headers: Optional[List[str]] = response_headers
-        """ Chunk number for streaming """
+        """ Headers returned by the server (can have duplicate header names) """ ""
         self.chunk_number: Optional[int] = chunk_number
+        """ Chunk number for streaming """
         self.cache_hits: Optional[int] = cache_hits
+        """ Count of cache hits """
+        self.count_of_errors: Optional[int] = count_of_errors
+        """ Count of errors in the response """
+        self.count_of_errors_by_status: Optional[Dict[int, int]] = (
+            count_of_errors_by_status
+        )
+        """ Count of errors in the response by status """
 
     def append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
         """

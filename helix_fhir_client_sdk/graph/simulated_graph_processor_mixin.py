@@ -56,6 +56,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         request_size: Optional[int] = 1,
         max_concurrent_tasks: Optional[int],
         sort_resources: Optional[bool],
+        maximum_errors_before_abort: Optional[int],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Simulates the $graph query on the FHIR server
@@ -79,6 +80,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param request_size: No. of resources to request in one FHIR request
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially
         :param sort_resources: Optional flag to sort resources
+        :param maximum_errors_before_abort: Optional maximum errors before aborting
         :return: FhirGetResponse
         """
         assert graph_json
@@ -428,7 +430,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         children: List[BundleEntry] = []
         child_response: FhirGetResponse
         target_type: Optional[str] = target.type_
-        reference: Optional[Union[Dict[str, Any], str]] = None
         assert target_type
         parent_resource_type: str = ""
         parent_ids: List[str] = []
@@ -650,6 +651,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     total_count=0,
                     extra_context_to_return=None,
                     error=None,
+                    count_of_errors=0,
+                    count_of_errors_by_status=None,
                 ),
                 0,
             )
@@ -697,6 +700,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 total_count=len(cached_bundle_entries),
                 extra_context_to_return=None,
                 error=None,
+                count_of_errors=0,
+                count_of_errors_by_status=None,
             )
 
         all_result: Optional[FhirGetResponse] = None
@@ -791,6 +796,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         request_size: Optional[int] = 1,
         max_concurrent_tasks: Optional[int] = 1,
         sort_resources: Optional[bool] = False,
+        maximum_errors_before_abort: Optional[int],
     ) -> FhirGetResponse:
         """
         Simulates the $graph query on the FHIR server
@@ -807,9 +813,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param retrieve_and_restrict_to_capability_statement: Optional capability statement to retrieve and restrict to
         :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
         :param eTag: Optional ETag to use for If-None-Match header
-        :param request_size: Optional Count of resoucres to request in one request
+        :param request_size: Optional Count of resources to request in one request
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially.
         :param sort_resources: Optional flag to sort resources
+        :param maximum_errors_before_abort: Optional maximum errors before aborting
         :return: FhirGetResponse
         """
         if contained:
@@ -837,6 +844,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 request_size=request_size,
                 max_concurrent_tasks=max_concurrent_tasks,
                 sort_resources=sort_resources,
+                maximum_errors_before_abort=maximum_errors_before_abort,
             )
         )
         assert result, "No result returned from simulate_graph_async"
@@ -859,6 +867,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         request_size: Optional[int] = 1,
         max_concurrent_tasks: Optional[int] = 1,
         sort_resources: Optional[bool] = False,
+        maximum_errors_before_abort: Optional[int],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Simulates the $graph query on the FHIR server
@@ -875,9 +884,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param retrieve_and_restrict_to_capability_statement: Optional capability statement to retrieve and restrict to
         :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
         :param eTag: Optional ETag to use for If-None-Match header
-        :param request_size: Optional Count of resoucres to request in one request
+        :param request_size: Optional Count of resources to request in one request
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially
         :param sort_resources: Optional flag to sort resources
+        :param maximum_errors_before_abort: Optional maximum errors before aborting
         :return: FhirGetResponse
         """
         if contained:
@@ -904,5 +914,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             request_size=request_size,
             max_concurrent_tasks=max_concurrent_tasks,
             sort_resources=sort_resources,
+            maximum_errors_before_abort=maximum_errors_before_abort,
         ):
             yield r

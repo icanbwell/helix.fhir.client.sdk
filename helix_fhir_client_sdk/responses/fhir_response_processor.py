@@ -181,6 +181,8 @@ class FhirResponseProcessor:
             resource_type=resource,
             id_=id_,
             response_headers=response_headers,
+            count_of_errors=response.count_of_errors,
+            count_of_errors_by_status=response.count_of_errors_by_status,
         )
 
     @staticmethod
@@ -226,6 +228,8 @@ class FhirResponseProcessor:
             resource_type=resource,
             id_=id_,
             response_headers=response_headers,
+            count_of_errors=response.count_of_errors,
+            count_of_errors_by_status=response.count_of_errors_by_status,
         )
 
     @staticmethod
@@ -404,6 +408,8 @@ class FhirResponseProcessor:
                 resource_type=resource,
                 id_=id_,
                 response_headers=response_headers,
+                count_of_errors=response.count_of_errors,
+                count_of_errors_by_status=response.count_of_errors_by_status,
             )
         except Exception as e:
             if logger:
@@ -423,6 +429,8 @@ class FhirResponseProcessor:
                 resource_type=resource,
                 id_=id_,
                 response_headers=response_headers,
+                count_of_errors=response.count_of_errors,
+                count_of_errors_by_status=response.count_of_errors_by_status,
             )
 
     @staticmethod
@@ -437,8 +445,6 @@ class FhirResponseProcessor:
         url: Optional[str],
     ) -> Tuple[str, int]:
 
-        resources: List[Dict[str, Any]] | None = None
-        resources_json: str = ""
         # see if this is a Resource Bundle and un-bundle it
         if (
             expand_fhir_bundle
@@ -571,6 +577,8 @@ class FhirResponseProcessor:
                     resource_type=resource,
                     id_=id_,
                     response_headers=response_headers,
+                    count_of_errors=response.count_of_errors,
+                    count_of_errors_by_status=response.count_of_errors_by_status,
                 )
             else:
                 # iterate over the chunks and return the completed resources as we get them
@@ -645,6 +653,8 @@ class FhirResponseProcessor:
                                 id_=id_,
                                 response_headers=response_headers,
                                 chunk_number=chunk_number,
+                                count_of_errors=response.count_of_errors,
+                                count_of_errors_by_status=response.count_of_errors_by_status,
                             )
         except Exception as e:
             if logger:
@@ -664,6 +674,8 @@ class FhirResponseProcessor:
                 resource_type=resource,
                 id_=id_,
                 response_headers=response_headers,
+                count_of_errors=response.count_of_errors,
+                count_of_errors_by_status=response.count_of_errors_by_status,
             )
 
     @staticmethod

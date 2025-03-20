@@ -46,6 +46,8 @@ def create_fhir_get_response(responses: str) -> FhirGetResponse:
             'ETag: W/"123"',
         ],
         chunk_number=1,
+        count_of_errors=0,
+        count_of_errors_by_status=None,
     )
 
 

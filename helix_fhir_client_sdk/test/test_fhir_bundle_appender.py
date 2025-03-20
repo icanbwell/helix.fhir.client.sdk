@@ -27,6 +27,8 @@ def fhir_get_response() -> FhirGetResponse:
         extra_context_to_return={"context_key": "context_value"},
         total_count=1,
         response_headers=["Content-Type:application/json"],
+        count_of_errors=0,
+        count_of_errors_by_status=None,
     )
 
 
@@ -45,6 +47,8 @@ def error_fhir_get_response() -> FhirGetResponse:
         total_count=1,
         response_headers=["Content-Type:application/json"],
         extra_context_to_return={"context_key": "context_value"},
+        count_of_errors=0,
+        count_of_errors_by_status=None,
     )
 
 
