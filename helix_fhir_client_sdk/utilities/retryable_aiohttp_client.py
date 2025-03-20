@@ -166,7 +166,7 @@ class RetryableAioHttpClient:
                             ),
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
-                            access_token=None,
+                            access_token=access_token,
                             results_by_url=results_by_url,
                         )
                     elif response.status == 400:
@@ -181,7 +181,7 @@ class RetryableAioHttpClient:
                             ),
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
-                            access_token=None,
+                            access_token=access_token,
                             results_by_url=results_by_url,
                         )
                     elif response.status in [403, 404]:
@@ -196,7 +196,7 @@ class RetryableAioHttpClient:
                             ),
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
-                            access_token=None,
+                            access_token=access_token,
                             results_by_url=results_by_url,
                         )
                     elif response.status == 429:
@@ -265,7 +265,7 @@ class RetryableAioHttpClient:
                             response_text=str(e),
                             content=None,
                             use_data_streaming=self.use_data_streaming,
-                            access_token=None,
+                            access_token=access_token,
                             results_by_url=results_by_url,
                         )
                 await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
@@ -280,7 +280,7 @@ class RetryableAioHttpClient:
                         response_text=str(e),
                         content=None,
                         use_data_streaming=self.use_data_streaming,
-                        access_token=None,
+                        access_token=access_token,
                         results_by_url=results_by_url,
                     )
 
