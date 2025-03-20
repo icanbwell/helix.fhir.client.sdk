@@ -98,7 +98,6 @@ async def test_fhir_simulated_graph_async() -> None:
             graph_json=graph_json,
             contained=False,
             separate_bundle_resources=True,
-            maximum_errors_before_abort=None,
         )
     )
     assert response is not None

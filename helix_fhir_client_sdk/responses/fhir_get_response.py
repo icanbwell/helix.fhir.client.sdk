@@ -40,7 +40,7 @@ class FhirGetResponse:
         ],  # header name and value separated by a colon
         chunk_number: Optional[int] = None,
         cache_hits: Optional[int] = None,
-        count_of_errors: Optional[int],
+        count_of_errors: int,
         count_of_errors_by_status: Optional[Dict[int, int]],
     ) -> None:
         """
@@ -92,7 +92,7 @@ class FhirGetResponse:
         """ Chunk number for streaming """
         self.cache_hits: Optional[int] = cache_hits
         """ Count of cache hits """
-        self.count_of_errors: Optional[int] = count_of_errors
+        self.count_of_errors: int = count_of_errors
         """ Count of errors in the response """
         self.count_of_errors_by_status: Optional[Dict[int, int]] = (
             count_of_errors_by_status
@@ -145,6 +145,16 @@ class FhirGetResponse:
             self.next_url = other_response.next_url
             self.access_token = other_response.access_token
         self.cache_hits = (self.cache_hits or 0) + (other_response.cache_hits or 0)
+
+        self.count_of_errors += other_response.count_of_errors
+        if other_response.count_of_errors_by_status:
+            if self.count_of_errors_by_status is None:
+                self.count_of_errors_by_status = {}
+            for status, count in other_response.count_of_errors_by_status.items():
+                self.count_of_errors_by_status[status] = (
+                    self.count_of_errors_by_status.get(status, 0) + count
+                )
+
         return self
 
     def extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
@@ -177,6 +187,15 @@ class FhirGetResponse:
         self.cache_hits = sum(
             [r.cache_hits if r.cache_hits is not None else 0 for r in others]
         )
+        self.count_of_errors += sum([r.count_of_errors for r in others])
+        for r in others:
+            if r.count_of_errors_by_status:
+                if self.count_of_errors_by_status is None:
+                    self.count_of_errors_by_status = {}
+                for status, count in r.count_of_errors_by_status.items():
+                    self.count_of_errors_by_status[status] = (
+                        self.count_of_errors_by_status.get(status, 0) + count
+                    )
         return self
 
     def get_resources(self) -> List[Dict[str, Any]]:

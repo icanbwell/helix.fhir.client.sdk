@@ -116,7 +116,6 @@ async def test_process_simulate_graph_async() -> None:
             auth_scopes=[],
             max_concurrent_tasks=None,
             sort_resources=True,
-            maximum_errors_before_abort=None,
         )
 
         response = [r async for r in async_gen]
@@ -161,7 +160,6 @@ async def test_simulate_graph_async() -> None:
             retrieve_and_restrict_to_capability_statement=None,
             ifModifiedSince=None,
             eTag=None,
-            maximum_errors_before_abort=None,
         )
 
         assert isinstance(response, FhirGetResponse)
@@ -217,7 +215,6 @@ async def test_graph_definition_with_single_link() -> None:
             auth_scopes=[],
             max_concurrent_tasks=None,
             sort_resources=True,
-            maximum_errors_before_abort=None,
         )
 
         response = [r async for r in async_gen]
@@ -302,7 +299,6 @@ async def test_graph_definition_with_nested_links() -> None:
             auth_scopes=[],
             max_concurrent_tasks=None,
             sort_resources=True,
-            maximum_errors_before_abort=None,
         )
 
         response = [r async for r in async_gen]
@@ -383,7 +379,6 @@ async def test_graph_definition_with_multiple_links() -> None:
             auth_scopes=[],
             max_concurrent_tasks=None,
             sort_resources=True,
-            maximum_errors_before_abort=None,
         )
 
         response = [r async for r in async_gen]
@@ -460,7 +455,6 @@ async def test_graph_definition_with_multiple_targets() -> None:
             auth_scopes=[],
             max_concurrent_tasks=None,
             sort_resources=True,
-            maximum_errors_before_abort=None,
         )
 
         response = [r async for r in async_gen]
@@ -520,7 +514,6 @@ async def test_graph_definition_with_no_links() -> None:
             auth_scopes=[],
             max_concurrent_tasks=None,
             sort_resources=True,
-            maximum_errors_before_abort=None,
         )
 
         response = [r async for r in async_gen]
@@ -579,7 +572,6 @@ async def test_process_simulate_graph_async_multiple_patients() -> None:
             auth_scopes=[],
             max_concurrent_tasks=None,
             sort_resources=True,
-            maximum_errors_before_abort=None,
         )
 
         response = [r async for r in async_gen]
@@ -663,7 +655,6 @@ async def test_graph_definition_with_multiple_links_concurrent_requests() -> Non
             auth_scopes=[],
             max_concurrent_tasks=None,
             sort_resources=True,
-            maximum_errors_before_abort=None,
         )
 
         response = [r async for r in async_gen]
@@ -740,7 +731,6 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests() -> N
             auth_scopes=[],
             max_concurrent_tasks=None,
             sort_resources=True,
-            maximum_errors_before_abort=None,
         )
 
         response = [r async for r in async_gen]
@@ -858,7 +848,6 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
             auth_scopes=[],
             max_concurrent_tasks=None,
             sort_resources=True,
-            maximum_errors_before_abort=None,
         )
 
         response = [r async for r in async_gen]

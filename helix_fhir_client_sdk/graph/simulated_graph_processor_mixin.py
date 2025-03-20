@@ -56,7 +56,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         request_size: Optional[int] = 1,
         max_concurrent_tasks: Optional[int],
         sort_resources: Optional[bool],
-        maximum_errors_before_abort: Optional[int],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Simulates the $graph query on the FHIR server
@@ -80,7 +79,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param request_size: No. of resources to request in one FHIR request
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially
         :param sort_resources: Optional flag to sort resources
-        :param maximum_errors_before_abort: Optional maximum errors before aborting
         :return: FhirGetResponse
         """
         assert graph_json
@@ -605,6 +603,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
     ) -> Optional[FhirGetResponse]:
         result: Optional[FhirGetResponse] = None
         for single_id in ids:
+            result2: FhirGetResponse
             async for (
                 result2
             ) in self._get_with_session_async(  # type:ignore[attr-defined]
@@ -714,6 +713,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             or len(non_cached_id_list) == 1
             or not id_
         ):
+            result1: FhirGetResponse
+            result: Optional[FhirGetResponse]
             async for (
                 result1
             ) in self._get_with_session_async(  # type:ignore[attr-defined]
@@ -796,7 +797,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         request_size: Optional[int] = 1,
         max_concurrent_tasks: Optional[int] = 1,
         sort_resources: Optional[bool] = False,
-        maximum_errors_before_abort: Optional[int],
     ) -> FhirGetResponse:
         """
         Simulates the $graph query on the FHIR server
@@ -816,7 +816,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param request_size: Optional Count of resources to request in one request
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially.
         :param sort_resources: Optional flag to sort resources
-        :param maximum_errors_before_abort: Optional maximum errors before aborting
         :return: FhirGetResponse
         """
         if contained:
@@ -844,7 +843,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 request_size=request_size,
                 max_concurrent_tasks=max_concurrent_tasks,
                 sort_resources=sort_resources,
-                maximum_errors_before_abort=maximum_errors_before_abort,
             )
         )
         assert result, "No result returned from simulate_graph_async"
@@ -867,7 +865,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         request_size: Optional[int] = 1,
         max_concurrent_tasks: Optional[int] = 1,
         sort_resources: Optional[bool] = False,
-        maximum_errors_before_abort: Optional[int],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Simulates the $graph query on the FHIR server
@@ -887,7 +884,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param request_size: Optional Count of resources to request in one request
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially
         :param sort_resources: Optional flag to sort resources
-        :param maximum_errors_before_abort: Optional maximum errors before aborting
         :return: FhirGetResponse
         """
         if contained:
@@ -914,6 +910,5 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             request_size=request_size,
             max_concurrent_tasks=max_concurrent_tasks,
             sort_resources=sort_resources,
-            maximum_errors_before_abort=maximum_errors_before_abort,
         ):
             yield r
