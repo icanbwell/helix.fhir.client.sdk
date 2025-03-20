@@ -915,6 +915,8 @@ async def test_process_simulate_graph_401_patient_only_async() -> None:
 
     graph_processor: FhirClient = get_graph_processor(max_concurrent_requests=1)
 
+    graph_processor.set_log_all_response_urls(True)
+
     graph_processor.set_access_token("old_access_token")
 
     async def my_refresh_token_function() -> Optional[str]:
@@ -1008,6 +1010,8 @@ async def test_graph_definition_with_single_link_401() -> None:
     """
 
     graph_processor: FhirClient = get_graph_processor(max_concurrent_requests=1)
+
+    graph_processor.set_log_all_response_urls(True)
 
     graph_processor.set_access_token("old_access_token")
 
@@ -1119,6 +1123,8 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
     Test GraphDefinition with multiple targets.
     """
     graph_processor: FhirClient = get_graph_processor(max_concurrent_requests=3)
+
+    graph_processor.set_log_all_response_urls(True)
 
     graph_processor.set_access_token("old_access_token")
 
