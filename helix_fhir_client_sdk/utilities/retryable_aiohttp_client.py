@@ -112,6 +112,7 @@ class RetryableAioHttpClient:
                         **kwargs,
                     )
                     if response.ok:
+                        # If the response is successful, return the response
                         return RetryableAioHttpResponse(
                             ok=response.ok,
                             status=response.status,

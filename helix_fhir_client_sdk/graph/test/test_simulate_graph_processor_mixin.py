@@ -881,3 +881,83 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
         }
         condition = [r for r in resources if r["resourceType"] == "Practitioner"][0]
         assert condition == {"resourceType": "Practitioner", "id": "12345"}
+
+
+@pytest.mark.asyncio
+async def test_process_simulate_graph_401_async() -> None:
+    """
+    Test the process_simulate_graph_async method.
+    """
+
+    logger: FhirLogger = LoggerForTest()
+
+    graph_processor: FhirClient = get_graph_processor(max_concurrent_requests=1)
+
+    graph_processor.set_access_token("old_access_token")
+
+    async def my_refresh_token_function() -> Optional[str]:
+        return "new_access_token"
+
+    graph_processor.refresh_token_function(my_refresh_token_function)
+
+    graph_json: Dict[str, Any] = {
+        "id": "1",
+        "name": "Test Graph",
+        "resourceType": "GraphDefinition",
+        "start": "Patient",
+        "link": [],
+    }
+
+    def callback(url: str, headers: Dict[str, Any], **kwargs: Any) -> CallbackResult:
+        if headers["Authorization"] == "Bearer old_access_token":
+            return CallbackResult(
+                status=401,
+                payload={
+                    "resourceType": "OperationOutcome",
+                    "issue": [
+                        {
+                            "severity": "error",
+                            "code": "forbidden",
+                            "details": {"text": "Unauthorized access"},
+                        }
+                    ],
+                },
+            )
+        elif headers["Authorization"] == "Bearer new_access_token":
+            return CallbackResult(
+                status=200, payload={"resourceType": "Patient", "id": "1"}
+            )
+        else:
+            raise Exception(
+                f"Unexpected Authorization header: {headers['Authorization']}"
+            )
+
+    with aioresponses() as m:
+        # Mock the HTTP GET request for the initial resource
+        m.get(url="http://example.com/fhir/Patient/1", callback=callback)
+        m.get("http://example.com/fhir/Patient/1", callback=callback)
+
+        async_gen = graph_processor.process_simulate_graph_async(
+            id_="1",
+            graph_json=graph_json,
+            contained=False,
+            separate_bundle_resources=False,
+            restrict_to_scope=None,
+            restrict_to_resources=None,
+            restrict_to_capability_statement=None,
+            retrieve_and_restrict_to_capability_statement=None,
+            ifModifiedSince=None,
+            eTag=None,
+            logger=logger,
+            url=None,
+            expand_fhir_bundle=False,
+            auth_scopes=[],
+            max_concurrent_tasks=None,
+            sort_resources=True,
+        )
+
+        response = [r async for r in async_gen]
+        assert len(response) == 1
+        assert isinstance(response[0], FhirGetResponse)
+        assert response[0].resource_type == "Patient"
+        assert response[0].access_token == "new_access_token"
