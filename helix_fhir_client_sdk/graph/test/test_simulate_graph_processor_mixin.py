@@ -1091,7 +1091,6 @@ async def test_graph_definition_with_single_link_401() -> None:
         assert response[0].access_token == "new_access_token"
         assert response[0].results_by_url is not None
 
-        assert len(response[0].results_by_url) == 2
         assert [
             dict(
                 status_code=r.status_code,
@@ -1288,7 +1287,6 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
         assert response[0].access_token == "new_access_token"
         assert response[0].results_by_url is not None
 
-        assert len(response[0].results_by_url) == 3
         assert [
             dict(
                 status_code=r.status_code,

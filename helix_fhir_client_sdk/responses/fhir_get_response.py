@@ -43,7 +43,7 @@ class FhirGetResponse:
         ],  # header name and value separated by a colon
         chunk_number: Optional[int] = None,
         cache_hits: Optional[int] = None,
-        results_by_url: Optional[List[RetryableAioHttpUrlResult]],
+        results_by_url: List[RetryableAioHttpUrlResult],
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -94,7 +94,7 @@ class FhirGetResponse:
         """ Chunk number for streaming """
         self.cache_hits: Optional[int] = cache_hits
         """ Count of cache hits """
-        self.results_by_url: Optional[List[RetryableAioHttpUrlResult]] = results_by_url
+        self.results_by_url: List[RetryableAioHttpUrlResult] = results_by_url
         """ Count of errors in the response by status """
 
     def append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
