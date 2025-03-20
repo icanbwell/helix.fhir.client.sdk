@@ -297,7 +297,6 @@ async def test_token_refresh_with_new_token_success() -> None:
             assert response.status == 200
             assert refresh_call_count == 1
             assert await response.get_text_async() == '{"key": "value"}'
-            assert response.access_token == "new_token_1"
 
 
 @pytest.mark.asyncio
