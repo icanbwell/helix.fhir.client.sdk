@@ -650,8 +650,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     total_count=0,
                     extra_context_to_return=None,
                     error=None,
-                    count_of_errors=0,
-                    count_of_errors_by_status=None,
+                    results_by_url=None,
                 ),
                 0,
             )
@@ -699,8 +698,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 total_count=len(cached_bundle_entries),
                 extra_context_to_return=None,
                 error=None,
-                count_of_errors=0,
-                count_of_errors_by_status=None,
+                results_by_url=None,
             )
 
         all_result: Optional[FhirGetResponse] = None

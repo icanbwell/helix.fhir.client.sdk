@@ -981,7 +981,24 @@ async def test_process_simulate_graph_401_patient_only_async() -> None:
         assert isinstance(response[0], FhirGetResponse)
         assert response[0].resource_type == "Patient"
         assert response[0].access_token == "new_access_token"
-        assert response[0].count_of_errors == 1
+        assert response[0].results_by_url is not None
+        assert len(response[0].results_by_url) == 2
+        assert [
+            dict(
+                status_code=r.status_code,
+                url=r.url,
+            )
+            for r in response[0].results_by_url
+        ] == [
+            {
+                "status_code": 401,
+                "url": "http://example.com/fhir/Patient/1",
+            },
+            {
+                "status_code": 200,
+                "url": "http://example.com/fhir/Patient/1",
+            },
+        ]
 
 
 @pytest.mark.asyncio
@@ -1072,7 +1089,29 @@ async def test_graph_definition_with_single_link_401() -> None:
         assert observation == {"resourceType": "Observation", "id": "1"}
 
         assert response[0].access_token == "new_access_token"
-        assert response[0].count_of_errors == 1
+        assert response[0].results_by_url is not None
+
+        assert len(response[0].results_by_url) == 2
+        assert [
+            dict(
+                status_code=r.status_code,
+                url=r.url,
+            )
+            for r in response[0].results_by_url
+        ] == [
+            {
+                "status_code": 401,
+                "url": "http://example.com/fhir/Patient/1",
+            },
+            {
+                "status_code": 200,
+                "url": "http://example.com/fhir/Patient/1",
+            },
+            {
+                "status_code": 200,
+                "url": "http://example.com/fhir/Observation?subject=1",
+            },
+        ]
 
 
 @pytest.mark.asyncio
@@ -1139,6 +1178,15 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
                 },
                 status=401,
                 match_access_token="old_access_token",
+            ),
+        )
+        # simulate a transient error
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            callback=get_payload_function(
+                {},
+                status=502,
+                match_access_token="new_access_token",
             ),
         )
         m.get(
@@ -1238,7 +1286,34 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
         assert condition == {"resourceType": "Practitioner", "id": "12345"}
 
         assert response[0].access_token == "new_access_token"
-        assert response[0].count_of_errors == 1
-        # assert response[0].count_of_errors_by_status == {
-        #     "401": 1,
-        # }
+        assert response[0].results_by_url is not None
+
+        assert len(response[0].results_by_url) == 3
+        assert [
+            dict(
+                status_code=r.status_code,
+                url=r.url,
+            )
+            for r in response[0].results_by_url
+        ] == [
+            {
+                "status_code": 401,
+                "url": "http://example.com/fhir/Patient/1",
+            },
+            {
+                "status_code": 502,
+                "url": "http://example.com/fhir/Patient/1",
+            },
+            {
+                "status_code": 200,
+                "url": "http://example.com/fhir/Patient/1",
+            },
+            {
+                "status_code": 200,
+                "url": "http://example.com/fhir/Encounter?patient=1",
+            },
+            {
+                "status_code": 200,
+                "url": "http://example.com/fhir/Practitioner/12345",
+            },
+        ]

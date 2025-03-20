@@ -11,6 +11,9 @@ from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntryResponse,
 )
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
+    RetryableAioHttpUrlResult,
+)
 
 
 class FhirGetResponse:
@@ -40,8 +43,7 @@ class FhirGetResponse:
         ],  # header name and value separated by a colon
         chunk_number: Optional[int] = None,
         cache_hits: Optional[int] = None,
-        count_of_errors: int,
-        count_of_errors_by_status: Optional[Dict[str, int]],
+        results_by_url: Optional[List[RetryableAioHttpUrlResult]],
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -63,7 +65,7 @@ class FhirGetResponse:
         :param response_headers: headers returned by the server (can have duplicate header names)
         :param chunk_number: chunk number for streaming
         :param cache_hits: count of cache hits
-        :param count_of_errors: count of errors in the response
+        :param results_by_url: results by url
         :return: None
         """
         self.id_: Optional[Union[List[str], str]] = id_
@@ -92,11 +94,7 @@ class FhirGetResponse:
         """ Chunk number for streaming """
         self.cache_hits: Optional[int] = cache_hits
         """ Count of cache hits """
-        self.count_of_errors: int = count_of_errors
-        """ Count of errors in the response """
-        self.count_of_errors_by_status: Optional[Dict[str, int]] = (
-            count_of_errors_by_status
-        )
+        self.results_by_url: Optional[List[RetryableAioHttpUrlResult]] = results_by_url
         """ Count of errors in the response by status """
 
     def append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
@@ -146,14 +144,11 @@ class FhirGetResponse:
             self.access_token = other_response.access_token
         self.cache_hits = (self.cache_hits or 0) + (other_response.cache_hits or 0)
 
-        self.count_of_errors += other_response.count_of_errors
-        if other_response.count_of_errors_by_status:
-            if self.count_of_errors_by_status is None:
-                self.count_of_errors_by_status = {}
-            for status, count in other_response.count_of_errors_by_status.items():
-                self.count_of_errors_by_status[status] = (
-                    self.count_of_errors_by_status.get(status, 0) + count
-                )
+        if other_response.results_by_url:
+            if self.results_by_url is None:
+                self.results_by_url = other_response.results_by_url
+            else:
+                self.results_by_url.extend(other_response.results_by_url)
 
         return self
 
@@ -187,15 +182,13 @@ class FhirGetResponse:
         self.cache_hits = sum(
             [r.cache_hits if r.cache_hits is not None else 0 for r in others]
         )
-        self.count_of_errors += sum([r.count_of_errors for r in others])
-        for r in others:
-            if r.count_of_errors_by_status:
-                if self.count_of_errors_by_status is None:
-                    self.count_of_errors_by_status = {}
-                for status, count in r.count_of_errors_by_status.items():
-                    self.count_of_errors_by_status[status] = (
-                        self.count_of_errors_by_status.get(status, 0) + count
-                    )
+        for other_response in others:
+            if other_response.results_by_url:
+                if self.results_by_url is None:
+                    self.results_by_url = other_response.results_by_url
+                else:
+                    self.results_by_url.extend(other_response.results_by_url)
+
         return self
 
     def get_resources(self) -> List[Dict[str, Any]]:

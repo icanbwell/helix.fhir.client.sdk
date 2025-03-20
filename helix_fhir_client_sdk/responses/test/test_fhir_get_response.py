@@ -47,8 +47,7 @@ def create_fhir_get_response(responses: str) -> FhirGetResponse:
             'ETag: W/"123"',
         ],
         chunk_number=1,
-        count_of_errors=0,
-        count_of_errors_by_status=None,
+        results_by_url=None,
     )
 
 
@@ -196,8 +195,7 @@ def create_base_response(responses: str = "{}") -> FhirGetResponse:
         id_=None,
         response_headers=None,
         chunk_number=None,
-        count_of_errors=0,
-        count_of_errors_by_status=None,
+        results_by_url=None,
     )
 
 

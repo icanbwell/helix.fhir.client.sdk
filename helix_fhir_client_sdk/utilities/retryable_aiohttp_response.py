@@ -3,6 +3,10 @@ from typing import Dict, Optional, List, cast
 
 from aiohttp import StreamReader
 
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
+    RetryableAioHttpUrlResult,
+)
+
 
 class RetryableAioHttpResponse:
     def __init__(
@@ -15,7 +19,7 @@ class RetryableAioHttpResponse:
         content: StreamReader | None,
         use_data_streaming: Optional[bool],
         access_token: Optional[str],
-        count_of_errors: int
+        results_by_url: Optional[List[RetryableAioHttpUrlResult]]
     ) -> None:
         """
         Response object for retryable aiohttp requests
@@ -46,10 +50,7 @@ class RetryableAioHttpResponse:
         self.access_token: Optional[str] = access_token
         """ If there was a new access token issued because the old access token was expired """
 
-        self.count_of_errors: int = count_of_errors
-        """ Count of errors in the response """
-
-        self.count_of_errors_by_status: Optional[Dict[str, int]] = None
+        self.results_by_url: Optional[List[RetryableAioHttpUrlResult]] = results_by_url
         """ Count of errors by status code """
 
     async def get_text_async(self) -> str:
