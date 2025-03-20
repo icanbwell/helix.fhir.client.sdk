@@ -252,3 +252,168 @@ async def test_timeout_handling() -> None:
 
             with pytest.raises(Exception):
                 await client.get(url="http://test.com")
+
+
+@pytest.mark.asyncio
+async def test_token_refresh_with_new_token_success() -> None:
+    """
+    Detailed test for token refresh scenario:
+    1. First request returns 401
+    2. Token refresh function is called
+    3. Subsequent request succeeds with new token
+    """
+    # Track token refresh calls
+    refresh_call_count = 0
+    last_used_token = None
+
+    async def mock_refresh_token() -> str:
+        nonlocal refresh_call_count
+        refresh_call_count += 1
+        return f"new_token_{refresh_call_count}"
+
+    async with RetryableAioHttpClient(
+        simple_refresh_token_func=mock_refresh_token,
+        retries=2,
+        use_data_streaming=False,
+    ) as client:
+        with aioresponses() as m:
+            # First request fails with 401
+            m.get(
+                "http://test.com",
+                status=401,
+                headers={"WWW-Authenticate": "Bearer realm='example'"},
+            )
+
+            # Successful request after token refresh
+            m.get("http://test.com", status=200, payload={"key": "value"})
+
+            # Perform the request
+            response = await client.get(
+                url="http://test.com", headers={"Authorization": "Bearer old_token"}
+            )
+
+            # Assertions
+            assert response.ok
+            assert response.status == 200
+            assert refresh_call_count == 1
+            assert await response.get_text_async() == '{"key": "value"}'
+
+
+@pytest.mark.asyncio
+async def test_token_refresh_multiple_consecutive_401() -> None:
+    """
+    Test token refresh with multiple consecutive 401 responses
+    Ensures proper handling of repeated unauthorized errors
+    """
+    refresh_call_count = 0
+    tokens_generated = []
+
+    async def mock_refresh_token() -> str:
+        nonlocal refresh_call_count, tokens_generated
+        refresh_call_count += 1
+        new_token = f"new_token_{refresh_call_count}"
+        tokens_generated.append(new_token)
+        return new_token
+
+    async with RetryableAioHttpClient(
+        simple_refresh_token_func=mock_refresh_token,
+        retries=3,
+        use_data_streaming=False,
+    ) as client:
+        with aioresponses() as m:
+            # First two requests fail with 401
+            m.get("http://test.com", status=401)
+            m.get("http://test.com", status=401)
+
+            # Third request succeeds
+            m.get("http://test.com", status=200, payload={"key": "success"})
+
+            # Perform the request
+            response = await client.get(
+                url="http://test.com", headers={"Authorization": "Bearer initial_token"}
+            )
+
+            # Assertions
+            assert response.ok
+            assert response.status == 200
+            assert refresh_call_count == 2  # Should attempt refresh twice
+            assert len(tokens_generated) == 2
+            assert await response.get_text_async() == '{"key": "success"}'
+
+
+@pytest.mark.asyncio
+async def test_token_refresh_with_invalid_refresh_function() -> None:
+    """
+    Test scenario where token refresh function fails
+    Ensures proper error handling when token refresh is impossible
+    """
+
+    async def failing_refresh_token() -> str:
+        raise ValueError("Unauthorized: Token refresh failed")
+
+    async with RetryableAioHttpClient(
+        simple_refresh_token_func=failing_refresh_token,
+        retries=1,
+        use_data_streaming=False,
+    ) as client:
+        with aioresponses() as m:
+            # First request fails with 401
+            m.get(
+                "http://test.com",
+                status=401,
+                headers={"WWW-Authenticate": "Bearer realm='example'"},
+            )
+
+            # Expect an exception due to failed token refresh
+            with pytest.raises(Exception) as excinfo:
+                await client.get(
+                    url="http://test.com", headers={"Authorization": "Bearer old_token"}
+                )
+
+            # Verify the exception contains relevant information
+            assert "Unauthorized" in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_token_refresh_with_different_headers() -> None:
+    """
+    Test token refresh with different header configurations
+    Ensures headers are correctly updated after token refresh
+    """
+    refresh_call_count = 0
+
+    async def mock_refresh_token() -> str:
+        nonlocal refresh_call_count
+        refresh_call_count += 1
+        return f"new_token_{refresh_call_count}"
+
+    async with RetryableAioHttpClient(
+        simple_refresh_token_func=mock_refresh_token,
+        retries=2,
+        use_data_streaming=False,
+    ) as client:
+        with aioresponses() as m:
+            # First request fails with 401
+            m.get(
+                "http://test.com",
+                status=401,
+                headers={"WWW-Authenticate": "Bearer realm='example'"},
+            )
+
+            # Successful request after token refresh
+            m.get("http://test.com", status=200, payload={"key": "value"})
+
+            # Perform the request with additional headers
+            response = await client.get(
+                url="http://test.com",
+                headers={
+                    "Authorization": "Bearer old_token",
+                    "X-Custom-Header": "test",
+                },
+            )
+
+            # Assertions
+            assert response.ok
+            assert response.status == 200
+            assert refresh_call_count == 1
+            assert await response.get_text_async() == '{"key": "value"}'
