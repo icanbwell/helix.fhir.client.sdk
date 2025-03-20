@@ -280,6 +280,7 @@ class FhirAuthMixin(FhirClientProtocol):
                 self._internal_logger.error(f"No token found in {token_json}")
                 raise Exception(f"No access token found in {token_json}")
             access_token: str = token_json["access_token"]
+            self.set_access_token(access_token)
             return access_token
 
     @staticmethod

@@ -18,7 +18,6 @@ class RetryableAioHttpResponse:
         response_text: str,
         content: StreamReader | None,
         use_data_streaming: Optional[bool],
-        access_token: Optional[str],
         results_by_url: List[RetryableAioHttpUrlResult]
     ) -> None:
         """
@@ -46,9 +45,6 @@ class RetryableAioHttpResponse:
 
         self.text_read: Optional[str] = None
         """ Text of the response if the response is read as a stream """
-
-        self.access_token: Optional[str] = access_token
-        """ If there was a new access token issued because the old access token was expired """
 
         self.results_by_url: List[RetryableAioHttpUrlResult] = results_by_url
         """ Count of errors by status code """

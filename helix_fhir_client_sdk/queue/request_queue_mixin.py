@@ -143,10 +143,6 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         )
                     )
                     assert isinstance(response, RetryableAioHttpResponse)
-                    if response.access_token:
-                        access_token = response.access_token
-                        self.set_access_token(response.access_token)
-
                     last_status_code = response.status
                     response_headers: List[str] = [
                         f"{key}:{value}"

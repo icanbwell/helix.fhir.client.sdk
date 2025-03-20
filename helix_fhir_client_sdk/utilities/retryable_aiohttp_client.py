@@ -95,7 +95,6 @@ class RetryableAioHttpClient:
     ) -> RetryableAioHttpResponse:
         retry_attempts: int = -1
         results_by_url: List[RetryableAioHttpUrlResult] = []
-        access_token: Optional[str] = None
         while retry_attempts < self.retries:
             retry_attempts += 1
             try:
@@ -148,7 +147,6 @@ class RetryableAioHttpClient:
                             ),
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
-                            access_token=access_token,
                             results_by_url=results_by_url,
                         )
                     elif (
@@ -166,7 +164,6 @@ class RetryableAioHttpClient:
                             ),
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
-                            access_token=access_token,
                             results_by_url=results_by_url,
                         )
                     elif response.status == 400:
@@ -181,7 +178,6 @@ class RetryableAioHttpClient:
                             ),
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
-                            access_token=access_token,
                             results_by_url=results_by_url,
                         )
                     elif response.status in [403, 404]:
@@ -196,7 +192,6 @@ class RetryableAioHttpClient:
                             ),
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
-                            access_token=access_token,
                             results_by_url=results_by_url,
                         )
                     elif response.status == 429:
@@ -250,7 +245,6 @@ class RetryableAioHttpClient:
                                 ),
                                 content=response.content,
                                 use_data_streaming=self.use_data_streaming,
-                                access_token=access_token,
                                 results_by_url=results_by_url,
                             )
             except (ClientError, asyncio.TimeoutError) as e:
@@ -265,7 +259,6 @@ class RetryableAioHttpClient:
                             response_text=str(e),
                             content=None,
                             use_data_streaming=self.use_data_streaming,
-                            access_token=access_token,
                             results_by_url=results_by_url,
                         )
                 await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
@@ -280,7 +273,6 @@ class RetryableAioHttpClient:
                         response_text=str(e),
                         content=None,
                         use_data_streaming=self.use_data_streaming,
-                        access_token=access_token,
                         results_by_url=results_by_url,
                     )
 
