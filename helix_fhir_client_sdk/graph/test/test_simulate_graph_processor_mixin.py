@@ -884,7 +884,7 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
 
 
 @pytest.mark.asyncio
-async def test_process_simulate_graph_401_async() -> None:
+async def test_process_simulate_graph_401_patient_only_async() -> None:
     """
     Test the process_simulate_graph_async method.
     """
@@ -961,3 +961,110 @@ async def test_process_simulate_graph_401_async() -> None:
         assert isinstance(response[0], FhirGetResponse)
         assert response[0].resource_type == "Patient"
         assert response[0].access_token == "new_access_token"
+
+
+@pytest.mark.asyncio
+async def test_graph_definition_with_single_link_401() -> None:
+    """
+    Test GraphDefinition with a single link.
+    """
+
+    graph_processor: FhirClient = get_graph_processor(max_concurrent_requests=1)
+
+    graph_processor.set_access_token("old_access_token")
+
+    async def my_refresh_token_function() -> Optional[str]:
+        return "new_access_token"
+
+    graph_processor.refresh_token_function(my_refresh_token_function)
+
+    logger: FhirLogger = LoggerForTest()
+
+    graph_json: Dict[str, Any] = {
+        "id": "1",
+        "name": "Test Graph",
+        "resourceType": "GraphDefinition",
+        "start": "Patient",
+        "link": [{"target": [{"type": "Observation", "params": "subject={ref}"}]}],
+    }
+
+    def callback_patient(
+        url: str, headers: Dict[str, Any], **kwargs: Any
+    ) -> CallbackResult:
+        if headers["Authorization"] == "Bearer old_access_token":
+            return CallbackResult(
+                status=401,
+                payload={
+                    "resourceType": "OperationOutcome",
+                    "issue": [
+                        {
+                            "severity": "error",
+                            "code": "forbidden",
+                            "details": {"text": "Unauthorized access"},
+                        }
+                    ],
+                },
+            )
+        elif headers["Authorization"] == "Bearer new_access_token":
+            return CallbackResult(
+                status=200, payload={"resourceType": "Patient", "id": "1"}
+            )
+        else:
+            raise Exception(
+                f"Unexpected Authorization header: {headers['Authorization']}"
+            )
+
+    def callback_observation(
+        url: str, headers: Dict[str, Any], **kwargs: Any
+    ) -> CallbackResult:
+        if headers["Authorization"] == "Bearer new_access_token":
+            return CallbackResult(
+                status=200, payload={"resourceType": "Observation", "id": "1"}
+            )
+        else:
+            raise Exception(
+                f"Unexpected Authorization header: {headers['Authorization']}"
+            )
+
+    with aioresponses() as m:
+        # Mock the HTTP GET request for the initial resource
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            callback=callback_patient,
+        )
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            callback=callback_patient,
+        )
+        # Mock the HTTP GET request for the linked resource
+        m.get(
+            "http://example.com/fhir/Observation?subject=1",
+            callback=callback_observation,
+        )
+
+        async_gen = graph_processor.process_simulate_graph_async(
+            id_="1",
+            graph_json=graph_json,
+            contained=False,
+            separate_bundle_resources=False,
+            restrict_to_scope=None,
+            restrict_to_resources=None,
+            restrict_to_capability_statement=None,
+            retrieve_and_restrict_to_capability_statement=None,
+            ifModifiedSince=None,
+            eTag=None,
+            logger=logger,
+            url=None,
+            expand_fhir_bundle=False,
+            auth_scopes=[],
+            max_concurrent_tasks=None,
+            sort_resources=True,
+        )
+
+        response = [r async for r in async_gen]
+        assert len(response) == 1
+        resources: List[Dict[str, Any]] = response[0].get_resources()
+        patient = [r for r in resources if r["resourceType"] == "Patient"][0]
+        assert patient == {"resourceType": "Patient", "id": "1"}
+        observation = [r for r in resources if r["resourceType"] == "Observation"][0]
+        assert observation == {"resourceType": "Observation", "id": "1"}
