@@ -45,7 +45,10 @@ def get_graph_processor(*, max_concurrent_requests: Optional[int] = None) -> Fhi
 
 
 def get_payload_function(
-    payload: Dict[str, Any], delay: int = 0, status: int = 200
+    payload: Dict[str, Any],
+    delay: int = 0,
+    status: int = 200,
+    match_access_token: Optional[str] = None,
 ) -> Callable[[str, Any], Awaitable[CallbackResult]]:
     """
     This function returns a function that will return a delayed response with the given payload.
@@ -53,6 +56,7 @@ def get_payload_function(
     :param payload: The payload to return in the response.
     :param delay: The delay in seconds before returning the response.
     :param status: The status code to return in the response.
+    :param match_access_token: The access token that must be matched in the request.
     :return: The function that will return the delayed response.
     """
 
@@ -61,6 +65,24 @@ def get_payload_function(
         logger: Logger = logging.getLogger(__name__)
         logger.setLevel(logging.INFO)
         logger.info(f"Mock Request Received: {url}")
+        if match_access_token:
+            access_token = (
+                kwargs.get("headers", {})
+                .get("Authorization", "")
+                .replace("Bearer ", "")
+            )
+            if access_token != match_access_token:
+                await asyncio.sleep(delay)  # 2 second delay
+                return CallbackResult(
+                    status=401,
+                    headers={},
+                    body=json.dumps(
+                        {
+                            "error": f"Unauthorized: Unexpected access token: {access_token}"
+                        }
+                    ),
+                )
+
         await asyncio.sleep(delay)  # 2 second delay
         logger.info(f"Mock Response Sent: {url}")
         return CallbackResult(
@@ -908,11 +930,12 @@ async def test_process_simulate_graph_401_patient_only_async() -> None:
         "link": [],
     }
 
-    def callback(url: str, headers: Dict[str, Any], **kwargs: Any) -> CallbackResult:
-        if headers["Authorization"] == "Bearer old_access_token":
-            return CallbackResult(
-                status=401,
-                payload={
+    with aioresponses() as m:
+        # Mock the HTTP GET request for the initial resource
+        m.get(
+            url="http://example.com/fhir/Patient/1",
+            callback=get_payload_function(
+                {
                     "resourceType": "OperationOutcome",
                     "issue": [
                         {
@@ -922,20 +945,17 @@ async def test_process_simulate_graph_401_patient_only_async() -> None:
                         }
                     ],
                 },
-            )
-        elif headers["Authorization"] == "Bearer new_access_token":
-            return CallbackResult(
-                status=200, payload={"resourceType": "Patient", "id": "1"}
-            )
-        else:
-            raise Exception(
-                f"Unexpected Authorization header: {headers['Authorization']}"
-            )
-
-    with aioresponses() as m:
-        # Mock the HTTP GET request for the initial resource
-        m.get(url="http://example.com/fhir/Patient/1", callback=callback)
-        m.get("http://example.com/fhir/Patient/1", callback=callback)
+                status=401,
+                match_access_token="old_access_token",
+            ),
+        )
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            callback=get_payload_function(
+                {"resourceType": "Patient", "id": "1"},
+                match_access_token="new_access_token",
+            ),
+        )
 
         async_gen = graph_processor.process_simulate_graph_async(
             id_="1",
@@ -988,13 +1008,12 @@ async def test_graph_definition_with_single_link_401() -> None:
         "link": [{"target": [{"type": "Observation", "params": "subject={ref}"}]}],
     }
 
-    def callback_patient(
-        url: str, headers: Dict[str, Any], **kwargs: Any
-    ) -> CallbackResult:
-        if headers["Authorization"] == "Bearer old_access_token":
-            return CallbackResult(
-                status=401,
-                payload={
+    with aioresponses() as m:
+        # Mock the HTTP GET request for the initial resource
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            callback=get_payload_function(
+                {
                     "resourceType": "OperationOutcome",
                     "issue": [
                         {
@@ -1004,42 +1023,24 @@ async def test_graph_definition_with_single_link_401() -> None:
                         }
                     ],
                 },
-            )
-        elif headers["Authorization"] == "Bearer new_access_token":
-            return CallbackResult(
-                status=200, payload={"resourceType": "Patient", "id": "1"}
-            )
-        else:
-            raise Exception(
-                f"Unexpected Authorization header: {headers['Authorization']}"
-            )
-
-    def callback_observation(
-        url: str, headers: Dict[str, Any], **kwargs: Any
-    ) -> CallbackResult:
-        if headers["Authorization"] == "Bearer new_access_token":
-            return CallbackResult(
-                status=200, payload={"resourceType": "Observation", "id": "1"}
-            )
-        else:
-            raise Exception(
-                f"Unexpected Authorization header: {headers['Authorization']}"
-            )
-
-    with aioresponses() as m:
-        # Mock the HTTP GET request for the initial resource
-        m.get(
-            "http://example.com/fhir/Patient/1",
-            callback=callback_patient,
+                status=401,
+                match_access_token="old_access_token",
+            ),
         )
         m.get(
             "http://example.com/fhir/Patient/1",
-            callback=callback_patient,
+            callback=get_payload_function(
+                {"resourceType": "Patient", "id": "1"},
+                match_access_token="new_access_token",
+            ),
         )
         # Mock the HTTP GET request for the linked resource
         m.get(
             "http://example.com/fhir/Observation?subject=1",
-            callback=callback_observation,
+            callback=get_payload_function(
+                {"resourceType": "Observation", "id": "1"},
+                match_access_token="new_access_token",
+            ),
         )
 
         async_gen = graph_processor.process_simulate_graph_async(
@@ -1068,3 +1069,166 @@ async def test_graph_definition_with_single_link_401() -> None:
         assert patient == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
         assert observation == {"resourceType": "Observation", "id": "1"}
+
+
+@pytest.mark.asyncio
+async def test_graph_definition_with_nested_links_concurrent_requests_401() -> None:
+    """
+    Test GraphDefinition with multiple targets.
+    """
+    graph_processor: FhirClient = get_graph_processor(max_concurrent_requests=3)
+
+    graph_processor.set_access_token("old_access_token")
+
+    async def my_refresh_token_function() -> Optional[str]:
+        return "new_access_token"
+
+    graph_processor.refresh_token_function(my_refresh_token_function)
+
+    logger: FhirLogger = LoggerForTest()
+
+    graph_json: Dict[str, Any] = {
+        "id": "1",
+        "name": "Test Graph",
+        "resourceType": "GraphDefinition",
+        "start": "Patient",
+        "link": [
+            {
+                "target": [
+                    {
+                        "type": "Encounter",
+                        "params": "patient={ref}",
+                        "link": [
+                            {
+                                "path": "participant.individual[x]",
+                                "target": [{"type": "Practitioner"}],
+                            },
+                            {
+                                "path": "location.location[x]",
+                                "target": [{"type": "Location"}],
+                            },
+                            {
+                                "path": "serviceProvider",
+                                "target": [{"type": "Organization"}],
+                            },
+                        ],
+                    }
+                ]
+            },
+        ],
+    }
+
+    with aioresponses() as m:
+        # Mock the HTTP GET request for the initial resource
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            callback=get_payload_function(
+                {
+                    "resourceType": "OperationOutcome",
+                    "issue": [
+                        {
+                            "severity": "error",
+                            "code": "forbidden",
+                            "details": {"text": "Unauthorized access"},
+                        }
+                    ],
+                },
+                status=401,
+                match_access_token="old_access_token",
+            ),
+        )
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            callback=get_payload_function(
+                {"resourceType": "Patient", "id": "1"},
+                match_access_token="new_access_token",
+            ),
+        )
+        # Mock the HTTP GET request for the linked Observation
+        m.get(
+            "http://example.com/fhir/Encounter?patient=1",
+            callback=get_payload_function(
+                {
+                    "entry": [
+                        {
+                            "resource": {
+                                "resourceType": "Encounter",
+                                "id": "8",
+                                "participant": [
+                                    {"individual": {"reference": "Practitioner/12345"}}
+                                ],
+                            }
+                        },
+                        {
+                            "resource": {
+                                "resourceType": "Encounter",
+                                "id": "10",
+                                "participant": [
+                                    {"individual": {"reference": "Practitioner/12345"}}
+                                ],
+                            }
+                        },
+                    ]
+                },
+                match_access_token="new_access_token",
+            ),
+        )
+
+        m.get(
+            "http://example.com/fhir/Practitioner/12345",
+            callback=get_payload_function(
+                {"resourceType": "Practitioner", "id": "12345"},
+                match_access_token="new_access_token",
+            ),
+        )
+
+        async_gen = graph_processor.process_simulate_graph_async(
+            id_="1",
+            graph_json=graph_json,
+            contained=False,
+            separate_bundle_resources=False,
+            restrict_to_scope=None,
+            restrict_to_resources=None,
+            restrict_to_capability_statement=None,
+            retrieve_and_restrict_to_capability_statement=None,
+            ifModifiedSince=None,
+            eTag=None,
+            logger=logger,
+            url=None,
+            expand_fhir_bundle=False,
+            auth_scopes=[],
+            max_concurrent_tasks=None,
+            sort_resources=True,
+        )
+
+        response = [r async for r in async_gen]
+        assert len(response) == 1
+
+        m.assert_any_call(url="http://example.com/fhir/Patient/1")
+        m.assert_any_call(url="http://example.com/fhir/Encounter?patient=1")
+        m.assert_any_call(url="http://example.com/fhir/Practitioner/12345")
+
+        resources: List[Dict[str, Any]] = response[0].get_resources()
+        assert (
+            len(resources) == 4
+        ), f"Expected 3 resources, got {len(resources)}: {resources}"
+        patient = [r for r in resources if r["resourceType"] == "Patient"][0]
+        assert patient == {"resourceType": "Patient", "id": "1"}
+        encounter = [
+            r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "8"
+        ][0]
+        assert encounter == {
+            "resourceType": "Encounter",
+            "id": "8",
+            "participant": [{"individual": {"reference": "Practitioner/12345"}}],
+        }
+        encounter = [
+            r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "10"
+        ][0]
+        assert encounter == {
+            "resourceType": "Encounter",
+            "id": "10",
+            "participant": [{"individual": {"reference": "Practitioner/12345"}}],
+        }
+        condition = [r for r in resources if r["resourceType"] == "Practitioner"][0]
+        assert condition == {"resourceType": "Practitioner", "id": "12345"}
