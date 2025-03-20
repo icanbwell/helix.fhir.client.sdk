@@ -30,6 +30,7 @@ class RetryableAioHttpClient:
         compress: Optional[bool] = False,
         send_data_as_chunked: Optional[bool] = None,
         throw_exception_on_error: bool = True,
+        log_all_url_results: bool = False,
     ) -> None:
         self.retries: int = retries
         self.timeout_in_seconds: Optional[float] = timeout_in_seconds
@@ -53,6 +54,7 @@ class RetryableAioHttpClient:
         self.compress: Optional[bool] = compress
         self.session: Optional[ClientSession] = None
         self._throw_exception_on_error: bool = throw_exception_on_error
+        self.log_all_url_results: bool = log_all_url_results
 
     async def __aenter__(self) -> "RetryableAioHttpClient":
         self.session = self.fn_get_session()
@@ -117,16 +119,17 @@ class RetryableAioHttpClient:
                         **kwargs,
                     )
                     # Append the result to the list of results
-                    results_by_url.append(
-                        RetryableAioHttpUrlResult(
-                            ok=response.ok,
-                            url=url,
-                            status_code=response.status,
-                            retry_count=retry_attempts,
-                            start_time=start_time,
-                            end_time=time.time(),
+                    if self.log_all_url_results:
+                        results_by_url.append(
+                            RetryableAioHttpUrlResult(
+                                ok=response.ok,
+                                url=url,
+                                status_code=response.status,
+                                retry_count=retry_attempts,
+                                start_time=start_time,
+                                end_time=time.time(),
+                            )
                         )
-                    )
 
                     if response.ok:
                         # If the response is successful, return the response

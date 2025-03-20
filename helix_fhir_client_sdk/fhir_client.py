@@ -137,6 +137,9 @@ class FhirClient(
 
         RequestQueueMixin.__init__(self)
 
+        self._log_all_response_urls: bool = False
+        """ If True, logs all response URLs and status codes.  Can take a lot of memory for when there are many responses. """
+
     def action(self, action: str) -> "FhirClient":
         """
         Set the action
@@ -840,3 +843,12 @@ class FhirClient(
         )
         fhir_client._validation_server_url = self._validation_server_url
         return fhir_client
+
+    def set_log_all_response_urls(self, value: bool) -> "FhirClient":
+        """
+        Sets the log_all_response_urls flag
+
+        :param value: whether to log all response URLs and status codes
+        """
+        self._log_all_response_urls = value
+        return self

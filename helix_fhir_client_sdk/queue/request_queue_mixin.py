@@ -122,6 +122,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 use_data_streaming=self._use_data_streaming,
                 compress=self._compress,
                 throw_exception_on_error=self._throw_exception_on_error,
+                log_all_url_results=self._log_all_response_urls,
             ) as client:
                 while next_url:
                     # set access token in request if present
