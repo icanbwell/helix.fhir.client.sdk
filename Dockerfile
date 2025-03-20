@@ -1,5 +1,5 @@
 FROM public.ecr.aws/docker/library/python:3.12-alpine3.20
-
+# 
 # Install system dependencies
 RUN apk add --no-cache \
     make \
