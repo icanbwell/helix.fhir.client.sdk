@@ -41,7 +41,7 @@ class FhirGetResponse:
         chunk_number: Optional[int] = None,
         cache_hits: Optional[int] = None,
         count_of_errors: int,
-        count_of_errors_by_status: Optional[Dict[int, int]],
+        count_of_errors_by_status: Optional[Dict[str, int]],
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -94,7 +94,7 @@ class FhirGetResponse:
         """ Count of cache hits """
         self.count_of_errors: int = count_of_errors
         """ Count of errors in the response """
-        self.count_of_errors_by_status: Optional[Dict[int, int]] = (
+        self.count_of_errors_by_status: Optional[Dict[str, int]] = (
             count_of_errors_by_status
         )
         """ Count of errors in the response by status """

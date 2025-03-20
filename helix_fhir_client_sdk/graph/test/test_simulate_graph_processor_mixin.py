@@ -981,6 +981,7 @@ async def test_process_simulate_graph_401_patient_only_async() -> None:
         assert isinstance(response[0], FhirGetResponse)
         assert response[0].resource_type == "Patient"
         assert response[0].access_token == "new_access_token"
+        assert response[0].count_of_errors == 1
 
 
 @pytest.mark.asyncio
@@ -1069,6 +1070,9 @@ async def test_graph_definition_with_single_link_401() -> None:
         assert patient == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
         assert observation == {"resourceType": "Observation", "id": "1"}
+
+        assert response[0].access_token == "new_access_token"
+        assert response[0].count_of_errors == 1
 
 
 @pytest.mark.asyncio
@@ -1232,3 +1236,9 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
         }
         condition = [r for r in resources if r["resourceType"] == "Practitioner"][0]
         assert condition == {"resourceType": "Practitioner", "id": "12345"}
+
+        assert response[0].access_token == "new_access_token"
+        assert response[0].count_of_errors == 1
+        # assert response[0].count_of_errors_by_status == {
+        #     "401": 1,
+        # }
