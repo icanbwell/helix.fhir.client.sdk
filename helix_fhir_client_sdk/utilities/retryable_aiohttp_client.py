@@ -323,8 +323,10 @@ class RetryableAioHttpClient:
             kwargs["json"] = json
         return await self.fetch(url=url, method="PUT", headers=headers, **kwargs)
 
-    async def delete(self, *, url: str, **kwargs: Any) -> RetryableAioHttpResponse:
-        return await self.fetch(url=url, method="DELETE", **kwargs)
+    async def delete(
+        self, *, headers: Optional[Dict[str, str]], url: str, **kwargs: Any
+    ) -> RetryableAioHttpResponse:
+        return await self.fetch(url=url, headers=headers, method="DELETE", **kwargs)
 
     @staticmethod
     async def _handle_429(*, response: ClientResponse, full_url: str) -> None:
