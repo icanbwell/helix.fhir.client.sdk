@@ -58,6 +58,7 @@ class FhirUpdateMixin(FhirClientProtocol):
             send_data_as_chunked=self._send_data_as_chunked,
             compress=self._compress,
             throw_exception_on_error=self._throw_exception_on_error,
+            log_all_url_results=self._log_all_response_urls,
         ) as client:
             response = await client.put(
                 url=full_uri.url, data=json_data, headers=headers

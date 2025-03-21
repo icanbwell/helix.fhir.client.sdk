@@ -71,6 +71,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
                 content=cast(StreamReader, ContentIterator(content)),
                 response_text=response_text,
                 use_data_streaming=True,
+                results_by_url=[],
             )
 
     class ContentIterator:

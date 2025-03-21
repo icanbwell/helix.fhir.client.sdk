@@ -49,6 +49,7 @@ class FhirDeleteMixin(FhirClientProtocol):
             use_data_streaming=self._use_data_streaming,
             compress=False,
             throw_exception_on_error=self._throw_exception_on_error,
+            log_all_url_results=self._log_all_response_urls,
         ) as client:
             response: RetryableAioHttpResponse = await client.delete(
                 url=full_uri.tostr(), headers=headers
@@ -117,6 +118,7 @@ class FhirDeleteMixin(FhirClientProtocol):
             use_data_streaming=self._use_data_streaming,
             compress=False,
             throw_exception_on_error=self._throw_exception_on_error,
+            log_all_url_results=self._log_all_response_urls,
         ) as client:
             response: RetryableAioHttpResponse = await client.delete(
                 url=full_url, headers=headers

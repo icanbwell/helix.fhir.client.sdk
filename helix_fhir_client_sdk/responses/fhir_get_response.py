@@ -11,6 +11,9 @@ from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntryResponse,
 )
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
+    RetryableAioHttpUrlResult,
+)
 
 
 class FhirGetResponse:
@@ -40,6 +43,7 @@ class FhirGetResponse:
         ],  # header name and value separated by a colon
         chunk_number: Optional[int] = None,
         cache_hits: Optional[int] = None,
+        results_by_url: List[RetryableAioHttpUrlResult],
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -59,6 +63,9 @@ class FhirGetResponse:
         :param status: status code
         :param next_url: next url to use for pagination
         :param response_headers: headers returned by the server (can have duplicate header names)
+        :param chunk_number: chunk number for streaming
+        :param cache_hits: count of cache hits
+        :param results_by_url: results by url
         :return: None
         """
         self.id_: Optional[Union[List[str], str]] = id_
@@ -67,25 +74,28 @@ class FhirGetResponse:
         self.url: str = url
         """ string that holds the response from the fhir server """
         self.responses: str = responses
-        """ Any error returned by the fhir server """
         self.error: Optional[str] = error
-        """ Access token used to make the request to the fhir server """
+        """ Any error returned by the fhir server """
         self.access_token: Optional[str] = access_token
-        """ Total count of resources returned by the fhir serer """
+        """ Access token used to make the request to the fhir server """
         self.total_count: Optional[int] = total_count
-        """ Status code returned by the fhir server """ ""
+        """ Total count of resources returned by the fhir serer """
         self.status: int = status
-        """ Next url to use for pagination """
+        """ Status code returned by the fhir server """ ""
         self.next_url: Optional[str] = next_url
-        """ Extra context to return with every row (separate_bundle_resources is set) or with FhirGetResponse"""
+        """ Next url to use for pagination """
         self.extra_context_to_return: Optional[Dict[str, Any]] = extra_context_to_return
-        """ True if the request was successful """
+        """ Extra context to return with every row (separate_bundle_resources is set) or with FhirGetResponse"""
         self.successful: bool = status == 200
-        """ Headers returned by the server (can have duplicate header names) """ ""
+        """ True if the request was successful """
         self.response_headers: Optional[List[str]] = response_headers
-        """ Chunk number for streaming """
+        """ Headers returned by the server (can have duplicate header names) """ ""
         self.chunk_number: Optional[int] = chunk_number
+        """ Chunk number for streaming """
         self.cache_hits: Optional[int] = cache_hits
+        """ Count of cache hits """
+        self.results_by_url: List[RetryableAioHttpUrlResult] = results_by_url
+        """ Count of errors in the response by status """
 
     def append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
         """
@@ -133,6 +143,13 @@ class FhirGetResponse:
             self.next_url = other_response.next_url
             self.access_token = other_response.access_token
         self.cache_hits = (self.cache_hits or 0) + (other_response.cache_hits or 0)
+
+        if other_response.results_by_url:
+            if self.results_by_url is None:
+                self.results_by_url = other_response.results_by_url
+            else:
+                self.results_by_url.extend(other_response.results_by_url)
+
         return self
 
     def extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
@@ -165,6 +182,13 @@ class FhirGetResponse:
         self.cache_hits = sum(
             [r.cache_hits if r.cache_hits is not None else 0 for r in others]
         )
+        for other_response in others:
+            if other_response.results_by_url:
+                if self.results_by_url is None:
+                    self.results_by_url = other_response.results_by_url
+                else:
+                    self.results_by_url.extend(other_response.results_by_url)
+
         return self
 
     def get_resources(self) -> List[Dict[str, Any]]:

@@ -144,6 +144,7 @@ class FhirAuthMixin(FhirClientProtocol):
             throw_exception_on_error=False,
             use_data_streaming=False,
             compress=False,
+            log_all_url_results=self._log_all_response_urls,
         ) as client:
             if self._auth_wellknown_url:
                 host_name: str = furl(self._auth_wellknown_url).host
@@ -262,6 +263,7 @@ class FhirAuthMixin(FhirClientProtocol):
             use_data_streaming=False,
             compress=False,
             exclude_status_codes_from_retry=None,
+            log_all_url_results=self._log_all_response_urls,
         ) as client:
             response: RetryableAioHttpResponse = await client.post(
                 url=auth_server_url, headers=headers, data=payload
@@ -278,6 +280,7 @@ class FhirAuthMixin(FhirClientProtocol):
                 self._internal_logger.error(f"No token found in {token_json}")
                 raise Exception(f"No access token found in {token_json}")
             access_token: str = token_json["access_token"]
+            self.set_access_token(access_token)
             return access_token
 
     @staticmethod
