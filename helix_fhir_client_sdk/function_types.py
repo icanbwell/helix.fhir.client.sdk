@@ -1,5 +1,5 @@
 import dataclasses
-import datetime
+from datetime import datetime
 from typing import List, Dict, Any, Optional, Protocol, runtime_checkable
 
 

@@ -1,6 +1,6 @@
 # test_retryable_aiohttp_client.py
 import asyncio
-import datetime
+from datetime import datetime
 from typing import Optional
 
 import pytest
@@ -54,6 +54,7 @@ async def test_non_retryable_status_code() -> None:
 
 @pytest.mark.asyncio
 async def test_token_refresh_on_401() -> None:
+    # noinspection PyUnusedLocal
     async def mock_refresh_token(
         url: Optional[str],
         status_code: Optional[int],
@@ -188,8 +189,9 @@ async def test_delete_method_success() -> None:
 @pytest.mark.asyncio
 async def test_token_refresh_max_retries() -> None:
     """Test token refresh fails after maximum retries."""
-    retry_count = 0
+    retry_attempts = 0
 
+    # noinspection PyUnusedLocal
     async def mock_refresh_token(
         url: Optional[str],
         status_code: Optional[int],
@@ -197,8 +199,8 @@ async def test_token_refresh_max_retries() -> None:
         expiry_date: Optional[datetime],
         retry_count: Optional[int],
     ) -> RefreshTokenResult:
-        nonlocal retry_count
-        retry_count += 1
+        nonlocal retry_attempts
+        retry_attempts += 1
         return RefreshTokenResult(access_token=f"token_{retry_count}", expiry_date=None)
 
     async with RetryableAioHttpClient(
@@ -220,7 +222,7 @@ async def test_token_refresh_max_retries() -> None:
                 )
 
             assert "Unauthorized" in str(excinfo.value)
-            assert retry_count == 3
+            assert retry_attempts == 3
 
 
 @pytest.mark.asyncio
@@ -320,8 +322,8 @@ async def test_token_refresh_with_new_token_success() -> None:
     """
     # Track token refresh calls
     refresh_call_count = 0
-    last_used_token = None
 
+    # noinspection PyUnusedLocal
     async def mock_refresh_token(
         url: Optional[str],
         status_code: Optional[int],
@@ -374,6 +376,7 @@ async def test_token_refresh_multiple_consecutive_401() -> None:
     refresh_call_count = 0
     tokens_generated = []
 
+    # noinspection PyUnusedLocal
     async def mock_refresh_token(
         url: Optional[str],
         status_code: Optional[int],
@@ -422,6 +425,7 @@ async def test_token_refresh_with_invalid_refresh_function() -> None:
     Ensures proper error handling when token refresh is impossible
     """
 
+    # noinspection PyUnusedLocal
     async def failing_refresh_token(
         url: Optional[str],
         status_code: Optional[int],
@@ -464,6 +468,7 @@ async def test_token_refresh_with_different_headers() -> None:
     """
     refresh_call_count = 0
 
+    # noinspection PyUnusedLocal
     async def mock_refresh_token(
         url: Optional[str],
         status_code: Optional[int],

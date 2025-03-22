@@ -112,11 +112,7 @@ class FhirAuthMixin(FhirClientProtocol):
         if self._access_token:
             return self._access_token
         refresh_token_result: RefreshTokenResult = await self._refresh_token_function(
-            url=None,
-            status_code=0,
-            current_token=None,
-            expiry_date=None,
-            retry_count=0
+            url=None, status_code=0, current_token=None, expiry_date=None, retry_count=0
         )
         self.set_access_token(refresh_token_result.access_token)
         self.set_access_token_expiry_date(refresh_token_result.expiry_date)
@@ -131,12 +127,12 @@ class FhirAuthMixin(FhirClientProtocol):
         """
 
         async def refresh_token(
-        url: Optional[str],
-        status_code: Optional[int],
-        current_token: Optional[str],
-        expiry_date: Optional[datetime],
-        retry_count: Optional[int],
-    ) -> RefreshTokenResult:
+            url: Optional[str],
+            status_code: Optional[int],
+            current_token: Optional[str],
+            expiry_date: Optional[datetime],
+            retry_count: Optional[int],
+        ) -> RefreshTokenResult:
             """
             This function creates the session and then calls authenticate_async()
 
@@ -303,8 +299,16 @@ class FhirAuthMixin(FhirClientProtocol):
                 raise Exception(f"No access token found in {token_json}")
             access_token: str = token_json["access_token"]
             self.set_access_token(access_token)
-            self.set_access_token_expiry_date(foofo)
-            return access_token
+            expiry_date_str: Optional[str] = token_json.get("exp")
+
+            # if expiry_date_str:
+            #     # Convert the expiration time to a readable format
+            #     readable_time = strftime('%Y-%m-%d %H:%M:%S UTC', gmtime(expiry_date_str))
+            expiry_date: Optional[datetime] = None
+            self.set_access_token_expiry_date(expiry_date)
+            return RefreshTokenResult(
+                access_token=access_token, expiry_date=expiry_date
+            )
 
     @staticmethod
     def _create_login_token(client_id: str, client_secret: str) -> str:

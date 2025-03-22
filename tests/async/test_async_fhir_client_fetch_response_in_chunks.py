@@ -73,7 +73,8 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
                 use_data_streaming=True,
                 results_by_url=[],
                 access_token=None,
-                access_token_expiry_date=None
+                access_token_expiry_date=None,
+                retry_count=0,
             )
 
     class ContentIterator:

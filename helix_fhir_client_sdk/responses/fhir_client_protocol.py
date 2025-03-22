@@ -2,7 +2,16 @@ import uuid
 from datetime import datetime
 from logging import Logger
 from threading import Lock
-from typing import Protocol, Optional, Dict, Any, List, Union, AsyncGenerator, runtime_checkable
+from typing import (
+    Protocol,
+    Optional,
+    Dict,
+    Any,
+    List,
+    Union,
+    AsyncGenerator,
+    runtime_checkable,
+)
 
 from aiohttp import ClientSession
 from requests.adapters import BaseAdapter

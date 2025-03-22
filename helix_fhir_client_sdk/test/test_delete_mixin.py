@@ -30,19 +30,16 @@ class TestFhirDeleteMixin:
         mixin._internal_logger = logging.getLogger("FhirClient")
 
         # Mocking async methods directly
-        async def mock_get_access_token_async() -> str:
-            return "fake_token"
-
         async def mock_refresh_token_function(
-        url: Optional[str],
-        status_code: Optional[int],
-        current_token: Optional[str],
-        expiry_date: Optional[datetime],
-        retry_count: Optional[int],
-    ) -> RefreshTokenResult:
+            url: Optional[str],
+            status_code: Optional[int],
+            current_token: Optional[str],
+            expiry_date: Optional[datetime],
+            retry_count: Optional[int],
+        ) -> RefreshTokenResult:
             return RefreshTokenResult(access_token=None, expiry_date=None)
 
-        mixin.get_access_token_async = mock_get_access_token_async
+        mixin._access_token = "fake_token"
         mixin._refresh_token_function = mock_refresh_token_function
 
         return mixin

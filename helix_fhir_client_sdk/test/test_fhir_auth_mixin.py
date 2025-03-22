@@ -67,7 +67,7 @@ async def test_get_access_token_async(fhir_auth_mixin: FhirAuthMixin) -> None:
         expiry_date: Optional[datetime],
         retry_count: Optional[int],
     ) -> RefreshTokenResult:
-        return RefreshTokenResult(access_token= "test_access_token", expiry_date=None)
+        return RefreshTokenResult(access_token="test_access_token", expiry_date=None)
 
     """Test getting the access token."""
     fhir_auth_mixin._refresh_token_function = refresh_token_function
@@ -87,8 +87,10 @@ async def test_authenticate_async(fhir_auth_mixin: FhirAuthMixin) -> None:
     with aioresponses() as m:
         m.post("https://auth.test/token", payload={"access_token": "test_access_token"})
 
-        access_token = await fhir_auth_mixin.authenticate_async()
-        assert access_token == "test_access_token"
+        refresh_token_result: RefreshTokenResult = (
+            await fhir_auth_mixin.authenticate_async()
+        )
+        assert refresh_token_result.access_token == "test_access_token"
 
 
 @pytest.mark.asyncio
