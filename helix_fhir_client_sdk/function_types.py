@@ -74,7 +74,13 @@ class RefreshTokenFunction(Protocol):
         """
         Refreshes a token and returns the new token. If the token cannot be refreshed, returns None.
 
-        :return: new token or None
+
+        :param url: url we loaded
+        :param status_code: status code of the response
+        :param current_token: current token
+        :param expiry_date: expiry date of the current token
+        :param retry_count: retry count
+        :return: result containing the new token and the new expiry date
         """
         ...
 
@@ -107,10 +113,20 @@ class TraceFunction(Protocol):
         access_token: Optional[str],
         expiry_date: Optional[datetime],
         retry_count: Optional[int],
+        start_time: Optional[float],
+        end_time: Optional[float],
     ) -> None:
         """
         Called whenever we load a new url
 
+
+        :param url: url we loaded
+        :param status_code: status code of the response
+        :param access_token: access token used in the request
+        :param expiry_date: expiry date of the access token
+        :param retry_count: retry count
+        :param start_time: start time of the request (using time.time())
+        :param end_time: end time of the request (using time.time())
         :return: new token or None
         """
         ...

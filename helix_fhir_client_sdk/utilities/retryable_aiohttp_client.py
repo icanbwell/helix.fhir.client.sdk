@@ -152,6 +152,8 @@ class RetryableAioHttpClient:
                             access_token=access_token,
                             expiry_date=expiry_date,
                             retry_count=retry_attempts,
+                            start_time=start_time,
+                            end_time=time.time(),
                         )
 
                     if response.ok:
