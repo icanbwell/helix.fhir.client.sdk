@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 from typing import Dict, Optional, List, cast
 
@@ -18,7 +19,10 @@ class RetryableAioHttpResponse:
         response_text: str,
         content: StreamReader | None,
         use_data_streaming: Optional[bool],
-        results_by_url: List[RetryableAioHttpUrlResult]
+        results_by_url: List[RetryableAioHttpUrlResult],
+        access_token: Optional[str],
+        access_token_expiry_date: Optional[datetime],
+        retry_count: Optional[int]
     ) -> None:
         """
         Response object for retryable aiohttp requests
@@ -48,6 +52,15 @@ class RetryableAioHttpResponse:
 
         self.results_by_url: List[RetryableAioHttpUrlResult] = results_by_url
         """ Count of errors by status code """
+
+        self.access_token: Optional[str] = access_token
+        """ access token """
+
+        self.access_token_expiry_date: Optional[datetime] = access_token_expiry_date
+        """ access token expiry date"""
+
+        self.retry_count: Optional[int] = retry_count
+        """ retry count """
 
     async def get_text_async(self) -> str:
         if self.content is None:

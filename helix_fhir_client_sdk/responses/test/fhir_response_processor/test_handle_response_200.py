@@ -27,6 +27,7 @@ async def test_handle_response_200() -> None:
     response = MagicMock(RetryableAioHttpResponse)
     response.ok = True
     response.status = 200
+    response.results_by_url = []
     response.get_text_async = AsyncMock(
         return_value='{"resourceType": "Bundle", "total": 2, "entry": [{"resource": {"resourceType": "Patient", "id": "1"}}, {"resource": {"resourceType": "Patient", "id": "2"}}]}'
     )
@@ -72,6 +73,7 @@ async def test_handle_response_200() -> None:
             "chunk_number": None,
             "successful": True,
             "cache_hits": None,
+            "results_by_url": [],
         }
     ]
 

@@ -1,7 +1,16 @@
 import asyncio
 from asyncio import Task
 from dataclasses import dataclass
-from typing import AsyncGenerator, Protocol, List, Optional, Set, Dict, Any
+from typing import (
+    AsyncGenerator,
+    Protocol,
+    List,
+    Optional,
+    Set,
+    Dict,
+    Any,
+    runtime_checkable,
+)
 
 
 @dataclass
@@ -23,6 +32,7 @@ class ParallelFunctionContext:
     total_task_count: int
 
 
+@runtime_checkable
 class ParallelFunction[TInput, TOutput, TParameters](Protocol):
     async def __call__(
         self,

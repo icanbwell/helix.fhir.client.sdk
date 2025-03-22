@@ -30,6 +30,7 @@ async def test_handle_response_200_streaming_separate_bundle() -> None:
     response = MagicMock(RetryableAioHttpResponse)
     response.ok = True
     response.status = 200
+    response.results_by_url = []
     response.content = MagicMock()
 
     bundle: Dict[str, Any] = {
@@ -115,6 +116,7 @@ async def test_handle_response_200_streaming_separate_bundle() -> None:
         "chunk_number": 1,
         "successful": True,
         "cache_hits": None,
+        "results_by_url": [],
     }
 
     assert result[0].__dict__ == expected_result

@@ -2,7 +2,16 @@ import uuid
 from datetime import datetime
 from logging import Logger
 from threading import Lock
-from typing import Protocol, Optional, Dict, Any, List, Union, AsyncGenerator
+from typing import (
+    Protocol,
+    Optional,
+    Dict,
+    Any,
+    List,
+    Union,
+    AsyncGenerator,
+    runtime_checkable,
+)
 
 from aiohttp import ClientSession
 from requests.adapters import BaseAdapter
@@ -26,6 +35,7 @@ from helix_fhir_client_sdk.well_known_configuration import (
 )
 
 
+@runtime_checkable
 class FhirClientProtocol(Protocol):
     _action: Optional[str]
     _action_payload: Optional[Dict[str, Any]]
@@ -47,6 +57,7 @@ class FhirClientProtocol(Protocol):
     _login_token: Optional[str]
     _client_id: Optional[str]
     _access_token: Optional[str]
+    _access_token_expiry_date: Optional[datetime]
     _logger: Optional[FhirLogger]
     _internal_logger: Logger
     _adapter: Optional[BaseAdapter]
@@ -126,6 +137,10 @@ class FhirClientProtocol(Protocol):
         ...
 
     def set_access_token(self, value: str | None) -> "FhirClientProtocol": ...
+
+    def set_access_token_expiry_date(
+        self, value: datetime | None
+    ) -> "FhirClientProtocol": ...
 
     def include_only_properties(
         self, include_only_properties: List[str] | None

@@ -8,6 +8,7 @@ from mockserver_client.mockserver_client import (
 )
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
+from helix_fhir_client_sdk.function_types import RefreshTokenResult
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from unittest.mock import AsyncMock
 
@@ -53,12 +54,20 @@ async def test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_fun
     )
 
     mocked_authenticate_async = AsyncMock()
-    mocked_authenticate_async.return_value = "my_access_token"
+    mocked_authenticate_async.return_value = RefreshTokenResult(
+        access_token="my_access_token", expiry_date=None
+    )
 
     fhir_client = fhir_client.refresh_token_function(mocked_authenticate_async)
     response: FhirGetResponse = await fhir_client.get_async()
 
     mocked_authenticate_async.assert_called()
-    mocked_authenticate_async.assert_called_with()
+    mocked_authenticate_async.assert_called_with(
+        url="http://mock-server:1080/test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_function/Patient",
+        status_code=401,
+        current_token=None,
+        expiry_date=None,
+        retry_count=0,
+    )
     print(response.responses)
     assert response.responses == response_text
