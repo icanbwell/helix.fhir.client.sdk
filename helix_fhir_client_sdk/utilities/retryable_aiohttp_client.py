@@ -265,22 +265,36 @@ class RetryableAioHttpClient:
                                 retry_count=retry_attempts,
                             )
                         )
-                        access_token = refresh_token_result.access_token
-                        expiry_date = refresh_token_result.expiry_date
-                        if not headers:
-                            headers = {}
-                        headers["Authorization"] = f"Bearer {access_token}"
-                        if not access_token or retry_attempts >= self.retries:
-                            raise ClientResponseError(
-                                status=response.status,
-                                message="Unauthorized",
-                                headers=response_headers_multi_mapping,
-                                history=response.history,
-                                request_info=response.request_info,
+                        if refresh_token_result.access_token is None:
+                            return RetryableAioHttpResponse(
+                                ok=False,
+                                status=401,
+                                response_headers={},
+                                response_text="Unauthorized",
+                                content=None,
+                                use_data_streaming=self.use_data_streaming,
+                                results_by_url=results_by_url,
+                                access_token=access_token,
+                                access_token_expiry_date=expiry_date,
+                                retry_count=retry_attempts,
                             )
-                        await asyncio.sleep(
-                            self.backoff_factor * (2 ** (retry_attempts - 1))
-                        )
+                        else:  # we got a valid token
+                            access_token = refresh_token_result.access_token
+                            expiry_date = refresh_token_result.expiry_date
+                            if not headers:
+                                headers = {}
+                            headers["Authorization"] = f"Bearer {access_token}"
+                            if retry_attempts >= self.retries:
+                                raise ClientResponseError(
+                                    status=response.status,
+                                    message="Unauthorized",
+                                    headers=response_headers_multi_mapping,
+                                    history=response.history,
+                                    request_info=response.request_info,
+                                )
+                            await asyncio.sleep(
+                                self.backoff_factor * (2 ** (retry_attempts - 1))
+                            )
                     else:
                         if self._throw_exception_on_error:
                             raise ClientResponseError(
