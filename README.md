@@ -1,5 +1,3 @@
-from typing_extensions import Optionalfrom helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponsefrom build.lib.helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponsefrom helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-
 # helix.fhir.client.sdk
 
 <p align="left">
