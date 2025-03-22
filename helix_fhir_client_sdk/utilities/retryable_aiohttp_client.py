@@ -51,8 +51,10 @@ class RetryableAioHttpClient:
             if retry_status_codes is not None
             else [500, 502, 503, 504]
         )
-        self.refresh_token_func: Optional[RefreshTokenFunction] = refresh_token_func
-        self.trace_function: Optional[TraceFunction] = tracer_func
+        self.refresh_token_func_async: Optional[RefreshTokenFunction] = (
+            refresh_token_func
+        )
+        self.trace_function_async: Optional[TraceFunction] = tracer_func
         self.fn_get_session: Callable[[], ClientSession] = (
             fn_get_session if fn_get_session is not None else lambda: ClientSession()
         )
@@ -145,8 +147,8 @@ class RetryableAioHttpClient:
                                 end_time=time.time(),
                             )
                         )
-                    if self.trace_function:
-                        await self.trace_function(
+                    if self.trace_function_async:
+                        await self.trace_function_async(
                             url=url,
                             status_code=response.status,
                             access_token=access_token,
@@ -245,10 +247,10 @@ class RetryableAioHttpClient:
                             history=response.history,
                             request_info=response.request_info,
                         )
-                    elif response.status == 401 and self.refresh_token_func:
+                    elif response.status == 401 and self.refresh_token_func_async:
                         # Call the token refresh function if status code is 401
                         refresh_token_result: RefreshTokenResult = (
-                            await self.refresh_token_func(
+                            await self.refresh_token_func_async(
                                 current_token=access_token,
                                 expiry_date=expiry_date,
                                 url=url,

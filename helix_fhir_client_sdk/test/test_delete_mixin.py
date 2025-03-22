@@ -30,6 +30,7 @@ class TestFhirDeleteMixin:
         mixin._internal_logger = logging.getLogger("FhirClient")
 
         # Mocking async methods directly
+        # noinspection PyUnusedLocal
         async def mock_refresh_token_function(
             url: Optional[str],
             status_code: Optional[int],

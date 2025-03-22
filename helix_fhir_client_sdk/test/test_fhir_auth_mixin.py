@@ -60,6 +60,7 @@ async def test_get_auth_url_async_from_well_known_configuration(
 
 @pytest.mark.asyncio
 async def test_get_access_token_async(fhir_auth_mixin: FhirAuthMixin) -> None:
+    # noinspection PyUnusedLocal
     async def refresh_token_function(
         url: Optional[str],
         status_code: Optional[int],

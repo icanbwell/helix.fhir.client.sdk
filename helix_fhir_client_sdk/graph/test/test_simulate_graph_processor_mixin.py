@@ -921,6 +921,7 @@ async def test_process_simulate_graph_401_patient_only_async() -> None:
 
     graph_processor.set_access_token("old_access_token")
 
+    # noinspection PyUnusedLocal
     async def my_refresh_token_function(
         url: Optional[str],
         status_code: Optional[int],
@@ -1023,6 +1024,7 @@ async def test_graph_definition_with_single_link_401() -> None:
 
     graph_processor.set_access_token("old_access_token")
 
+    # noinspection PyUnusedLocal
     async def my_refresh_token_function(
         url: Optional[str],
         status_code: Optional[int],
@@ -1142,6 +1144,7 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
 
     graph_processor.set_access_token("old_access_token")
 
+    # noinspection PyUnusedLocal
     async def my_refresh_token_function(
         url: Optional[str],
         status_code: Optional[int],
