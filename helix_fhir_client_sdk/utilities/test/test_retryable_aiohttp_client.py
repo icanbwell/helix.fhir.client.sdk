@@ -62,7 +62,9 @@ async def test_token_refresh_on_401() -> None:
         expiry_date: Optional[datetime],
         retry_count: Optional[int],
     ) -> RefreshTokenResult:
-        return RefreshTokenResult(access_token="new_token", expiry_date=None)
+        return RefreshTokenResult(
+            access_token="new_token", expiry_date=None, abort_request=False
+        )
 
     async with RetryableAioHttpClient(
         refresh_token_func=mock_refresh_token,
@@ -201,7 +203,9 @@ async def test_token_refresh_max_retries() -> None:
     ) -> RefreshTokenResult:
         nonlocal retry_attempts
         retry_attempts += 1
-        return RefreshTokenResult(access_token=f"token_{retry_count}", expiry_date=None)
+        return RefreshTokenResult(
+            access_token=f"token_{retry_count}", expiry_date=None, abort_request=False
+        )
 
     async with RetryableAioHttpClient(
         refresh_token_func=mock_refresh_token,
@@ -334,7 +338,9 @@ async def test_token_refresh_with_new_token_success() -> None:
         nonlocal refresh_call_count
         refresh_call_count += 1
         return RefreshTokenResult(
-            access_token=f"new_token_{refresh_call_count}", expiry_date=None
+            access_token=f"new_token_{refresh_call_count}",
+            expiry_date=None,
+            abort_request=False,
         )
 
     async with RetryableAioHttpClient(
@@ -388,7 +394,9 @@ async def test_token_refresh_multiple_consecutive_401() -> None:
         refresh_call_count += 1
         new_token = f"new_token_{refresh_call_count}"
         tokens_generated.append(new_token)
-        return RefreshTokenResult(access_token=new_token, expiry_date=expiry_date)
+        return RefreshTokenResult(
+            access_token=new_token, expiry_date=expiry_date, abort_request=False
+        )
 
     async with RetryableAioHttpClient(
         refresh_token_func=mock_refresh_token,
@@ -479,7 +487,9 @@ async def test_token_refresh_with_different_headers() -> None:
         nonlocal refresh_call_count
         refresh_call_count += 1
         return RefreshTokenResult(
-            access_token=f"new_token_{refresh_call_count}", expiry_date=None
+            access_token=f"new_token_{refresh_call_count}",
+            expiry_date=None,
+            abort_request=False,
         )
 
     async with RetryableAioHttpClient(

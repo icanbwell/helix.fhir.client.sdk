@@ -265,7 +265,10 @@ class RetryableAioHttpClient:
                                 retry_count=retry_attempts,
                             )
                         )
-                        if refresh_token_result.access_token is None:
+                        if (
+                            refresh_token_result.abort_request
+                            or refresh_token_result.access_token is None
+                        ):
                             return RetryableAioHttpResponse(
                                 ok=False,
                                 status=401,

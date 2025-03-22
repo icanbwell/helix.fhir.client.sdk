@@ -929,7 +929,9 @@ async def test_process_simulate_graph_401_patient_only_async() -> None:
         expiry_date: Optional[datetime],
         retry_count: Optional[int],
     ) -> RefreshTokenResult:
-        return RefreshTokenResult(access_token="new_access_token", expiry_date=None)
+        return RefreshTokenResult(
+            access_token="new_access_token", expiry_date=None, abort_request=False
+        )
 
     graph_processor.refresh_token_function(my_refresh_token_function)
 
@@ -1032,7 +1034,9 @@ async def test_graph_definition_with_single_link_401() -> None:
         expiry_date: Optional[datetime],
         retry_count: Optional[int],
     ) -> RefreshTokenResult:
-        return RefreshTokenResult(access_token="new_access_token", expiry_date=None)
+        return RefreshTokenResult(
+            access_token="new_access_token", expiry_date=None, abort_request=False
+        )
 
     graph_processor.refresh_token_function(my_refresh_token_function)
 
@@ -1152,7 +1156,9 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
         expiry_date: Optional[datetime],
         retry_count: Optional[int],
     ) -> RefreshTokenResult:
-        return RefreshTokenResult(access_token="new_access_token", expiry_date=None)
+        return RefreshTokenResult(
+            access_token="new_access_token", expiry_date=None, abort_request=False
+        )
 
     graph_processor.refresh_token_function(my_refresh_token_function)
 

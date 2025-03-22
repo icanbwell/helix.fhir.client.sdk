@@ -68,7 +68,9 @@ async def test_get_access_token_async(fhir_auth_mixin: FhirAuthMixin) -> None:
         expiry_date: Optional[datetime],
         retry_count: Optional[int],
     ) -> RefreshTokenResult:
-        return RefreshTokenResult(access_token="test_access_token", expiry_date=None)
+        return RefreshTokenResult(
+            access_token="test_access_token", expiry_date=None, abort_request=False
+        )
 
     """Test getting the access token."""
     fhir_auth_mixin._refresh_token_function = refresh_token_function

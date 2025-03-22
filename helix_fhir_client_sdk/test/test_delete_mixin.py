@@ -38,7 +38,9 @@ class TestFhirDeleteMixin:
             expiry_date: Optional[datetime],
             retry_count: Optional[int],
         ) -> RefreshTokenResult:
-            return RefreshTokenResult(access_token=None, expiry_date=None)
+            return RefreshTokenResult(
+                access_token=None, expiry_date=None, abort_request=False
+            )
 
         mixin._access_token = "fake_token"
         mixin._refresh_token_function = mock_refresh_token_function

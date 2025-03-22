@@ -262,7 +262,9 @@ class FhirAuthMixin(FhirClientProtocol):
     ) -> RefreshTokenResult:
         auth_server_url: Optional[str] = await self.get_auth_url_async()
         if not auth_server_url or not self._login_token:
-            return RefreshTokenResult(access_token=None, expiry_date=None)
+            return RefreshTokenResult(
+                access_token=None, expiry_date=None, abort_request=False
+            )
         assert auth_server_url, "No auth server url was set"
         assert self._login_token, "No login token was set"
         payload: str = (
@@ -320,7 +322,7 @@ class FhirAuthMixin(FhirClientProtocol):
 
             self.set_access_token_expiry_date(expiry_date)
             return RefreshTokenResult(
-                access_token=access_token, expiry_date=expiry_date
+                access_token=access_token, expiry_date=expiry_date, abort_request=False
             )
 
     @staticmethod

@@ -55,7 +55,7 @@ async def test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_fun
 
     mocked_authenticate_async = AsyncMock()
     mocked_authenticate_async.return_value = RefreshTokenResult(
-        access_token="my_access_token", expiry_date=None
+        access_token="my_access_token", expiry_date=None, abort_request=False
     )
 
     fhir_client = fhir_client.refresh_token_function(mocked_authenticate_async)

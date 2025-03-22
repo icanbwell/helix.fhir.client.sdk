@@ -56,8 +56,18 @@ class HandleErrorFunction(Protocol):
 
 @dataclasses.dataclass
 class RefreshTokenResult:
+    """
+    Result of a token refresh
+    """
+
     access_token: Optional[str]
+    """ New access token """
+
     expiry_date: Optional[datetime]
+    """ Expiry date of the new token """
+
+    abort_request: Optional[bool]
+    """ If True, abort the request """
 
 
 @runtime_checkable
