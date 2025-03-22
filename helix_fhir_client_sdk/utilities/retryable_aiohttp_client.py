@@ -6,7 +6,11 @@ from typing import Optional, Dict, Any, List, Callable, Type, Union
 import async_timeout
 from aiohttp import ClientResponse, ClientError, ClientResponseError, ClientSession
 
-from helix_fhir_client_sdk.function_types import SimpleRefreshTokenFunction
+from helix_fhir_client_sdk.function_types import (
+    RefreshTokenFunction,
+    RefreshTokenResult,
+    TraceFunction,
+)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
@@ -23,7 +27,8 @@ class RetryableAioHttpClient:
         timeout_in_seconds: Optional[float] = None,
         backoff_factor: float = 0.5,
         retry_status_codes: Optional[List[int]] = None,
-        simple_refresh_token_func: Optional[SimpleRefreshTokenFunction] = None,
+        refresh_token_func: Optional[RefreshTokenFunction] = None,
+        tracer_func: Optional[TraceFunction] = None,
         fn_get_session: Optional[Callable[[], ClientSession]] = None,
         exclude_status_codes_from_retry: List[int] | None = None,
         use_data_streaming: Optional[bool],
@@ -31,7 +36,13 @@ class RetryableAioHttpClient:
         send_data_as_chunked: Optional[bool] = None,
         throw_exception_on_error: bool = True,
         log_all_url_results: bool = False,
+        access_token: Optional[str],
+        access_token_expiry_date: Optional[datetime],
     ) -> None:
+        """
+        RetryableClient provides a way to make HTTP calls with automatic retry and automatic refreshing of access tokens
+
+        """
         self.retries: int = retries
         self.timeout_in_seconds: Optional[float] = timeout_in_seconds
         self.backoff_factor: float = backoff_factor
@@ -40,9 +51,8 @@ class RetryableAioHttpClient:
             if retry_status_codes is not None
             else [500, 502, 503, 504]
         )
-        self.simple_refresh_token_func: Optional[SimpleRefreshTokenFunction] = (
-            simple_refresh_token_func
-        )
+        self.refresh_token_func: Optional[RefreshTokenFunction] = refresh_token_func
+        self.trace_function: Optional[TraceFunction] = tracer_func
         self.fn_get_session: Callable[[], ClientSession] = (
             fn_get_session if fn_get_session is not None else lambda: ClientSession()
         )
@@ -55,6 +65,8 @@ class RetryableAioHttpClient:
         self.session: Optional[ClientSession] = None
         self._throw_exception_on_error: bool = throw_exception_on_error
         self.log_all_url_results: bool = log_all_url_results
+        self.access_token: Optional[str] = access_token
+        self.access_token_expiry_date: Optional[datetime] = access_token_expiry_date
 
     async def __aenter__(self) -> "RetryableAioHttpClient":
         self.session = self.fn_get_session()
@@ -95,6 +107,10 @@ class RetryableAioHttpClient:
     ) -> RetryableAioHttpResponse:
         retry_attempts: int = -1
         results_by_url: List[RetryableAioHttpUrlResult] = []
+        access_token: Optional[str] = self.access_token
+        expiry_date: Optional[datetime] = self.access_token_expiry_date
+
+        # run with retry
         while retry_attempts < self.retries:
             retry_attempts += 1
             try:
@@ -129,6 +145,14 @@ class RetryableAioHttpClient:
                                 end_time=time.time(),
                             )
                         )
+                    if self.trace_function:
+                        await self.trace_function(
+                            url=url,
+                            status_code=response.status,
+                            access_token=access_token,
+                            expiry_date=expiry_date,
+                            retry_count=retry_attempts,
+                        )
 
                     if response.ok:
                         # If the response is successful, return the response
@@ -148,6 +172,9 @@ class RetryableAioHttpClient:
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
                             results_by_url=results_by_url,
+                            access_token=access_token,
+                            access_token_expiry_date=expiry_date,
+                            retry_count=retry_attempts,
                         )
                     elif (
                         self.exclude_status_codes_from_retry
@@ -165,6 +192,9 @@ class RetryableAioHttpClient:
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
                             results_by_url=results_by_url,
+                            access_token=access_token,
+                            access_token_expiry_date=expiry_date,
+                            retry_count=retry_attempts,
                         )
                     elif response.status == 400:
                         return RetryableAioHttpResponse(
@@ -179,6 +209,9 @@ class RetryableAioHttpClient:
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
                             results_by_url=results_by_url,
+                            access_token=access_token,
+                            access_token_expiry_date=expiry_date,
+                            retry_count=retry_attempts,
                         )
                     elif response.status in [403, 404]:
                         return RetryableAioHttpResponse(
@@ -193,6 +226,9 @@ class RetryableAioHttpClient:
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
                             results_by_url=results_by_url,
+                            access_token=access_token,
+                            access_token_expiry_date=expiry_date,
+                            retry_count=retry_attempts,
                         )
                     elif response.status == 429:
                         await self._handle_429(response=response, full_url=url)
@@ -207,13 +243,23 @@ class RetryableAioHttpClient:
                             history=response.history,
                             request_info=response.request_info,
                         )
-                    elif response.status == 401 and self.simple_refresh_token_func:
+                    elif response.status == 401 and self.refresh_token_func:
                         # Call the token refresh function if status code is 401
-                        access_token = await self.simple_refresh_token_func()
+                        refresh_token_result: RefreshTokenResult = (
+                            await self.refresh_token_func(
+                                current_token=access_token,
+                                expiry_date=expiry_date,
+                                url=url,
+                                status_code=response.status,
+                                retry_count=retry_attempts,
+                            )
+                        )
+                        access_token = refresh_token_result.access_token
+                        expiry_date = refresh_token_result.expiry_date
                         if not headers:
                             headers = {}
                         headers["Authorization"] = f"Bearer {access_token}"
-                        if retry_attempts >= self.retries:
+                        if access_token and retry_attempts >= self.retries:
                             raise ClientResponseError(
                                 status=response.status,
                                 message="Unauthorized",
@@ -246,6 +292,9 @@ class RetryableAioHttpClient:
                                 content=response.content,
                                 use_data_streaming=self.use_data_streaming,
                                 results_by_url=results_by_url,
+                                access_token=access_token,
+                                access_token_expiry_date=expiry_date,
+                                retry_count=retry_attempts,
                             )
             except (ClientError, asyncio.TimeoutError) as e:
                 if retry_attempts >= self.retries:
@@ -260,6 +309,9 @@ class RetryableAioHttpClient:
                             content=None,
                             use_data_streaming=self.use_data_streaming,
                             results_by_url=results_by_url,
+                            access_token=access_token,
+                            access_token_expiry_date=expiry_date,
+                            retry_count=retry_attempts,
                         )
                 await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
             except Exception as e:
@@ -274,6 +326,9 @@ class RetryableAioHttpClient:
                         content=None,
                         use_data_streaming=self.use_data_streaming,
                         results_by_url=results_by_url,
+                        access_token=access_token,
+                        access_token_expiry_date=expiry_date,
+                        retry_count=retry_attempts,
                     )
 
         # Raise an exception if all retries fail

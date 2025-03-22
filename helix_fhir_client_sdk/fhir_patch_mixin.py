@@ -58,7 +58,7 @@ class FhirPatchMixin(FhirClientProtocol):
             # actually make the request
             async with RetryableAioHttpClient(
                 fn_get_session=lambda: self.create_http_session(),
-                simple_refresh_token_func=lambda: self._refresh_token_function(),
+                refresh_token_func=lambda: self._refresh_token_function(),
                 retries=self._retry_count,
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                 use_data_streaming=self._use_data_streaming,
@@ -66,6 +66,8 @@ class FhirPatchMixin(FhirClientProtocol):
                 compress=self._compress,
                 throw_exception_on_error=self._throw_exception_on_error,
                 log_all_url_results=self._log_all_response_urls,
+                access_token=self._access_token,
+                access_token_expiry_date=self._access_token_expiry_date,
             ) as client:
                 response: RetryableAioHttpResponse = await client.patch(
                     url=full_uri.url, json=deserialized_data, headers=headers

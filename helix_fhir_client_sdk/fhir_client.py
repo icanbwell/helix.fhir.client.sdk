@@ -538,6 +538,16 @@ class FhirClient(
         self._access_token = value
         return self
 
+    def set_access_token_expiry_date(self, value: datetime | None) -> "FhirClient":
+        """
+        Sets access token
+
+
+        :param value: access token
+        """
+        self._access_token_expiry_date = value
+        return self
+
     def separate_bundle_resources(
         self, separate_bundle_resources: bool
     ) -> "FhirClient":

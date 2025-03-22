@@ -9,6 +9,7 @@ import pytest
 from aioresponses import aioresponses, CallbackResult
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
+from helix_fhir_client_sdk.function_types import RefreshTokenResult
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
     SimulatedGraphProcessorMixin,
 )
@@ -1128,8 +1129,8 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
 
     graph_processor.set_access_token("old_access_token")
 
-    async def my_refresh_token_function() -> Optional[str]:
-        return "new_access_token"
+    async def my_refresh_token_function() -> RefreshTokenResult:
+        return RefreshTokenResult(access_token="new_access_token")
 
     graph_processor.refresh_token_function(my_refresh_token_function)
 

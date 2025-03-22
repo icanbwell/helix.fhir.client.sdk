@@ -1,7 +1,12 @@
-from typing import List, Dict, Any, Optional, Protocol
+import dataclasses
+import datetime
+from typing import List, Dict, Any, Optional, Protocol, runtime_checkable
 
 
 # This file contains contracts for callback functions
+
+
+@runtime_checkable
 class HandleBatchFunction(Protocol):
     async def __call__(
         self, resources_: List[Dict[str, Any]], page_number: Optional[int]
@@ -16,6 +21,7 @@ class HandleBatchFunction(Protocol):
         ...
 
 
+@runtime_checkable
 class HandleStreamingChunkFunction(Protocol):
     async def __call__(
         self,
@@ -32,6 +38,7 @@ class HandleStreamingChunkFunction(Protocol):
         ...
 
 
+@runtime_checkable
 class HandleErrorFunction(Protocol):
     async def __call__(
         self, *, error: str, response: str, page_number: Optional[int], url: str
@@ -47,10 +54,22 @@ class HandleErrorFunction(Protocol):
         ...
 
 
+@dataclasses.dataclass
+class RefreshTokenResult:
+    access_token: Optional[str]
+    expiry_date: Optional[datetime]
+
+
+@runtime_checkable
 class RefreshTokenFunction(Protocol):
     async def __call__(
         self,
-    ) -> Optional[str]:
+        url: Optional[str],
+        status_code: Optional[int],
+        current_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> RefreshTokenResult:
         """
         Refreshes a token and returns the new token. If the token cannot be refreshed, returns None.
 
@@ -59,6 +78,7 @@ class RefreshTokenFunction(Protocol):
         ...
 
 
+@runtime_checkable
 class HandleStreamingResourcesFunction(Protocol):
     async def __call__(
         self,
@@ -76,12 +96,19 @@ class HandleStreamingResourcesFunction(Protocol):
         ...
 
 
-class SimpleRefreshTokenFunction(Protocol):
+@runtime_checkable
+class TraceFunction(Protocol):
     async def __call__(
         self,
-    ) -> Optional[str]:
+        *,
+        url: Optional[str],
+        status_code: Optional[int],
+        access_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> None:
         """
-        Refreshes a token and returns the new token. If the token cannot be refreshed, returns None.
+        Called whenever we load a new url
 
         :return: new token or None
         """

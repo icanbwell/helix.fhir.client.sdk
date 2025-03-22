@@ -8,6 +8,7 @@ from furl import furl
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.fhir_delete_mixin import FhirDeleteMixin
+from helix_fhir_client_sdk.function_types import RefreshTokenResult
 from helix_fhir_client_sdk.responses.fhir_delete_response import FhirDeleteResponse
 
 
@@ -31,8 +32,8 @@ class TestFhirDeleteMixin:
         async def mock_get_access_token_async() -> str:
             return "fake_token"
 
-        async def mock_refresh_token_function() -> str | None:
-            return None
+        async def mock_refresh_token_function() -> RefreshTokenResult:
+            return RefreshTokenResult(access_token=None, expiry_date=None)
 
         mixin.get_access_token_async = mock_get_access_token_async  # type: ignore[method-assign]
         mixin._refresh_token_function = mock_refresh_token_function

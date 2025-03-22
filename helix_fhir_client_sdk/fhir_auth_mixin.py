@@ -8,7 +8,10 @@ from typing import Optional, List, Dict, Any, TYPE_CHECKING, cast
 
 from furl import furl
 
-from helix_fhir_client_sdk.function_types import RefreshTokenFunction
+from helix_fhir_client_sdk.function_types import (
+    RefreshTokenFunction,
+    RefreshTokenResult,
+)
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
@@ -42,6 +45,7 @@ class FhirAuthMixin(FhirClientProtocol):
         self._login_token: Optional[str] = None
         self._client_id: Optional[str] = None
         self._access_token: Optional[str] = None
+        self._access_token_expiry_date: Optional[datetime] = None
 
     def auth_server_url(self, auth_server_url: str | None) -> "FhirClient":
         """
@@ -107,7 +111,9 @@ class FhirAuthMixin(FhirClientProtocol):
         """
         if self._access_token:
             return self._access_token
-        self.set_access_token(await self._refresh_token_function())
+        refresh_token_result: RefreshTokenResult = await self._refresh_token_function()
+        self.set_access_token(refresh_token_result.access_token)
+        self.set_access_token_expiry_date(refresh_token_result.expiry_date)
         return self._access_token
 
     def authenticate_async_wrapper(self) -> RefreshTokenFunction:
@@ -145,6 +151,8 @@ class FhirAuthMixin(FhirClientProtocol):
             use_data_streaming=False,
             compress=False,
             log_all_url_results=self._log_all_response_urls,
+            access_token=self._access_token,
+            access_token_expiry_date=self._access_token_expiry_date,
         ) as client:
             if self._auth_wellknown_url:
                 host_name: str = furl(self._auth_wellknown_url).host
@@ -264,6 +272,8 @@ class FhirAuthMixin(FhirClientProtocol):
             compress=False,
             exclude_status_codes_from_retry=None,
             log_all_url_results=self._log_all_response_urls,
+            access_token=self._access_token,
+            access_token_expiry_date=self._access_token_expiry_date,
         ) as client:
             response: RetryableAioHttpResponse = await client.post(
                 url=auth_server_url, headers=headers, data=payload
@@ -281,6 +291,7 @@ class FhirAuthMixin(FhirClientProtocol):
                 raise Exception(f"No access token found in {token_json}")
             access_token: str = token_json["access_token"]
             self.set_access_token(access_token)
+            self.set_access_token_expiry_date(foofo)
             return access_token
 
     @staticmethod
