@@ -114,6 +114,8 @@ class FhirAuthMixin(FhirClientProtocol):
         refresh_token_result: RefreshTokenResult = await self._refresh_token_function(
             url=None, status_code=0, current_token=None, expiry_date=None, retry_count=0
         )
+        assert isinstance(refresh_token_result, RefreshTokenResult)
+
         self.set_access_token(refresh_token_result.access_token)
         self.set_access_token_expiry_date(refresh_token_result.expiry_date)
         return self._access_token
