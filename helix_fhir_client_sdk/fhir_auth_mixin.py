@@ -126,6 +126,7 @@ class FhirAuthMixin(FhirClientProtocol):
         :return: refresh token function
         """
 
+        # noinspection PyUnusedLocal
         async def refresh_token(
             url: Optional[str],
             status_code: Optional[int],
@@ -299,7 +300,7 @@ class FhirAuthMixin(FhirClientProtocol):
                 raise Exception(f"No access token found in {token_json}")
             access_token: str = token_json["access_token"]
             self.set_access_token(access_token)
-            expiry_date_str: Optional[str] = token_json.get("exp")
+            # expiry_date_str: Optional[str] = token_json.get("exp")
 
             # if expiry_date_str:
             #     # Convert the expiration time to a readable format
