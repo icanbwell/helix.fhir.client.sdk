@@ -270,7 +270,7 @@ class RetryableAioHttpClient:
                         if not headers:
                             headers = {}
                         headers["Authorization"] = f"Bearer {access_token}"
-                        if access_token and retry_attempts >= self.retries:
+                        if not access_token or retry_attempts >= self.retries:
                             raise ClientResponseError(
                                 status=response.status,
                                 message="Unauthorized",
