@@ -64,6 +64,7 @@ class RefreshTokenResult:
 class RefreshTokenFunction(Protocol):
     async def __call__(
         self,
+        *,
         url: Optional[str],
         status_code: Optional[int],
         current_token: Optional[str],

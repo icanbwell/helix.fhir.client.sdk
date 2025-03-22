@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from typing import Optional, List
 
 import aiohttp
@@ -32,10 +33,16 @@ class TestFhirDeleteMixin:
         async def mock_get_access_token_async() -> str:
             return "fake_token"
 
-        async def mock_refresh_token_function() -> RefreshTokenResult:
+        async def mock_refresh_token_function(
+        url: Optional[str],
+        status_code: Optional[int],
+        current_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> RefreshTokenResult:
             return RefreshTokenResult(access_token=None, expiry_date=None)
 
-        mixin.get_access_token_async = mock_get_access_token_async  # type: ignore[method-assign]
+        mixin.get_access_token_async = mock_get_access_token_async
         mixin._refresh_token_function = mock_refresh_token_function
 
         return mixin

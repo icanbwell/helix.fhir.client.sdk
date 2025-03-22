@@ -111,7 +111,13 @@ class FhirAuthMixin(FhirClientProtocol):
         """
         if self._access_token:
             return self._access_token
-        refresh_token_result: RefreshTokenResult = await self._refresh_token_function()
+        refresh_token_result: RefreshTokenResult = await self._refresh_token_function(
+            url=None,
+            status_code=0,
+            current_token=None,
+            expiry_date=None,
+            retry_count=0
+        )
         self.set_access_token(refresh_token_result.access_token)
         self.set_access_token_expiry_date(refresh_token_result.expiry_date)
         return self._access_token
@@ -124,7 +130,13 @@ class FhirAuthMixin(FhirClientProtocol):
         :return: refresh token function
         """
 
-        async def refresh_token() -> Optional[str]:
+        async def refresh_token(
+        url: Optional[str],
+        status_code: Optional[int],
+        current_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> RefreshTokenResult:
             """
             This function creates the session and then calls authenticate_async()
 
@@ -248,10 +260,10 @@ class FhirAuthMixin(FhirClientProtocol):
 
     async def authenticate_async(
         self,
-    ) -> Optional[str]:
+    ) -> RefreshTokenResult:
         auth_server_url: Optional[str] = await self.get_auth_url_async()
         if not auth_server_url or not self._login_token:
-            return None
+            return RefreshTokenResult(access_token=None, expiry_date=None)
         assert auth_server_url, "No auth server url was set"
         assert self._login_token, "No login token was set"
         payload: str = (

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from logging import Logger
 from threading import Lock
-from typing import Protocol, Optional, Dict, Any, List, Union, AsyncGenerator
+from typing import Protocol, Optional, Dict, Any, List, Union, AsyncGenerator, runtime_checkable
 
 from aiohttp import ClientSession
 from requests.adapters import BaseAdapter
@@ -26,6 +26,7 @@ from helix_fhir_client_sdk.well_known_configuration import (
 )
 
 
+@runtime_checkable
 class FhirClientProtocol(Protocol):
     _action: Optional[str]
     _action_payload: Optional[Dict[str, Any]]

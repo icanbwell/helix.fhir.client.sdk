@@ -1,9 +1,12 @@
+from typing import Optional
+
 import pytest
 from datetime import datetime, timedelta, UTC
 from aioresponses import aioresponses
 
 from helix_fhir_client_sdk.fhir_auth_mixin import FhirAuthMixin
 from helix_fhir_client_sdk.fhir_client import FhirClient
+from helix_fhir_client_sdk.function_types import RefreshTokenResult
 from helix_fhir_client_sdk.well_known_configuration import (
     WellKnownConfigurationCacheEntry,
 )
@@ -57,8 +60,14 @@ async def test_get_auth_url_async_from_well_known_configuration(
 
 @pytest.mark.asyncio
 async def test_get_access_token_async(fhir_auth_mixin: FhirAuthMixin) -> None:
-    async def refresh_token_function() -> str:
-        return "test_access_token"
+    async def refresh_token_function(
+        url: Optional[str],
+        status_code: Optional[int],
+        current_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> RefreshTokenResult:
+        return RefreshTokenResult(access_token= "test_access_token", expiry_date=None)
 
     """Test getting the access token."""
     fhir_auth_mixin._refresh_token_function = refresh_token_function
