@@ -46,6 +46,7 @@ async def test_handle_response_200_non_streaming_separate_bundle() -> None:
     response = MagicMock(RetryableAioHttpResponse)
     response.ok = True
     response.status = 200
+    response.results_by_url = []
     response.get_text_async = AsyncMock(return_value=json.dumps(bundle))
 
     result: List[FhirGetResponse] = [
@@ -101,6 +102,7 @@ async def test_handle_response_200_non_streaming_separate_bundle() -> None:
         "successful": True,
         "response_headers": response_headers,
         "cache_hits": None,
+        "results_by_url": [],
     }
 
     assert result[0].__dict__ == expected_result

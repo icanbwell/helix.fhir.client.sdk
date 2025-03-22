@@ -24,6 +24,7 @@ async def test_handle_response_404() -> None:
     response = MagicMock(RetryableAioHttpResponse)
     response.ok = False
     response.status = 404
+    response.results_by_url = []
     response.get_text_async = AsyncMock(return_value="Not Found")
 
     result: List[FhirGetResponse] = [
@@ -58,6 +59,7 @@ async def test_handle_response_404() -> None:
             "response_headers": response_headers,
             "successful": False,
             "cache_hits": None,
+            "results_by_url": [],
         }
     ]
 

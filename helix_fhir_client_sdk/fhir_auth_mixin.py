@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 from threading import Lock
 from typing import Optional, List, Dict, Any, TYPE_CHECKING, cast
 
@@ -298,14 +298,24 @@ class FhirAuthMixin(FhirClientProtocol):
             if "access_token" not in token_json:
                 self._internal_logger.error(f"No token found in {token_json}")
                 raise Exception(f"No access token found in {token_json}")
+
+            # Response to client credentials
+            # {
+            #   "access_token":"eyJz93a...k4laUWw",
+            #   "token_type":"Bearer",
+            #   "expires_in":86400
+            # }
             access_token: str = token_json["access_token"]
             self.set_access_token(access_token)
-            # expiry_date_str: Optional[str] = token_json.get("exp")
+            # The number of seconds until the token expires (e.g., 3600 seconds = 1 hour).
+            expiry_time_in_seconds: Optional[int] = token_json.get("expires_in")
 
-            # if expiry_date_str:
-            #     # Convert the expiration time to a readable format
-            #     readable_time = strftime('%Y-%m-%d %H:%M:%S UTC', gmtime(expiry_date_str))
-            expiry_date: Optional[datetime] = None
+            expiry_date: Optional[datetime] = (
+                (datetime.now(UTC) + timedelta(expiry_time_in_seconds))
+                if expiry_time_in_seconds
+                else None
+            )
+
             self.set_access_token_expiry_date(expiry_date)
             return RefreshTokenResult(
                 access_token=access_token, expiry_date=expiry_date
