@@ -1,4 +1,5 @@
 import asyncio
+import time
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Callable, Type, Union
 
@@ -8,6 +9,9 @@ from aiohttp import ClientResponse, ClientError, ClientResponseError, ClientSess
 from helix_fhir_client_sdk.function_types import SimpleRefreshTokenFunction
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
+)
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
+    RetryableAioHttpUrlResult,
 )
 
 
@@ -26,6 +30,7 @@ class RetryableAioHttpClient:
         compress: Optional[bool] = False,
         send_data_as_chunked: Optional[bool] = None,
         throw_exception_on_error: bool = True,
+        log_all_url_results: bool = False,
     ) -> None:
         self.retries: int = retries
         self.timeout_in_seconds: Optional[float] = timeout_in_seconds
@@ -49,6 +54,7 @@ class RetryableAioHttpClient:
         self.compress: Optional[bool] = compress
         self.session: Optional[ClientSession] = None
         self._throw_exception_on_error: bool = throw_exception_on_error
+        self.log_all_url_results: bool = log_all_url_results
 
     async def __aenter__(self) -> "RetryableAioHttpClient":
         self.session = self.fn_get_session()
@@ -87,7 +93,8 @@ class RetryableAioHttpClient:
         headers: Dict[str, str] | None,
         **kwargs: Any,
     ) -> RetryableAioHttpResponse:
-        retry_attempts = -1
+        retry_attempts: int = -1
+        results_by_url: List[RetryableAioHttpUrlResult] = []
         while retry_attempts < self.retries:
             retry_attempts += 1
             try:
@@ -104,12 +111,27 @@ class RetryableAioHttpClient:
                         kwargs["compress"] = self.compress
                 assert self.session is not None
                 async with async_timeout.timeout(self.timeout_in_seconds):
+                    start_time: float = time.time()
                     response: ClientResponse = await self.session.request(
                         method,
                         url,
                         **kwargs,
                     )
+                    # Append the result to the list of results
+                    if self.log_all_url_results:
+                        results_by_url.append(
+                            RetryableAioHttpUrlResult(
+                                ok=response.ok,
+                                url=url,
+                                status_code=response.status,
+                                retry_count=retry_attempts,
+                                start_time=start_time,
+                                end_time=time.time(),
+                            )
+                        )
+
                     if response.ok:
+                        # If the response is successful, return the response
                         return RetryableAioHttpResponse(
                             ok=response.ok,
                             status=response.status,
@@ -125,6 +147,7 @@ class RetryableAioHttpClient:
                             ),
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
+                            results_by_url=results_by_url,
                         )
                     elif (
                         self.exclude_status_codes_from_retry
@@ -141,6 +164,7 @@ class RetryableAioHttpClient:
                             ),
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
+                            results_by_url=results_by_url,
                         )
                     elif response.status == 400:
                         return RetryableAioHttpResponse(
@@ -154,6 +178,7 @@ class RetryableAioHttpClient:
                             ),
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
+                            results_by_url=results_by_url,
                         )
                     elif response.status in [403, 404]:
                         return RetryableAioHttpResponse(
@@ -167,6 +192,7 @@ class RetryableAioHttpClient:
                             ),
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
+                            results_by_url=results_by_url,
                         )
                     elif response.status == 429:
                         await self._handle_429(response=response, full_url=url)
@@ -219,6 +245,7 @@ class RetryableAioHttpClient:
                                 ),
                                 content=response.content,
                                 use_data_streaming=self.use_data_streaming,
+                                results_by_url=results_by_url,
                             )
             except (ClientError, asyncio.TimeoutError) as e:
                 if retry_attempts >= self.retries:
@@ -232,6 +259,7 @@ class RetryableAioHttpClient:
                             response_text=str(e),
                             content=None,
                             use_data_streaming=self.use_data_streaming,
+                            results_by_url=results_by_url,
                         )
                 await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
             except Exception as e:
@@ -245,6 +273,7 @@ class RetryableAioHttpClient:
                         response_text=str(e),
                         content=None,
                         use_data_streaming=self.use_data_streaming,
+                        results_by_url=results_by_url,
                     )
 
         # Raise an exception if all retries fail
@@ -300,8 +329,10 @@ class RetryableAioHttpClient:
             kwargs["json"] = json
         return await self.fetch(url=url, method="PUT", headers=headers, **kwargs)
 
-    async def delete(self, *, url: str, **kwargs: Any) -> RetryableAioHttpResponse:
-        return await self.fetch(url=url, method="DELETE", **kwargs)
+    async def delete(
+        self, *, headers: Optional[Dict[str, str]], url: str, **kwargs: Any
+    ) -> RetryableAioHttpResponse:
+        return await self.fetch(url=url, headers=headers, method="DELETE", **kwargs)
 
     @staticmethod
     async def _handle_429(*, response: ClientResponse, full_url: str) -> None:

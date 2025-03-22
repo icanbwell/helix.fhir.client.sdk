@@ -181,6 +181,7 @@ class FhirResponseProcessor:
             resource_type=resource,
             id_=id_,
             response_headers=response_headers,
+            results_by_url=response.results_by_url,
         )
 
     @staticmethod
@@ -226,6 +227,7 @@ class FhirResponseProcessor:
             resource_type=resource,
             id_=id_,
             response_headers=response_headers,
+            results_by_url=response.results_by_url,
         )
 
     @staticmethod
@@ -404,6 +406,7 @@ class FhirResponseProcessor:
                 resource_type=resource,
                 id_=id_,
                 response_headers=response_headers,
+                results_by_url=response.results_by_url,
             )
         except Exception as e:
             if logger:
@@ -423,6 +426,7 @@ class FhirResponseProcessor:
                 resource_type=resource,
                 id_=id_,
                 response_headers=response_headers,
+                results_by_url=response.results_by_url,
             )
 
     @staticmethod
@@ -437,8 +441,6 @@ class FhirResponseProcessor:
         url: Optional[str],
     ) -> Tuple[str, int]:
 
-        resources: List[Dict[str, Any]] | None = None
-        resources_json: str = ""
         # see if this is a Resource Bundle and un-bundle it
         if (
             expand_fhir_bundle
@@ -571,6 +573,7 @@ class FhirResponseProcessor:
                     resource_type=resource,
                     id_=id_,
                     response_headers=response_headers,
+                    results_by_url=response.results_by_url,
                 )
             else:
                 # iterate over the chunks and return the completed resources as we get them
@@ -645,6 +648,7 @@ class FhirResponseProcessor:
                                 id_=id_,
                                 response_headers=response_headers,
                                 chunk_number=chunk_number,
+                                results_by_url=response.results_by_url,
                             )
         except Exception as e:
             if logger:
@@ -664,6 +668,7 @@ class FhirResponseProcessor:
                 resource_type=resource,
                 id_=id_,
                 response_headers=response_headers,
+                results_by_url=response.results_by_url,
             )
 
     @staticmethod

@@ -3,6 +3,10 @@ from typing import Dict, Optional, List, cast
 
 from aiohttp import StreamReader
 
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
+    RetryableAioHttpUrlResult,
+)
+
 
 class RetryableAioHttpResponse:
     def __init__(
@@ -14,14 +18,36 @@ class RetryableAioHttpResponse:
         response_text: str,
         content: StreamReader | None,
         use_data_streaming: Optional[bool],
+        results_by_url: List[RetryableAioHttpUrlResult]
     ) -> None:
+        """
+        Response object for retryable aiohttp requests
+
+
+        """
         self.ok: bool = ok
+        """ True if status is less than 400 """
+
         self.status: int = status
+        """ Status code of the response """
+
         self.response_headers: Dict[str, str] = response_headers
+        """ Headers of the response """
+
         self._response_text: str = response_text
+        """ Text of the response """
+
         self.content: StreamReader | None = content
+        """ Content of the response as a stream """
+
         self.use_data_streaming: Optional[bool] = use_data_streaming
+        """ If the response should be read as a stream """
+
         self.text_read: Optional[str] = None
+        """ Text of the response if the response is read as a stream """
+
+        self.results_by_url: List[RetryableAioHttpUrlResult] = results_by_url
+        """ Count of errors by status code """
 
     async def get_text_async(self) -> str:
         if self.content is None:

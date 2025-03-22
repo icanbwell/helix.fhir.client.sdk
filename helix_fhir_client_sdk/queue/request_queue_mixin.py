@@ -104,11 +104,6 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         last_response_text: Optional[str] = None
         next_url: Optional[str] = full_url
         try:
-            # set access token in request if present
-            access_token: Optional[str] = await self.get_access_token_async()
-            if access_token:
-                headers["Authorization"] = f"Bearer {access_token}"
-
             await FhirResponseProcessor.log_request(
                 full_url=full_url,
                 client_id=self._client_id,
@@ -127,8 +122,14 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 use_data_streaming=self._use_data_streaming,
                 compress=self._compress,
                 throw_exception_on_error=self._throw_exception_on_error,
+                log_all_url_results=self._log_all_response_urls,
             ) as client:
                 while next_url:
+                    # set access token in request if present
+                    access_token: Optional[str] = await self.get_access_token_async()
+                    if access_token:
+                        headers["Authorization"] = f"Bearer {access_token}"
+
                     if not UrlChecker.is_absolute_url(url=next_url):
                         next_url = UrlChecker.convert_relative_url_to_absolute_url(
                             base_url=self._url, relative_url=next_url
