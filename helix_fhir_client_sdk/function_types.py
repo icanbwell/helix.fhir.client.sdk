@@ -118,6 +118,7 @@ class TraceFunction(Protocol):
     async def __call__(
         self,
         *,
+        ok: bool,
         url: Optional[str],
         status_code: Optional[int],
         access_token: Optional[str],

@@ -162,6 +162,7 @@ class RetryableAioHttpClient:
                             for k in response.request_info.headers.keys()
                         }
                         await self.trace_function_async(
+                            ok=response.ok,
                             url=url,
                             status_code=response.status,
                             access_token=access_token,
