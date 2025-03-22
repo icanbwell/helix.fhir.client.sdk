@@ -115,6 +115,8 @@ class TraceFunction(Protocol):
         retry_count: Optional[int],
         start_time: Optional[float],
         end_time: Optional[float],
+        request_headers: Optional[Dict[str, str]],
+        response_headers: Optional[Dict[str, str]],
     ) -> None:
         """
         Called whenever we load a new url

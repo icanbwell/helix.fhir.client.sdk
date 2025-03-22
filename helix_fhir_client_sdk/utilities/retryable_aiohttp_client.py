@@ -1,10 +1,11 @@
 import asyncio
 import time
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List, Callable, Type, Union
+from typing import Optional, Dict, Any, List, Callable, Type, Union, cast
 
 import async_timeout
 from aiohttp import ClientResponse, ClientError, ClientResponseError, ClientSession
+from multidict import MultiMapping
 
 from helix_fhir_client_sdk.function_types import (
     RefreshTokenFunction,
@@ -147,7 +148,19 @@ class RetryableAioHttpClient:
                                 end_time=time.time(),
                             )
                         )
+                    response_headers: Dict[str, str] = {
+                        k: ",".join(response.headers.getall(k))
+                        for k in response.headers.keys()
+                    }
+                    response_headers_multi_mapping: MultiMapping[str] = cast(
+                        MultiMapping[str], response.headers
+                    )
+
                     if self.trace_function_async:
+                        request_headers: Dict[str, str] = {
+                            k: ",".join(response.request_info.headers.getall(k))
+                            for k in response.request_info.headers.keys()
+                        }
                         await self.trace_function_async(
                             url=url,
                             status_code=response.status,
@@ -156,6 +169,8 @@ class RetryableAioHttpClient:
                             retry_count=retry_attempts,
                             start_time=start_time,
                             end_time=time.time(),
+                            request_headers=request_headers,
+                            response_headers=response_headers,
                         )
 
                     if response.ok:
@@ -163,9 +178,7 @@ class RetryableAioHttpClient:
                         return RetryableAioHttpResponse(
                             ok=response.ok,
                             status=response.status,
-                            response_headers={
-                                k: v for k, v in response.headers.items()
-                            },
+                            response_headers=response_headers,
                             response_text=(
                                 await self.get_safe_response_text_async(
                                     response=response
@@ -187,9 +200,7 @@ class RetryableAioHttpClient:
                         return RetryableAioHttpResponse(
                             ok=response.ok,
                             status=response.status,
-                            response_headers={
-                                k: v for k, v in response.headers.items()
-                            },
+                            response_headers=response_headers,
                             response_text=await self.get_safe_response_text_async(
                                 response=response
                             ),
@@ -204,9 +215,7 @@ class RetryableAioHttpClient:
                         return RetryableAioHttpResponse(
                             ok=response.ok,
                             status=response.status,
-                            response_headers={
-                                k: v for k, v in response.headers.items()
-                            },
+                            response_headers=response_headers,
                             response_text=await self.get_safe_response_text_async(
                                 response=response
                             ),
@@ -221,9 +230,7 @@ class RetryableAioHttpClient:
                         return RetryableAioHttpResponse(
                             ok=response.ok,
                             status=response.status,
-                            response_headers={
-                                k: v for k, v in response.headers.items()
-                            },
+                            response_headers=response_headers,
                             response_text=await self.get_safe_response_text_async(
                                 response=response
                             ),
@@ -243,7 +250,7 @@ class RetryableAioHttpClient:
                         raise ClientResponseError(
                             status=response.status,
                             message="Retryable status code received",
-                            headers=response.headers,
+                            headers=response_headers_multi_mapping,
                             history=response.history,
                             request_info=response.request_info,
                         )
@@ -267,7 +274,7 @@ class RetryableAioHttpClient:
                             raise ClientResponseError(
                                 status=response.status,
                                 message="Unauthorized",
-                                headers=response.headers,
+                                headers=response_headers_multi_mapping,
                                 history=response.history,
                                 request_info=response.request_info,
                             )
@@ -279,7 +286,7 @@ class RetryableAioHttpClient:
                             raise ClientResponseError(
                                 status=response.status,
                                 message="Non-retryable status code received",
-                                headers=response.headers,
+                                headers=response_headers_multi_mapping,
                                 history=response.history,
                                 request_info=response.request_info,
                             )
@@ -287,9 +294,7 @@ class RetryableAioHttpClient:
                             return RetryableAioHttpResponse(
                                 ok=response.ok,
                                 status=response.status,
-                                response_headers={
-                                    k: v for k, v in response.headers.items()
-                                },
+                                response_headers=response_headers,
                                 response_text=await self.get_safe_response_text_async(
                                     response=response
                                 ),
