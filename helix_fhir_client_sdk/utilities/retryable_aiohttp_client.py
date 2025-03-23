@@ -10,7 +10,7 @@ from multidict import MultiMapping
 from helix_fhir_client_sdk.function_types import (
     RefreshTokenFunction,
     RefreshTokenResult,
-    TraceFunction,
+    TraceRequestFunction,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
@@ -28,8 +28,8 @@ class RetryableAioHttpClient:
         timeout_in_seconds: Optional[float] = None,
         backoff_factor: float = 0.5,
         retry_status_codes: Optional[List[int]] = None,
-        refresh_token_func: Optional[RefreshTokenFunction] = None,
-        tracer_func: Optional[TraceFunction] = None,
+        refresh_token_func: Optional[RefreshTokenFunction],
+        tracer_request_func: Optional[TraceRequestFunction],
         fn_get_session: Optional[Callable[[], ClientSession]] = None,
         exclude_status_codes_from_retry: List[int] | None = None,
         use_data_streaming: Optional[bool],
@@ -55,7 +55,7 @@ class RetryableAioHttpClient:
         self.refresh_token_func_async: Optional[RefreshTokenFunction] = (
             refresh_token_func
         )
-        self.trace_function_async: Optional[TraceFunction] = tracer_func
+        self.trace_function_async: Optional[TraceRequestFunction] = tracer_request_func
         self.fn_get_session: Callable[[], ClientSession] = (
             fn_get_session if fn_get_session is not None else lambda: ClientSession()
         )

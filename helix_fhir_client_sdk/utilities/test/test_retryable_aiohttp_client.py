@@ -16,7 +16,11 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
 @pytest.mark.asyncio
 async def test_get_success() -> None:
     async with RetryableAioHttpClient(
-        use_data_streaming=False, access_token=None, access_token_expiry_date=None
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=200, payload={"key": "value"})
@@ -33,6 +37,8 @@ async def test_retry_on_500() -> None:
         use_data_streaming=False,
         access_token=None,
         access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=500)
@@ -43,7 +49,11 @@ async def test_retry_on_500() -> None:
 @pytest.mark.asyncio
 async def test_non_retryable_status_code() -> None:
     async with RetryableAioHttpClient(
-        use_data_streaming=False, access_token=None, access_token_expiry_date=None
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=400)
@@ -71,6 +81,7 @@ async def test_token_refresh_on_401() -> None:
         use_data_streaming=False,
         access_token=None,
         access_token_expiry_date=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=401)
@@ -86,7 +97,11 @@ async def test_token_refresh_on_401() -> None:
 @pytest.mark.asyncio
 async def test_handle_429() -> None:
     async with RetryableAioHttpClient(
-        use_data_streaming=False, access_token=None, access_token_expiry_date=None
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=429, headers={"Retry-After": "1"})
@@ -100,7 +115,11 @@ async def test_handle_429() -> None:
 @pytest.mark.asyncio
 async def test_chunked_transfer_encoding() -> None:
     async with RetryableAioHttpClient(
-        use_data_streaming=True, access_token=None, access_token_expiry_date=None
+        use_data_streaming=True,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.get(
@@ -125,6 +144,8 @@ async def test_no_exception_on_error() -> None:
         throw_exception_on_error=False,
         access_token=None,
         access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.get(
@@ -143,7 +164,11 @@ async def test_no_exception_on_error() -> None:
 async def test_put_method_success() -> None:
     """Test successful PUT request."""
     async with RetryableAioHttpClient(
-        use_data_streaming=False, access_token=None, access_token_expiry_date=None
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.put("http://test.com", status=200, payload={"key": "value"})
@@ -161,7 +186,11 @@ async def test_put_method_success() -> None:
 async def test_patch_method_success() -> None:
     """Test successful PATCH request."""
     async with RetryableAioHttpClient(
-        use_data_streaming=False, access_token=None, access_token_expiry_date=None
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.patch("http://test.com", status=200, payload={"key": "updated"})
@@ -179,7 +208,11 @@ async def test_patch_method_success() -> None:
 async def test_delete_method_success() -> None:
     """Test successful DELETE request."""
     async with RetryableAioHttpClient(
-        use_data_streaming=False, access_token=None, access_token_expiry_date=None
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.delete("http://test.com", status=204)
@@ -213,6 +246,7 @@ async def test_token_refresh_max_retries() -> None:
         use_data_streaming=False,
         access_token=None,
         access_token_expiry_date=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             # Simulate multiple 401 responses
@@ -244,6 +278,8 @@ async def test_custom_session_creation() -> None:
         use_data_streaming=False,
         access_token=None,
         access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=200, payload={"key": "value"})
@@ -263,6 +299,8 @@ async def test_exclude_status_codes_from_retry() -> None:
         use_data_streaming=False,
         access_token=None,
         access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=502)
@@ -281,6 +319,8 @@ async def test_compression_and_chunked_transfer() -> None:
         send_data_as_chunked=True,
         access_token=None,
         access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.post(
@@ -308,6 +348,8 @@ async def test_timeout_handling() -> None:
         use_data_streaming=False,
         access_token=None,
         access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=200, body=asyncio.sleep(1))
@@ -349,6 +391,7 @@ async def test_token_refresh_with_new_token_success() -> None:
         use_data_streaming=False,
         access_token=None,
         access_token_expiry_date=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             # First request fails with 401
@@ -404,6 +447,7 @@ async def test_token_refresh_multiple_consecutive_401() -> None:
         use_data_streaming=False,
         access_token=None,
         access_token_expiry_date=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             # First two requests fail with 401
@@ -449,6 +493,7 @@ async def test_token_refresh_with_invalid_refresh_function() -> None:
         use_data_streaming=False,
         access_token=None,
         access_token_expiry_date=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             # First request fails with 401
@@ -494,6 +539,7 @@ async def test_token_refresh_with_different_headers() -> None:
 
     async with RetryableAioHttpClient(
         refresh_token_func=mock_refresh_token,
+        tracer_request_func=None,
         retries=2,
         use_data_streaming=False,
         access_token=None,

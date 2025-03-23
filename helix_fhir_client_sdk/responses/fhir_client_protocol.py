@@ -21,6 +21,7 @@ from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.function_types import (
     RefreshTokenFunction,
     HandleStreamingChunkFunction,
+    TraceRequestFunction,
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -94,6 +95,7 @@ class FhirClientProtocol(Protocol):
     _log_level: Optional[str]
     # default to built-in function to refresh token
     _refresh_token_function: RefreshTokenFunction
+    _trace_request_function: Optional[TraceRequestFunction]
     _chunk_size: int
     _time_to_live_in_secs_for_cache: int
     _well_known_configuration_cache_lock: Lock

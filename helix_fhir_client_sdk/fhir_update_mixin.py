@@ -52,6 +52,7 @@ class FhirUpdateMixin(FhirClientProtocol):
         async with RetryableAioHttpClient(
             fn_get_session=lambda: self.create_http_session(),
             refresh_token_func=self._refresh_token_function,
+            tracer_request_func=self._trace_request_function,
             retries=self._retry_count,
             exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
             use_data_streaming=self._use_data_streaming,

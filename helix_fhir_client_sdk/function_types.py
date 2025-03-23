@@ -113,8 +113,18 @@ class HandleStreamingResourcesFunction(Protocol):
         ...
 
 
+@dataclasses.dataclass
+class TraceRequestResult:
+    """
+    Result of a request trace
+    """
+
+    abort_request: Optional[bool]
+    """ Whether to abort the request """
+
+
 @runtime_checkable
-class TraceFunction(Protocol):
+class TraceRequestFunction(Protocol):
     async def __call__(
         self,
         *,
@@ -128,7 +138,7 @@ class TraceFunction(Protocol):
         end_time: Optional[float],
         request_headers: Optional[Dict[str, str]],
         response_headers: Optional[Dict[str, str]],
-    ) -> None:
+    ) -> TraceRequestResult:
         """
         Called whenever we load a new url
 

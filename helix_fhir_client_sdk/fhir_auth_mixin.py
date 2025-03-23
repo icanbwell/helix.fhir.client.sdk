@@ -164,6 +164,8 @@ class FhirAuthMixin(FhirClientProtocol):
             log_all_url_results=self._log_all_response_urls,
             access_token=self._access_token,
             access_token_expiry_date=self._access_token_expiry_date,
+            refresh_token_func=self._refresh_token_function,
+            tracer_request_func=self._trace_request_function,
         ) as client:
             if self._auth_wellknown_url:
                 host_name: str = furl(self._auth_wellknown_url).host
@@ -287,6 +289,8 @@ class FhirAuthMixin(FhirClientProtocol):
             log_all_url_results=self._log_all_response_urls,
             access_token=self._access_token,
             access_token_expiry_date=self._access_token_expiry_date,
+            refresh_token_func=self._refresh_token_function,
+            tracer_request_func=self._trace_request_function,
         ) as client:
             response: RetryableAioHttpResponse = await client.post(
                 url=auth_server_url, headers=headers, data=payload

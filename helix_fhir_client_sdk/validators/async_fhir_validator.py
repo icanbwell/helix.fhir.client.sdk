@@ -44,6 +44,8 @@ class AsyncFhirValidator:
             use_data_streaming=False,
             access_token=access_token,
             access_token_expiry_date=None,
+            refresh_token_func=None,
+            tracer_request_func=None,
         ) as client:
             validation_response: RetryableAioHttpResponse = await client.post(
                 url=full_validation_uri.url,

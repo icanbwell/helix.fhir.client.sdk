@@ -37,6 +37,7 @@ from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
     RefreshTokenFunction,
+    TraceRequestFunction,
 )
 from helix_fhir_client_sdk.graph.fhir_graph_mixin import FhirGraphMixin
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
@@ -127,6 +128,7 @@ class FhirClient(
         self._refresh_token_function: RefreshTokenFunction = (
             self.authenticate_async_wrapper()
         )
+        self._trace_request_function: TraceRequestFunction | None = None
         self._chunk_size: int = 1024
 
         self._compress: bool = True
@@ -861,4 +863,13 @@ class FhirClient(
         :param value: whether to log all response URLs and status codes
         """
         self._log_all_response_urls = value
+        return self
+
+    def set_trace_request_function(self, value: TraceRequestFunction) -> "FhirClient":
+        """
+        Sets the trace_request_function
+
+        :param value: function to trace the request
+        """
+        self._trace_request_function = value
         return self
