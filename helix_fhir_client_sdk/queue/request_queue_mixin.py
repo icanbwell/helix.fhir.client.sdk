@@ -22,6 +22,9 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
 )
+from helix_fhir_client_sdk.structures.get_access_token_result import (
+    GetAccessTokenResult,
+)
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
@@ -129,7 +132,10 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
             ) as client:
                 while next_url:
                     # set access token in request if present
-                    access_token: Optional[str] = await self.get_access_token_async()
+                    access_token_result: GetAccessTokenResult = (
+                        await self.get_access_token_async()
+                    )
+                    access_token: Optional[str] = access_token_result.access_token
                     if access_token:
                         headers["Authorization"] = f"Bearer {access_token}"
 

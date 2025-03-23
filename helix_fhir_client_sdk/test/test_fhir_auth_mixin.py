@@ -7,6 +7,9 @@ from aioresponses import aioresponses
 from helix_fhir_client_sdk.fhir_auth_mixin import FhirAuthMixin
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.function_types import RefreshTokenResult
+from helix_fhir_client_sdk.structures.get_access_token_result import (
+    GetAccessTokenResult,
+)
 from helix_fhir_client_sdk.well_known_configuration import (
     WellKnownConfigurationCacheEntry,
 )
@@ -75,7 +78,11 @@ async def test_get_access_token_async(fhir_auth_mixin: FhirAuthMixin) -> None:
     """Test getting the access token."""
     fhir_auth_mixin._refresh_token_function = refresh_token_function
 
-    access_token = await fhir_auth_mixin.get_access_token_async()
+    access_token_result: GetAccessTokenResult = (
+        await fhir_auth_mixin.get_access_token_async()
+    )
+    access_token: Optional[str] = access_token_result.access_token
+
     assert access_token == "test_access_token"
     assert fhir_auth_mixin._access_token == "test_access_token"
 

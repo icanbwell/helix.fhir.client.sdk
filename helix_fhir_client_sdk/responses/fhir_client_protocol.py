@@ -25,6 +25,9 @@ from helix_fhir_client_sdk.function_types import (
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.structures.get_access_token_result import (
+    GetAccessTokenResult,
+)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
 )
@@ -108,7 +111,7 @@ class FhirClientProtocol(Protocol):
 
     _log_all_response_urls: bool
 
-    async def get_access_token_async(self) -> Optional[str]: ...
+    async def get_access_token_async(self) -> GetAccessTokenResult: ...
 
     async def _send_fhir_request_async(
         self,

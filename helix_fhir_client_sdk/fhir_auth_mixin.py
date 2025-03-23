@@ -13,6 +13,9 @@ from helix_fhir_client_sdk.function_types import (
     RefreshTokenResult,
 )
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
+from helix_fhir_client_sdk.structures.get_access_token_result import (
+    GetAccessTokenResult,
+)
 
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
@@ -102,7 +105,7 @@ class FhirAuthMixin(FhirClientProtocol):
 
         return self._auth_server_url
 
-    async def get_access_token_async(self) -> Optional[str]:
+    async def get_access_token_async(self) -> GetAccessTokenResult:
         """
         Gets current access token
 
@@ -110,7 +113,11 @@ class FhirAuthMixin(FhirClientProtocol):
         :return: access token if any
         """
         if self._access_token:
-            return self._access_token
+            return GetAccessTokenResult(
+                access_token=self._access_token,
+                expiry_date=self._access_token_expiry_date,
+            )
+
         refresh_token_result: RefreshTokenResult = await self._refresh_token_function(
             url=None, status_code=0, current_token=None, expiry_date=None, retry_count=0
         )
@@ -118,7 +125,9 @@ class FhirAuthMixin(FhirClientProtocol):
 
         self.set_access_token(refresh_token_result.access_token)
         self.set_access_token_expiry_date(refresh_token_result.expiry_date)
-        return self._access_token
+        return GetAccessTokenResult(
+            access_token=self._access_token, expiry_date=self._access_token_expiry_date
+        )
 
     def authenticate_async_wrapper(self) -> RefreshTokenFunction:
         """

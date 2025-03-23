@@ -47,6 +47,9 @@ from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.queue.request_queue_mixin import RequestQueueMixin
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.structures.get_access_token_result import (
+    GetAccessTokenResult,
+)
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 
@@ -527,7 +530,7 @@ class FhirClient(
             f"Chunk received:\n{params.chunk.decode('utf-8') if params.chunk else '[Empty]'}"
         )
 
-    def get_access_token(self) -> Optional[str]:
+    def get_access_token(self) -> GetAccessTokenResult:
         return AsyncRunner.run(self.get_access_token_async())
 
     def set_access_token(self, value: str | None) -> "FhirClient":

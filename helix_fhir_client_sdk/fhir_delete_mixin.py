@@ -5,6 +5,9 @@ from furl import furl
 
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_delete_response import FhirDeleteResponse
+from helix_fhir_client_sdk.structures.get_access_token_result import (
+    GetAccessTokenResult,
+)
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
@@ -36,7 +39,8 @@ class FhirDeleteMixin(FhirClientProtocol):
         headers.update(self._additional_request_headers)
         self._internal_logger.debug(f"Request headers: {headers}")
 
-        access_token = await self.get_access_token_async()
+        access_token_result: GetAccessTokenResult = await self.get_access_token_async()
+        access_token: Optional[str] = access_token_result.access_token
         # set access token in request if present
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
@@ -108,7 +112,8 @@ class FhirDeleteMixin(FhirClientProtocol):
         headers.update(self._additional_request_headers)
         self._internal_logger.debug(f"Request headers: {headers}")
 
-        access_token = await self.get_access_token_async()
+        access_token_result: GetAccessTokenResult = await self.get_access_token_async()
+        access_token: Optional[str] = access_token_result.access_token
         # set access token in request if present
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
