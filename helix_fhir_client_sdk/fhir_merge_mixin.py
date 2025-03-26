@@ -75,7 +75,7 @@ class FhirMergeMixin(FhirClientProtocol):
         access_token_result: GetAccessTokenResult = await self.get_access_token_async()
         access_token: Optional[str] = access_token_result.access_token
         if access_token:
-            headers["Authorization"] = f"Bearer {await self.get_access_token_async()}"
+            headers["Authorization"] = f"Bearer {access_token}"
 
         try:
             resource_json_list_incoming: List[Dict[str, Any]] = [
