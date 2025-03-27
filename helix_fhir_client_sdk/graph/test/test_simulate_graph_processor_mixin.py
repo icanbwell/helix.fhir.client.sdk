@@ -3,12 +3,14 @@ import json
 import logging
 from logging import Logger
 from typing import Dict, Any, List, Optional, cast, Callable, Awaitable
+from datetime import datetime
 
 import aiohttp
 import pytest
 from aioresponses import aioresponses, CallbackResult
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
+from helix_fhir_client_sdk.function_types import RefreshTokenResult
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
     SimulatedGraphProcessorMixin,
 )
@@ -919,8 +921,17 @@ async def test_process_simulate_graph_401_patient_only_async() -> None:
 
     graph_processor.set_access_token("old_access_token")
 
-    async def my_refresh_token_function() -> Optional[str]:
-        return "new_access_token"
+    # noinspection PyUnusedLocal
+    async def my_refresh_token_function(
+        url: Optional[str],
+        status_code: Optional[int],
+        current_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> RefreshTokenResult:
+        return RefreshTokenResult(
+            access_token="new_access_token", expiry_date=None, abort_request=False
+        )
 
     graph_processor.refresh_token_function(my_refresh_token_function)
 
@@ -1015,8 +1026,17 @@ async def test_graph_definition_with_single_link_401() -> None:
 
     graph_processor.set_access_token("old_access_token")
 
-    async def my_refresh_token_function() -> Optional[str]:
-        return "new_access_token"
+    # noinspection PyUnusedLocal
+    async def my_refresh_token_function(
+        url: Optional[str],
+        status_code: Optional[int],
+        current_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> RefreshTokenResult:
+        return RefreshTokenResult(
+            access_token="new_access_token", expiry_date=None, abort_request=False
+        )
 
     graph_processor.refresh_token_function(my_refresh_token_function)
 
@@ -1128,8 +1148,17 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
 
     graph_processor.set_access_token("old_access_token")
 
-    async def my_refresh_token_function() -> Optional[str]:
-        return "new_access_token"
+    # noinspection PyUnusedLocal
+    async def my_refresh_token_function(
+        url: Optional[str],
+        status_code: Optional[int],
+        current_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> RefreshTokenResult:
+        return RefreshTokenResult(
+            access_token="new_access_token", expiry_date=None, abort_request=False
+        )
 
     graph_processor.refresh_token_function(my_refresh_token_function)
 

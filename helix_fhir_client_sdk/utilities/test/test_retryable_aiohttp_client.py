@@ -1,9 +1,13 @@
 # test_retryable_aiohttp_client.py
 import asyncio
+from datetime import datetime
+from typing import Optional
 
 import pytest
 from aiohttp import ClientSession
 from aioresponses import aioresponses
+
+from helix_fhir_client_sdk.function_types import RefreshTokenResult
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
 )
@@ -11,7 +15,13 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
 
 @pytest.mark.asyncio
 async def test_get_success() -> None:
-    async with RetryableAioHttpClient(use_data_streaming=False) as client:
+    async with RetryableAioHttpClient(
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
+    ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=200, payload={"key": "value"})
             response = await client.get(url="http://test.com", headers=None)
@@ -22,7 +32,14 @@ async def test_get_success() -> None:
 
 @pytest.mark.asyncio
 async def test_retry_on_500() -> None:
-    async with RetryableAioHttpClient(retries=2, use_data_streaming=False) as client:
+    async with RetryableAioHttpClient(
+        retries=2,
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
+    ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=500)
             with pytest.raises(Exception):
@@ -31,7 +48,13 @@ async def test_retry_on_500() -> None:
 
 @pytest.mark.asyncio
 async def test_non_retryable_status_code() -> None:
-    async with RetryableAioHttpClient(use_data_streaming=False) as client:
+    async with RetryableAioHttpClient(
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
+    ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=400)
             response = await client.get(url="http://test.com", headers=None)
@@ -41,11 +64,24 @@ async def test_non_retryable_status_code() -> None:
 
 @pytest.mark.asyncio
 async def test_token_refresh_on_401() -> None:
-    async def mock_refresh_token() -> str:
-        return "new_token"
+    # noinspection PyUnusedLocal
+    async def mock_refresh_token(
+        url: Optional[str],
+        status_code: Optional[int],
+        current_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> RefreshTokenResult:
+        return RefreshTokenResult(
+            access_token="new_token", expiry_date=None, abort_request=False
+        )
 
     async with RetryableAioHttpClient(
-        simple_refresh_token_func=mock_refresh_token, use_data_streaming=False
+        refresh_token_func=mock_refresh_token,
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=401)
@@ -60,7 +96,13 @@ async def test_token_refresh_on_401() -> None:
 
 @pytest.mark.asyncio
 async def test_handle_429() -> None:
-    async with RetryableAioHttpClient(use_data_streaming=False) as client:
+    async with RetryableAioHttpClient(
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
+    ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=429, headers={"Retry-After": "1"})
             m.get("http://test.com", status=200, payload={"key": "value"})
@@ -72,7 +114,13 @@ async def test_handle_429() -> None:
 
 @pytest.mark.asyncio
 async def test_chunked_transfer_encoding() -> None:
-    async with RetryableAioHttpClient(use_data_streaming=True) as client:
+    async with RetryableAioHttpClient(
+        use_data_streaming=True,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
+    ) as client:
         with aioresponses() as m:
             m.get(
                 "http://test.com",
@@ -92,7 +140,12 @@ async def test_chunked_transfer_encoding() -> None:
 async def test_no_exception_on_error() -> None:
     """Test merge_async call when throw_exception_on_error is false."""
     async with RetryableAioHttpClient(
-        use_data_streaming=True, throw_exception_on_error=False
+        use_data_streaming=True,
+        throw_exception_on_error=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.get(
@@ -110,7 +163,13 @@ async def test_no_exception_on_error() -> None:
 @pytest.mark.asyncio
 async def test_put_method_success() -> None:
     """Test successful PUT request."""
-    async with RetryableAioHttpClient(use_data_streaming=False) as client:
+    async with RetryableAioHttpClient(
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
+    ) as client:
         with aioresponses() as m:
             m.put("http://test.com", status=200, payload={"key": "value"})
             response = await client.put(
@@ -126,7 +185,13 @@ async def test_put_method_success() -> None:
 @pytest.mark.asyncio
 async def test_patch_method_success() -> None:
     """Test successful PATCH request."""
-    async with RetryableAioHttpClient(use_data_streaming=False) as client:
+    async with RetryableAioHttpClient(
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
+    ) as client:
         with aioresponses() as m:
             m.patch("http://test.com", status=200, payload={"key": "updated"})
             response = await client.patch(
@@ -142,7 +207,13 @@ async def test_patch_method_success() -> None:
 @pytest.mark.asyncio
 async def test_delete_method_success() -> None:
     """Test successful DELETE request."""
-    async with RetryableAioHttpClient(use_data_streaming=False) as client:
+    async with RetryableAioHttpClient(
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
+    ) as client:
         with aioresponses() as m:
             m.delete("http://test.com", status=204)
             response = await client.delete(url="http://test.com", headers={})
@@ -153,17 +224,29 @@ async def test_delete_method_success() -> None:
 @pytest.mark.asyncio
 async def test_token_refresh_max_retries() -> None:
     """Test token refresh fails after maximum retries."""
-    retry_count = 0
+    retry_attempts = 0
 
-    async def mock_refresh_token() -> str:
-        nonlocal retry_count
-        retry_count += 1
-        return f"token_{retry_count}"
+    # noinspection PyUnusedLocal
+    async def mock_refresh_token(
+        url: Optional[str],
+        status_code: Optional[int],
+        current_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> RefreshTokenResult:
+        nonlocal retry_attempts
+        retry_attempts += 1
+        return RefreshTokenResult(
+            access_token=f"token_{retry_count}", expiry_date=None, abort_request=False
+        )
 
     async with RetryableAioHttpClient(
-        simple_refresh_token_func=mock_refresh_token,
+        refresh_token_func=mock_refresh_token,
         retries=2,
         use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             # Simulate multiple 401 responses
@@ -177,7 +260,7 @@ async def test_token_refresh_max_retries() -> None:
                 )
 
             assert "Unauthorized" in str(excinfo.value)
-            assert retry_count == 3
+            assert retry_attempts == 3
 
 
 @pytest.mark.asyncio
@@ -191,7 +274,12 @@ async def test_custom_session_creation() -> None:
         return ClientSession()
 
     async with RetryableAioHttpClient(
-        fn_get_session=custom_session_creator, use_data_streaming=False
+        fn_get_session=custom_session_creator,
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=200, payload={"key": "value"})
@@ -206,7 +294,13 @@ async def test_custom_session_creation() -> None:
 async def test_exclude_status_codes_from_retry() -> None:
     """Test excluding specific status codes from retry."""
     async with RetryableAioHttpClient(
-        retries=3, exclude_status_codes_from_retry=[502], use_data_streaming=False
+        retries=3,
+        exclude_status_codes_from_retry=[502],
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=502)
@@ -220,7 +314,13 @@ async def test_exclude_status_codes_from_retry() -> None:
 async def test_compression_and_chunked_transfer() -> None:
     """Test request with compression and chunked transfer."""
     async with RetryableAioHttpClient(
-        use_data_streaming=True, compress=True, send_data_as_chunked=True
+        use_data_streaming=True,
+        compress=True,
+        send_data_as_chunked=True,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.post(
@@ -246,6 +346,10 @@ async def test_timeout_handling() -> None:
         timeout_in_seconds=0.1,  # Very short timeout
         retries=1,
         use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=200, body=asyncio.sleep(1))
@@ -264,17 +368,30 @@ async def test_token_refresh_with_new_token_success() -> None:
     """
     # Track token refresh calls
     refresh_call_count = 0
-    last_used_token = None
 
-    async def mock_refresh_token() -> str:
+    # noinspection PyUnusedLocal
+    async def mock_refresh_token(
+        url: Optional[str],
+        status_code: Optional[int],
+        current_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> RefreshTokenResult:
         nonlocal refresh_call_count
         refresh_call_count += 1
-        return f"new_token_{refresh_call_count}"
+        return RefreshTokenResult(
+            access_token=f"new_token_{refresh_call_count}",
+            expiry_date=None,
+            abort_request=False,
+        )
 
     async with RetryableAioHttpClient(
-        simple_refresh_token_func=mock_refresh_token,
+        refresh_token_func=mock_refresh_token,
         retries=2,
         use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             # First request fails with 401
@@ -308,17 +425,29 @@ async def test_token_refresh_multiple_consecutive_401() -> None:
     refresh_call_count = 0
     tokens_generated = []
 
-    async def mock_refresh_token() -> str:
+    # noinspection PyUnusedLocal
+    async def mock_refresh_token(
+        url: Optional[str],
+        status_code: Optional[int],
+        current_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> RefreshTokenResult:
         nonlocal refresh_call_count, tokens_generated
         refresh_call_count += 1
         new_token = f"new_token_{refresh_call_count}"
         tokens_generated.append(new_token)
-        return new_token
+        return RefreshTokenResult(
+            access_token=new_token, expiry_date=expiry_date, abort_request=False
+        )
 
     async with RetryableAioHttpClient(
-        simple_refresh_token_func=mock_refresh_token,
+        refresh_token_func=mock_refresh_token,
         retries=3,
         use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             # First two requests fail with 401
@@ -348,13 +477,23 @@ async def test_token_refresh_with_invalid_refresh_function() -> None:
     Ensures proper error handling when token refresh is impossible
     """
 
-    async def failing_refresh_token() -> str:
+    # noinspection PyUnusedLocal
+    async def failing_refresh_token(
+        url: Optional[str],
+        status_code: Optional[int],
+        current_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> RefreshTokenResult:
         raise ValueError("Unauthorized: Token refresh failed")
 
     async with RetryableAioHttpClient(
-        simple_refresh_token_func=failing_refresh_token,
+        refresh_token_func=failing_refresh_token,
         retries=1,
         use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
             # First request fails with 401
@@ -382,15 +521,29 @@ async def test_token_refresh_with_different_headers() -> None:
     """
     refresh_call_count = 0
 
-    async def mock_refresh_token() -> str:
+    # noinspection PyUnusedLocal
+    async def mock_refresh_token(
+        url: Optional[str],
+        status_code: Optional[int],
+        current_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> RefreshTokenResult:
         nonlocal refresh_call_count
         refresh_call_count += 1
-        return f"new_token_{refresh_call_count}"
+        return RefreshTokenResult(
+            access_token=f"new_token_{refresh_call_count}",
+            expiry_date=None,
+            abort_request=False,
+        )
 
     async with RetryableAioHttpClient(
-        simple_refresh_token_func=mock_refresh_token,
+        refresh_token_func=mock_refresh_token,
+        tracer_request_func=None,
         retries=2,
         use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
     ) as client:
         with aioresponses() as m:
             # First request fails with 401

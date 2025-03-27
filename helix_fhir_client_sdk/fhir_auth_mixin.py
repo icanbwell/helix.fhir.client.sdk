@@ -2,14 +2,20 @@ from __future__ import annotations
 
 import base64
 import json
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 from threading import Lock
 from typing import Optional, List, Dict, Any, TYPE_CHECKING, cast
 
 from furl import furl
 
-from helix_fhir_client_sdk.function_types import RefreshTokenFunction
+from helix_fhir_client_sdk.function_types import (
+    RefreshTokenFunction,
+    RefreshTokenResult,
+)
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
+from helix_fhir_client_sdk.structures.get_access_token_result import (
+    GetAccessTokenResult,
+)
 
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
@@ -42,6 +48,7 @@ class FhirAuthMixin(FhirClientProtocol):
         self._login_token: Optional[str] = None
         self._client_id: Optional[str] = None
         self._access_token: Optional[str] = None
+        self._access_token_expiry_date: Optional[datetime] = None
 
     def auth_server_url(self, auth_server_url: str | None) -> "FhirClient":
         """
@@ -98,7 +105,7 @@ class FhirAuthMixin(FhirClientProtocol):
 
         return self._auth_server_url
 
-    async def get_access_token_async(self) -> Optional[str]:
+    async def get_access_token_async(self) -> GetAccessTokenResult:
         """
         Gets current access token
 
@@ -106,9 +113,21 @@ class FhirAuthMixin(FhirClientProtocol):
         :return: access token if any
         """
         if self._access_token:
-            return self._access_token
-        self.set_access_token(await self._refresh_token_function())
-        return self._access_token
+            return GetAccessTokenResult(
+                access_token=self._access_token,
+                expiry_date=self._access_token_expiry_date,
+            )
+
+        refresh_token_result: RefreshTokenResult = await self._refresh_token_function(
+            url=None, status_code=0, current_token=None, expiry_date=None, retry_count=0
+        )
+        assert isinstance(refresh_token_result, RefreshTokenResult)
+
+        self.set_access_token(refresh_token_result.access_token)
+        self.set_access_token_expiry_date(refresh_token_result.expiry_date)
+        return GetAccessTokenResult(
+            access_token=self._access_token, expiry_date=self._access_token_expiry_date
+        )
 
     def authenticate_async_wrapper(self) -> RefreshTokenFunction:
         """
@@ -118,7 +137,14 @@ class FhirAuthMixin(FhirClientProtocol):
         :return: refresh token function
         """
 
-        async def refresh_token() -> Optional[str]:
+        # noinspection PyUnusedLocal
+        async def refresh_token(
+            url: Optional[str],
+            status_code: Optional[int],
+            current_token: Optional[str],
+            expiry_date: Optional[datetime],
+            retry_count: Optional[int],
+        ) -> RefreshTokenResult:
             """
             This function creates the session and then calls authenticate_async()
 
@@ -145,6 +171,10 @@ class FhirAuthMixin(FhirClientProtocol):
             use_data_streaming=False,
             compress=False,
             log_all_url_results=self._log_all_response_urls,
+            access_token=self._access_token,
+            access_token_expiry_date=self._access_token_expiry_date,
+            refresh_token_func=self._refresh_token_function,
+            tracer_request_func=self._trace_request_function,
         ) as client:
             if self._auth_wellknown_url:
                 host_name: str = furl(self._auth_wellknown_url).host
@@ -240,10 +270,12 @@ class FhirAuthMixin(FhirClientProtocol):
 
     async def authenticate_async(
         self,
-    ) -> Optional[str]:
+    ) -> RefreshTokenResult:
         auth_server_url: Optional[str] = await self.get_auth_url_async()
         if not auth_server_url or not self._login_token:
-            return None
+            return RefreshTokenResult(
+                access_token=None, expiry_date=None, abort_request=False
+            )
         assert auth_server_url, "No auth server url was set"
         assert self._login_token, "No login token was set"
         payload: str = (
@@ -264,6 +296,10 @@ class FhirAuthMixin(FhirClientProtocol):
             compress=False,
             exclude_status_codes_from_retry=None,
             log_all_url_results=self._log_all_response_urls,
+            access_token=self._access_token,
+            access_token_expiry_date=self._access_token_expiry_date,
+            refresh_token_func=self._refresh_token_function,
+            tracer_request_func=self._trace_request_function,
         ) as client:
             response: RetryableAioHttpResponse = await client.post(
                 url=auth_server_url, headers=headers, data=payload
@@ -279,9 +315,28 @@ class FhirAuthMixin(FhirClientProtocol):
             if "access_token" not in token_json:
                 self._internal_logger.error(f"No token found in {token_json}")
                 raise Exception(f"No access token found in {token_json}")
+
+            # Response to client credentials
+            # {
+            #   "access_token":"eyJz93a...k4laUWw",
+            #   "token_type":"Bearer",
+            #   "expires_in":86400
+            # }
             access_token: str = token_json["access_token"]
             self.set_access_token(access_token)
-            return access_token
+            # The number of seconds until the token expires (e.g., 3600 seconds = 1 hour).
+            expiry_time_in_seconds: Optional[int] = token_json.get("expires_in")
+
+            expiry_date: Optional[datetime] = (
+                (datetime.now(UTC) + timedelta(expiry_time_in_seconds))
+                if expiry_time_in_seconds
+                else None
+            )
+
+            self.set_access_token_expiry_date(expiry_date)
+            return RefreshTokenResult(
+                access_token=access_token, expiry_date=expiry_date, abort_request=False
+            )
 
     @staticmethod
     def _create_login_token(client_id: str, client_secret: str) -> str:

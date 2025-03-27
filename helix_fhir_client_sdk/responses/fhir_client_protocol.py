@@ -2,7 +2,16 @@ import uuid
 from datetime import datetime
 from logging import Logger
 from threading import Lock
-from typing import Protocol, Optional, Dict, Any, List, Union, AsyncGenerator
+from typing import (
+    Protocol,
+    Optional,
+    Dict,
+    Any,
+    List,
+    Union,
+    AsyncGenerator,
+    runtime_checkable,
+)
 
 from aiohttp import ClientSession
 from requests.adapters import BaseAdapter
@@ -12,9 +21,13 @@ from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.function_types import (
     RefreshTokenFunction,
     HandleStreamingChunkFunction,
+    TraceRequestFunction,
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.structures.get_access_token_result import (
+    GetAccessTokenResult,
+)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
 )
@@ -26,6 +39,7 @@ from helix_fhir_client_sdk.well_known_configuration import (
 )
 
 
+@runtime_checkable
 class FhirClientProtocol(Protocol):
     _action: Optional[str]
     _action_payload: Optional[Dict[str, Any]]
@@ -47,6 +61,7 @@ class FhirClientProtocol(Protocol):
     _login_token: Optional[str]
     _client_id: Optional[str]
     _access_token: Optional[str]
+    _access_token_expiry_date: Optional[datetime]
     _logger: Optional[FhirLogger]
     _internal_logger: Logger
     _adapter: Optional[BaseAdapter]
@@ -83,6 +98,7 @@ class FhirClientProtocol(Protocol):
     _log_level: Optional[str]
     # default to built-in function to refresh token
     _refresh_token_function: RefreshTokenFunction
+    _trace_request_function: Optional[TraceRequestFunction]
     _chunk_size: int
     _time_to_live_in_secs_for_cache: int
     _well_known_configuration_cache_lock: Lock
@@ -95,7 +111,7 @@ class FhirClientProtocol(Protocol):
 
     _log_all_response_urls: bool
 
-    async def get_access_token_async(self) -> Optional[str]: ...
+    async def get_access_token_async(self) -> GetAccessTokenResult: ...
 
     async def _send_fhir_request_async(
         self,
@@ -126,6 +142,10 @@ class FhirClientProtocol(Protocol):
         ...
 
     def set_access_token(self, value: str | None) -> "FhirClientProtocol": ...
+
+    def set_access_token_expiry_date(
+        self, value: datetime | None
+    ) -> "FhirClientProtocol": ...
 
     def include_only_properties(
         self, include_only_properties: List[str] | None

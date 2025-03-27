@@ -29,6 +29,7 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
     response = MagicMock(RetryableAioHttpResponse)
     response.ok = True
     response.status = 200
+    response.results_by_url = []
     response.content = MagicMock()
 
     # Define an async iterator
@@ -117,6 +118,7 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
             "chunk_number": 1,
             "successful": True,
             "cache_hits": None,
+            "results_by_url": [],
         },
     ]
 

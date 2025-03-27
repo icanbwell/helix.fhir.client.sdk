@@ -13,6 +13,9 @@ from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
 )
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
+from helix_fhir_client_sdk.structures.get_access_token_result import (
+    GetAccessTokenResult,
+)
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 from helix_fhir_client_sdk.utilities.list_chunker import ListChunker
@@ -69,8 +72,10 @@ class FhirMergeMixin(FhirClientProtocol):
         responses: List[Dict[str, Any]] = []
         start_time: float = time.time()
         # set access token in request if present
-        if await self.get_access_token_async():
-            headers["Authorization"] = f"Bearer {await self.get_access_token_async()}"
+        access_token_result: GetAccessTokenResult = await self.get_access_token_async()
+        access_token: Optional[str] = access_token_result.access_token
+        if access_token:
+            headers["Authorization"] = f"Bearer {access_token}"
 
         try:
             resource_json_list_incoming: List[Dict[str, Any]] = [
@@ -111,7 +116,8 @@ class FhirMergeMixin(FhirClientProtocol):
                     try:
                         async with RetryableAioHttpClient(
                             fn_get_session=lambda: self.create_http_session(),
-                            simple_refresh_token_func=lambda: self._refresh_token_function(),
+                            refresh_token_func=self._refresh_token_function,
+                            tracer_request_func=self._trace_request_function,
                             retries=self._retry_count,
                             exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                             use_data_streaming=self._use_data_streaming,
@@ -119,6 +125,8 @@ class FhirMergeMixin(FhirClientProtocol):
                             compress=self._compress,
                             throw_exception_on_error=self._throw_exception_on_error,
                             log_all_url_results=self._log_all_response_urls,
+                            access_token=self._access_token,
+                            access_token_expiry_date=self._access_token_expiry_date,
                         ) as client:
                             # should we check if it exists and do a POST then?
                             response: RetryableAioHttpResponse = await client.post(
@@ -250,6 +258,11 @@ class FhirMergeMixin(FhirClientProtocol):
         if len(resource_json_list_incoming) == 1:
             resource_json: Dict[str, Any] = resource_json_list_incoming[0]
             try:
+                access_token_result: GetAccessTokenResult = (
+                    await self.get_access_token_async()
+                )
+                access_token: Optional[str] = access_token_result.access_token
+
                 await AsyncFhirValidator.validate_fhir_resource(
                     fn_get_session=lambda: self.create_http_session(),
                     json_data=json.dumps(resource_json),
@@ -257,7 +270,7 @@ class FhirMergeMixin(FhirClientProtocol):
                     or self._resource
                     or "",
                     validation_server_url=self._validation_server_url,
-                    access_token=await self.get_access_token_async(),
+                    access_token=access_token,
                 )
                 resource_json_list_clean.append(resource_json)
             except FhirValidationException as e:
@@ -273,6 +286,10 @@ class FhirMergeMixin(FhirClientProtocol):
         else:
             for resource_json in resource_json_list_incoming:
                 try:
+                    access_token_result1: GetAccessTokenResult = (
+                        await self.get_access_token_async()
+                    )
+                    access_token1: Optional[str] = access_token_result1.access_token
                     await AsyncFhirValidator.validate_fhir_resource(
                         fn_get_session=lambda: self.create_http_session(),
                         json_data=json.dumps(resource_json),
@@ -280,7 +297,7 @@ class FhirMergeMixin(FhirClientProtocol):
                         or self._resource
                         or "",
                         validation_server_url=self._validation_server_url,
-                        access_token=await self.get_access_token_async(),
+                        access_token=access_token1,
                     )
                     resource_json_list_clean.append(resource_json)
                 except FhirValidationException as e:

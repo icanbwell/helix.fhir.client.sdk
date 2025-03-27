@@ -21,5 +21,6 @@ class FhirClientLogger:
             ):
                 variables_to_log[key] = value
         variables_to_log.pop("_access_token", None)
+        variables_to_log.pop("_access_token_expiry_date", None)
         variables_to_log.pop("_login_token", None)
         return variables_to_log

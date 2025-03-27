@@ -5,6 +5,9 @@ from furl import furl
 
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_delete_response import FhirDeleteResponse
+from helix_fhir_client_sdk.structures.get_access_token_result import (
+    GetAccessTokenResult,
+)
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
@@ -36,20 +39,24 @@ class FhirDeleteMixin(FhirClientProtocol):
         headers.update(self._additional_request_headers)
         self._internal_logger.debug(f"Request headers: {headers}")
 
-        access_token = await self.get_access_token_async()
+        access_token_result: GetAccessTokenResult = await self.get_access_token_async()
+        access_token: Optional[str] = access_token_result.access_token
         # set access token in request if present
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
 
         async with RetryableAioHttpClient(
             fn_get_session=lambda: self.create_http_session(),
-            simple_refresh_token_func=lambda: self._refresh_token_function(),
+            refresh_token_func=self._refresh_token_function,
             retries=self._retry_count,
             exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
             use_data_streaming=self._use_data_streaming,
             compress=False,
             throw_exception_on_error=self._throw_exception_on_error,
             log_all_url_results=self._log_all_response_urls,
+            access_token=self._access_token,
+            access_token_expiry_date=self._access_token_expiry_date,
+            tracer_request_func=self._trace_request_function,
         ) as client:
             response: RetryableAioHttpResponse = await client.delete(
                 url=full_uri.tostr(), headers=headers
@@ -105,20 +112,24 @@ class FhirDeleteMixin(FhirClientProtocol):
         headers.update(self._additional_request_headers)
         self._internal_logger.debug(f"Request headers: {headers}")
 
-        access_token = await self.get_access_token_async()
+        access_token_result: GetAccessTokenResult = await self.get_access_token_async()
+        access_token: Optional[str] = access_token_result.access_token
         # set access token in request if present
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
 
         async with RetryableAioHttpClient(
             fn_get_session=lambda: self.create_http_session(),
-            simple_refresh_token_func=lambda: self._refresh_token_function(),
+            refresh_token_func=self._refresh_token_function,
             retries=self._retry_count,
             exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
             use_data_streaming=self._use_data_streaming,
             compress=False,
             throw_exception_on_error=self._throw_exception_on_error,
             log_all_url_results=self._log_all_response_urls,
+            access_token=self._access_token,
+            access_token_expiry_date=self._access_token_expiry_date,
+            tracer_request_func=self._trace_request_function,
         ) as client:
             response: RetryableAioHttpResponse = await client.delete(
                 url=full_url, headers=headers

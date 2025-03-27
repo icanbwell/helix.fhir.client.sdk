@@ -37,6 +37,7 @@ from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
     RefreshTokenFunction,
+    TraceRequestFunction,
 )
 from helix_fhir_client_sdk.graph.fhir_graph_mixin import FhirGraphMixin
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
@@ -46,6 +47,9 @@ from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.queue.request_queue_mixin import RequestQueueMixin
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.structures.get_access_token_result import (
+    GetAccessTokenResult,
+)
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 
@@ -127,6 +131,7 @@ class FhirClient(
         self._refresh_token_function: RefreshTokenFunction = (
             self.authenticate_async_wrapper()
         )
+        self._trace_request_function: TraceRequestFunction | None = None
         self._chunk_size: int = 1024
 
         self._compress: bool = True
@@ -525,7 +530,7 @@ class FhirClient(
             f"Chunk received:\n{params.chunk.decode('utf-8') if params.chunk else '[Empty]'}"
         )
 
-    def get_access_token(self) -> Optional[str]:
+    def get_access_token(self) -> GetAccessTokenResult:
         return AsyncRunner.run(self.get_access_token_async())
 
     def set_access_token(self, value: str | None) -> "FhirClient":
@@ -536,6 +541,16 @@ class FhirClient(
         :param value: access token
         """
         self._access_token = value
+        return self
+
+    def set_access_token_expiry_date(self, value: datetime | None) -> "FhirClient":
+        """
+        Sets access token
+
+
+        :param value: access token
+        """
+        self._access_token_expiry_date = value
         return self
 
     def separate_bundle_resources(
@@ -851,4 +866,13 @@ class FhirClient(
         :param value: whether to log all response URLs and status codes
         """
         self._log_all_response_urls = value
+        return self
+
+    def set_trace_request_function(self, value: TraceRequestFunction) -> "FhirClient":
+        """
+        Sets the trace_request_function
+
+        :param value: function to trace the request
+        """
+        self._trace_request_function = value
         return self
