@@ -46,12 +46,13 @@ class FhirGetResponseFactory:
         results_by_url: List[RetryableAioHttpUrlResult],
     ) -> FhirGetResponse:
 
-        # test if responses is valid json
-        try:
-            # Attempt to parse the JSON response
-            json.loads(responses)
-        except ValueError as e:
-            error = str(e)
+        if not error and responses:
+            # test if responses is valid json
+            try:
+                # Attempt to parse the JSON response
+                json.loads(responses)
+            except ValueError as e:
+                error = f"Error parsing response: {responses}: {e}"
 
         if status != 200 or error:
             # If the status is not 200, return a single response with the error

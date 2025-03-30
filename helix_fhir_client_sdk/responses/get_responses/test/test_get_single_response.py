@@ -329,6 +329,7 @@ class TestFhirGetSingleResponse:
         mock_other_response.extra_context_to_return = {}
         mock_other_response.cache_hits = 0
         mock_other_response.access_token = "test-token"
+        mock_other_response.request_id = "test-request"
 
         appended_response = response._append(mock_other_response)
         assert isinstance(appended_response, FhirGetBundleResponse)
