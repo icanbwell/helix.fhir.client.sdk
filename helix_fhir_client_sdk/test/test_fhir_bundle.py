@@ -149,6 +149,8 @@ def test_bundle_entry_from_dict() -> None:
 def test_bundle_to_dict(bundle: Bundle) -> None:
     """Test converting Bundle to dict."""
     expected_dict = {
+        "resourceType": "Bundle",
+        "type": "collection",
         "entry": [
             {
                 "fullUrl": "http://example.com/resource/1",
@@ -165,7 +167,7 @@ def test_bundle_to_dict(bundle: Bundle) -> None:
                     "lastModified": "2023-08-14T00:00:00",
                 },
             }
-        ]
+        ],
     }
     assert bundle.to_dict() == expected_dict
 

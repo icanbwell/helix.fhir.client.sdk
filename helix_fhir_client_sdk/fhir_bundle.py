@@ -1,5 +1,8 @@
+import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+
+from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
 class BundleEntryRequest:
@@ -177,3 +180,12 @@ class Bundle:
                     assert coding is not None
                     coding.extend(diagnostics_coding)
         return resource
+
+    def to_json(self) -> str:
+        """
+        Converts the Bundle to a JSON string.
+
+        :return: JSON string representation of the Bundle
+        """
+        bundle_dict = self.to_dict()
+        return json.dumps(bundle_dict, cls=FhirJSONEncoder)

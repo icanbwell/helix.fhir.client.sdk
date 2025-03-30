@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Union, cast, override, Tuple
 
@@ -10,7 +9,6 @@ from helix_fhir_client_sdk.fhir_bundle import (
 )
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -140,7 +138,9 @@ class FhirGetBundleResponse(FhirGetResponse):
             )
             assert isinstance(child_response_resources, dict)
             assert "resourceType" in child_response_resources
-            assert child_response_resources["resourceType"] == "Bundle"
+            assert (
+                child_response_resources["resourceType"] == "Bundle"
+            ), f"Expected resourceType to be 'Bundle' but got {child_response_resources.get('resourceType')}. "
 
             timestamp: Optional[str] = cast(
                 Optional[str], child_response_resources.get("timestamp")
@@ -237,10 +237,17 @@ class FhirGetBundleResponse(FhirGetResponse):
         if isinstance(other_response, FhirGetBundleResponse):
             return other_response
 
+        # convert the resources from the other response into a bundle
+        bundle: Bundle = Bundle(
+            # create a new bundle with the entries from the other response
+            entry=other_response.get_bundle_entries(),  # this will be a list of resources from the other response
+            type_="collection",  # default to collection if type is not provided
+        )
+
         response: FhirGetBundleResponse = FhirGetBundleResponse(
             request_id=other_response.request_id,
             url=other_response.url,
-            responses=other_response.get_response_text(),
+            responses=bundle.to_json(),
             error=other_response.error,
             access_token=other_response.access_token,
             total_count=other_response.total_count,
@@ -265,7 +272,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         :return: response text
         """
         bundle: Bundle = self.create_bundle()
-        return json.dumps(bundle.to_dict(), cls=FhirJSONEncoder)
+        return bundle.to_json()
 
     def sort_resources(self) -> "FhirGetBundleResponse":
         bundle: Bundle = self.create_bundle()

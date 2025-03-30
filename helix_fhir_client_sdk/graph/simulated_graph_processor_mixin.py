@@ -1,4 +1,3 @@
-import json
 from abc import ABC
 from datetime import datetime
 from typing import (
@@ -38,7 +37,6 @@ from helix_fhir_client_sdk.utilities.async_parallel_processor.v1.async_parallel_
     AsyncParallelProcessor,
     ParallelFunctionContext,
 )
-from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.request_cache import RequestCache
 
@@ -692,7 +690,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 ),
                 id_=None,
                 resource_type=resource_type,
-                responses=json.dumps(cached_bundle.to_dict(), cls=FhirJSONEncoder),
+                responses=cached_bundle.to_json(),
                 response_headers=None,
                 status=200,
                 access_token=None,
