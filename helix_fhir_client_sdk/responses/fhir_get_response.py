@@ -1,6 +1,6 @@
 import json
 from abc import abstractmethod
-from datetime import datetime
+from datetime import datetime, UTC
 
 from dateutil import parser
 from typing import Optional, Dict, Any, List, Union, cast, AsyncGenerator
@@ -129,6 +129,9 @@ class FhirGetResponse:
         if other_response.access_token:
             result.access_token = other_response.access_token
 
+        if other_response.request_id:
+            result.request_id = other_response.request_id
+
         return result
 
     @abstractmethod
@@ -255,6 +258,10 @@ class FhirGetResponse:
 
                 try:
                     last_modified_datetime: datetime = parser.parse(last_modified_str)
+                    if last_modified_datetime.tzinfo is None:
+                        last_modified_datetime = last_modified_datetime.replace(
+                            tzinfo=UTC
+                        )
                     return last_modified_datetime
                 except ValueError:
                     return None
