@@ -100,9 +100,12 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
         :return: list of resources
         """
-        raise NotImplementedError(
-            "get_bundle_entries is not implemented for FhirGetListByResourceTypeResponse. "
-        )
+        resources: List[Dict[str, Any]] = []
+        resources_for_resource_type: List[Dict[str, Any]]
+        for resources_for_resource_type in self._resource_map.values():
+            resources.extend(resources_for_resource_type)
+
+        return resources
 
     @override
     def get_bundle_entries(self) -> List[BundleEntry]:
