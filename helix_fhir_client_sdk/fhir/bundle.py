@@ -51,7 +51,7 @@ class Bundle:
         :param diagnostics_coding: The diagnostics coding to add
         :return: The resource with the diagnostics added
         """
-        with resource.access_context():
+        with resource.transaction():
             if resource.get("resourceType") == "OperationOutcome":
                 if resource.get("issue"):
                     for issue in resource["issue"]:

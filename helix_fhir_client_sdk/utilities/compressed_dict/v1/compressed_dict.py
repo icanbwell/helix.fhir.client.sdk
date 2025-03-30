@@ -56,7 +56,7 @@ class CompressedDict[K, V](UserDict[K, V]):
             self._working_dict = initial_dict
 
     @contextmanager
-    def access_context(self) -> Iterator["CompressedDict[K, V]"]:
+    def transaction(self) -> Iterator["CompressedDict[K, V]"]:
         """
         Context manager to safely access and modify the dictionary.
 
@@ -84,20 +84,7 @@ class CompressedDict[K, V](UserDict[K, V]):
             yield self
 
         finally:
-            # Serialize the dictionary after exiting the context
-            if self._storage_mode == "raw":
-                # Update raw dict
-                self._raw_dict = self._working_dict or {}
-            elif self._storage_mode == "msgpack":
-                # Serialize without compression
-                self._serialized_dict = self._serialize_dict(
-                    self._working_dict or {}, compressed=False
-                )
-            elif self._storage_mode == "compressed_msgpack":
-                # Serialize with compression
-                self._serialized_dict = self._serialize_dict(
-                    self._working_dict or {}, compressed=True
-                )
+            self._update_serialized_dict(current_dict=self._working_dict)
 
             # Clear the working dictionary
             self._working_dict = None
@@ -163,19 +150,18 @@ class CompressedDict[K, V](UserDict[K, V]):
         Returns:
             Current dictionary state
         """
+
+        if self._working_dict is None:
+            raise CompressedDictAccessError(
+                "Dictionary access is only allowed within an access_context() block. "
+                "Use 'with compressed_dict.access_context() as d:' to access the dictionary."
+            )
+
         if self._storage_mode == "raw":
             return self._raw_dict
 
-        # Deserialize based on storage mode
-        compressed: bool = self._storage_mode == "compressed_msgpack"
-        deserialized: Dict[K, V] = (
-            self._deserialize_dict(self._serialized_dict, compressed)
-            if self._serialized_dict
-            else {}
-        )
-
         # For non-raw modes, do not keep deserialized dict
-        return deserialized
+        return self._working_dict
 
     def __getitem__(self, key: K) -> V:
         """
@@ -213,17 +199,8 @@ class CompressedDict[K, V](UserDict[K, V]):
                 "Use 'with compressed_dict.access_context() as d:' to modify the dictionary."
             )
 
-        current_dict: Dict[K, V]
-        if self._storage_mode == "raw":
-            # Direct storage for raw mode
-            self._raw_dict[key] = value
-            current_dict = self._raw_dict
-        else:
-            # For serialized modes, create a new dict
-            current_dict = self._get_dict()
-            current_dict[key] = value
-
-        self._update_serialized_dict(current_dict)
+        # Update the working dictionary
+        self._working_dict[key] = value
 
     def _update_serialized_dict(self, current_dict: Dict[K, V] | None) -> None:
         if current_dict is None:
@@ -243,9 +220,17 @@ class CompressedDict[K, V](UserDict[K, V]):
         if self._storage_mode == "raw":
             self._raw_dict = current_dict
         elif self._storage_mode == "msgpack":
-            self._serialized_dict = self._serialize_dict(current_dict, compressed=False)
+            self._serialized_dict = (
+                self._serialize_dict(current_dict, compressed=False)
+                if current_dict
+                else None
+            )
         elif self._storage_mode == "compressed_msgpack":
-            self._serialized_dict = self._serialize_dict(current_dict, compressed=True)
+            self._serialized_dict = (
+                self._serialize_dict(current_dict, compressed=True)
+                if current_dict
+                else None
+            )
 
     def __delitem__(self, key: K) -> None:
         """
@@ -259,15 +244,8 @@ class CompressedDict[K, V](UserDict[K, V]):
                 "Dictionary modification is only allowed within an access_context() block. "
                 "Use 'with compressed_dict.access_context() as d:' to modify the dictionary."
             )
-        if self._storage_mode == "raw":
-            del self._raw_dict[key]
-            self._update_serialized_dict(self._raw_dict)
-        else:
-            # For serialized modes, create a new dict
-            current_dict = self._get_dict()
-            del current_dict[key]
 
-            self._update_serialized_dict(current_dict)
+        del self._working_dict[key]
 
     def __contains__(self, key: object) -> bool:
         """
@@ -374,11 +352,6 @@ class CompressedDict[K, V](UserDict[K, V]):
         """
         Clear the dictionary
         """
-        if self._storage_mode == "raw":
-            self._raw_dict.clear()
-        else:
-            self._serialized_dict = None
-
         self._update_serialized_dict(current_dict=None)
 
     def __eq__(self, other: object) -> bool:

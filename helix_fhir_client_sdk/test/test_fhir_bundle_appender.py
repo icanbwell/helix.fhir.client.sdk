@@ -88,7 +88,7 @@ class TestFhirBundleAppender:
         )
 
         assert operation_outcome["resourceType"] == "OperationOutcome"
-        with operation_outcome.access_context():
+        with operation_outcome.transaction():
             assert operation_outcome["issue"][0]["severity"] == "error"
             assert operation_outcome["issue"][0]["code"] == "not-found"
 

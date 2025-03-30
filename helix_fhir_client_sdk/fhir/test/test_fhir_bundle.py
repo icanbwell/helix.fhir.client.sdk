@@ -112,7 +112,7 @@ class TestBundle:
             resource=resource, diagnostics_coding=diagnostics_coding
         )
 
-        with updated_resource.access_context():
+        with updated_resource.transaction():
             assert (
                 updated_resource["issue"][0]["details"]["coding"] == diagnostics_coding
             )
