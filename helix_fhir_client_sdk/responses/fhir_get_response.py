@@ -95,7 +95,6 @@ class FhirGetResponse:
         self.results_by_url: List[RetryableAioHttpUrlResult] = results_by_url
         """ Count of errors in the response by status """
 
-    @abstractmethod
     def append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
         """
         Append the responses from other to self
@@ -103,9 +102,23 @@ class FhirGetResponse:
         :param other_response: FhirGetResponse object to append to current one
         :return: self
         """
-        ...
+        if other_response.chunk_number and (other_response.chunk_number or 0) > (
+            self.chunk_number or 0
+        ):
+            self.chunk_number = other_response.chunk_number
+        if other_response.next_url:
+            self.next_url = other_response.next_url
+            self.access_token = other_response.access_token
+        self.cache_hits = (self.cache_hits or 0) + (other_response.cache_hits or 0)
 
-    @abstractmethod
+        if other_response.results_by_url:
+            if self.results_by_url is None:
+                self.results_by_url = other_response.results_by_url
+            else:
+                self.results_by_url.extend(other_response.results_by_url)
+
+        return self
+
     def extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
         """
         Append the responses from other to self
@@ -113,7 +126,24 @@ class FhirGetResponse:
         :param others: list of FhirGetResponse objects
         :return: self
         """
-        ...
+        latest_chunk_number: List[int] = sorted(
+            [o.chunk_number for o in others if o.chunk_number], reverse=True
+        )
+        if len(latest_chunk_number) > 0:
+            self.chunk_number = latest_chunk_number[0]
+        if len(others) > 0:
+            self.next_url = others[-1].next_url
+            self.access_token = others[-1].access_token
+        self.cache_hits = sum(
+            [r.cache_hits if r.cache_hits is not None else 0 for r in others]
+        )
+        for other_response in others:
+            if other_response.results_by_url:
+                if self.results_by_url is None:
+                    self.results_by_url = other_response.results_by_url
+                else:
+                    self.results_by_url.extend(other_response.results_by_url)
+        return self
 
     @abstractmethod
     def get_resources(self) -> List[Dict[str, Any]]:

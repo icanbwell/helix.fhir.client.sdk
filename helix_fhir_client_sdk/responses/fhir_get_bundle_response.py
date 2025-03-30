@@ -75,20 +75,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         else:
             self._bundle_entries.extend(other_response.get_bundle_entries())
 
-        if other_response.chunk_number and (other_response.chunk_number or 0) > (
-            self.chunk_number or 0
-        ):
-            self.chunk_number = other_response.chunk_number
-        if other_response.next_url:
-            self.next_url = other_response.next_url
-            self.access_token = other_response.access_token
-        self.cache_hits = (self.cache_hits or 0) + (other_response.cache_hits or 0)
-
-        if other_response.results_by_url:
-            if self.results_by_url is None:
-                self.results_by_url = other_response.results_by_url
-            else:
-                self.results_by_url.extend(other_response.results_by_url)
+        super().append(other_response=other_response)
 
         return self
 
@@ -103,23 +90,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         for other_response in others:
             self.append(other_response=other_response)
 
-        latest_chunk_number: List[int] = sorted(
-            [o.chunk_number for o in others if o.chunk_number], reverse=True
-        )
-        if len(latest_chunk_number) > 0:
-            self.chunk_number = latest_chunk_number[0]
-        if len(others) > 0:
-            self.next_url = others[-1].next_url
-            self.access_token = others[-1].access_token
-        self.cache_hits = sum(
-            [r.cache_hits if r.cache_hits is not None else 0 for r in others]
-        )
-        for other_response in others:
-            if other_response.results_by_url:
-                if self.results_by_url is None:
-                    self.results_by_url = other_response.results_by_url
-                else:
-                    self.results_by_url.extend(other_response.results_by_url)
+        super().extend(others=others)
 
         return self
 
