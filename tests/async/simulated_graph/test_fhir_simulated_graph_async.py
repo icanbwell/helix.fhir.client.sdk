@@ -122,4 +122,5 @@ async def test_fhir_simulated_graph_async() -> None:
     ]
     # sort the entries by request url
     bundle["entry"] = sorted(bundle["entry"], key=lambda x: x["resource"]["id"])
+    bundle["total"] = len(bundle["entry"])
     assert bundle == expected_json

@@ -22,7 +22,7 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
         contents = file.read()
         graph_json = json.loads(contents)
 
-    test_name = "test_fhir_simulated_graph_with_operation_outcomes_async"
+    test_name = test_fhir_simulated_graph_with_operation_outcomes_async.__name__
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
@@ -135,11 +135,7 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
     print(response.get_response_text())
 
     expected_file_path = data_dir.joinpath("expected")
-    with open(
-        expected_file_path.joinpath(
-            "simulated_graph_with_operation_outcomes_async.json"
-        )
-    ) as f:
+    with open(expected_file_path.joinpath(test_name + ".json")) as f:
         expected_json = json.load(f)
 
     bundle = json.loads(response.get_response_text())
