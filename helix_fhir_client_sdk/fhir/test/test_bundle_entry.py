@@ -95,4 +95,4 @@ class TestBundleEntry:
         """Test string representation of BundleEntry."""
         resource = {"resourceType": "Patient", "id": "123"}
         entry = BundleEntry(resource=resource, request=None, response=None)
-        assert repr(entry) == "resource={'resourceType': 'Patient', 'id': '123'}, "
+        assert repr(entry) == "resource={'resourceType': 'Patient', 'id': '123'}"
