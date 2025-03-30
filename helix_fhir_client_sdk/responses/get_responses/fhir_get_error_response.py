@@ -193,5 +193,17 @@ class FhirGetErrorResponse(FhirGetResponse):
                         status=status,
                     ),
                 )
+        elif error:
+            # create an operation outcome resource
+            response_json = FhirBundleAppender.create_operation_outcome_resource(
+                error=error,
+                url=url,
+                resource_type=resource_type,
+                id_=id_,
+                status=status,
+                access_token=access_token,
+                extra_context_to_return=extra_context_to_return,
+                request_id=request_id,
+            )
 
         return response_json
