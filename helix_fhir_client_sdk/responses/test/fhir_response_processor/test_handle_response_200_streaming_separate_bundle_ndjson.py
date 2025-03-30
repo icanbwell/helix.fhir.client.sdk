@@ -102,9 +102,9 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
             "id_": id_,
             "response_headers": ["mock_header=mock_value"],
             "chunk_number": 1,
-            "successful": True,
             "cache_hits": None,
             "results_by_url": [],
+            "storage_mode": "compressed_msgpack",
         },
         {
             "request_id": request_id,
@@ -120,9 +120,9 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
             "id_": id_,
             "response_headers": ["mock_header=mock_value"],
             "chunk_number": 1,
-            "successful": True,
             "cache_hits": None,
             "results_by_url": [],
+            "storage_mode": "compressed_msgpack",
         },
     ]
 

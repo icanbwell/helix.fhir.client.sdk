@@ -48,7 +48,6 @@ async def test_handle_response_404() -> None:
             "request_id": request_id,
             "chunk_number": None,
             "url": full_url,
-            "_error_text": "Not Found",
             "error": "NotFound",
             "next_url": None,
             "access_token": access_token,
@@ -58,11 +57,11 @@ async def test_handle_response_404() -> None:
             "resource_type": resource,
             "id_": id_,
             "response_headers": response_headers,
-            "successful": False,
             "cache_hits": None,
             "results_by_url": [],
             "_resource": None,
+            "storage_mode": "compressed_msgpack",
         }
     ]
 
-    assert result[0].__dict__ == expected_result[0]
+    assert result[0].to_dict() == expected_result[0]

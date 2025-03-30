@@ -224,3 +224,29 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         :return: resource map
         """
         return self._resource_map
+
+    @override
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Converts the object to a dictionary
+
+        :return: dictionary
+        """
+        return dict(
+            request_id=self.request_id,
+            url=self.url,
+            response_text=self.get_response_text(),
+            error=self.error,
+            access_token=self.access_token,
+            total_count=self.total_count,
+            status=self.status,
+            next_url=self.next_url,
+            extra_context_to_return=self.extra_context_to_return,
+            resource_type=self.resource_type,
+            id_=self.id_,
+            response_headers=self.response_headers,
+            chunk_number=self.chunk_number,
+            cache_hits=self.cache_hits,
+            results_by_url=[r.to_dict() for r in self.results_by_url],
+            storage_mode=self.storage_mode,
+        )

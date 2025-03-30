@@ -1,4 +1,5 @@
 import dataclasses
+from typing import Dict, Any
 
 
 @dataclasses.dataclass
@@ -9,3 +10,11 @@ class RetryableAioHttpUrlResult:
     retry_count: int
     start_time: float
     end_time: float
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Converts the object to a dictionary
+
+        :return: dictionary
+        """
+        return self.__dict__

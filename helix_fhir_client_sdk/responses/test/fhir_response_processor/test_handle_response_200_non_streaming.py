@@ -75,10 +75,10 @@ async def test_handle_response_200_non_streaming() -> None:
         "extra_context_to_return": extra_context_to_return,
         "resource_type": resource,
         "id_": id_,
-        "successful": True,
         "response_headers": response_headers,
         "cache_hits": None,
         "results_by_url": [],
+        "storage_mode": "compressed_msgpack",
     }
 
-    assert result[0].__dict__ == expected_result
+    assert result[0].to_dict() == expected_result

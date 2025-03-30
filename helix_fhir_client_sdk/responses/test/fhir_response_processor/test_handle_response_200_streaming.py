@@ -91,10 +91,10 @@ async def test_handle_response_200_streaming() -> None:
             "id_": id_,
             "response_headers": ["mock_header=mock_value"],
             "chunk_number": 1,
-            "successful": True,
             "cache_hits": None,
             "results_by_url": [],
+            "storage_mode": "compressed_msgpack",
         }
     ]
 
-    assert result[0].__dict__ == expected_result[0]
+    assert result[0].to_dict() == expected_result[0]

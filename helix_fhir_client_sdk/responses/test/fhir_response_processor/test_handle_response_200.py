@@ -75,10 +75,10 @@ async def test_handle_response_200() -> None:
             "id_": id_,
             "response_headers": response_headers,
             "chunk_number": None,
-            "successful": True,
             "cache_hits": None,
             "results_by_url": [],
+            "storage_mode": "compressed_msgpack",
         }
     ]
 
-    assert result[0].__dict__ == expected_result[0]
+    assert result[0].to_dict() == expected_result[0]
