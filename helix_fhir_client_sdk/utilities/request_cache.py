@@ -1,7 +1,7 @@
 from types import TracebackType
 from typing import Dict, Optional, Type
 
-from helix_fhir_client_sdk.fhir_bundle import BundleEntry
+from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 
 
 class RequestCache:

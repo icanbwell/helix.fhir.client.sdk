@@ -2,7 +2,8 @@ import json
 
 import pytest
 
-from helix_fhir_client_sdk.fhir_bundle import Bundle, BundleEntry
+from helix_fhir_client_sdk.fhir.bundle import Bundle
+from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (

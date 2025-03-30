@@ -4,7 +4,7 @@ from typing import Dict, Any, List, AsyncGenerator
 
 import pytest
 
-from helix_fhir_client_sdk.fhir_bundle import BundleEntry
+from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
 

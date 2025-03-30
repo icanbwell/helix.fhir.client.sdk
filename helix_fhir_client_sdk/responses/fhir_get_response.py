@@ -5,7 +5,7 @@ from datetime import datetime, UTC
 from dateutil import parser
 from typing import Optional, Dict, Any, List, Union, cast, AsyncGenerator
 
-from helix_fhir_client_sdk.fhir_bundle import (
+from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
 )
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource

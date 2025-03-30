@@ -11,12 +11,10 @@ from typing import (
     AsyncGenerator,
 )
 
-from helix_fhir_client_sdk.fhir_bundle import (
-    BundleEntry,
-    BundleEntryRequest,
-    BundleEntryResponse,
-    Bundle,
-)
+from helix_fhir_client_sdk.fhir.bundle import Bundle
+from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
+from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
+from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource

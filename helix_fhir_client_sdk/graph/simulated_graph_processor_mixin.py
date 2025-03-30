@@ -12,7 +12,8 @@ from typing import (
 )
 
 from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
-from helix_fhir_client_sdk.fhir_bundle import BundleEntry, Bundle
+from helix_fhir_client_sdk.fhir.bundle import Bundle
+from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,
     GraphDefinitionLink,

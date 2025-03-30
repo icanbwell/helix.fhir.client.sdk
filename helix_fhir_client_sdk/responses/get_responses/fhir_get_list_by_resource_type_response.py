@@ -1,7 +1,7 @@
 import json
 from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator
 
-from helix_fhir_client_sdk.fhir_bundle import (
+from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse

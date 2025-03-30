@@ -18,6 +18,8 @@ aiohttp = "*"
 async_timeout = ">=4.0.3"
 # python-dateutil is needed for parsing dates
 python-dateutil = "*"
+# msgpack is needed for serializing and deserializing data
+msgpack = ">1.0.0"
 
 [dev-packages]
 packaging = "*"  # packaging is needed for version parsing

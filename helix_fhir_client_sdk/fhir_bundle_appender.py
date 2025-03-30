@@ -2,12 +2,10 @@ import json
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Callable
 
-from helix_fhir_client_sdk.fhir_bundle import (
-    Bundle,
-    BundleEntry,
-    BundleEntryRequest,
-    BundleEntryResponse,
-)
+from helix_fhir_client_sdk.fhir.bundle import Bundle
+from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
+from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
+from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 

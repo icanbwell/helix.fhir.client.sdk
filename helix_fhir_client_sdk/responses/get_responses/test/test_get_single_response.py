@@ -4,7 +4,7 @@ from unittest.mock import Mock, AsyncMock
 
 import pytest
 
-from helix_fhir_client_sdk.fhir_bundle import (
+from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
