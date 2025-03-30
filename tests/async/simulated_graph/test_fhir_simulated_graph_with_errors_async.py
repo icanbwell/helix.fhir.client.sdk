@@ -108,6 +108,9 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
     assert response.extra_context_to_return == {"slug": "1234"}
 
     expected_json: Dict[str, Any] = {
+        "resourceType": "Bundle",
+        "total": 8,
+        "type": "collection",
         "entry": [
             {
                 "resource": {
@@ -278,7 +281,7 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
                 },
                 "response": {"status": "404"},
             },
-        ]
+        ],
     }
 
     bundle = json.loads(response.get_response_text())

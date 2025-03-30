@@ -162,6 +162,9 @@ async def test_fhir_simulated_graph_multiple_graph_async() -> None:
     print(response.get_response_text())
 
     expected_json = {
+        "resourceType": "Bundle",
+        "total": 4,
+        "type": "collection",
         "entry": [
             {
                 "request": {
@@ -207,7 +210,7 @@ async def test_fhir_simulated_graph_multiple_graph_async() -> None:
                 },
                 "response": {"status": "200"},
             },
-        ]
+        ],
     }
     assert json.loads(response.get_response_text()) == expected_json
 

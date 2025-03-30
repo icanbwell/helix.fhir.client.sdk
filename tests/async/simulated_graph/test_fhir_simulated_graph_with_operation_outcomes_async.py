@@ -135,6 +135,9 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
     print(response.get_response_text())
 
     expected_json: Dict[str, Any] = {
+        "resourceType": "Bundle",
+        "total": 9,
+        "type": "collection",
         "entry": [
             {
                 "request": {
@@ -401,7 +404,7 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
                 },
                 "response": {"status": "404"},
             },
-        ]
+        ],
     }
 
     bundle = json.loads(response.get_response_text())

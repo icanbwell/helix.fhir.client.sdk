@@ -35,7 +35,7 @@ async def test_fhir_simulated_graph_async() -> None:
     mock_client.clear(f"/{test_name}/*.*")
     mock_client.reset()
 
-    response_text = {
+    response_text: Dict[str, Any] = {
         "resourceType": "Patient",
         "id": "1",
         "generalPractitioner": [{"reference": "Practitioner/5"}],
@@ -63,6 +63,9 @@ async def test_fhir_simulated_graph_async() -> None:
     )
 
     response_text = {
+        "resourceType": "Bundle",
+        "total": 5,
+        "type": "collection",
         "entry": [
             {
                 "resource": {
@@ -71,7 +74,7 @@ async def test_fhir_simulated_graph_async() -> None:
                     "payor": [{"reference": "Organization/CoveragePayor"}],
                 }
             }
-        ]
+        ],
     }
     mock_client.expect(
         request=mock_request(

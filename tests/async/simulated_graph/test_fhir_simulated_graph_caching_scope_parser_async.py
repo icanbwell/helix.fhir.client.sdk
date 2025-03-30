@@ -36,7 +36,7 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
     mock_client.clear(f"/{test_name}/*.*")
     mock_client.reset()
 
-    response_text = {
+    response_text: Dict[str, Any] = {
         "resourceType": "Patient",
         "id": "1",
         "generalPractitioner": [{"reference": "Practitioner/5"}],
@@ -91,6 +91,9 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
     )
 
     response_text = {
+        "resourceType": "Bundle",
+        "total": 5,
+        "type": "collection",
         "entry": [
             {
                 "resource": {
@@ -110,7 +113,7 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
                     ],
                 }
             },
-        ]
+        ],
     }
     mock_client.expect(
         request=mock_request(
@@ -168,6 +171,9 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
     print(response.get_response_text())
 
     expected_json: Dict[str, Any] = {
+        "resourceType": "Bundle",
+        "total": 3,
+        "type": "collection",
         "entry": [
             {
                 "request": {
@@ -198,7 +204,7 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
                 "resource": {"id": "6", "resourceType": "Organization"},
                 "response": {"status": "200"},
             },
-        ]
+        ],
     }
 
     bundle: Dict[str, Any]

@@ -111,6 +111,9 @@ async def test_fhir_simulated_graph_async() -> None:
     print(response.get_response_text())
 
     expected_json: Dict[str, Any] = {
+        "resourceType": "Bundle",
+        "total": 5,
+        "type": "collection",
         "entry": [
             {
                 "request": {
@@ -157,7 +160,7 @@ async def test_fhir_simulated_graph_async() -> None:
                 "resource": {"id": "8", "resourceType": "Observation"},
                 "response": {"status": "200"},
             },
-        ]
+        ],
     }
 
     bundle: Dict[str, Any] = json.loads(response.get_response_text())

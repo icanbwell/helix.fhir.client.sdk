@@ -111,6 +111,9 @@ async def test_fhir_simulated_graph_with_url_column_async() -> None:
     assert response.extra_context_to_return == {"slug": "1234"}
 
     expected_json = {
+        "resourceType": "Bundle",
+        "total": 5,
+        "type": "collection",
         "entry": [
             {
                 "request": {
@@ -157,7 +160,7 @@ async def test_fhir_simulated_graph_with_url_column_async() -> None:
                 "resource": {"id": "8", "resourceType": "Observation"},
                 "response": {"status": "200"},
             },
-        ]
+        ],
     }
 
     bundle = json.loads(response.get_response_text())
