@@ -153,8 +153,8 @@ class CompressedDict[K, V](UserDict[K, V]):
 
         if self._working_dict is None:
             raise CompressedDictAccessError(
-                "Dictionary access is only allowed within an access_context() block. "
-                "Use 'with compressed_dict.access_context() as d:' to access the dictionary."
+                "Dictionary access is only allowed within an transaction() block. "
+                "Use 'with compressed_dict.transaction() as d:' to access the dictionary."
             )
 
         if self._storage_mode == "raw":
@@ -180,8 +180,8 @@ class CompressedDict[K, V](UserDict[K, V]):
 
         if self._working_dict is None:
             raise CompressedDictAccessError(
-                "Dictionary access is only allowed within an access_context() block. "
-                "Use 'with compressed_dict.access_context() as d:' to access the dictionary."
+                "Dictionary access is only allowed within an transaction() block. "
+                "Use 'with compressed_dict.transaction() as d:' to access the dictionary."
             )
         return self._get_dict()[key]
 
@@ -195,8 +195,8 @@ class CompressedDict[K, V](UserDict[K, V]):
         """
         if self._working_dict is None:
             raise CompressedDictAccessError(
-                "Dictionary modification is only allowed within an access_context() block. "
-                "Use 'with compressed_dict.access_context() as d:' to modify the dictionary."
+                "Dictionary modification is only allowed within an transaction() block. "
+                "Use 'with compressed_dict.transaction() as d:' to modify the dictionary."
             )
 
         # Update the working dictionary
@@ -241,8 +241,8 @@ class CompressedDict[K, V](UserDict[K, V]):
         """
         if self._working_dict is None:
             raise CompressedDictAccessError(
-                "Dictionary modification is only allowed within an access_context() block. "
-                "Use 'with compressed_dict.access_context() as d:' to modify the dictionary."
+                "Dictionary modification is only allowed within an transaction() block. "
+                "Use 'with compressed_dict.transaction() as d:' to modify the dictionary."
             )
 
         del self._working_dict[key]
@@ -277,8 +277,8 @@ class CompressedDict[K, V](UserDict[K, V]):
         """
         if self._working_dict is None:
             raise CompressedDictAccessError(
-                "Dictionary modification is only allowed within an access_context() block. "
-                "Use 'with compressed_dict.access_context() as d:' to modify the dictionary."
+                "Dictionary modification is only allowed within an transaction() block. "
+                "Use 'with compressed_dict.transaction() as d:' to modify the dictionary."
             )
         return iter(self._get_dict())
 
@@ -325,10 +325,9 @@ class CompressedDict[K, V](UserDict[K, V]):
         Returns:
             String representation
         """
-        dict_contents = self._get_dict()
         return (
             f"CompressedDict(storage_mode='{self._storage_mode}', "
-            f"items={dict_contents})"
+            f"items={self._length})"
         )
 
     def replace(self, *, value: Dict[K, V]) -> "CompressedDict[K, V]":

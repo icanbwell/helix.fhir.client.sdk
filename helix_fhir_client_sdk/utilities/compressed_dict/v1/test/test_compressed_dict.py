@@ -79,9 +79,10 @@ class TestCompressedDict:
             properties_to_cache=[],
         )
 
-        assert "a" in cd
-        assert "b" in cd
-        assert "c" not in cd
+        with cd.transaction():
+            assert "a" in cd
+            assert "b" in cd
+            assert "c" not in cd
 
     def test_keys_and_values(self) -> None:
         """Test keys and values methods"""
@@ -92,8 +93,9 @@ class TestCompressedDict:
             properties_to_cache=[],
         )
 
-        assert set(cd.keys()) == {"a", "b", "c"}
-        assert set(cd.values()) == {1, 2, 3}
+        with cd.transaction():
+            assert set(cd.keys()) == {"a", "b", "c"}
+            assert set(cd.values()) == {1, 2, 3}
 
     def test_items(self) -> None:
         """Test items method"""
@@ -104,7 +106,8 @@ class TestCompressedDict:
             properties_to_cache=[],
         )
 
-        assert set(cd.items()) == {("a", 1), ("b", 2), ("c", 3)}
+        with cd.transaction():
+            assert set(cd.items()) == {("a", 1), ("b", 2), ("c", 3)}
 
     def test_get_method(self) -> None:
         """Test get method with default"""
@@ -127,7 +130,8 @@ class TestCompressedDict:
             properties_to_cache=[],
         )
 
-        assert cd.to_dict() == initial_data
+        with cd.transaction():
+            assert cd.to_dict() == initial_data
 
     def test_complex_nested_structures(self) -> None:
         """Test storage of complex nested structures"""
@@ -158,10 +162,7 @@ class TestCompressedDict:
         )
         repr_str = repr(cd)
 
-        assert "storage_mode" in repr_str
-        assert "items" in repr_str
-        assert "'a': 1" in repr_str
-        assert "'b': 2" in repr_str
+        assert repr_str == "CompressedDict(storage_mode='compressed_msgpack', items=2)"
 
     def test_error_handling(self) -> None:
         """Test error scenarios"""
