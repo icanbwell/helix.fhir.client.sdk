@@ -93,6 +93,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
             for content, chunk_number in self._content:
                 yield content
 
+        # noinspection PyMethodMayBeStatic
         def at_eof(self) -> bool:
             return False
 

@@ -50,7 +50,6 @@ class FhirGetResponse:
         :param resource_type: (Optional)
         :param id_: (Optional)
         :param url: url that was being accessed
-        :param responses: response text
         :param error: Any error returned by FHIR server
         :param access_token: access token that was used
         :param total_count: count of total records that match the provided query.

@@ -1,22 +1,15 @@
-import json
 from typing import Optional, Dict, Any, List, Union, override
 
 from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntry,
-    BundleEntryRequest,
-    BundleEntryResponse,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
-    FhirGetBundleResponse,
-)
-from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
 
 
-class FhirGetSingleResponse(FhirGetResponse):
+class FhirGetErrorResponse(FhirGetResponse):
     """
     This class represents a response from a FHIR server.
     NOTE: This class does converted to a Row in Spark so keep all the property types simple python types
@@ -61,9 +54,7 @@ class FhirGetSingleResponse(FhirGetResponse):
             cache_hits=cache_hits,
             results_by_url=results_by_url,
         )
-        self._resource: Optional[Dict[str, Any]] = self._parse_single_resource(
-            responses=responses
-        )
+        self._error_text: Optional[str] = responses
 
     @override
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
@@ -74,8 +65,8 @@ class FhirGetSingleResponse(FhirGetResponse):
         :return: self
         """
         # if someone is trying to append to a single resource then we need to convert it to a bundle
-        return FhirGetBundleResponse.from_response(other_response=self).append(
-            other_response=other_response
+        raise NotImplementedError(
+            "FhirGetErrorResponse does not support appending other responses."
         )
 
     @override
@@ -87,8 +78,8 @@ class FhirGetSingleResponse(FhirGetResponse):
         :return: self
         """
         # if someone is trying to append to a single resource then we need to convert it to a bundle
-        return FhirGetBundleResponse.from_response(other_response=self).extend(
-            others=others
+        raise NotImplementedError(
+            "FhirGetErrorResponse does not support extending with other responses."
         )
 
     @override
@@ -99,10 +90,9 @@ class FhirGetSingleResponse(FhirGetResponse):
 
         :return: list of resources
         """
-        if not self._resource:
-            return []
-
-        return [self._resource] if self._resource else []
+        raise NotImplementedError(
+            "FhirGetErrorResponse does not contain resources. It represents an error response from the FHIR server."
+        )
 
     @override
     def get_bundle_entries(self) -> List[BundleEntry]:
@@ -112,25 +102,9 @@ class FhirGetSingleResponse(FhirGetResponse):
 
         :return: list of bundle entries
         """
-        if not self._resource:
-            return []
-        try:
-            # THis is either a list of resources or a Bundle resource containing a list of resources
-
-            # use these if the bundle entry does not have them
-            request: BundleEntryRequest = BundleEntryRequest(url=self.url)
-            response: BundleEntryResponse = BundleEntryResponse(
-                status=str(self.status),
-                lastModified=self.lastModified,
-                etag=self.etag,
-            )
-            return [
-                BundleEntry(resource=self._resource, request=request, response=response)
-            ]
-        except Exception as e:
-            raise Exception(
-                f"Could not get bundle entries from: {self._resource}"
-            ) from e
+        raise NotImplementedError(
+            "FhirGetErrorResponse does not contain bundle entries. It represents an error response from the FHIR server."
+        )
 
     @override
     def remove_duplicates(self) -> FhirGetResponse:
@@ -139,23 +113,6 @@ class FhirGetSingleResponse(FhirGetResponse):
 
         """
         return self  # nothing to do since this is a single resource
-
-    @classmethod
-    def _parse_single_resource(cls, *, responses: str) -> Dict[str, Any]:
-        """
-        Gets the single resource from the response
-
-        :return: single resource
-        """
-        try:
-            # THis is either a list of resources or a Bundle resource containing a list of resources
-            child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
-                cls.parse_json(responses)
-            )
-            assert isinstance(child_response_resources, dict)
-            return child_response_resources
-        except Exception as e:
-            raise Exception(f"Could not get resources from: {responses}") from e
 
     @classmethod
     @override
@@ -171,4 +128,4 @@ class FhirGetSingleResponse(FhirGetResponse):
 
         :return: response text
         """
-        return json.dumps(self._resource, cls=FhirJSONEncoder)
+        return self._error_text if self._error_text else ""

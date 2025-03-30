@@ -47,7 +47,7 @@ class AsyncRunner:
             if "This event loop is already running" in str(e):
                 try:
                     return AsyncRunner.run_in_thread_pool_and_wait(coro=fn)
-                except RuntimeError as e2:
+                except RuntimeError:
                     raise RuntimeError(
                         f"While calling {fn.__name__} there is already an event loop running."
                         "\nThis usually happens because you are calling this function"
@@ -57,7 +57,7 @@ class AsyncRunner:
                         f"\nException: {e}"
                     )
             else:
-                raise e
+                raise
         return result
 
     # @staticmethod

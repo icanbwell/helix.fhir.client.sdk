@@ -167,7 +167,7 @@ class AsyncParallelProcessor:
                 for task in done:
                     try:
                         yield await task
-                    except Exception as e:
+                    except Exception:
                         # Handle or re-raise error
                         # logger.error(f"Error processing row: {e}")
                         raise

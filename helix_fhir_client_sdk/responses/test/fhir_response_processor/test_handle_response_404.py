@@ -47,7 +47,7 @@ async def test_handle_response_404() -> None:
             "request_id": request_id,
             "chunk_number": None,
             "url": full_url,
-            "responses": "Not Found",
+            "_error_text": "Not Found",
             "error": "NotFound",
             "next_url": None,
             "access_token": access_token,

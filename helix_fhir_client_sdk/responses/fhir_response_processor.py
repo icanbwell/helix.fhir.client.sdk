@@ -5,6 +5,7 @@ from logging import Logger
 from typing import Optional, List, Dict, Any, Union, AsyncGenerator, Tuple
 from uuid import UUID
 
+# noinspection PyProtectedMember
 from aiohttp.streams import AsyncStreamIterator
 
 from helix_fhir_client_sdk.function_types import (

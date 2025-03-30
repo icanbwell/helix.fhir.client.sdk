@@ -3,12 +3,15 @@ from typing import Optional, Dict, Any, Union, List
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
+from helix_fhir_client_sdk.responses.get_responses.fhir_get_error_response import (
+    FhirGetErrorResponse,
+)
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_list_response import (
     FhirGetListResponse,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_single_response import (
-    FhirSingleGetResponse,
+    FhirGetSingleResponse,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -41,6 +44,27 @@ class FhirGetResponseFactory:
         cache_hits: Optional[int] = None,
         results_by_url: List[RetryableAioHttpUrlResult],
     ) -> FhirGetResponse:
+
+        if status != 200:
+            # If the status is not 200, return a single response with the error
+            return FhirGetErrorResponse(
+                request_id=request_id,
+                url=url,
+                responses=responses,
+                error=error,
+                access_token=access_token,
+                total_count=total_count,
+                status=status,
+                next_url=next_url,
+                extra_context_to_return=extra_context_to_return,
+                resource_type=resource_type,
+                id_=id_,
+                response_headers=response_headers,
+                chunk_number=chunk_number,
+                cache_hits=cache_hits,
+                results_by_url=results_by_url,
+            )
+
         child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
             FhirGetResponse.parse_json(responses)
         )
@@ -89,7 +113,7 @@ class FhirGetResponseFactory:
             )
 
         # now assume it is a single resource
-        return FhirSingleGetResponse(
+        return FhirGetSingleResponse(
             request_id=request_id,
             url=url,
             responses=responses,

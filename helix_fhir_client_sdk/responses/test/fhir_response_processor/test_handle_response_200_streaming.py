@@ -1,3 +1,4 @@
+import json
 from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
@@ -18,7 +19,7 @@ async def test_handle_response_200_streaming() -> None:
     request_id = "mock_request_id"
     chunk_size = 1024
     extra_context_to_return = {"extra_key": "extra_value"}
-    resource = "Patient"
+    resource_type = "Patient"
     id_ = "mock_id"
     logger = MagicMock(FhirLogger)
     expand_fhir_bundle = False
@@ -30,10 +31,12 @@ async def test_handle_response_200_streaming() -> None:
     response.status = 200
     response.results_by_url = []
     response.content = MagicMock()
+    resource = {"resourceType": "Patient", "id": "1"}
 
     # Define an async iterator
     async def async_iterator(chunk_size1: int) -> AsyncGenerator[bytes, None]:
-        yield b'{"resourceType": "Patient", "id": "1"}\n'
+        resource_text: str = json.dumps(resource)
+        yield b"%s\n" % resource_text.encode("utf-8")  # Simulate a chunk of data
 
     response.content.iter_chunked = async_iterator
 
@@ -56,7 +59,7 @@ async def test_handle_response_200_streaming() -> None:
             total_count=0,
             chunk_size=chunk_size,
             extra_context_to_return=extra_context_to_return,
-            resource=resource,
+            resource=resource_type,
             id_=id_,
             logger=logger,
             expand_fhir_bundle=expand_fhir_bundle,
@@ -71,14 +74,14 @@ async def test_handle_response_200_streaming() -> None:
         {
             "request_id": request_id,
             "url": full_url,
-            "responses": '{"resourceType": "Patient", "id": "1"}',
+            "_resource": resource,
             "error": None,
             "access_token": access_token,
             "total_count": 0,
             "status": 200,
             "next_url": None,
             "extra_context_to_return": extra_context_to_return,
-            "resource_type": resource,
+            "resource_type": resource_type,
             "id_": id_,
             "response_headers": ["mock_header=mock_value"],
             "chunk_number": 1,

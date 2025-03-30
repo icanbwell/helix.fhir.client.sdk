@@ -87,22 +87,36 @@ async def test_handle_response_200_non_streaming_separate_bundle() -> None:
     ]
 
     expected_result = {
-        "request_id": request_id,
-        "chunk_number": None,
-        "url": full_url,
-        "responses": json.dumps(expected_resources),
-        "error": None,
-        "access_token": access_token,
-        "total_count": 3,
-        "status": 200,
-        "next_url": next_url,
-        "extra_context_to_return": extra_context_to_return,
-        "resource_type": resource,
-        "id_": id_,
-        "successful": True,
-        "response_headers": response_headers,
+        "_resources": [
+            {
+                "extra_key": "extra_value",
+                "practitioner": [{"id": "1", "resourceType": "Practitioner"}],
+                "practitionerrole": [{"id": "2", "resourceType": "PractitionerRole"}],
+                "token": "mock_access_token",
+                "url": "http://example.com",
+            },
+            {
+                "extra_key": "extra_value",
+                "practitioner": [{"id": "3", "resourceType": "Practitioner"}],
+                "token": "mock_access_token",
+                "url": "http://example.com",
+            },
+        ],
+        "access_token": "mock_access_token",
         "cache_hits": None,
+        "chunk_number": None,
+        "error": None,
+        "extra_context_to_return": {"extra_key": "extra_value"},
+        "id_": "mock_id",
+        "next_url": None,
+        "request_id": "mock_request_id",
+        "resource_type": "Patient",
+        "response_headers": ["mock_header"],
         "results_by_url": [],
+        "status": 200,
+        "successful": True,
+        "total_count": 3,
+        "url": "http://example.com",
     }
 
     assert result[0].__dict__ == expected_result

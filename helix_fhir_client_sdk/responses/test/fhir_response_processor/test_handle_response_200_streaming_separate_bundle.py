@@ -103,7 +103,7 @@ async def test_handle_response_200_streaming_separate_bundle() -> None:
     expected_result = {
         "request_id": request_id,
         "url": full_url,
-        "responses": json.dumps(expected_resources),
+        "resources": expected_resources,
         "error": None,
         "access_token": access_token,
         "total_count": 3,

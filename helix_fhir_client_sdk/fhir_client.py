@@ -519,6 +519,7 @@ class FhirClient(
             + f" | Content-Encoding: {content_encoding}"
         )
 
+    # noinspection PyUnusedLocal
     @staticmethod
     async def on_response_chunk_received(
         session: ClientSession,

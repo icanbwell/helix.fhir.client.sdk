@@ -60,7 +60,10 @@ async def test_handle_response_200() -> None:
         {
             "request_id": request_id,
             "url": full_url,
-            "responses": '[{"resourceType": "Patient", "id": "1"}, {"resourceType": "Patient", "id": "2"}]',
+            "_resources": [
+                {"id": "1", "resourceType": "Patient"},
+                {"id": "2", "resourceType": "Patient"},
+            ],
             "error": None,
             "access_token": access_token,
             "total_count": 2,
