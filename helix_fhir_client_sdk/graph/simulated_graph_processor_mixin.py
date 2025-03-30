@@ -26,11 +26,17 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
+from helix_fhir_client_sdk.responses.get_responses.fhir_get_error_response import (
+    FhirGetErrorResponse,
+)
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_list_by_resource_type_response import (
     FhirGetListByResourceTypeResponse,
 )
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_list_response import (
     FhirGetListResponse,
+)
+from helix_fhir_client_sdk.responses.get_responses.fhir_get_response_factory import (
+    FhirGetResponseFactory,
 )
 
 from helix_fhir_client_sdk.utilities.async_parallel_processor.v1.async_parallel_processor import (
@@ -112,7 +118,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         with RequestCache() as cache:
             # first load the start resource
             start: str = graph_definition.start
-            parent_response: FhirGetBundleResponse
+            parent_response: FhirGetResponse
             cache_hits: int
             parent_response, cache_hits = await self._get_resources_by_parameters_async(
                 resource_type=start,
@@ -609,6 +615,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 fn_handle_streaming_chunk=None,
                 resource_type=resource_type,
             ):
+                if result2.resource_type == "OperationOutcome":
+                    result2 = FhirGetErrorResponse.from_response(other_response=result2)
                 if result:
                     result = result.append(result2)
                 else:
@@ -625,14 +633,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         scope_parser: FhirScopeParser,
         logger: Optional[FhirLogger],
         id_search_unsupported_resources: List[str],
-    ) -> Tuple[FhirGetBundleResponse, int]:
+    ) -> Tuple[FhirGetResponse, int]:
         assert resource_type
 
         if not scope_parser.scope_allows(resource_type=resource_type):
             if logger:
                 logger.debug(f"Skipping resource {resource_type} due to scope")
             return (
-                FhirGetBundleResponse(
+                FhirGetResponseFactory.create(
                     request_id=None,
                     url="",
                     id_=None,
@@ -678,7 +686,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             cached_bundle: Bundle = Bundle(
                 entry=cached_bundle_entries, type_="collection"
             )
-            cached_response = FhirGetBundleResponse(
+            cached_response = FhirGetResponseFactory.create(
                 request_id=None,
                 url=(
                     cached_bundle_entries[0].request.url
@@ -738,6 +746,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         additional_parameters=parameters,
                     )
                 if result:
+                    if result.resource_type == "OperationOutcome":
+                        result = FhirGetErrorResponse.from_response(
+                            other_response=result
+                        )
                     if all_result:
                         all_result = all_result.append(result)
                     else:

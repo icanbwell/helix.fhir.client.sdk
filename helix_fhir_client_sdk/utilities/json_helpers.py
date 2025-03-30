@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Union, cast
+from typing import Any, Dict, List, cast
 from datetime import datetime, date
 
 
@@ -18,8 +18,8 @@ class FhirClientJsonHelpers:
 
     @staticmethod
     def remove_empty_elements(
-        d: Union[List[Dict[str, Any]], Dict[str, Any]],
-    ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
+        d: List[Dict[str, Any]] | Dict[str, Any],
+    ) -> List[Dict[str, Any]] | Dict[str, Any]:
         """
         recursively remove empty lists, empty dicts, or None elements from a dictionary
         or a list of dictionaries

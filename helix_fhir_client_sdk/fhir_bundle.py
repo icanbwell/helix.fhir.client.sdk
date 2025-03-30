@@ -120,6 +120,14 @@ class BundleEntry:
             ),
         )
 
+    def __repr__(self) -> str:
+        """
+        Returns a string representation of the BundleEntry object.
+
+        :return: A string representation of the BundleEntry.
+        """
+        return f"resource={self.resource}, "
+
 
 class Bundle:
     def __init__(
