@@ -291,7 +291,7 @@ class FhirGetResponse:
             ) from e
 
     @staticmethod
-    def parse_json(responses: str) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+    def parse_json(responses: str) -> Dict[str, Any] | List[Dict[str, Any]]:
         """
         Parses the json response from the fhir server
 
