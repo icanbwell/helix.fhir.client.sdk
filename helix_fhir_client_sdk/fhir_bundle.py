@@ -123,7 +123,7 @@ class Bundle:
         self,
         *,
         id_: Optional[str] = None,
-        timestamp: Optional[datetime] = None,
+        timestamp: Optional[str] = None,
         type_: str,
         entry: Optional[List[BundleEntry]] = None,
         total: Optional[int] = None,
@@ -131,19 +131,19 @@ class Bundle:
         self.entry: Optional[List[BundleEntry]] = entry
         self.total: Optional[int] = total
         self.id_: Optional[str] = id_
-        self.timestamp: Optional[datetime] = timestamp
+        self.timestamp: Optional[str] = timestamp
         self.type_: str = type_
 
     def to_dict(self) -> Dict[str, Any]:
         entries: List[Dict[str, Any]] | None = (
             [entry.to_dict() for entry in self.entry] if self.entry else None
         )
-        result: Dict[str, Any] = {}
+        result: Dict[str, Any] = {"type": self.type_, "resourceType": "Bundle"}
+
         if self.id_ is not None:
             result["id"] = self.id_
         if self.timestamp is not None:
-            result["timestamp"] = self.timestamp.isoformat()
-        result["type"] = self.type_
+            result["timestamp"] = self.timestamp
         if self.total is not None:
             result["total"] = self.total
         if entries:

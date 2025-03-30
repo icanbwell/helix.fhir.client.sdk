@@ -86,4 +86,8 @@ async def test_fhir_client_bundle_not_expanded_async() -> None:
     with open(test_path.joinpath("./practitioner_graph_sample_not_expanded.json")) as f:
         expected_response = json.load(f)
 
-    assert json.loads(response.get_response_text()) == expected_response
+    response_text = response.get_response_text()
+    print("====== Response Text ======")
+    print(response_text)
+    print("====== End Response ======")
+    assert json.loads(response_text) == expected_response

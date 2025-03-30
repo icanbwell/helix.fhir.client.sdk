@@ -147,7 +147,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             )
             bundle: Bundle = Bundle(
                 id_=child_response_resources.get("id"),
-                timestamp=(datetime.fromisoformat(timestamp) if timestamp else None),
+                timestamp=timestamp,
                 type_=child_response_resources.get("type")
                 or "collection",  # default to collection if type is not provided
                 total=child_response_resources.get("total"),
