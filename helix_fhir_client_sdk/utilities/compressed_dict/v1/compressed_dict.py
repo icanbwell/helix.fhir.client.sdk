@@ -45,6 +45,8 @@ class CompressedDict[K, V](UserDict[K, V]):
 
         self._cached_properties: Dict[K, V] = {}
 
+        self._length: int = 0
+
         # Populate initial dictionary if provided
         if initial_dict:
             self.replace(value=initial_dict)
@@ -223,11 +225,20 @@ class CompressedDict[K, V](UserDict[K, V]):
 
         self._update_serialized_dict(current_dict)
 
-    def _update_serialized_dict(self, current_dict: Dict[K, V]) -> None:
+    def _update_serialized_dict(self, current_dict: Dict[K, V] | None) -> None:
+        if current_dict is None:
+            self._cached_properties.clear()
+            self._length = 0
+            self._serialized_dict = None
+            self._raw_dict = {}
+            return
+
         if self._properties_to_cache:
             for key in self._properties_to_cache:
                 if key in current_dict:
                     self._cached_properties[key] = current_dict[key]
+
+        self._length = len(current_dict)
 
         if self._storage_mode == "raw":
             self._raw_dict = current_dict
@@ -250,6 +261,7 @@ class CompressedDict[K, V](UserDict[K, V]):
             )
         if self._storage_mode == "raw":
             del self._raw_dict[key]
+            self._update_serialized_dict(self._raw_dict)
         else:
             # For serialized modes, create a new dict
             current_dict = self._get_dict()
@@ -267,7 +279,7 @@ class CompressedDict[K, V](UserDict[K, V]):
         Returns:
             Whether the key exists
         """
-        return key in self._get_dict()
+        return self._get_dict().__contains__(key)
 
     def __len__(self) -> int:
         """
@@ -276,7 +288,7 @@ class CompressedDict[K, V](UserDict[K, V]):
         Returns:
             Number of items in the dictionary
         """
-        return len(self._get_dict())
+        return self._length
 
     def __iter__(self) -> Iterator[K]:
         """
@@ -366,6 +378,8 @@ class CompressedDict[K, V](UserDict[K, V]):
             self._raw_dict.clear()
         else:
             self._serialized_dict = None
+
+        self._update_serialized_dict(current_dict=None)
 
     def __eq__(self, other: object) -> bool:
         """

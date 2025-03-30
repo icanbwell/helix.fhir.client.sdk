@@ -35,20 +35,23 @@ class TestCompressedDict:
             initial_dict=initial_data, storage_mode=storage_mode, properties_to_cache=[]
         )
         assert cd._storage_mode == storage_mode
-        assert cd["key"] == "value"
+        with cd.access_context():
+            assert cd["key"] == "value"
 
     def test_setitem_and_getitem(self) -> None:
         """Test setting and getting items"""
         cd: CompressedDict[str, Any] = CompressedDict(
             storage_mode="compressed_msgpack", properties_to_cache=[]
         )
-        cd["key1"] = "value1"
-        cd["key2"] = 42
-        cd["key3"] = {"nested": "dict"}
+        with cd.access_context():
+            cd["key1"] = "value1"
+            cd["key2"] = 42
+            cd["key3"] = {"nested": "dict"}
 
-        assert cd["key1"] == "value1"
-        assert cd["key2"] == 42
-        assert cd["key3"] == {"nested": "dict"}
+        with cd.access_context():
+            assert cd["key1"] == "value1"
+            assert cd["key2"] == 42
+            assert cd["key3"] == {"nested": "dict"}
 
     def test_delitem(self) -> None:
         """Test deleting items"""
@@ -57,11 +60,13 @@ class TestCompressedDict:
             storage_mode="compressed_msgpack",
             properties_to_cache=[],
         )
-        del cd["a"]
+        with cd.access_context():
+            del cd["a"]
 
-        assert len(cd) == 1
-        assert "a" not in cd
-        assert "b" in cd
+            assert len(cd) == 1
+        with cd.access_context():
+            assert "a" not in cd
+            assert "b" in cd
 
     def test_contains(self) -> None:
         """Test key existence checks"""
@@ -105,10 +110,10 @@ class TestCompressedDict:
             storage_mode="compressed_msgpack",
             properties_to_cache=[],
         )
-
-        assert cd.get("a") == 1
-        assert cd.get("b") is None
-        assert cd.get("b", "default") == "default"
+        with cd.access_context():
+            assert cd.get("a") == 1
+            assert cd.get("b") is None
+            assert cd.get("b", "default") == "default"
 
     def test_to_dict(self) -> None:
         """Test conversion to standard dictionary"""
@@ -136,10 +141,10 @@ class TestCompressedDict:
                 storage_mode=cast(CompressedDictStorageMode, mode),
                 properties_to_cache=[],
             )
-
-            assert cd["nested_dict"] == {"inner_key": "inner_value"}
-            assert cd["list"] == [1, 2, 3]
-            assert cd["mixed"] == [{"a": 1}, 2, "three"]
+            with cd.access_context():
+                assert cd["nested_dict"] == {"inner_key": "inner_value"}
+                assert cd["list"] == [1, 2, 3]
+                assert cd["mixed"] == [{"a": 1}, 2, "three"]
 
     def test_repr(self) -> None:
         """Test string representation"""
@@ -163,7 +168,8 @@ class TestCompressedDict:
 
         # Test KeyError
         with pytest.raises(KeyError):
-            _ = cd["non_existent_key"]
+            with cd.access_context():
+                _ = cd["non_existent_key"]
 
     @pytest.mark.parametrize("storage_mode", ["raw", "msgpack", "compressed_msgpack"])
     def test_large_data_handling(self, storage_mode: CompressedDictStorageMode) -> None:
@@ -175,4 +181,5 @@ class TestCompressedDict:
         )
 
         assert len(cd) == 1000
-        assert cd["key_500"] == "value_500"
+        with cd.access_context():
+            assert cd["key_500"] == "value_500"

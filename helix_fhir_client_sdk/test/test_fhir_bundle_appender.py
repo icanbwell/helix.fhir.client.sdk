@@ -88,8 +88,9 @@ class TestFhirBundleAppender:
         )
 
         assert operation_outcome["resourceType"] == "OperationOutcome"
-        assert operation_outcome["issue"][0]["severity"] == "error"
-        assert operation_outcome["issue"][0]["code"] == "not-found"
+        with operation_outcome.access_context():
+            assert operation_outcome["issue"][0]["severity"] == "error"
+            assert operation_outcome["issue"][0]["code"] == "not-found"
 
     def test_get_diagnostic_coding(self) -> None:
         """Test generating diagnostic coding."""
