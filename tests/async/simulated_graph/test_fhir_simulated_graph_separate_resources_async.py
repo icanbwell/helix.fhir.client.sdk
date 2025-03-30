@@ -251,6 +251,14 @@ async def test_fhir_simulated_graph_async() -> None:
         "Observation": [{"resourceType": "Observation", "id": "8"}],
     }
 
+    expected_file_path = data_dir.joinpath("expected")
+    with open(
+        expected_file_path.joinpath(
+            "simulated_graph_with_operation_outcomes_async.json"
+        )
+    ) as f:
+        expected_json = json.load(f)
+
     result = json.loads(response_text1)
     result = dict(sorted(result.items()))
     expected_json = dict(sorted(expected_json.items()))

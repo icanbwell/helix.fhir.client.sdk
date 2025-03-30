@@ -288,3 +288,28 @@ class FhirBundleAppender:
             key=fn_sort,
         )
         return bundle
+
+    @staticmethod
+    def sort_resources_in_list(
+        *,
+        resources: List[Dict[str, Any]],
+        fn_sort: Callable[[Dict[str, Any]], str] | None = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Sorts the resources in the bundle
+
+        :param resources: The resources to sort
+        :param fn_sort: The function to use to sort the resources (Optional).  if not provided, the resources will be sorted by resourceType/id
+        """
+        if not resources:
+            return resources
+
+        if not fn_sort:
+            fn_sort = lambda r: (
+                (r.get("resourceType", "") + "/" + r.get("id", "")) if r else ""
+            )
+        resources = sorted(
+            resources,
+            key=fn_sort,
+        )
+        return resources

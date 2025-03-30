@@ -6,6 +6,7 @@ from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntryRequest,
     BundleEntryResponse,
 )
+from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
@@ -204,3 +205,11 @@ class FhirGetListResponse(FhirGetResponse):
             if self._resources
             else "[]"
         )
+
+    @override
+    def sort_resources(self) -> "FhirGetListResponse":
+        if self._resources:
+            self._resources = FhirBundleAppender.sort_resources_in_list(
+                resources=self._resources
+            )
+        return self

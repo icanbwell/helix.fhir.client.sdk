@@ -283,6 +283,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         bundle: Bundle = self.create_bundle()
         return bundle.to_json()
 
+    @override
     def sort_resources(self) -> "FhirGetBundleResponse":
         bundle: Bundle = self.create_bundle()
         bundle = FhirBundleAppender.sort_resources(bundle=bundle)

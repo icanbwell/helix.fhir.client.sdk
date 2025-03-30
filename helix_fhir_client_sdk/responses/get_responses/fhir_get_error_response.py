@@ -207,3 +207,7 @@ class FhirGetErrorResponse(FhirGetResponse):
             )
 
         return response_json
+
+    @override
+    def sort_resources(self) -> "FhirGetErrorResponse":
+        return self

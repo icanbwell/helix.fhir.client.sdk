@@ -22,7 +22,7 @@ async def test_fhir_simulated_graph_async() -> None:
         contents = file.read()
         graph_json = json.loads(contents)
 
-    test_name = "test_fhir_simulated_graph_async"
+    test_name = test_fhir_simulated_graph_async.__name__
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
@@ -110,58 +110,9 @@ async def test_fhir_simulated_graph_async() -> None:
     assert response is not None
     print(response.get_response_text())
 
-    expected_json: Dict[str, Any] = {
-        "resourceType": "Bundle",
-        "total": 5,
-        "type": "collection",
-        "entry": [
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_async/Patient/1",
-                },
-                "resource": {
-                    "generalPractitioner": [{"reference": "Practitioner/5"}],
-                    "id": "1",
-                    "managingOrganization": {"reference": "Organization/6"},
-                    "resourceType": "Patient",
-                },
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_async/Practitioner/5",
-                },
-                "resource": {"id": "5", "resourceType": "Practitioner"},
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_async/Organization/6",
-                },
-                "resource": {"id": "6", "resourceType": "Organization"},
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_async/Coverage?patient=1",
-                },
-                "resource": {"id": "7", "resourceType": "Coverage"},
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_async/Observation?patient=1&category=vital-signs,social-history,laboratory",
-                },
-                "resource": {"id": "8", "resourceType": "Observation"},
-                "response": {"status": "200"},
-            },
-        ],
-    }
+    expected_file_path = data_dir.joinpath("expected")
+    with open(expected_file_path.joinpath(test_name + ".json")) as f:
+        expected_json = json.load(f)
 
     bundle: Dict[str, Any] = json.loads(response.get_response_text())
     bundle["entry"] = [

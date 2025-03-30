@@ -185,3 +185,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
                 resource_map[resource_type].append(resource)
         return resource_map
+
+    @override
+    def sort_resources(self) -> "FhirGetListByResourceTypeResponse":
+        return self

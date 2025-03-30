@@ -347,6 +347,13 @@ async def test_fhir_simulated_graph_caching_async() -> None:
             },
         ],
     }
+    expected_file_path = data_dir.joinpath("expected")
+    with open(
+        expected_file_path.joinpath(
+            "simulated_graph_with_operation_outcomes_async.json"
+        )
+    ) as f:
+        expected_json = json.load(f)
 
     bundle = json.loads(response.get_response_text())
     bundle["entry"] = [

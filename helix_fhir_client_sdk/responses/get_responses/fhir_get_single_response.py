@@ -173,3 +173,7 @@ class FhirGetSingleResponse(FhirGetResponse):
         :return: response text
         """
         return json.dumps(self._resource, cls=FhirJSONEncoder)
+
+    @override
+    def sort_resources(self) -> "FhirGetSingleResponse":
+        return self

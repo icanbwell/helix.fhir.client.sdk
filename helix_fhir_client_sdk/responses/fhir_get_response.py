@@ -376,3 +376,6 @@ class FhirGetResponse:
         """
         resources = self.get_resources()
         return len(resources) > 0
+
+    @abstractmethod
+    def sort_resources(self) -> "FhirGetResponse": ...
