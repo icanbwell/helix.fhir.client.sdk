@@ -128,3 +128,11 @@ show_dependency_graph:
 .PHONY:qodana
 qodana:
 	docker run --rm -it --name qodana --mount type=bind,source="$(pwd)",target=/data/project -p 8080:8080 jetbrains/qodana-python:2023.2 --show-report
+
+.PHONY: install_types
+install_types: Pipfile
+	docker compose run --rm --name helix.fhir.client.sdk dev pipenv run mypy --install-types --non-interactive
+
+.PHONY: mypy
+mypy:
+	docker compose run --rm --name helix.fhir.client.sdk dev sh -c "mypy . -v"
