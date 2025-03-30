@@ -38,6 +38,7 @@ class TestFhirGetResponseFactory:
             "cache_hits": 0,
             "results_by_url": [],
             "error": None,
+            "storage_mode": "compressed_msgpack",
         }
 
     def test_create_error_response(self, default_params: Dict[str, Any]) -> None:

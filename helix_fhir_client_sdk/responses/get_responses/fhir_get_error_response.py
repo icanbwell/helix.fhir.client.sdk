@@ -160,7 +160,11 @@ class FhirGetErrorResponse(FhirGetResponse):
 
         :return: response text
         """
-        return json.dumps(self._resource, cls=FhirJSONEncoder)
+        return (
+            json.dumps(self._resource.to_dict(), cls=FhirJSONEncoder)
+            if self._resource
+            else ""
+        )
 
     @classmethod
     def _parse_response_text(

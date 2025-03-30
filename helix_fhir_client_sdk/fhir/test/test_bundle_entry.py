@@ -69,10 +69,13 @@ class TestBundleEntry:
         """Test creating from dictionary with minimal parameters."""
         data = {"resource": {"resourceType": "Patient"}}
         entry = BundleEntry.from_dict(data, storage_mode="compressed_msgpack")
-        assert entry.resource == {"resourceType": "Patient"}
-        assert entry.request is None
-        assert entry.response is None
-        assert entry.fullUrl is None
+
+        assert entry.resource is not None
+        with entry.resource.transaction():
+            assert entry.resource == {"resourceType": "Patient"}
+            assert entry.request is None
+            assert entry.response is None
+            assert entry.fullUrl is None
 
     def test_from_dict_full(self) -> None:
         """Test creating from dictionary with all parameters."""
@@ -88,12 +91,14 @@ class TestBundleEntry:
             },
         }
         entry = BundleEntry.from_dict(data, storage_mode="compressed_msgpack")
-        assert entry.fullUrl == "https://example.com/Patient/123"
-        assert entry.resource == {"resourceType": "Patient", "id": "123"}
-        assert entry.request is not None
-        assert entry.request.url == "https://example.com"
-        assert entry.response is not None
-        assert entry.response.status == "200"
+        assert entry.resource is not None
+        with entry.resource.transaction():
+            assert entry.fullUrl == "https://example.com/Patient/123"
+            assert entry.resource == {"resourceType": "Patient", "id": "123"}
+            assert entry.request is not None
+            assert entry.request.url == "https://example.com"
+            assert entry.response is not None
+            assert entry.response.status == "200"
 
     def test_repr(self) -> None:
         """Test string representation of BundleEntry."""
@@ -103,7 +108,4 @@ class TestBundleEntry:
             request=None,
             response=None,
         )
-        assert (
-            repr(entry)
-            == "resource=CompressedDict(storage_mode='raw', items={'resourceType': 'Patient', 'id': '123'})"
-        )
+        assert repr(entry) == "resource=CompressedDict(storage_mode='raw', items=2)"

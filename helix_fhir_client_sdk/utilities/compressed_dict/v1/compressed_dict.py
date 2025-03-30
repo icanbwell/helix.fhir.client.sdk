@@ -67,18 +67,7 @@ class CompressedDict[K, V](UserDict[K, V]):
             CompressedDictAccessError: If methods are called outside the context
         """
         try:
-            # Deserialize the dictionary before entering the context
-            if self._storage_mode == "raw":
-                # For raw mode, create a deep copy of the existing dictionary
-                self._working_dict = self._raw_dict
-            else:
-                # For serialized modes, deserialize
-                compressed = self._storage_mode == "compressed_msgpack"
-                self._working_dict = (
-                    self._deserialize_dict(self._serialized_dict, compressed)
-                    if self._serialized_dict
-                    else {}
-                )
+            self.ensure_working_dict()
 
             # Yield the working dictionary
             yield self
@@ -88,6 +77,24 @@ class CompressedDict[K, V](UserDict[K, V]):
 
             # Clear the working dictionary
             self._working_dict = None
+
+    def ensure_working_dict(self) -> None:
+        """
+        Ensures that the working dictionary is initialized and deserialized.
+
+        """
+        # Deserialize the dictionary before entering the context
+        if self._storage_mode == "raw":
+            # For raw mode, create a deep copy of the existing dictionary
+            self._working_dict = self._raw_dict
+        else:
+            # For serialized modes, deserialize
+            compressed = self._storage_mode == "compressed_msgpack"
+            self._working_dict = (
+                self._deserialize_dict(self._serialized_dict, compressed)
+                if self._serialized_dict
+                else {}
+            )
 
     @staticmethod
     def _serialize_dict(dictionary: Dict[K, V], compressed: bool = False) -> bytes:
@@ -174,9 +181,8 @@ class CompressedDict[K, V](UserDict[K, V]):
             Value associated with the key
         """
 
-        result: V | None = self._cached_properties.get(key)
-        if result is not None:
-            return result
+        if self._properties_to_cache and key in self._properties_to_cache:
+            return self._cached_properties[key]
 
         if self._working_dict is None:
             raise CompressedDictAccessError(
@@ -257,6 +263,10 @@ class CompressedDict[K, V](UserDict[K, V]):
         Returns:
             Whether the key exists
         """
+        # first check if the key is in the cached properties
+        if self._properties_to_cache and key in self._properties_to_cache:
+            return self._cached_properties.__contains__(key)
+
         return self._get_dict().__contains__(key)
 
     def __len__(self) -> int:
@@ -316,7 +326,8 @@ class CompressedDict[K, V](UserDict[K, V]):
         Returns:
             Standard dictionary with all values
         """
-        return dict(self._get_dict())
+        self.ensure_working_dict()
+        return self._get_dict()
 
     def __repr__(self) -> str:
         """

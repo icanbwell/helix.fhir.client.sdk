@@ -73,7 +73,7 @@ class TestFhirGetListByResourceTypeResponse:
 
     def test_parse_resources(self, sample_resources: List[FhirResource]) -> None:
         """Test parsing resources from JSON string."""
-        resources_json = json.dumps(sample_resources)
+        resources_json = json.dumps([r.to_dict() for r in sample_resources])
         parsed_resources = FhirGetListByResourceTypeResponse._parse_resources(
             responses=resources_json
         )
@@ -116,6 +116,7 @@ class TestFhirGetListByResourceTypeResponse:
         mock_response.chunk_number = 1
         mock_response.cache_hits = 0
         mock_response.get_resources.return_value = sample_resources
+        mock_response.storage_mode = "compressed_msgpack"
 
         bundle_response: FhirGetListByResourceTypeResponse = cast(
             FhirGetListByResourceTypeResponse,

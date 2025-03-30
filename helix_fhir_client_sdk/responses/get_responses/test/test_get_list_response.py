@@ -158,6 +158,7 @@ class TestFhirGetListResponse:
         mock_response.get_resources.return_value = [
             {"resourceType": "Patient", "id": "123"}
         ]
+        mock_response.storage_mode = "compressed_msgpack"
 
         list_response = FhirGetListResponse.from_response(mock_response)
         assert list_response.request_id == "test-request"

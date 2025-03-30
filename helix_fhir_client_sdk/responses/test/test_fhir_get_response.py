@@ -1,18 +1,60 @@
 import json
 from datetime import datetime, UTC
-from typing import Dict, Any, List, AsyncGenerator
+from typing import Dict, Any, List, AsyncGenerator, Optional, Union
 
 import pytest
 
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+    CompressedDictStorageMode,
+)
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
+    RetryableAioHttpUrlResult,
+)
 
 
 # Concrete implementation of FhirGetResponse for testing
 class TestFhirGetResponse(FhirGetResponse):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        *,
+        request_id: Optional[str],
+        url: str,
+        error: Optional[str],
+        access_token: Optional[str],
+        total_count: Optional[int],
+        status: int,
+        next_url: Optional[str] = None,
+        extra_context_to_return: Optional[Dict[str, Any]],
+        resource_type: Optional[str],
+        id_: Optional[Union[List[str], str]],
+        response_headers: Optional[
+            List[str]
+        ],  # header name and value separated by a colon
+        chunk_number: Optional[int] = None,
+        cache_hits: Optional[int] = None,
+        results_by_url: List[RetryableAioHttpUrlResult],
+        storage_mode: CompressedDictStorageMode
+    ) -> None:
+        super().__init__(
+            request_id=request_id,
+            url=url,
+            error=error,
+            access_token=access_token,
+            total_count=total_count,
+            status=status,
+            next_url=next_url,
+            extra_context_to_return=extra_context_to_return,
+            resource_type=resource_type,
+            id_=id_,
+            response_headers=response_headers,
+            chunk_number=chunk_number,
+            cache_hits=cache_hits,
+            results_by_url=results_by_url,
+            storage_mode=storage_mode,
+        )
         self._resources: List[FhirResource] = []
         self._bundle_entries: List[BundleEntry] = []
 
@@ -60,6 +102,7 @@ class TestFhirGetResponse(FhirGetResponse):
             chunk_number=other_response.chunk_number,
             cache_hits=other_response.cache_hits,
             results_by_url=other_response.results_by_url,
+            storage_mode=other_response.storage_mode,
         )
 
     def get_response_text(self) -> str:
@@ -91,6 +134,7 @@ class TestFhirGetResponseClass:
             "chunk_number": 1,
             "cache_hits": 0,
             "results_by_url": [],
+            "storage_mode": "compressed_msgpack",
         }
 
     def test_init(self, sample_response_data: Dict[str, Any]) -> None:
@@ -155,6 +199,7 @@ class TestFhirGetResponseClass:
                 chunk_number=1,
                 cache_hits=0,
                 results_by_url=[],
+                storage_mode="compressed_msgpack",
             )
             response2: FhirGetResponse = TestFhirGetResponse(
                 request_id="test2",
@@ -171,6 +216,7 @@ class TestFhirGetResponseClass:
                 chunk_number=2,
                 cache_hits=0,
                 results_by_url=[],
+                storage_mode="compressed_msgpack",
             )
             yield response1
             yield response2

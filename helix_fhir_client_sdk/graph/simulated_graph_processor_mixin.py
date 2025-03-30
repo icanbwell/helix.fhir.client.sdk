@@ -503,34 +503,38 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             child_ids = []
             for parent_bundle_entry in parent_bundle_entries:
                 parent_resource = parent_bundle_entry.resource
-                reference = parent_resource.get(path, None) if parent_resource else None
-                if parent_resource and reference and "reference" in reference:
-                    parent_ids.append(parent_resource.get("id", ""))
-                    parent_resource_type = parent_resource.get("resourceType", "")
-                    reference_id = reference["reference"]
-                    reference_parts = reference_id.split("/")
-                    if (
-                        reference_parts[0] == target_type
-                        and reference_parts[1]
-                        and reference_parts[1] not in child_ids
-                    ):
-                        child_ids.append(reference_parts[1])
-                    if request_size and len(child_ids) == request_size:
-                        child_response = await self._process_child_group(
-                            resource_type=target_type,
-                            id_=child_ids,
-                            parent_ids=parent_ids,
-                            parent_resource_type=parent_resource_type,
-                            path=path,
-                            cache=cache,
-                            scope_parser=scope_parser,
-                            logger=logger,
-                            id_search_unsupported_resources=id_search_unsupported_resources,
-                        )
-                        yield child_response
-                        children.extend(child_response.get_bundle_entries())
-                        child_ids = []
-                        parent_ids = []
+                if parent_resource is not None:
+                    with parent_resource.transaction():
+                        reference = parent_resource.get(path, None)
+                        if reference and "reference" in reference:
+                            parent_ids.append(parent_resource.get("id", ""))
+                            parent_resource_type = parent_resource.get(
+                                "resourceType", ""
+                            )
+                            reference_id = reference["reference"]
+                            reference_parts = reference_id.split("/")
+                            if (
+                                reference_parts[0] == target_type
+                                and reference_parts[1]
+                                and reference_parts[1] not in child_ids
+                            ):
+                                child_ids.append(reference_parts[1])
+                            if request_size and len(child_ids) == request_size:
+                                child_response = await self._process_child_group(
+                                    resource_type=target_type,
+                                    id_=child_ids,
+                                    parent_ids=parent_ids,
+                                    parent_resource_type=parent_resource_type,
+                                    path=path,
+                                    cache=cache,
+                                    scope_parser=scope_parser,
+                                    logger=logger,
+                                    id_search_unsupported_resources=id_search_unsupported_resources,
+                                )
+                                yield child_response
+                                children.extend(child_response.get_bundle_entries())
+                                child_ids = []
+                                parent_ids = []
             if child_ids:
                 child_response = await self._process_child_group(
                     resource_type=target_type,
