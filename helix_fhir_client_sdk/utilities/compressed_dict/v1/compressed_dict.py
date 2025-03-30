@@ -14,7 +14,6 @@ class CompressedDict[K, V]:
     ):
         """
         Initialize a dictionary with flexible storage options
-
         Args:
             initial_dict: Initial dictionary to store
             storage_mode: Storage method for dictionary contents
@@ -27,7 +26,7 @@ class CompressedDict[K, V]:
 
         # Private storage options
         self._raw_dict: Dict[K, V] = {}
-        self._serialized_dict: Dict[K, bytes] = {}
+        self._serialized_dict: Optional[bytes] = None
 
         # Populate initial dictionary if provided
         if initial_dict:
@@ -35,12 +34,12 @@ class CompressedDict[K, V]:
                 self[key] = value
 
     @staticmethod
-    def _serialize_value(value: V, compressed: bool = False) -> bytes:
+    def _serialize_dict(dictionary: Dict[K, V], compressed: bool = False) -> bytes:
         """
-        Serialize a value using MessagePack
+        Serialize entire dictionary using MessagePack
 
         Args:
-            value: Value to serialize
+            dictionary: Dictionary to serialize
             compressed: Whether to apply compression
 
         Returns:
@@ -48,7 +47,7 @@ class CompressedDict[K, V]:
         """
         # Serialize using MessagePack
         packed = msgpack.packb(
-            value,
+            dictionary,
             use_bin_type=True,  # Preserve string/bytes distinction
             use_single_float=True,  # More compact float representation
         )
@@ -60,25 +59,27 @@ class CompressedDict[K, V]:
         return packed
 
     @staticmethod
-    def _deserialize_value(serialized_value: bytes, compressed: bool = False) -> V:
+    def _deserialize_dict(
+        serialized_dict: bytes, compressed: bool = False
+    ) -> Dict[K, V]:
         """
-        Deserialize a value from MessagePack
+        Deserialize entire dictionary from MessagePack
 
         Args:
-            serialized_value: Serialized value bytes
-            compressed: Whether the value was compressed
+            serialized_dict: Serialized dictionary bytes
+            compressed: Whether the dictionary was compressed
 
         Returns:
-            Deserialized value
+            Deserialized dictionary
         """
+        assert serialized_dict is not None, "Serialized dictionary cannot be None"
+
         # Decompress if needed
-        to_unpack = (
-            zlib.decompress(serialized_value) if compressed else serialized_value
-        )
+        to_unpack = zlib.decompress(serialized_dict) if compressed else serialized_dict
 
         # Deserialize
         return cast(
-            V,
+            Dict[K, V],
             msgpack.unpackb(
                 to_unpack,
                 raw=False,  # Convert to strings
@@ -86,9 +87,30 @@ class CompressedDict[K, V]:
             ),
         )
 
+    def _get_dict(self) -> Dict[K, V]:
+        """
+        Get the dictionary, deserializing if necessary
+
+        Returns:
+            Current dictionary state
+        """
+        if self._storage_mode == "raw":
+            return self._raw_dict
+
+        # Deserialize based on storage mode
+        compressed: bool = self._storage_mode == "compressed_msgpack"
+        deserialized: Dict[K, V] = (
+            self._deserialize_dict(self._serialized_dict, compressed)
+            if self._serialized_dict
+            else {}
+        )
+
+        # For non-raw modes, do not keep deserialized dict
+        return deserialized
+
     def __getitem__(self, key: K) -> V:
         """
-        Retrieve a value based on storage mode
+        Retrieve a value
 
         Args:
             key: Dictionary key
@@ -96,47 +118,37 @@ class CompressedDict[K, V]:
         Returns:
             Value associated with the key
         """
-        # Raw storage mode
-        if self._storage_mode == "raw":
-            return self._raw_dict[key]
-
-        # Serialized storage modes
-        if key not in self._serialized_dict:
-            raise KeyError(key)
-
-        # Deserialize based on storage mode
-        if self._storage_mode == "msgpack":
-            return self._deserialize_value(self._serialized_dict[key], compressed=False)
-        elif self._storage_mode == "compressed_msgpack":
-            return self._deserialize_value(self._serialized_dict[key], compressed=True)
-
-        raise ValueError(f"Invalid storage mode: {self._storage_mode}")
+        return self._get_dict()[key]
 
     def __setitem__(self, key: K, value: V) -> None:
         """
-        Set a value based on storage mode
+        Set a value
 
         Args:
             key: Dictionary key
             value: Value to store
         """
-        # Reset previous storage
         if self._storage_mode == "raw":
+            # Direct storage for raw mode
             self._raw_dict[key] = value
-            # Ensure serialized dict is cleared for this key
-            self._serialized_dict.pop(key, None)
-        elif self._storage_mode == "msgpack":
-            self._serialized_dict[key] = self._serialize_value(value, compressed=False)
-            # Ensure raw dict is cleared for this key
-            self._raw_dict.pop(key, None)
-        elif self._storage_mode == "compressed_msgpack":
-            self._serialized_dict[key] = self._serialize_value(value, compressed=True)
-            # Ensure raw dict is cleared for this key
-            self._raw_dict.pop(key, None)
+        else:
+            # For serialized modes, create a new dict
+            current_dict = self._get_dict()
+            current_dict[key] = value
+
+            # Reserialize
+            if self._storage_mode == "msgpack":
+                self._serialized_dict = self._serialize_dict(
+                    current_dict, compressed=False
+                )
+            elif self._storage_mode == "compressed_msgpack":
+                self._serialized_dict = self._serialize_dict(
+                    current_dict, compressed=True
+                )
 
     def __delitem__(self, key: K) -> None:
         """
-        Delete an item based on storage mode
+        Delete an item
 
         Args:
             key: Key to delete
@@ -144,11 +156,23 @@ class CompressedDict[K, V]:
         if self._storage_mode == "raw":
             del self._raw_dict[key]
         else:
-            del self._serialized_dict[key]
+            # For serialized modes, create a new dict
+            current_dict = self._get_dict()
+            del current_dict[key]
+
+            # Reserialize
+            if self._storage_mode == "msgpack":
+                self._serialized_dict = self._serialize_dict(
+                    current_dict, compressed=False
+                )
+            elif self._storage_mode == "compressed_msgpack":
+                self._serialized_dict = self._serialize_dict(
+                    current_dict, compressed=True
+                )
 
     def __contains__(self, key: object) -> bool:
         """
-        Check if a key exists based on storage mode
+        Check if a key exists
 
         Args:
             key: Key to check
@@ -156,9 +180,7 @@ class CompressedDict[K, V]:
         Returns:
             Whether the key exists
         """
-        if self._storage_mode == "raw":
-            return key in self._raw_dict
-        return key in self._serialized_dict
+        return key in self._get_dict()
 
     def __len__(self) -> int:
         """
@@ -167,9 +189,7 @@ class CompressedDict[K, V]:
         Returns:
             Number of items in the dictionary
         """
-        if self._storage_mode == "raw":
-            return len(self._raw_dict)
-        return len(self._serialized_dict)
+        return len(self._get_dict())
 
     def __iter__(self) -> Iterator[K]:
         """
@@ -178,9 +198,7 @@ class CompressedDict[K, V]:
         Returns:
             Iterator of keys
         """
-        if self._storage_mode == "raw":
-            return iter(self._raw_dict)
-        return iter(self._serialized_dict)
+        return iter(self._get_dict())
 
     def keys(self) -> Iterator[K]:
         """
@@ -189,7 +207,8 @@ class CompressedDict[K, V]:
         Returns:
             Iterator of keys
         """
-        return self.__iter__()
+        for k in self._get_dict().keys():
+            yield k
 
     def values(self) -> Iterator[V]:
         """
@@ -198,16 +217,8 @@ class CompressedDict[K, V]:
         Returns:
             Iterator of values
         """
-        if self._storage_mode == "raw":
-            for key, value in self._raw_dict.items():
-                yield value
-
-        # Deserialize values based on storage mode
-        for serialized_value in self._serialized_dict.values():
-            if self._storage_mode == "msgpack":
-                yield self._deserialize_value(serialized_value, compressed=False)
-            elif self._storage_mode == "compressed_msgpack":
-                yield self._deserialize_value(serialized_value, compressed=True)
+        for v in self._get_dict().values():
+            yield v
 
     def items(self) -> Iterator[Tuple[K, V]]:
         """
@@ -216,16 +227,8 @@ class CompressedDict[K, V]:
         Returns:
             Iterator of key-value pairs
         """
-        if self._storage_mode == "raw":
-            for key, value in self._raw_dict.items():
-                yield key, value
-
-        # Deserialize values based on storage mode
-        for key, serialized_value in self._serialized_dict.items():
-            if self._storage_mode == "msgpack":
-                yield key, self._deserialize_value(serialized_value, compressed=False)
-            elif self._storage_mode == "compressed_msgpack":
-                yield key, self._deserialize_value(serialized_value, compressed=True)
+        for c in self._get_dict().items():
+            yield c
 
     def get(self, key: K, default: Optional[V] = None) -> Optional[V]:
         """
@@ -238,10 +241,7 @@ class CompressedDict[K, V]:
         Returns:
             Value or default
         """
-        try:
-            return self[key]
-        except KeyError:
-            return default
+        return self._get_dict().get(key, default)
 
     def to_dict(self) -> Dict[K, V]:
         """
@@ -250,21 +250,21 @@ class CompressedDict[K, V]:
         Returns:
             Standard dictionary with all values
         """
-        return dict(self.items())
+        return dict(self._get_dict())
 
     @classmethod
     def from_dict(
         cls, input_dict: Dict[K, V], storage_mode: CompressedDictStorageMode = "raw"
     ) -> "CompressedDict[K, V]":
         """
-        Create a MsgPackDict from a standard dictionary
+        Create a CompressedDict from a standard dictionary
 
         Args:
             input_dict: Input dictionary
             storage_mode: Storage mode to use
 
         Returns:
-            MsgPackDict instance
+            CompressedDict instance
         """
         return cls(input_dict, storage_mode=storage_mode)
 
@@ -275,7 +275,8 @@ class CompressedDict[K, V]:
         Returns:
             String representation
         """
+        dict_contents = self._get_dict()
         return (
-            f"MsgPackDict(storage_mode='{self._storage_mode}', "
-            f"items={dict(self.items())})"
+            f"CompressedDict(storage_mode='{self._storage_mode}', "
+            f"items={dict_contents})"
         )
