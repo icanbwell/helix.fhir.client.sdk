@@ -25,7 +25,7 @@ from helix_fhir_client_sdk.graph.graph_target_parameters import GraphTargetParam
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.responses.fhir_get_response_factory import (
+from helix_fhir_client_sdk.responses.get_responses.fhir_get_response_factory import (
     FhirGetResponseFactory,
 )
 from helix_fhir_client_sdk.utilities.async_parallel_processor.v1.async_parallel_processor import (

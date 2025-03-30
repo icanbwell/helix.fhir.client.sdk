@@ -1,11 +1,13 @@
 from typing import Optional, Dict, Any, Union, List
 
-from helix_fhir_client_sdk.responses.fhir_get_bundle_response import (
+from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
-from helix_fhir_client_sdk.responses.fhir_get_list_response import FhirListGetResponse
+from helix_fhir_client_sdk.responses.get_responses.fhir_get_list_response import (
+    FhirListGetResponse,
+)
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.responses.fhir_get_single_response import (
+from helix_fhir_client_sdk.responses.get_responses.fhir_get_single_response import (
     FhirSingleGetResponse,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (

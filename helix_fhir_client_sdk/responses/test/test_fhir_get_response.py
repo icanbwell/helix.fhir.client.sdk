@@ -5,7 +5,7 @@ from typing import List
 
 from helix_fhir_client_sdk.fhir_bundle import BundleEntry
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.responses.fhir_get_response_factory import (
+from helix_fhir_client_sdk.responses.get_responses.fhir_get_response_factory import (
     FhirGetResponseFactory,
 )
 

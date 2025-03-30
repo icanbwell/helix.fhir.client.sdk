@@ -60,7 +60,7 @@ class FhirSingleGetResponse(FhirGetResponse):
         self._resource: Optional[Dict[str, Any]] = self._parse_single_resource()
 
     @override
-    def append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
+    def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
         """
         Append the responses from other to self
 
@@ -70,7 +70,7 @@ class FhirSingleGetResponse(FhirGetResponse):
         raise NotImplementedError("FhirSingleGetResponse does not support append")
 
     @override
-    def extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
+    def _extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
         """
         Append the responses from other to self
 

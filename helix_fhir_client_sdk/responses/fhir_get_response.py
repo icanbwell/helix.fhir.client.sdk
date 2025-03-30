@@ -95,6 +95,9 @@ class FhirGetResponse:
         self.results_by_url: List[RetryableAioHttpUrlResult] = results_by_url
         """ Count of errors in the response by status """
 
+    @abstractmethod
+    def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse": ...
+
     def append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
         """
         Append the responses from other to self
@@ -102,6 +105,9 @@ class FhirGetResponse:
         :param other_response: FhirGetResponse object to append to current one
         :return: self
         """
+
+        self._append(other_response=other_response)
+
         if other_response.chunk_number and (other_response.chunk_number or 0) > (
             self.chunk_number or 0
         ):
@@ -119,6 +125,9 @@ class FhirGetResponse:
 
         return self
 
+    @abstractmethod
+    def _extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse": ...
+
     def extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
         """
         Append the responses from other to self
@@ -126,6 +135,8 @@ class FhirGetResponse:
         :param others: list of FhirGetResponse objects
         :return: self
         """
+        self._extend(others=others)
+
         latest_chunk_number: List[int] = sorted(
             [o.chunk_number for o in others if o.chunk_number], reverse=True
         )
