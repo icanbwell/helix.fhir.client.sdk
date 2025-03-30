@@ -118,7 +118,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 logger=logger,
                 id_search_unsupported_resources=id_search_unsupported_resources,
             )
-            if not parent_response.responses:
+            if not parent_response.has_resources():
                 yield parent_response
                 return  # no resources to process
 

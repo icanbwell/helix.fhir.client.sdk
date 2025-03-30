@@ -89,7 +89,7 @@ async def test_async_real_fhir_server_get_patients_large(
         response = await fhir_client.get_async()
         assert response.response_headers is not None
         assert "Content-Encoding:gzip" in response.response_headers
-        response_text = response.responses
+        response_text = response.get_response_text()
         bundle = json.loads(response_text)
         assert "entry" in bundle, bundle
         responses_: List[Any] = [r["resource"] for r in bundle["entry"]]

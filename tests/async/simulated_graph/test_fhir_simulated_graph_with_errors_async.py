@@ -102,7 +102,7 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
         )
     )
     assert response is not None
-    print(response.responses)
+    print(response.get_response_text())
 
     assert response.url == f"http://mock-server:1080/{test_name}"
     assert response.extra_context_to_return == {"slug": "1234"}
@@ -281,7 +281,7 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
         ]
     }
 
-    bundle = json.loads(response.responses)
+    bundle = json.loads(response.get_response_text())
     # sort the entries by request url
     bundle["entry"] = sorted(
         bundle["entry"],

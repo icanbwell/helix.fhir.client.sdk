@@ -66,7 +66,7 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
     )
     fhir_client = fhir_client.use_data_streaming(use_data_streaming)
     response: FhirGetResponse = await fhir_client.get_async()
-    response_text = response.responses
+    response_text = response.get_response_text()
 
     assert response.status == 200, response_text
     print("----- response_text -----")

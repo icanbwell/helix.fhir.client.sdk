@@ -1,3 +1,5 @@
+import json
+from datetime import datetime
 from typing import Optional, Dict, Any, List, Union, cast, override
 
 from helix_fhir_client_sdk.fhir_bundle import (
@@ -45,7 +47,6 @@ class FhirGetBundleResponse(FhirGetResponse):
         super().__init__(
             request_id=request_id,
             url=url,
-            responses=responses,
             error=error,
             access_token=access_token,
             total_count=total_count,
@@ -59,7 +60,13 @@ class FhirGetBundleResponse(FhirGetResponse):
             cache_hits=cache_hits,
             results_by_url=results_by_url,
         )
-        self._bundle_entries: List[BundleEntry] = self._parse_bundle_entries()
+        self._bundle_entries: List[BundleEntry] = self._parse_bundle_entries(
+            responses=responses,
+            url=url,
+            status=status,
+            last_modified=self.lastModified,
+            etag=self.etag,
+        )
 
     @override
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
@@ -105,27 +112,34 @@ class FhirGetBundleResponse(FhirGetResponse):
     def get_bundle_entries(self) -> List[BundleEntry]:
         return self._bundle_entries
 
-    def _parse_bundle_entries(self) -> List[BundleEntry]:
+    @classmethod
+    def _parse_bundle_entries(
+        cls,
+        *,
+        responses: str,
+        url: str,
+        status: int,
+        last_modified: Optional[datetime],
+        etag: Optional[str],
+    ) -> List[BundleEntry]:
         """
         Gets the Bundle entries from the response
 
 
         :return: list of bundle entries
         """
-        if not self.responses:
-            return []
         try:
             # THis is either a list of resources or a Bundle resource containing a list of resources
             child_response_resources: Union[Dict[str, Any], List[Dict[str, Any]]] = (
-                self.parse_json(self.responses)
+                cls.parse_json(responses)
             )
 
             # use these if the bundle entry does not have them
-            request: BundleEntryRequest = BundleEntryRequest(url=self.url)
+            request: BundleEntryRequest = BundleEntryRequest(url=url)
             response: BundleEntryResponse = BundleEntryResponse(
-                status=str(self.status),
-                lastModified=self.lastModified,
-                etag=self.etag,
+                status=str(status),
+                lastModified=last_modified,
+                etag=etag,
             )
             # if it is a list of resources then wrap them in a bundle entry and return them
             if isinstance(child_response_resources, list):
@@ -168,9 +182,7 @@ class FhirGetBundleResponse(FhirGetResponse):
                     )
                 ]
         except Exception as e:
-            raise Exception(
-                f"Could not get bundle entries from: {self.responses}"
-            ) from e
+            raise Exception(f"Could not get bundle entries from: {responses}") from e
 
     def create_bundle(self) -> Bundle:
         bundle_entries: List[BundleEntry] = self.get_bundle_entries()
@@ -185,15 +197,15 @@ class FhirGetBundleResponse(FhirGetResponse):
         removes duplicate resources from the response i.e., resources with same resourceType and id
 
         """
+        bundle: Bundle = self.create_bundle()
         try:
-            bundle: Bundle = self.create_bundle()
             # remove duplicates from the bundle
             # this will remove duplicates from the bundle and return a new bundle
             # with the duplicates removed
             bundle = FhirBundleAppender.remove_duplicate_resources(bundle=bundle)
             self._bundle_entries = bundle.entry or []
         except Exception as e:
-            raise Exception(f"Could not get parse json from: {self.responses}") from e
+            raise Exception(f"Could not get parse json from: {bundle}") from e
 
     @classmethod
     @override
@@ -201,7 +213,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         response: FhirGetBundleResponse = FhirGetBundleResponse(
             request_id=other_response.request_id,
             url=other_response.url,
-            responses=other_response.responses,
+            responses=other_response.get_response_text(),
             error=other_response.error,
             access_token=other_response.access_token,
             total_count=other_response.total_count,
@@ -217,3 +229,13 @@ class FhirGetBundleResponse(FhirGetResponse):
         )
         response._bundle_entries = other_response.get_bundle_entries()
         return response
+
+    @override
+    def get_response_text(self) -> str:
+        """
+        Gets the response text from the response
+
+        :return: response text
+        """
+        bundle: Bundle = self.create_bundle()
+        return json.dumps(bundle.to_dict())

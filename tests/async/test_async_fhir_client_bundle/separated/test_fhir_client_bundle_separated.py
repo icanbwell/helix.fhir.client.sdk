@@ -88,4 +88,4 @@ async def test_fhir_client_bundle_separated_async() -> None:
     with open(test_path.joinpath("./practitioner_graph_sample_separated.json")) as f:
         expected_response = json.load(f)
 
-    assert json.loads(response.responses) == expected_response
+    assert json.loads(response.get_response_text()) == expected_response

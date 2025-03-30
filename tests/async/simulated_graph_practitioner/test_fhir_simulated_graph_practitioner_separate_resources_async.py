@@ -101,7 +101,7 @@ async def test_fhir_simulated_graph_async() -> None:
         )
     )
     assert response is not None
-    print(response.responses)
+    print(response.get_response_text())
 
     expected_json = {
         "Practitioner": [{"id": "1", "resourceType": "Practitioner"}],
@@ -128,4 +128,4 @@ async def test_fhir_simulated_graph_async() -> None:
         ],
     }
 
-    assert json.loads(response.responses) == expected_json
+    assert json.loads(response.get_response_text()) == expected_json

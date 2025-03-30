@@ -30,7 +30,7 @@ class FhirBundleAppender:
         """
         response: FhirGetResponse
         for response in responses:
-            response_text = response.responses
+            response_text = response.get_response_text()
             response_url = response.url
             if response_text or response.error:
                 if not bundle.entry:

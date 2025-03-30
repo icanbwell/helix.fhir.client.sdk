@@ -92,14 +92,14 @@ async def test_fhir_graph_multiple_ids_async() -> None:
     async for response in fhir_client.graph_async(
         id_=["1", "2"], graph_definition=graph_definition, contained=False
     ):
-        print(f"Response Chunk: {response.responses}")
+        print(f"Response Chunk: {response.get_response_text()}")
         responses.append(response)
 
     assert len(responses) == 1
-    print(f"Response: {responses[0].responses}")
+    print(f"Response: {responses[0].get_response_text()}")
     assert responses[
         0
-    ].responses, f"Expected {response_text} but got {responses[0].responses} from url {responses[0].url}"
+    ].get_response_text(), f"Expected {response_text} but got {responses[0].get_response_text()} from url {responses[0].url}"
     assert responses[0].get_resources() == [
         {"id": "1", "resourceType": "Patient"},
         {"id": "2", "resourceType": "Patient"},

@@ -165,7 +165,7 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
         )
     )
     assert response is not None
-    print(response.responses)
+    print(response.get_response_text())
 
     expected_json: Dict[str, Any] = {
         "entry": [
@@ -203,10 +203,10 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
 
     bundle: Dict[str, Any]
     try:
-        bundle = json.loads(response.responses)
+        bundle = json.loads(response.get_response_text())
     except Exception as e:
         raise Exception(
-            f"Unable to parse result json: {e}: {response.responses}"
+            f"Unable to parse result json: {e}: {response.get_response_text()}"
         ) from e
 
     bundle["entry"] = [

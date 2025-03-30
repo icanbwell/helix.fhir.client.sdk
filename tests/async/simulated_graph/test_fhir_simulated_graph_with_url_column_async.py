@@ -102,7 +102,7 @@ async def test_fhir_simulated_graph_with_url_column_async() -> None:
         )
     )
     assert response is not None
-    print(response.responses)
+    print(response.get_response_text())
 
     assert (
         response.url
@@ -160,7 +160,7 @@ async def test_fhir_simulated_graph_with_url_column_async() -> None:
         ]
     }
 
-    bundle = json.loads(response.responses)
+    bundle = json.loads(response.get_response_text())
     bundle["entry"] = [
         e
         for e in bundle["entry"]

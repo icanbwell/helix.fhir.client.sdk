@@ -222,7 +222,7 @@ def test_append_different_response_structures() -> None:
     # Verify the appended response
     resources = response1.get_resources()
     assert len(resources) == 2
-    assert resources[0]["resourceType"] == "Bundle"
+    assert resources[0]["resourceType"] == "Patient"
     assert resources[1]["resourceType"] == "Observation"
 
 

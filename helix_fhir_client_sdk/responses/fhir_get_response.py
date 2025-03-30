@@ -27,7 +27,6 @@ class FhirGetResponse:
         *,
         request_id: Optional[str],
         url: str,
-        responses: str,
         error: Optional[str],
         access_token: Optional[str],
         total_count: Optional[int],
@@ -70,8 +69,6 @@ class FhirGetResponse:
         self.resource_type: Optional[str] = resource_type
         self.request_id: Optional[str] = request_id
         self.url: str = url
-        """ string that holds the response from the fhir server """
-        self.responses: str = responses
         self.error: Optional[str] = error
         """ Any error returned by the fhir server """
         self.access_token: Optional[str] = access_token
@@ -342,3 +339,26 @@ class FhirGetResponse:
         Creates a new instance of the class from another response class
         """
         ...
+
+    @abstractmethod
+    def get_response_text(self) -> str:
+        """
+        Gets the response text from the FHIR server
+
+        :return: response text
+        """
+        """
+        :return: string representation of the response
+        """
+        raise NotImplementedError(
+            "Subclasses must implement the get_response_text method to return the response text from the FHIR server"
+        )
+
+    def has_resources(self) -> bool:
+        """
+        Checks if the response has any resources
+
+        :return: True if there are resources, False otherwise
+        """
+        resources = self.get_resources()
+        return len(resources) > 0

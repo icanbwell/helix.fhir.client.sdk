@@ -48,8 +48,8 @@ async def test_async_fhir_client_patient_by_identifier_missing_false() -> None:
     response: FhirGetResponse = await fhir_client.get_async()
 
     # Assert
-    print(response.responses)
-    assert response.responses == response_text
+    print(response.get_response_text())
+    assert response.get_response_text() == response_text
 
 
 async def test_async_fhir_client_patient_by_identifier_missing_true() -> None:
@@ -88,5 +88,5 @@ async def test_async_fhir_client_patient_by_identifier_missing_true() -> None:
     response: FhirGetResponse = await fhir_client.get_async()
 
     # Assert
-    print(response.responses)
-    assert response.responses == response_text
+    print(response.get_response_text())
+    assert response.get_response_text() == response_text

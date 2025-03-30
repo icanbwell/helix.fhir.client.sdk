@@ -108,7 +108,7 @@ async def test_fhir_simulated_graph_async() -> None:
         )
     )
     assert response is not None
-    print(response.responses)
+    print(response.get_response_text())
 
     expected_json: Dict[str, Any] = {
         "entry": [
@@ -160,7 +160,7 @@ async def test_fhir_simulated_graph_async() -> None:
         ]
     }
 
-    bundle: Dict[str, Any] = json.loads(response.responses)
+    bundle: Dict[str, Any] = json.loads(response.get_response_text())
     bundle["entry"] = [
         e
         for e in bundle["entry"]

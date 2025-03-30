@@ -102,7 +102,7 @@ async def test_fhir_simulated_graph_async() -> None:
         )
     )
     assert response is not None
-    print(response.responses)
+    print(response.get_response_text())
 
     expected_json = {
         "entry": [
@@ -153,7 +153,7 @@ async def test_fhir_simulated_graph_async() -> None:
         ]
     }
 
-    bundle = json.loads(response.responses)
+    bundle = json.loads(response.get_response_text())
     # sort the entries by resource id
     bundle["entry"] = sorted(bundle["entry"], key=lambda x: int(x["resource"]["id"]))
     assert bundle == expected_json

@@ -114,12 +114,12 @@ async def test_fhir_graph_multiple_ids_in_batches_async() -> None:
         graph_definition=graph_definition,
         contained=True,
     ):
-        print(f"Response Chunk: {response.responses}")
+        print(f"Response Chunk: {response.get_response_text()}")
         responses.append(response)
 
     assert len(responses) == 2
-    print(f"Response: {responses[0].responses}")
-    assert responses[0].responses
+    print(f"Response: {responses[0].get_response_text()}")
+    assert responses[0].get_response_text()
     assert responses[0].get_resources() == [{"id": "1", "resourceType": "Patient"}]
     assert responses[1].get_resources() == [
         {
