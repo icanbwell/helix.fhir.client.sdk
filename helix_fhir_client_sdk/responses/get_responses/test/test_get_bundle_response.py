@@ -269,3 +269,167 @@ class TestFhirGetBundleResponse:
         assert "test-bundle-id" in response_text
         assert "Patient" in response_text
         assert "Observation" in response_text
+
+    @pytest.mark.asyncio
+    async def test_get_resources_generator(
+        self, sample_bundle_response: Dict[str, Any]
+    ) -> None:
+        """Test async generator for resources."""
+        results_by_url: List[RetryableAioHttpUrlResult] = []
+
+        response = FhirGetBundleResponse(
+            request_id="test-request",
+            url="https://example.com",
+            responses=json.dumps(sample_bundle_response),
+            error=None,
+            access_token="test-token",
+            total_count=2,
+            status=200,
+            results_by_url=results_by_url,
+            next_url=None,
+            extra_context_to_return={},
+            resource_type="Patient",
+            id_=["123"],
+            response_headers=None,
+        )
+
+        # Collect resources from the generator
+        resources = []
+        async for resource in response.get_resources_generator():
+            resources.append(resource)
+
+        assert len(resources) == 2
+        assert resources[0]["resourceType"] == "Patient"
+        assert resources[1]["resourceType"] == "Observation"
+
+    @pytest.mark.asyncio
+    async def test_get_resources_generator_empty(self) -> None:
+        """Test resources generator with no entries."""
+        results_by_url: List[RetryableAioHttpUrlResult] = []
+
+        response = FhirGetBundleResponse(
+            request_id="test-request",
+            url="https://example.com",
+            responses='{"resourceType": "Bundle", "entry": []}',
+            error=None,
+            access_token="test-token",
+            total_count=0,
+            status=200,
+            results_by_url=results_by_url,
+            next_url=None,
+            extra_context_to_return={},
+            resource_type="Patient",
+            id_=["123"],
+            response_headers=None,
+        )
+
+        # Collect resources from the generator
+        resources = []
+        async for resource in response.get_resources_generator():
+            resources.append(resource)
+
+        assert len(resources) == 0
+
+    @pytest.mark.asyncio
+    async def test_get_bundle_entries_generator(
+        self, sample_bundle_response: Dict[str, Any]
+    ) -> None:
+        """Test async generator for bundle entries."""
+        results_by_url: List[RetryableAioHttpUrlResult] = []
+
+        response = FhirGetBundleResponse(
+            request_id="test-request",
+            url="https://example.com",
+            responses=json.dumps(sample_bundle_response),
+            error=None,
+            access_token="test-token",
+            total_count=2,
+            status=200,
+            results_by_url=results_by_url,
+            next_url=None,
+            extra_context_to_return={},
+            resource_type="Patient",
+            id_=["123"],
+            response_headers=None,
+        )
+
+        # Collect bundle entries from the generator
+        bundle_entries = []
+        async for entry in response.get_bundle_entries_generator():
+            bundle_entries.append(entry)
+
+        assert len(bundle_entries) == 2
+        assert isinstance(bundle_entries[0], BundleEntry)
+        assert isinstance(bundle_entries[1], BundleEntry)
+        assert bundle_entries[0].resource is not None
+        assert bundle_entries[1].resource is not None
+        assert bundle_entries[0].resource["resourceType"] == "Patient"
+        assert bundle_entries[1].resource["resourceType"] == "Observation"
+
+    @pytest.mark.asyncio
+    async def test_get_bundle_entries_generator_empty(self) -> None:
+        """Test bundle entries generator with no entries."""
+        results_by_url: List[RetryableAioHttpUrlResult] = []
+
+        response = FhirGetBundleResponse(
+            request_id="test-request",
+            url="https://example.com",
+            responses='{"resourceType": "Bundle", "entry": []}',
+            error=None,
+            access_token="test-token",
+            total_count=0,
+            status=200,
+            results_by_url=results_by_url,
+            next_url=None,
+            extra_context_to_return={},
+            resource_type="Patient",
+            id_=["123"],
+            response_headers=None,
+        )
+
+        # Collect bundle entries from the generator
+        bundle_entries = []
+        async for entry in response.get_bundle_entries_generator():
+            bundle_entries.append(entry)
+
+        assert len(bundle_entries) == 0
+
+    @pytest.mark.asyncio
+    async def test_get_resources_generator_with_none_resources(self) -> None:
+        """Test resources generator with some None resources."""
+        results_by_url: List[RetryableAioHttpUrlResult] = []
+
+        # Create a response with some None resources
+        response = FhirGetBundleResponse(
+            request_id="test-request",
+            url="https://example.com",
+            responses=json.dumps(
+                {
+                    "resourceType": "Bundle",
+                    "entry": [
+                        {"resource": {"resourceType": "Patient", "id": "123"}},
+                        {"resource": None},
+                        {"resource": {"resourceType": "Observation", "id": "456"}},
+                    ],
+                }
+            ),
+            error=None,
+            access_token="test-token",
+            total_count=3,
+            status=200,
+            results_by_url=results_by_url,
+            next_url=None,
+            extra_context_to_return={},
+            resource_type="Patient",
+            id_=["123"],
+            response_headers=None,
+        )
+
+        # Collect resources from the generator
+        resources = []
+        async for resource in response.get_resources_generator():
+            resources.append(resource)
+
+        assert len(resources) == 2
+        assert resources[0]["resourceType"] == "Patient"
+        assert resources[1]["resourceType"] == "Observation"
