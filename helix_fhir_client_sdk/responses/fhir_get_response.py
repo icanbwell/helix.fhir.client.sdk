@@ -1,7 +1,6 @@
 import json
 from datetime import datetime
 
-# noinspection PyPackageRequirements
 from dateutil import parser
 from typing import Optional, Dict, Any, List, Union, cast, AsyncGenerator
 
