@@ -141,14 +141,15 @@ class FhirGetSingleResponse(FhirGetResponse):
         return self  # nothing to do since this is a single resource
 
     @classmethod
-    def _parse_single_resource(cls, *, responses: str) -> Dict[str, Any]:
+    def _parse_single_resource(cls, *, responses: str) -> Dict[str, Any] | None:
         """
         Gets the single resource from the response
 
         :return: single resource
         """
+        if not responses:
+            return None
         try:
-            # THis is either a list of resources or a Bundle resource containing a list of resources
             child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
                 cls.parse_json(responses)
             )

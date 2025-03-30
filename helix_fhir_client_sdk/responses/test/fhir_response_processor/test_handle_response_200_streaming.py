@@ -1,5 +1,6 @@
 import json
 from collections.abc import AsyncGenerator
+from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
@@ -31,14 +32,18 @@ async def test_handle_response_200_streaming() -> None:
     response.status = 200
     response.results_by_url = []
     response.content = MagicMock()
-    resource = {"resourceType": "Patient", "id": "1"}
+
+    patient: Dict[str, Any] = {"resourceType": "Patient", "id": "1"}
 
     # Define an async iterator
     async def async_iterator(chunk_size1: int) -> AsyncGenerator[bytes, None]:
-        resource_text: str = json.dumps(resource)
-        yield b"%s\n" % resource_text.encode("utf-8")  # Simulate a chunk of data
+        patient_text: str = json.dumps(patient)
+        yield b"%s\n" % patient_text.encode("utf-8")  # Simulating a chunk of data
 
     response.content.iter_chunked = async_iterator
+    response.content.at_eof = MagicMock(
+        return_value=False
+    )  # Mocking the at_eof method to return False
 
     response.response_headers = {"mock_header": "mock_value"}
 
@@ -74,7 +79,7 @@ async def test_handle_response_200_streaming() -> None:
         {
             "request_id": request_id,
             "url": full_url,
-            "_resource": resource,
+            "_resource": patient,
             "error": None,
             "access_token": access_token,
             "total_count": 0,

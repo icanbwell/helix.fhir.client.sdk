@@ -17,6 +17,9 @@ from helix_fhir_client_sdk.responses.bundle_expander import (
     BundleExpanderResult,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.responses.get_responses.fhir_get_error_response import (
+    FhirGetErrorResponse,
+)
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_response_factory import (
     FhirGetResponseFactory,
 )
@@ -564,7 +567,7 @@ class FhirResponseProcessor:
             # Check if the response content is empty or the stream has reached the end. If either condition is true,
             # yield a FhirGetResponse indicating no content was received from the request.
             if response.content is None or response.content.at_eof():
-                yield FhirGetResponseFactory.create(
+                yield FhirGetErrorResponse(
                     request_id=request_id,
                     url=full_url,
                     responses="",

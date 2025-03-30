@@ -53,6 +53,9 @@ async def test_handle_response_200_streaming_separate_bundle() -> None:
         yield json.dumps(bundle).encode("utf-8")
 
     response.content.iter_chunked = async_iterator
+    response.content.at_eof = MagicMock(
+        return_value=False
+    )  # Mocking the at_eof method to return False
 
     response.response_headers = {"mock_header": "mock_value"}
 
@@ -103,7 +106,7 @@ async def test_handle_response_200_streaming_separate_bundle() -> None:
     expected_result = {
         "request_id": request_id,
         "url": full_url,
-        "resources": expected_resources,
+        "_resources": expected_resources,
         "error": None,
         "access_token": access_token,
         "total_count": 3,
