@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import List, Optional, Dict, Any, Callable
 
 from helix_fhir_client_sdk.fhir_bundle import (
@@ -31,7 +32,7 @@ class FhirBundleAppender:
         bundle_entries: List[BundleEntry] = []
         for response in responses:
             bundle_entries_for_response: List[BundleEntry] = (
-                FhirBundleAppender.add_operation_outcomes(response=response)
+                FhirBundleAppender.add_operation_outcomes_response(response=response)
             )
             bundle_entries.extend(bundle_entries_for_response)
 
@@ -39,54 +40,61 @@ class FhirBundleAppender:
         return bundle
 
     @staticmethod
-    def add_operation_outcomes(*, response: FhirGetResponse) -> List[BundleEntry]:
+    def add_operation_outcomes_response(
+        *, response: FhirGetResponse
+    ) -> List[BundleEntry]:
         bundle_entries: List[BundleEntry] = response.get_bundle_entries()
-        response_url = response.url
-        diagnostics_coding_nullable: List[Optional[Dict[str, Any]]] = [
-            (
-                {
-                    "system": "https://www.icanbwell.com/url",
-                    "code": response.url,
-                }
-                if response.url
-                else None
-            ),
-            (
-                {
-                    "system": "https://www.icanbwell.com/resourceType",
-                    "code": response.resource_type,
-                }
-                if response.resource_type
-                else None
-            ),
-            (
-                {
-                    "system": "https://www.icanbwell.com/id",
-                    "code": (
-                        ",".join(response.id_)
-                        if isinstance(response.id_, list)
-                        else response.id_
-                    ),
-                }
-                if response.id_
-                else None
-            ),
-            {
-                "system": "https://www.icanbwell.com/statuscode",
-                "code": response.status,
-            },
-            (
-                {
-                    "system": "https://www.icanbwell.com/accessToken",
-                    "code": response.access_token,
-                }
-                if response.access_token
-                else None
-            ),
-        ]
-        diagnostics_coding: List[Dict[str, Any]] = [
-            c for c in diagnostics_coding_nullable if c is not None
-        ]
+        return FhirBundleAppender.add_operation_outcomes_to_bundle_entries(
+            bundle_entries=bundle_entries,
+            error=response.error,
+            url=response.url,
+            resource_type=response.resource_type,
+            id_=response.id_,
+            status=response.status,
+            access_token=response.access_token,
+            extra_context_to_return=response.extra_context_to_return,
+            request_id=response.request_id,
+            last_modified=response.lastModified,
+            etag=response.etag,
+        )
+
+    @staticmethod
+    def add_operation_outcomes_to_bundle_entries(
+        *,
+        bundle_entries: List[BundleEntry],
+        error: Optional[str],
+        url: str,
+        resource_type: Optional[str],
+        id_: Optional[str | List[str]],
+        status: int,
+        access_token: Optional[str],
+        extra_context_to_return: Optional[Dict[str, Any]],
+        request_id: Optional[str],
+        last_modified: Optional[datetime],
+        etag: Optional[str],
+    ) -> List[BundleEntry]:
+        """
+        Adds operation outcomes to the bundle entries
+
+        :param bundle_entries: The bundle entries to add operation outcomes to
+        :param error: The error message
+        :param url: The url of the resource
+        :param resource_type: The type of resource
+        :param id_: The id of the resource
+        :param status: The status code
+        :param access_token: The access token
+        :param extra_context_to_return: Extra context to return
+        :param request_id: The request id
+        :param last_modified: The last modified date
+        :param etag: The etag of the resource
+        """
+        diagnostics_coding = FhirBundleAppender.get_diagnostic_coding(
+            access_token=access_token,
+            url=url,
+            resource_type=resource_type,
+            id_=id_,
+            status=status,
+        )
 
         bundle_entry: BundleEntry
         for bundle_entry in bundle_entries:
@@ -101,7 +109,7 @@ class FhirBundleAppender:
                 )
 
         # now add a bundle entry for errors
-        if response.error and len(bundle_entries) == 0:
+        if error and len(bundle_entries) == 0:
             operation_outcome: Dict[str, Any] = {
                 "resourceType": "OperationOutcome",
                 "issue": [
@@ -109,22 +117,20 @@ class FhirBundleAppender:
                         "severity": "error",
                         "code": (
                             "expired"
-                            if response.status == 401
-                            else (
-                                "not-found" if response.status == 404 else "exception"
-                            )
+                            if status == 401
+                            else ("not-found" if status == 404 else "exception")
                         ),
                         "details": {"coding": diagnostics_coding},
                         "diagnostics": json.dumps(
                             {
-                                "url": response.url,
-                                "error": response.error,
-                                "status": response.status,
-                                "extra_context_to_return": response.extra_context_to_return,
-                                "accessToken": response.access_token,
-                                "requestId": response.request_id,
-                                "resourceType": response.resource_type,
-                                "id": response.id_,
+                                "url": url,
+                                "error": error,
+                                "status": status,
+                                "extra_context_to_return": extra_context_to_return,
+                                "accessToken": access_token,
+                                "requestId": request_id,
+                                "resourceType": resource_type,
+                                "id": id_,
                             }
                         ),
                     }
@@ -132,16 +138,68 @@ class FhirBundleAppender:
             }
             bundle_entries.append(
                 BundleEntry(
-                    request=BundleEntryRequest(url=response_url),
+                    request=BundleEntryRequest(url=url),
                     response=BundleEntryResponse(
-                        status=str(response.status),
-                        lastModified=response.lastModified,
-                        etag=response.etag,
+                        status=str(status),
+                        lastModified=last_modified,
+                        etag=etag,
                     ),
                     resource=operation_outcome,
                 )
             )
         return bundle_entries
+
+    @staticmethod
+    def get_diagnostic_coding(
+        *,
+        url: Optional[str],
+        resource_type: Optional[str],
+        id_: Optional[str | List[str]],
+        status: int,
+        access_token: Optional[str],
+    ) -> List[Dict[str, Any]]:
+        diagnostics_coding_nullable: List[Optional[Dict[str, Any]]] = [
+            (
+                {
+                    "system": "https://www.icanbwell.com/url",
+                    "code": url,
+                }
+                if url
+                else None
+            ),
+            (
+                {
+                    "system": "https://www.icanbwell.com/resourceType",
+                    "code": resource_type,
+                }
+                if resource_type
+                else None
+            ),
+            (
+                {
+                    "system": "https://www.icanbwell.com/id",
+                    "code": (",".join(id_) if isinstance(id_, list) else id_),
+                }
+                if id_
+                else None
+            ),
+            {
+                "system": "https://www.icanbwell.com/statuscode",
+                "code": status,
+            },
+            (
+                {
+                    "system": "https://www.icanbwell.com/accessToken",
+                    "code": access_token,
+                }
+                if access_token
+                else None
+            ),
+        ]
+        diagnostics_coding: List[Dict[str, Any]] = [
+            c for c in diagnostics_coding_nullable if c is not None
+        ]
+        return diagnostics_coding
 
     @staticmethod
     def remove_duplicate_resources(*, bundle: Bundle) -> Bundle:

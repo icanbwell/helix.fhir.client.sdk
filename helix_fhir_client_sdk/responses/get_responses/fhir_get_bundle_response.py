@@ -68,6 +68,19 @@ class FhirGetBundleResponse(FhirGetResponse):
             last_modified=self.lastModified,
             etag=self.etag,
         )
+        bundle_entries = FhirBundleAppender.add_operation_outcomes_to_bundle_entries(
+            bundle_entries=bundle_entries,
+            error=error,
+            url=url,
+            resource_type=resource_type,
+            id_=id_,
+            status=status,
+            access_token=access_token,
+            extra_context_to_return=extra_context_to_return,
+            request_id=request_id,
+            last_modified=self.lastModified,
+            etag=self.etag,
+        )
         self._bundle_entries: List[BundleEntry] = bundle_entries
         self._bundle_metadata: Bundle = bundle
 
