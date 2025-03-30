@@ -10,6 +10,7 @@ from helix_fhir_client_sdk.fhir_bundle import (
 )
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -192,7 +193,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         )
 
     @override
-    def remove_duplicates(self) -> None:
+    def remove_duplicates(self) -> "FhirGetBundleResponse":
         """
         removes duplicate resources from the response i.e., resources with same resourceType and id
 
@@ -204,12 +205,22 @@ class FhirGetBundleResponse(FhirGetResponse):
             # with the duplicates removed
             bundle = FhirBundleAppender.remove_duplicate_resources(bundle=bundle)
             self._bundle_entries = bundle.entry or []
+            return self
         except Exception as e:
             raise Exception(f"Could not get parse json from: {bundle}") from e
 
     @classmethod
     @override
     def from_response(cls, other_response: "FhirGetResponse") -> "FhirGetResponse":
+        """
+        Creates a new FhirGetBundleResponse from another FhirGetResponse
+
+        :param other_response: FhirGetResponse object to create a new FhirGetBundleResponse from
+        :return: FhirGetBundleResponse object created from the other_response
+        """
+        if isinstance(other_response, FhirGetBundleResponse):
+            return other_response
+
         response: FhirGetBundleResponse = FhirGetBundleResponse(
             request_id=other_response.request_id,
             url=other_response.url,
@@ -238,4 +249,10 @@ class FhirGetBundleResponse(FhirGetResponse):
         :return: response text
         """
         bundle: Bundle = self.create_bundle()
-        return json.dumps(bundle.to_dict())
+        return json.dumps(bundle.to_dict(), cls=FhirJSONEncoder)
+
+    def sort_resources(self) -> "FhirGetBundleResponse":
+        bundle: Bundle = self.create_bundle()
+        bundle = FhirBundleAppender.sort_resources(bundle=bundle)
+        self._bundle_entries = bundle.entry or []
+        return self

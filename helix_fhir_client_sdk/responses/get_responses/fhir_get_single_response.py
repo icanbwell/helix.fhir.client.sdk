@@ -10,6 +10,7 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
+from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -132,12 +133,12 @@ class FhirSingleGetResponse(FhirGetResponse):
             ) from e
 
     @override
-    def remove_duplicates(self) -> None:
+    def remove_duplicates(self) -> FhirGetResponse:
         """
         removes duplicate resources from the response i.e., resources with same resourceType and id
 
         """
-        return  # nothing to do since this is a single resource
+        return self  # nothing to do since this is a single resource
 
     @classmethod
     def _parse_single_resource(cls, *, responses: str) -> Dict[str, Any]:
@@ -170,4 +171,4 @@ class FhirSingleGetResponse(FhirGetResponse):
 
         :return: response text
         """
-        return json.dumps(self._resource)
+        return json.dumps(self._resource, cls=FhirJSONEncoder)

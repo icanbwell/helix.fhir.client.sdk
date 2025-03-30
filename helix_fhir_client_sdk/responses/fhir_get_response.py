@@ -261,7 +261,7 @@ class FhirGetResponse:
         return None
 
     @abstractmethod
-    def remove_duplicates(self) -> None:
+    def remove_duplicates(self) -> "FhirGetResponse":
         """
         removes duplicate resources from the response i.e., resources with same resourceType and id
 

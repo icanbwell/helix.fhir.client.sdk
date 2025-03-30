@@ -3,8 +3,6 @@ from typing import Optional, Dict, Any, List, Union, override
 
 from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntry,
-    BundleEntryRequest,
-    BundleEntryResponse,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
@@ -13,7 +11,7 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
 )
 
 
-class FhirGetListResponse(FhirGetResponse):
+class FhirGetListByResourceTypeResponse(FhirGetResponse):
     """
     This class represents a response from a FHIR server.
     NOTE: This class does converted to a Row in Spark so keep all the property types simple python types
@@ -26,7 +24,7 @@ class FhirGetListResponse(FhirGetResponse):
         *,
         request_id: Optional[str],
         url: str,
-        responses: str,
+        resources: List[Dict[str, Any]],
         error: Optional[str],
         access_token: Optional[str],
         total_count: Optional[int],
@@ -58,8 +56,8 @@ class FhirGetListResponse(FhirGetResponse):
             cache_hits=cache_hits,
             results_by_url=results_by_url,
         )
-        self._resources: Optional[List[Dict[str, Any]]] = self._parse_resources(
-            responses=responses
+        self._resource_map: Dict[str, List[Dict[str, Any]]] = (
+            self._parse_into_resource_map(resources=resources)
         )
 
     @override
@@ -70,10 +68,13 @@ class FhirGetListResponse(FhirGetResponse):
         :param other_response: FhirGetResponse object to append to current one
         :return: self
         """
-        if self._resources is None:
-            self._resources = other_response.get_resources()
-        else:
-            self._resources.extend(other_response.get_resources())
+
+        for resource in other_response.get_resources():
+            resource_type = resource.get("resourceType")
+            if resource_type:
+                if resource_type not in self._resource_map:
+                    self._resource_map[resource_type] = []
+                self._resource_map[resource_type].append(resource)
 
         return self
 
@@ -90,8 +91,22 @@ class FhirGetListResponse(FhirGetResponse):
 
         return self
 
+    @override
     def get_resources(self) -> List[Dict[str, Any]]:
-        return self._resources if self._resources else []
+        """
+        Gets the resources from the response
+
+
+        :return: list of resources
+        """
+
+        return [c.resource for c in self.get_bundle_entries() if c.resource is not None]
+
+    @override
+    def get_bundle_entries(self) -> List[BundleEntry]:
+        raise NotImplementedError(
+            "get_bundle_entries is not implemented for FhirGetListByResourceTypeResponse. "
+        )
 
     @classmethod
     def _parse_resources(cls, *, responses: str) -> List[Dict[str, Any]]:
@@ -111,69 +126,26 @@ class FhirGetListResponse(FhirGetResponse):
         except Exception as e:
             raise Exception(f"Could not get resources from: {responses}") from e
 
-    def get_bundle_entries(self) -> List[BundleEntry]:
-        """
-        Gets the Bundle entries from the response
-
-
-        :return: list of bundle entries
-        """
-        if not self._resources:
-            return []
-        try:
-            # THis is either a list of resources or a Bundle resource containing a list of resources
-
-            # use these if the bundle entry does not have them
-            request: BundleEntryRequest = BundleEntryRequest(url=self.url)
-            response: BundleEntryResponse = BundleEntryResponse(
-                status=str(self.status),
-                lastModified=self.lastModified,
-                etag=self.etag,
-            )
-            return [
-                BundleEntry(resource=r, request=request, response=response)
-                for r in self.get_resources()
-            ]
-        except Exception as e:
-            raise Exception(
-                f"Could not get bundle entries from: {self._resources}"
-            ) from e
-
+    @override
     def remove_duplicates(self) -> FhirGetResponse:
         """
         removes duplicate resources from the response i.e., resources with same resourceType and id
 
         """
-        if not self._resources:
-            return self  # nothing to do
-
-        try:
-            unique_resources: List[Dict[str, Any]] = list(
-                {
-                    f'{r.get("resourceType")}/{r.get("id")}': r
-                    for r in self._resources
-                    if r.get("resourceType") and r.get("id")
-                }.values()
-            )
-            null_id_resources: List[Dict[str, Any]] = [
-                r for r in self._resources if not r.get("id")
-            ]
-            unique_resources.extend(null_id_resources)
-            self._resources = unique_resources
-            return self
-        except Exception as e:
-            raise Exception(f"Could not get parse json from: {self._resources}") from e
+        raise NotImplementedError(
+            "Remove duplicates is not implemented for FhirGetListByResourceTypeResponse. "
+        )
 
     @classmethod
     @override
     def from_response(cls, other_response: "FhirGetResponse") -> "FhirGetResponse":
-        if isinstance(other_response, FhirGetListResponse):
+        if isinstance(other_response, FhirGetListByResourceTypeResponse):
             return other_response
 
-        response: FhirGetListResponse = FhirGetListResponse(
+        response: FhirGetListByResourceTypeResponse = FhirGetListByResourceTypeResponse(
             request_id=other_response.request_id,
             url=other_response.url,
-            responses=other_response.get_response_text(),
+            resources=other_response.get_resources(),
             error=other_response.error,
             access_token=other_response.access_token,
             total_count=other_response.total_count,
@@ -187,7 +159,6 @@ class FhirGetListResponse(FhirGetResponse):
             cache_hits=other_response.cache_hits,
             results_by_url=other_response.results_by_url,
         )
-        response._resources = other_response.get_resources()
         return response
 
     @override
@@ -197,8 +168,20 @@ class FhirGetListResponse(FhirGetResponse):
 
         :return: response text
         """
-        return (
-            json.dumps([r for r in self._resources], cls=FhirJSONEncoder)
-            if self._resources
-            else "[]"
-        )
+        return json.dumps(self._resource_map, cls=FhirJSONEncoder)
+
+    @classmethod
+    def _parse_into_resource_map(
+        cls, resources: List[Dict[str, Any]]
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        resource_map: Dict[str, List[Dict[str, Any]]] = {}
+        resource: Dict[str, Any]
+        for resource in resources:
+            if resource:
+                resource_type = resource.get("resourceType")
+                assert resource_type, f"No resourceType in {json.dumps(resource)}"
+                if resource_type not in resources:
+                    resource_map[resource_type] = []
+                else:
+                    resource_map[resource_type].append(resource)
+        return resource_map
