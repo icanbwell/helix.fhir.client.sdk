@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Dict, Any, List, Union, override
+from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator, cast
 
 from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntry,
@@ -9,6 +9,7 @@ from helix_fhir_client_sdk.fhir_bundle import (
 )
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.structures.fhir_types import FhirResource
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -221,3 +222,13 @@ class FhirGetErrorResponse(FhirGetResponse):
     @override
     def sort_resources(self) -> "FhirGetErrorResponse":
         return self
+
+    @override
+    async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
+        for resource in self.get_resources():
+            yield cast(FhirResource, resource)
+
+    @override
+    async def get_bundle_entries_generator(self) -> AsyncGenerator[BundleEntry, None]:
+        for entry in self.get_bundle_entries():
+            yield entry

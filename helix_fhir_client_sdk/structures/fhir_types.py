@@ -1,3 +1,3 @@
 from typing import TypeAlias, Dict, Any
 
-Resource: TypeAlias = Dict[str, Any]
+FhirResource: TypeAlias = Dict[str, Any]

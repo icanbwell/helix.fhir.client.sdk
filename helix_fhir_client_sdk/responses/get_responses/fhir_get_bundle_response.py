@@ -1,5 +1,15 @@
 from datetime import datetime
-from typing import Optional, Dict, Any, List, Union, cast, override, Tuple
+from typing import (
+    Optional,
+    Dict,
+    Any,
+    List,
+    Union,
+    cast,
+    override,
+    Tuple,
+    AsyncGenerator,
+)
 
 from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntry,
@@ -9,6 +19,7 @@ from helix_fhir_client_sdk.fhir_bundle import (
 )
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.structures.fhir_types import FhirResource
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -289,3 +300,13 @@ class FhirGetBundleResponse(FhirGetResponse):
         bundle = FhirBundleAppender.sort_resources(bundle=bundle)
         self._bundle_entries = bundle.entry or []
         return self
+
+    @override
+    async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
+        for entry in [e for e in self.get_bundle_entries() if e.resource]:
+            yield cast(FhirResource, entry.resource)
+
+    @override
+    async def get_bundle_entries_generator(self) -> AsyncGenerator[BundleEntry, None]:
+        for entry in self.get_bundle_entries():
+            yield entry

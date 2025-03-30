@@ -1,5 +1,4 @@
 import uuid
-from contextlib import asynccontextmanager
 from datetime import datetime
 from logging import Logger
 from threading import Lock
@@ -125,7 +124,6 @@ class FhirClientProtocol(Protocol):
 
     def create_http_session(self) -> ClientSession: ...
 
-    @asynccontextmanager
     async def _get_with_session_async(
         self,
         page_number: Optional[int],
@@ -134,9 +132,7 @@ class FhirClientProtocol(Protocol):
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
         additional_parameters: Optional[List[str]],
         resource_type: Optional[str],
-    ) -> AsyncGenerator[FhirGetResponse, None]:
-        # this is here so Python knows this is a generator
-        yield None  # type: ignore[misc]
+    ) -> AsyncGenerator[FhirGetResponse, None]: ...
 
     def separate_bundle_resources(self, separate_bundle_resources: bool):  # type: ignore[no-untyped-def]
         ...

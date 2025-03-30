@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any, List, Union, cast, AsyncGenerator
 from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntry,
 )
+from helix_fhir_client_sdk.structures.fhir_types import FhirResource
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -160,6 +161,17 @@ class FhirGetResponse:
         ...
 
     @abstractmethod
+    async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
+        """
+        Gets the resources from the response as a generator
+
+
+        :return: generator of resources
+        """
+        # This is just here for Python lint to be happy
+        yield None  # type: ignore[misc]
+
+    @abstractmethod
     def get_bundle_entries(self) -> List[BundleEntry]:
         """
         Gets the Bundle entries from the response
@@ -168,6 +180,17 @@ class FhirGetResponse:
         :return: list of bundle entries
         """
         ...
+
+    @abstractmethod
+    async def get_bundle_entries_generator(self) -> AsyncGenerator[BundleEntry, None]:
+        """
+        Gets the resources from the response as a generator
+
+
+        :return: generator of resources
+        """
+        # This is just here for Python lint to be happy
+        yield None  # type: ignore[misc]
 
     @staticmethod
     def parse_json(responses: str) -> Dict[str, Any] | List[Dict[str, Any]]:

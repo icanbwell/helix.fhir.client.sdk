@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Dict, Any, List, Union, override
+from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator, cast
 
 from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntry,
@@ -10,6 +10,7 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
+from helix_fhir_client_sdk.structures.fhir_types import FhirResource
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -104,6 +105,19 @@ class FhirGetSingleResponse(FhirGetResponse):
 
         return [self._resource] if self._resource else []
 
+    def get_bundle_entry(self) -> BundleEntry:
+        # use these if the bundle entry does not have them
+        request: BundleEntryRequest = BundleEntryRequest(url=self.url)
+        response: BundleEntryResponse = BundleEntryResponse(
+            status=str(self.status),
+            lastModified=self.lastModified,
+            etag=self.etag,
+        )
+        bundle_entry = BundleEntry(
+            resource=self._resource, request=request, response=response
+        )
+        return bundle_entry
+
     @override
     def get_bundle_entries(self) -> List[BundleEntry]:
         """
@@ -115,18 +129,7 @@ class FhirGetSingleResponse(FhirGetResponse):
         if not self._resource:
             return []
         try:
-            # THis is either a list of resources or a Bundle resource containing a list of resources
-
-            # use these if the bundle entry does not have them
-            request: BundleEntryRequest = BundleEntryRequest(url=self.url)
-            response: BundleEntryResponse = BundleEntryResponse(
-                status=str(self.status),
-                lastModified=self.lastModified,
-                etag=self.etag,
-            )
-            return [
-                BundleEntry(resource=self._resource, request=request, response=response)
-            ]
+            return [self.get_bundle_entry()]
         except Exception as e:
             raise Exception(
                 f"Could not get bundle entries from: {self._resource}"
@@ -177,3 +180,12 @@ class FhirGetSingleResponse(FhirGetResponse):
     @override
     def sort_resources(self) -> "FhirGetSingleResponse":
         return self
+
+    @override
+    async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
+        yield cast(FhirResource, self._resource)
+
+    @override
+    async def get_bundle_entries_generator(self) -> AsyncGenerator[BundleEntry, None]:
+        bundle_entry: BundleEntry = self.get_bundle_entry()
+        yield bundle_entry

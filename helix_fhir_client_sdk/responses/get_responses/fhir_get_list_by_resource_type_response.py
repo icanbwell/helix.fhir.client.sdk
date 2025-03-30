@@ -1,10 +1,11 @@
 import json
-from typing import Optional, Dict, Any, List, Union, override
+from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator
 
 from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntry,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.structures.fhir_types import FhirResource
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -99,8 +100,9 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
         :return: list of resources
         """
-
-        return [c.resource for c in self.get_bundle_entries() if c.resource is not None]
+        raise NotImplementedError(
+            "get_bundle_entries is not implemented for FhirGetListByResourceTypeResponse. "
+        )
 
     @override
     def get_bundle_entries(self) -> List[BundleEntry]:
@@ -189,3 +191,19 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
     @override
     def sort_resources(self) -> "FhirGetListByResourceTypeResponse":
         return self
+
+    @override
+    async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
+        raise NotImplementedError(
+            "get_resources_generator is not implemented for FhirGetListByResourceTypeResponse."
+        )
+        # noinspection PyUnreachableCode,PyTypeChecker
+        yield None
+
+    @override
+    async def get_bundle_entries_generator(self) -> AsyncGenerator[BundleEntry, None]:
+        raise NotImplementedError(
+            "get_bundle_entries_generator is not implemented for FhirGetListByResourceTypeResponse."
+        )
+        # noinspection PyUnreachableCode,PyTypeChecker
+        yield None
