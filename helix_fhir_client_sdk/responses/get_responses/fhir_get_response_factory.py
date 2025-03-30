@@ -1,3 +1,4 @@
+import json
 from typing import Optional, Dict, Any, Union, List
 
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
@@ -45,7 +46,14 @@ class FhirGetResponseFactory:
         results_by_url: List[RetryableAioHttpUrlResult],
     ) -> FhirGetResponse:
 
-        if status != 200:
+        # test if responses is valid json
+        try:
+            # Attempt to parse the JSON response
+            json.loads(responses)
+        except ValueError as e:
+            error = str(e)
+
+        if status != 200 or error:
             # If the status is not 200, return a single response with the error
             return FhirGetErrorResponse(
                 request_id=request_id,
