@@ -28,7 +28,7 @@ class FhirGetListResponse(FhirGetResponse):
         *,
         request_id: Optional[str],
         url: str,
-        responses: str,
+        response_text: str,
         error: Optional[str],
         access_token: Optional[str],
         total_count: Optional[int],
@@ -61,7 +61,7 @@ class FhirGetListResponse(FhirGetResponse):
             results_by_url=results_by_url,
         )
         self._resources: Optional[List[Dict[str, Any]]] = self._parse_resources(
-            responses=responses
+            responses=response_text
         )
 
     @override
@@ -177,7 +177,7 @@ class FhirGetListResponse(FhirGetResponse):
         response: FhirGetListResponse = FhirGetListResponse(
             request_id=other_response.request_id,
             url=other_response.url,
-            responses=json.dumps(resources, cls=FhirJSONEncoder),
+            response_text=json.dumps(resources, cls=FhirJSONEncoder),
             error=other_response.error,
             access_token=other_response.access_token,
             total_count=other_response.total_count,

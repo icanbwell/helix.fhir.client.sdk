@@ -48,7 +48,7 @@ class TestFhirGetBundleResponse:
         response = FhirGetBundleResponse(
             request_id="test-request",
             url="https://example.com",
-            responses=json.dumps(sample_bundle_response),
+            response_text=json.dumps(sample_bundle_response),
             error=None,
             access_token="test-token",
             total_count=2,
@@ -75,7 +75,7 @@ class TestFhirGetBundleResponse:
         first_response = FhirGetBundleResponse(
             request_id="test-request-1",
             url="https://example.com",
-            responses=json.dumps(sample_bundle_response),
+            response_text=json.dumps(sample_bundle_response),
             error=None,
             access_token="test-token",
             total_count=2,
@@ -91,7 +91,7 @@ class TestFhirGetBundleResponse:
         second_response = FhirGetBundleResponse(
             request_id="test-request-2",
             url="https://example.com/next",
-            responses=json.dumps(sample_bundle_response),
+            response_text=json.dumps(sample_bundle_response),
             error=None,
             access_token="test-token",
             total_count=2,
@@ -115,7 +115,7 @@ class TestFhirGetBundleResponse:
         response = FhirGetBundleResponse(
             request_id="test-request",
             url="https://example.com",
-            responses=json.dumps(sample_bundle_response),
+            response_text=json.dumps(sample_bundle_response),
             error=None,
             access_token="test-token",
             total_count=2,
@@ -143,7 +143,7 @@ class TestFhirGetBundleResponse:
         response = FhirGetBundleResponse(
             request_id="test-request",
             url="https://example.com",
-            responses=json.dumps(sample_bundle_response),
+            response_text=json.dumps(sample_bundle_response),
             error=None,
             access_token="test-token",
             total_count=3,
@@ -199,7 +199,7 @@ class TestFhirGetBundleResponse:
         response = FhirGetBundleResponse(
             request_id="test-request",
             url="https://example.com",
-            responses=json.dumps(sample_bundle_response),
+            response_text=json.dumps(sample_bundle_response),
             error=None,
             access_token="test-token",
             total_count=2,
@@ -226,7 +226,7 @@ class TestFhirGetBundleResponse:
         response = FhirGetBundleResponse(
             request_id="test-request",
             url="https://example.com",
-            responses=json.dumps(sample_bundle_response),
+            response_text=json.dumps(sample_bundle_response),
             error=None,
             access_token="test-token",
             total_count=2,
@@ -251,7 +251,7 @@ class TestFhirGetBundleResponse:
         response = FhirGetBundleResponse(
             request_id="test-request",
             url="https://example.com",
-            responses=json.dumps(sample_bundle_response),
+            response_text=json.dumps(sample_bundle_response),
             error=None,
             access_token="test-token",
             total_count=2,
@@ -280,7 +280,7 @@ class TestFhirGetBundleResponse:
         response = FhirGetBundleResponse(
             request_id="test-request",
             url="https://example.com",
-            responses=json.dumps(sample_bundle_response),
+            response_text=json.dumps(sample_bundle_response),
             error=None,
             access_token="test-token",
             total_count=2,
@@ -310,7 +310,7 @@ class TestFhirGetBundleResponse:
         response = FhirGetBundleResponse(
             request_id="test-request",
             url="https://example.com",
-            responses='{"resourceType": "Bundle", "entry": []}',
+            response_text='{"resourceType": "Bundle", "entry": []}',
             error=None,
             access_token="test-token",
             total_count=0,
@@ -340,7 +340,7 @@ class TestFhirGetBundleResponse:
         response = FhirGetBundleResponse(
             request_id="test-request",
             url="https://example.com",
-            responses=json.dumps(sample_bundle_response),
+            response_text=json.dumps(sample_bundle_response),
             error=None,
             access_token="test-token",
             total_count=2,
@@ -374,7 +374,7 @@ class TestFhirGetBundleResponse:
         response = FhirGetBundleResponse(
             request_id="test-request",
             url="https://example.com",
-            responses='{"resourceType": "Bundle", "entry": []}',
+            response_text='{"resourceType": "Bundle", "entry": []}',
             error=None,
             access_token="test-token",
             total_count=0,
@@ -403,7 +403,7 @@ class TestFhirGetBundleResponse:
         response = FhirGetBundleResponse(
             request_id="test-request",
             url="https://example.com",
-            responses=json.dumps(
+            response_text=json.dumps(
                 {
                     "resourceType": "Bundle",
                     "entry": [

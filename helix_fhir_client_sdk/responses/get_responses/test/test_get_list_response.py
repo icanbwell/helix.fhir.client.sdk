@@ -31,7 +31,7 @@ class TestFhirGetListResponse:
         response = FhirGetListResponse(
             request_id="test-request",
             url="https://example.com",
-            responses=json.dumps(sample_resources),
+            response_text=json.dumps(sample_resources),
             error=None,
             access_token="test-token",
             total_count=2,
@@ -55,7 +55,7 @@ class TestFhirGetListResponse:
         first_response = FhirGetListResponse(
             request_id="test-request-1",
             url="https://example.com",
-            responses=json.dumps(sample_resources[:1]),
+            response_text=json.dumps(sample_resources[:1]),
             error=None,
             access_token="test-token",
             total_count=1,
@@ -70,7 +70,7 @@ class TestFhirGetListResponse:
         second_response = FhirGetListResponse(
             request_id="test-request-2",
             url="https://example.com/next",
-            responses=json.dumps(sample_resources[1:]),
+            response_text=json.dumps(sample_resources[1:]),
             error=None,
             access_token="test-token",
             total_count=1,
@@ -91,7 +91,7 @@ class TestFhirGetListResponse:
         response = FhirGetListResponse(
             request_id="test-request",
             url="https://example.com",
-            responses=json.dumps(sample_resources),
+            response_text=json.dumps(sample_resources),
             error=None,
             access_token="test-token",
             total_count=2,
@@ -116,7 +116,7 @@ class TestFhirGetListResponse:
         response = FhirGetListResponse(
             request_id="test-request",
             url="https://example.com",
-            responses=json.dumps(sample_resources),
+            response_text=json.dumps(sample_resources),
             error=None,
             access_token="test-token",
             total_count=3,
@@ -162,7 +162,7 @@ class TestFhirGetListResponse:
         response = FhirGetListResponse(
             request_id="test-request",
             url="https://example.com",
-            responses=json.dumps(sample_resources),
+            response_text=json.dumps(sample_resources),
             error=None,
             access_token="test-token",
             total_count=2,
@@ -187,7 +187,7 @@ class TestFhirGetListResponse:
         response = FhirGetListResponse(
             request_id="test-request",
             url="https://example.com",
-            responses=json.dumps(sample_resources),
+            response_text=json.dumps(sample_resources),
             error=None,
             access_token="test-token",
             total_count=2,
@@ -212,7 +212,7 @@ class TestFhirGetListResponse:
         response = FhirGetListResponse(
             request_id="test-request",
             url="https://example.com",
-            responses=json.dumps(sample_resources),
+            response_text=json.dumps(sample_resources),
             error=None,
             access_token="test-token",
             total_count=2,
@@ -241,7 +241,7 @@ class TestFhirGetListResponse:
         response = FhirGetListResponse(
             request_id="test-request",
             url="https://example.com",
-            responses=json.dumps(sample_resources),
+            response_text=json.dumps(sample_resources),
             error=None,
             access_token="test-token",
             total_count=2,

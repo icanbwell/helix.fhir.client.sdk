@@ -210,3 +210,11 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         )
         # noinspection PyUnreachableCode,PyTypeChecker
         yield None
+
+    def get_resource_map(self) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Gets the resource map from the response
+
+        :return: resource map
+        """
+        return self._resource_map

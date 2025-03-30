@@ -56,7 +56,7 @@ class TestFhirGetErrorResponse:
 
         response = FhirGetErrorResponse(
             **base_response_params,
-            responses=json.dumps(sample_error_response),
+            response_text=json.dumps(sample_error_response),
             error="Sample error"
         )
 
@@ -74,7 +74,7 @@ class TestFhirGetErrorResponse:
 
         response = FhirGetErrorResponse(
             **base_response_params,
-            responses=json.dumps(sample_error_response),
+            response_text=json.dumps(sample_error_response),
             error="Sample error"
         )
 
@@ -91,7 +91,7 @@ class TestFhirGetErrorResponse:
 
         response = FhirGetErrorResponse(
             **base_response_params,
-            responses=json.dumps(sample_error_response),
+            response_text=json.dumps(sample_error_response),
             error="Sample error"
         )
 
@@ -110,7 +110,7 @@ class TestFhirGetErrorResponse:
 
         response = FhirGetErrorResponse(
             **base_response_params,
-            responses=json.dumps(sample_error_response),
+            response_text=json.dumps(sample_error_response),
             error="Sample error"
         )
 
@@ -130,7 +130,7 @@ class TestFhirGetErrorResponse:
 
         response = FhirGetErrorResponse(
             **base_response_params,
-            responses=json.dumps(sample_error_response),
+            response_text=json.dumps(sample_error_response),
             error="Sample error"
         )
 
@@ -150,7 +150,7 @@ class TestFhirGetErrorResponse:
 
         response = FhirGetErrorResponse(
             **base_response_params,
-            responses=json.dumps(sample_error_response),
+            response_text=json.dumps(sample_error_response),
             error="Sample error"
         )
 
@@ -167,7 +167,7 @@ class TestFhirGetErrorResponse:
 
         response = FhirGetErrorResponse(
             **base_response_params,
-            responses=json.dumps(sample_error_response),
+            response_text=json.dumps(sample_error_response),
             error="Sample error"
         )
 
@@ -188,7 +188,7 @@ class TestFhirGetErrorResponse:
 
         response = FhirGetErrorResponse(
             **base_response_params,
-            responses=json.dumps(sample_error_response),
+            response_text=json.dumps(sample_error_response),
             error="Sample error"
         )
 

@@ -29,7 +29,7 @@ class FhirGetResponseFactory:
         *,
         request_id: Optional[str],
         url: str,
-        responses: str,
+        response_text: str,
         error: Optional[str],
         access_token: Optional[str],
         total_count: Optional[int],
@@ -46,20 +46,20 @@ class FhirGetResponseFactory:
         results_by_url: List[RetryableAioHttpUrlResult],
     ) -> FhirGetResponse:
 
-        if not error and responses:
+        if not error and response_text:
             # test if responses is valid json
             try:
                 # Attempt to parse the JSON response
-                json.loads(responses)
+                json.loads(response_text)
             except ValueError as e:
-                error = f"Error parsing response: {responses}: {e}"
+                error = f"Error parsing response: {response_text}: {e}"
 
         if status != 200 or error:
             # If the status is not 200, return a single response with the error
             return FhirGetErrorResponse(
                 request_id=request_id,
                 url=url,
-                responses=responses,
+                response_text=response_text,
                 error=error,
                 access_token=access_token,
                 total_count=total_count,
@@ -75,7 +75,7 @@ class FhirGetResponseFactory:
             )
 
         child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
-            FhirGetResponse.parse_json(responses)
+            FhirGetResponse.parse_json(response_text)
         )
 
         # first see if it is just a list of resources
@@ -83,7 +83,7 @@ class FhirGetResponseFactory:
             return FhirGetListResponse(
                 request_id=request_id,
                 url=url,
-                responses=responses,
+                response_text=response_text,
                 error=error,
                 access_token=access_token,
                 total_count=total_count,
@@ -106,7 +106,7 @@ class FhirGetResponseFactory:
             return FhirGetBundleResponse(
                 request_id=request_id,
                 url=url,
-                responses=responses,
+                response_text=response_text,
                 error=error,
                 access_token=access_token,
                 total_count=total_count,
@@ -125,7 +125,7 @@ class FhirGetResponseFactory:
         return FhirGetSingleResponse(
             request_id=request_id,
             url=url,
-            responses=responses,
+            response_text=response_text,
             error=error,
             access_token=access_token,
             total_count=total_count,

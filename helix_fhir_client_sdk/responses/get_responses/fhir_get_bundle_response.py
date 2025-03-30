@@ -38,7 +38,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         *,
         request_id: Optional[str],
         url: str,
-        responses: str,
+        response_text: str,
         error: Optional[str],
         access_token: Optional[str],
         total_count: Optional[int],
@@ -73,7 +73,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         bundle_entries: List[BundleEntry]
         bundle: Bundle
         bundle_entries, bundle = self._parse_bundle_entries(
-            responses=responses,
+            responses=response_text,
             url=url,
             status=status,
             last_modified=self.lastModified,
@@ -267,7 +267,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         response: FhirGetBundleResponse = FhirGetBundleResponse(
             request_id=other_response.request_id,
             url=other_response.url,
-            responses=bundle.to_json(),
+            response_text=bundle.to_json(),
             error=other_response.error,
             access_token=other_response.access_token,
             total_count=other_response.total_count,

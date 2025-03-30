@@ -179,7 +179,7 @@ class FhirResponseProcessor:
         yield FhirGetResponseFactory.create(
             request_id=request_id,
             url=full_url,
-            responses=error_text,
+            response_text=error_text,
             access_token=access_token,
             error=error_text,
             total_count=0,
@@ -225,7 +225,7 @@ class FhirResponseProcessor:
         yield FhirGetResponseFactory.create(
             request_id=request_id,
             url=full_url,
-            responses=last_response_text,
+            response_text=last_response_text,
             error="NotFound",
             access_token=access_token,
             total_count=0,
@@ -403,7 +403,7 @@ class FhirResponseProcessor:
             yield FhirGetResponseFactory.create(
                 request_id=request_id,
                 url=full_url,
-                responses=resources_json,
+                response_text=resources_json,
                 error=None,
                 access_token=access_token,
                 total_count=total_count,
@@ -423,7 +423,7 @@ class FhirResponseProcessor:
             yield FhirGetResponseFactory.create(
                 request_id=request_id,
                 url=full_url,
-                responses=text or "",
+                response_text=text or "",
                 error=str(e),
                 access_token=access_token,
                 total_count=total_count,
@@ -570,7 +570,7 @@ class FhirResponseProcessor:
                 yield FhirGetErrorResponse(
                     request_id=request_id,
                     url=full_url,
-                    responses="",
+                    response_text="",
                     error="No content",
                     access_token=access_token,
                     total_count=0,
@@ -639,7 +639,7 @@ class FhirResponseProcessor:
                             yield FhirGetResponseFactory.create(
                                 request_id=request_id,
                                 url=full_url,
-                                responses=resources_json,
+                                response_text=resources_json,
                                 # responses=(
                                 #     json.dumps(completed_resources[0])
                                 #     if len(completed_resources) == 1
@@ -665,7 +665,7 @@ class FhirResponseProcessor:
             yield FhirGetResponseFactory.create(
                 request_id=request_id,
                 url=full_url,
-                responses=chunk or "",
+                response_text=chunk or "",
                 error=str(e),
                 access_token=access_token,
                 total_count=total_count,

@@ -17,7 +17,7 @@ class TestFhirBundleAppender:
         mock_response = FhirGetBundleResponse(
             request_id="test-request",
             url="https://example.com/Patient",
-            responses=json.dumps(
+            response_text=json.dumps(
                 {
                     "resourceType": "Bundle",
                     "entry": [{"resource": {"resourceType": "Patient", "id": "123"}}],

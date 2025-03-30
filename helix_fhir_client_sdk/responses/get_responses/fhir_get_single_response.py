@@ -30,7 +30,7 @@ class FhirGetSingleResponse(FhirGetResponse):
         *,
         request_id: Optional[str],
         url: str,
-        responses: str,
+        response_text: str,
         error: Optional[str],
         access_token: Optional[str],
         total_count: Optional[int],
@@ -63,7 +63,7 @@ class FhirGetSingleResponse(FhirGetResponse):
             results_by_url=results_by_url,
         )
         self._resource: Optional[Dict[str, Any]] = self._parse_single_resource(
-            responses=responses
+            responses=response_text
         )
 
     @override

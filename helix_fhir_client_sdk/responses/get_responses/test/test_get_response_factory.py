@@ -46,7 +46,7 @@ class TestFhirGetResponseFactory:
         params.update(
             {
                 "status": 404,
-                "responses": json.dumps({"error": "Not Found"}),
+                "response_text": json.dumps({"error": "Not Found"}),
                 "error": "Resource not found",
             }
         )
@@ -63,7 +63,7 @@ class TestFhirGetResponseFactory:
         params.update(
             {
                 "status": 200,
-                "responses": json.dumps(
+                "response_text": json.dumps(
                     [
                         {"resourceType": "Patient", "id": "123"},
                         {"resourceType": "Patient", "id": "456"},
@@ -83,7 +83,7 @@ class TestFhirGetResponseFactory:
         params.update(
             {
                 "status": 200,
-                "responses": json.dumps(
+                "response_text": json.dumps(
                     {
                         "resourceType": "Bundle",
                         "type": "searchset",
@@ -109,7 +109,7 @@ class TestFhirGetResponseFactory:
         params.update(
             {
                 "status": 200,
-                "responses": json.dumps(
+                "response_text": json.dumps(
                     {"resourceType": "Patient", "id": "123", "name": "John Doe"}
                 ),
             }
@@ -125,7 +125,7 @@ class TestFhirGetResponseFactory:
     ) -> None:
         """Test creating a response with None resources."""
         params = default_params.copy()
-        params.update({"status": 200, "responses": json.dumps(None)})
+        params.update({"status": 200, "response_text": json.dumps(None)})
 
         with pytest.raises(Exception):  # Adjust the specific exception as needed
             FhirGetResponseFactory.create(**params)
@@ -135,7 +135,7 @@ class TestFhirGetResponseFactory:
     ) -> None:
         """Test creating a response with invalid JSON."""
         params = default_params.copy()
-        params.update({"status": 200, "responses": "invalid json"})
+        params.update({"status": 200, "response_text": "invalid json"})
 
         response = FhirGetResponseFactory.create(**params)
         # should return an error response
@@ -149,7 +149,7 @@ class TestFhirGetResponseFactory:
         params.update(
             {
                 "status": 200,
-                "responses": json.dumps({"resourceType": "Patient", "id": "123"}),
+                "response_text": json.dumps({"resourceType": "Patient", "id": "123"}),
                 "next_url": "https://example.com/next",
                 "extra_context_to_return": {"key": "value"},
                 "response_headers": ["Content-Type: application/fhir+json"],

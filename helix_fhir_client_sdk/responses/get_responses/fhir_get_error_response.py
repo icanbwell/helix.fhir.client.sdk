@@ -29,7 +29,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         *,
         request_id: Optional[str],
         url: str,
-        responses: str,
+        response_text: str,
         error: Optional[str],
         access_token: Optional[str],
         total_count: Optional[int],
@@ -61,9 +61,9 @@ class FhirGetErrorResponse(FhirGetResponse):
             cache_hits=cache_hits,
             results_by_url=results_by_url,
         )
-        self._error_text: Optional[str] = responses
+        self._error_text: Optional[str] = response_text
         self._resource: Optional[Dict[str, Any]] = self._parse_response_text(
-            response_text=responses,
+            response_text=response_text,
             error=error,
             url=url,
             resource_type=resource_type,

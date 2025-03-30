@@ -35,7 +35,7 @@ class TestFhirGetSingleResponse:
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
-            responses=json.dumps(sample_single_resource),
+            response_text=json.dumps(sample_single_resource),
             error=None,
             access_token="test-token",
             total_count=1,
@@ -58,7 +58,7 @@ class TestFhirGetSingleResponse:
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
-            responses=json.dumps(sample_single_resource),
+            response_text=json.dumps(sample_single_resource),
             error=None,
             access_token="test-token",
             total_count=1,
@@ -81,7 +81,7 @@ class TestFhirGetSingleResponse:
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
-            responses="",
+            response_text="",
             error=None,
             access_token="test-token",
             total_count=0,
@@ -102,7 +102,7 @@ class TestFhirGetSingleResponse:
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
-            responses=json.dumps(sample_single_resource),
+            response_text=json.dumps(sample_single_resource),
             error=None,
             access_token="test-token",
             total_count=1,
@@ -126,7 +126,7 @@ class TestFhirGetSingleResponse:
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
-            responses=json.dumps(sample_single_resource),
+            response_text=json.dumps(sample_single_resource),
             error=None,
             access_token="test-token",
             total_count=1,
@@ -150,7 +150,7 @@ class TestFhirGetSingleResponse:
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
-            responses=json.dumps(sample_single_resource),
+            response_text=json.dumps(sample_single_resource),
             error=None,
             access_token="test-token",
             total_count=1,
@@ -171,7 +171,7 @@ class TestFhirGetSingleResponse:
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
-            responses=json.dumps(sample_single_resource),
+            response_text=json.dumps(sample_single_resource),
             error=None,
             access_token="test-token",
             total_count=1,
@@ -193,7 +193,7 @@ class TestFhirGetSingleResponse:
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
-            responses=json.dumps(sample_single_resource),
+            response_text=json.dumps(sample_single_resource),
             error=None,
             access_token="test-token",
             total_count=1,
@@ -223,7 +223,7 @@ class TestFhirGetSingleResponse:
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
-            responses=json.dumps(sample_single_resource),
+            response_text=json.dumps(sample_single_resource),
             error=None,
             access_token="test-token",
             total_count=1,
@@ -251,7 +251,7 @@ class TestFhirGetSingleResponse:
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
-            responses=json.dumps(sample_single_resource),
+            response_text=json.dumps(sample_single_resource),
             error=None,
             access_token="test-token",
             total_count=1,
@@ -278,7 +278,7 @@ class TestFhirGetSingleResponse:
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
-            responses=json.dumps(sample_single_resource),
+            response_text=json.dumps(sample_single_resource),
             error=None,
             access_token="test-token",
             total_count=1,
