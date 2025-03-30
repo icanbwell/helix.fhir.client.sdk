@@ -178,21 +178,31 @@ class FhirGetErrorResponse(FhirGetResponse):
         """
         response_json: Dict[str, Any] | None = None
         if response_text:
+            # we don't know if the response text is FHIR resource or not
+            # noinspection PyBroadException
+            try:
+                # check if the response is a valid json
+                # if it is not then we will just return the response text as it is
+                json.loads(response_text)
+            except Exception:
+                # No resource was found in the response
+                return None
+
             child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
                 cls.parse_json(response_text)
             )
-            if isinstance(child_response_resources, dict):
-                response_json = child_response_resources
-                response_json = Bundle.add_diagnostics_to_operation_outcomes(
-                    resource=response_json,
-                    diagnostics_coding=FhirBundleAppender.get_diagnostic_coding(
-                        access_token=access_token,
-                        url=url,
-                        resource_type=resource_type,
-                        id_=id_,
-                        status=status,
-                    ),
-                )
+            assert isinstance(child_response_resources, dict)
+            response_json = child_response_resources
+            response_json = Bundle.add_diagnostics_to_operation_outcomes(
+                resource=response_json,
+                diagnostics_coding=FhirBundleAppender.get_diagnostic_coding(
+                    access_token=access_token,
+                    url=url,
+                    resource_type=resource_type,
+                    id_=id_,
+                    status=status,
+                ),
+            )
         elif error:
             # create an operation outcome resource
             response_json = FhirBundleAppender.create_operation_outcome_resource(

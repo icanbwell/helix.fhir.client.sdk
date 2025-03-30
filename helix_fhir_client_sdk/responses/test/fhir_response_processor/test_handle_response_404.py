@@ -60,6 +60,7 @@ async def test_handle_response_404() -> None:
             "successful": False,
             "cache_hits": None,
             "results_by_url": [],
+            "_resource": None,
         }
     ]
 
