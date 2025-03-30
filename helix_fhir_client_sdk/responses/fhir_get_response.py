@@ -298,7 +298,7 @@ class FhirGetResponse:
             if not result:
                 result = value
             else:
-                result.append(value)
+                result = result.append(value)
 
         assert result
         return result

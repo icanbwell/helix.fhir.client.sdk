@@ -169,7 +169,7 @@ async def test_async_real_fhir_server_get_graph_large(
             if not response:
                 response = response1
             else:
-                response.append(response1)
+                response = response.append(response1)
 
         assert response is not None
         resources: List[Dict[str, Any]] = response.get_resources()

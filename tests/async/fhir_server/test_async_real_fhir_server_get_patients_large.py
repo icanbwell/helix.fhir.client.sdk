@@ -71,7 +71,7 @@ async def test_async_real_fhir_server_get_patients_large(
             if not response:
                 response = response1
             else:
-                response.append(response1)
+                response = response.append(response1)
             response.chunk_number = response1.chunk_number
 
         assert response is not None

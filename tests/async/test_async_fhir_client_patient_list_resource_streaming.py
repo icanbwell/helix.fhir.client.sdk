@@ -63,7 +63,7 @@ async def test_fhir_client_patient_list_async_resource_streaming() -> None:
         if not response:
             response = response1
         else:
-            response.append(response1)
+            response = response.append(response1)
 
     assert response
     # assert response.responses == ""

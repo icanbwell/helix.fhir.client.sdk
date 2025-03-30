@@ -625,7 +625,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 resource_type=resource_type,
             ):
                 if result:
-                    result.append(result2)
+                    result = result.append(result2)
                 else:
                     result = result2
         return result
@@ -752,7 +752,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     )
                 if result:
                     if all_result:
-                        all_result.append(result)
+                        all_result = all_result.append(result)
                     else:
                         all_result = result
         # If non_cached_id_list is not empty and resource_type does not support ?_id search then fetch it one by one
@@ -781,7 +781,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             bundle_entry=non_cached_bundle_entry,
                         )
             if cached_response:
-                all_result.append(cached_response)
+                all_result = all_result.append(cached_response)
         elif cached_response:
             all_result = cached_response
 

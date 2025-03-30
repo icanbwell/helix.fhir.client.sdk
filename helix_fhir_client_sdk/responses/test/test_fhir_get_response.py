@@ -217,7 +217,7 @@ def test_append_different_response_structures() -> None:
         json.dumps([{"resourceType": "Observation", "id": "2"}])
     )
 
-    response1.append(response2)
+    response1 = response1.append(response2)
 
     # Verify the appended response
     resources = response1.get_resources()
@@ -256,7 +256,7 @@ def test_extend_multiple_responses() -> None:
         ),
     ]
 
-    base_response.extend(other_responses)
+    base_response = base_response.extend(other_responses)
 
     # Verify the extended response
     resources = base_response.get_resources()

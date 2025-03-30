@@ -606,7 +606,7 @@ class FhirClient(
         ):
             if response:
                 if full_response:
-                    full_response.append(response)
+                    full_response = full_response.append(response)
                 else:
                     full_response = response
         assert full_response
