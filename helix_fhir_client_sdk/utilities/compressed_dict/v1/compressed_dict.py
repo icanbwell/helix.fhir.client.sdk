@@ -205,18 +205,18 @@ class CompressedDict[K, V](UserDict[K, V]):
             self._raw_dict[key] = value
         else:
             # For serialized modes, create a new dict
-            current_dict = self._get_dict()
+            current_dict: Dict[K, V] = self._get_dict()
             current_dict[key] = value
 
-            # Reserialize
-            if self._storage_mode == "msgpack":
-                self._serialized_dict = self._serialize_dict(
-                    current_dict, compressed=False
-                )
-            elif self._storage_mode == "compressed_msgpack":
-                self._serialized_dict = self._serialize_dict(
-                    current_dict, compressed=True
-                )
+            self._update_serialized_dict(current_dict)
+
+    def _update_serialized_dict(self, current_dict: Dict[K, V]) -> None:
+        if self._storage_mode == "raw":
+            self._raw_dict = current_dict
+        elif self._storage_mode == "msgpack":
+            self._serialized_dict = self._serialize_dict(current_dict, compressed=False)
+        elif self._storage_mode == "compressed_msgpack":
+            self._serialized_dict = self._serialize_dict(current_dict, compressed=True)
 
     def __delitem__(self, key: K) -> None:
         """
@@ -237,15 +237,7 @@ class CompressedDict[K, V](UserDict[K, V]):
             current_dict = self._get_dict()
             del current_dict[key]
 
-            # Reserialize
-            if self._storage_mode == "msgpack":
-                self._serialized_dict = self._serialize_dict(
-                    current_dict, compressed=False
-                )
-            elif self._storage_mode == "compressed_msgpack":
-                self._serialized_dict = self._serialize_dict(
-                    current_dict, compressed=True
-                )
+            self._update_serialized_dict(current_dict)
 
     def __contains__(self, key: object) -> bool:
         """
@@ -361,10 +353,7 @@ class CompressedDict[K, V](UserDict[K, V]):
             self.clear()
             return self
 
-        key: K
-        value1: V
-        for key, value1 in value.items():
-            self[key] = value1
+        self._update_serialized_dict(current_dict=value)
         return self
 
     def clear(self) -> None:

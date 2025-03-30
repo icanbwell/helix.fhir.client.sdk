@@ -51,19 +51,20 @@ class Bundle:
         :param diagnostics_coding: The diagnostics coding to add
         :return: The resource with the diagnostics added
         """
-        if resource.get("resourceType") == "OperationOutcome":
-            if resource.get("issue"):
-                for issue in resource["issue"]:
-                    details: Dict[str, Any] = issue.get("details")
-                    if details is None:
-                        issue["details"] = {}
-                        details = issue["details"]
-                    coding: Optional[List[Dict[str, Any]]] = details.get("coding")
-                    if coding is None:
-                        details["coding"] = []
-                        coding = details["coding"]
-                    assert coding is not None
-                    coding.extend(diagnostics_coding)
+        with resource.access_context():
+            if resource.get("resourceType") == "OperationOutcome":
+                if resource.get("issue"):
+                    for issue in resource["issue"]:
+                        details: Dict[str, Any] = issue.get("details")
+                        if details is None:
+                            issue["details"] = {}
+                            details = issue["details"]
+                        coding: Optional[List[Dict[str, Any]]] = details.get("coding")
+                        if coding is None:
+                            details["coding"] = []
+                            coding = details["coding"]
+                        assert coding is not None
+                        coding.extend(diagnostics_coding)
         return resource
 
     def to_json(self) -> str:

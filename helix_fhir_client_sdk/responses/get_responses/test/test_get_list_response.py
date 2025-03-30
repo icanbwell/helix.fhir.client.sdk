@@ -48,7 +48,9 @@ class TestFhirGetListResponse:
         )
         assert response.request_id == "test-request"
         assert len(response.get_resources()) == 2
-        assert response.get_resources()[0]["resourceType"] == "Patient"
+        resource = response.get_resources()[0]
+        with resource.access_context():
+            assert resource["resourceType"] == "Patient"
 
     def test_append(self, sample_resources: List[Dict[str, Any]]) -> None:
         """Test appending another response."""

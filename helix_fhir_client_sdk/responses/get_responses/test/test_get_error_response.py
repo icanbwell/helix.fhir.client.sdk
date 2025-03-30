@@ -57,7 +57,8 @@ class TestFhirGetErrorResponse:
         response = FhirGetErrorResponse(
             **base_response_params,
             response_text=json.dumps(sample_error_response),
-            error="Sample error"
+            error="Sample error",
+            storage_mode="compressed_msgpack",
         )
 
         assert response.request_id == "test-request"
@@ -75,7 +76,8 @@ class TestFhirGetErrorResponse:
         response = FhirGetErrorResponse(
             **base_response_params,
             response_text=json.dumps(sample_error_response),
-            error="Sample error"
+            error="Sample error",
+            storage_mode="compressed_msgpack",
         )
 
         resources = response.get_resources()
@@ -92,7 +94,8 @@ class TestFhirGetErrorResponse:
         response = FhirGetErrorResponse(
             **base_response_params,
             response_text=json.dumps(sample_error_response),
-            error="Sample error"
+            error="Sample error",
+            storage_mode="compressed_msgpack",
         )
 
         entries = response.get_bundle_entries()
@@ -111,7 +114,8 @@ class TestFhirGetErrorResponse:
         response = FhirGetErrorResponse(
             **base_response_params,
             response_text=json.dumps(sample_error_response),
-            error="Sample error"
+            error="Sample error",
+            storage_mode="compressed_msgpack",
         )
 
         mock_other_response = Mock(spec=FhirGetResponse)
@@ -131,7 +135,8 @@ class TestFhirGetErrorResponse:
         response = FhirGetErrorResponse(
             **base_response_params,
             response_text=json.dumps(sample_error_response),
-            error="Sample error"
+            error="Sample error",
+            storage_mode="compressed_msgpack",
         )
 
         mock_other_responses: List[FhirGetResponse] = [Mock(spec=FhirGetResponse)]
@@ -151,7 +156,8 @@ class TestFhirGetErrorResponse:
         response = FhirGetErrorResponse(
             **base_response_params,
             response_text=json.dumps(sample_error_response),
-            error="Sample error"
+            error="Sample error",
+            storage_mode="compressed_msgpack",
         )
 
         response_text = response.get_response_text()
@@ -168,7 +174,8 @@ class TestFhirGetErrorResponse:
         response = FhirGetErrorResponse(
             **base_response_params,
             response_text=json.dumps(sample_error_response),
-            error="Sample error"
+            error="Sample error",
+            storage_mode="compressed_msgpack",
         )
 
         resources = []
@@ -189,7 +196,8 @@ class TestFhirGetErrorResponse:
         response = FhirGetErrorResponse(
             **base_response_params,
             response_text=json.dumps(sample_error_response),
-            error="Sample error"
+            error="Sample error",
+            storage_mode="compressed_msgpack",
         )
 
         entries = []

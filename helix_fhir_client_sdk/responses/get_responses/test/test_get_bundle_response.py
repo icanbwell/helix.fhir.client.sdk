@@ -180,6 +180,8 @@ class TestFhirGetBundleResponse:
         mock_response.response_headers = None
         mock_response.chunk_number = 1
         mock_response.cache_hits = 0
+        mock_response.storage_mode = "compressed_msgpack"
+
         mock_response.get_bundle_entries.return_value = [
             BundleEntry(
                 resource={"resourceType": "Patient", "id": "123"},

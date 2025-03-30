@@ -103,4 +103,7 @@ class TestBundleEntry:
             request=None,
             response=None,
         )
-        assert repr(entry) == "resource={'resourceType': 'Patient', 'id': '123'}"
+        assert (
+            repr(entry)
+            == "resource=CompressedDict(storage_mode='raw', items={'resourceType': 'Patient', 'id': '123'})"
+        )

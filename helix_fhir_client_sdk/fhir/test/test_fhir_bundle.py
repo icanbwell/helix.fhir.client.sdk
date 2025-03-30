@@ -112,4 +112,7 @@ class TestBundle:
             resource=resource, diagnostics_coding=diagnostics_coding
         )
 
-        assert updated_resource["issue"][0]["details"]["coding"] == diagnostics_coding
+        with updated_resource.access_context():
+            assert (
+                updated_resource["issue"][0]["details"]["coding"] == diagnostics_coding
+            )
