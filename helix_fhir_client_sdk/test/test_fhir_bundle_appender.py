@@ -1,4 +1,5 @@
 import json
+from typing import List
 
 import pytest
 
@@ -9,6 +10,7 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
+from helix_fhir_client_sdk.structures.fhir_types import FhirResource
 
 
 class TestFhirBundleAppender:
@@ -36,6 +38,7 @@ class TestFhirBundleAppender:
             chunk_number=None,
             cache_hits=None,
             results_by_url=[],
+            storage_mode="compressed_msgpack",
         )
         return mock_response
 
@@ -50,7 +53,7 @@ class TestFhirBundleAppender:
         """Test appending responses to a bundle."""
         responses = [sample_fhir_get_response]
         updated_bundle = FhirBundleAppender.append_responses(
-            responses=responses, bundle=sample_bundle
+            responses=responses, bundle=sample_bundle, storage_mode="compressed_msgpack"
         )
 
         assert updated_bundle.entry is not None
@@ -63,7 +66,7 @@ class TestFhirBundleAppender:
     ) -> None:
         """Test adding operation outcomes to a response."""
         bundle_entries = FhirBundleAppender.add_operation_outcomes_to_response(
-            response=sample_fhir_get_response
+            response=sample_fhir_get_response, storage_mode="compressed_msgpack"
         )
 
         assert len(bundle_entries) == 1
@@ -81,6 +84,7 @@ class TestFhirBundleAppender:
             access_token="test-token",
             extra_context_to_return={},
             request_id="test-request",
+            storage_mode="compressed_msgpack",
         )
 
         assert operation_outcome["resourceType"] == "OperationOutcome"
@@ -217,14 +221,25 @@ class TestFhirBundleAppender:
 
     def test_sort_resources_in_list(self) -> None:
         """Test sorting resources in a list."""
-        resources = [
-            {"resourceType": "Patient", "id": "456"},
-            {"resourceType": "Patient", "id": "123"},
-            {"resourceType": "Observation", "id": "789"},
+        resources: List[FhirResource] = [
+            FhirResource(
+                initial_dict={"resourceType": "Patient", "id": "456"},
+                storage_mode="compressed_msgpack",
+            ),
+            FhirResource(
+                initial_dict={"resourceType": "Patient", "id": "123"},
+                storage_mode="compressed_msgpack",
+            ),
+            FhirResource(
+                initial_dict={"resourceType": "Observation", "id": "789"},
+                storage_mode="compressed_msgpack",
+            ),
         ]
 
-        sorted_resources = FhirBundleAppender.sort_resources_in_list(
-            resources=resources
+        sorted_resources: List[FhirResource] = (
+            FhirBundleAppender.sort_resources_in_list(
+                resources=resources,
+            )
         )
 
         sorted_ids = [

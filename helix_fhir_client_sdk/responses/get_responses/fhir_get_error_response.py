@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator, cast
+from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator
 
 from helix_fhir_client_sdk.fhir.bundle import Bundle
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
@@ -8,6 +8,9 @@ from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -42,6 +45,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         chunk_number: Optional[int] = None,
         cache_hits: Optional[int] = None,
         results_by_url: List[RetryableAioHttpUrlResult],
+        storage_mode: CompressedDictStorageMode,
     ) -> None:
         super().__init__(
             request_id=request_id,
@@ -58,9 +62,10 @@ class FhirGetErrorResponse(FhirGetResponse):
             chunk_number=chunk_number,
             cache_hits=cache_hits,
             results_by_url=results_by_url,
+            storage_mode=storage_mode,
         )
         self._error_text: Optional[str] = response_text
-        self._resource: Optional[Dict[str, Any]] = self._parse_response_text(
+        self._resource: Optional[FhirResource] = self._parse_response_text(
             response_text=response_text,
             error=error,
             url=url,
@@ -70,6 +75,7 @@ class FhirGetErrorResponse(FhirGetResponse):
             access_token=access_token,
             extra_context_to_return=extra_context_to_return,
             request_id=request_id,
+            storage_mode=storage_mode,
         )
 
     @override
@@ -99,7 +105,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         )
 
     @override
-    def get_resources(self) -> List[Dict[str, Any]]:
+    def get_resources(self) -> List[FhirResource]:
         """
         Gets the resources from the response
 
@@ -169,7 +175,8 @@ class FhirGetErrorResponse(FhirGetResponse):
         access_token: Optional[str],
         extra_context_to_return: Optional[Dict[str, Any]],
         request_id: Optional[str],
-    ) -> Optional[Dict[str, Any]]:
+        storage_mode: CompressedDictStorageMode,
+    ) -> Optional[FhirResource]:
         """
         Parses the response text to extract any useful information. This can be overridden by subclasses.
 
@@ -192,8 +199,10 @@ class FhirGetErrorResponse(FhirGetResponse):
             )
             assert isinstance(child_response_resources, dict)
             response_json = child_response_resources
-            response_json = Bundle.add_diagnostics_to_operation_outcomes(
-                resource=response_json,
+            return Bundle.add_diagnostics_to_operation_outcomes(
+                resource=FhirResource(
+                    initial_dict=response_json, storage_mode=storage_mode
+                ),
                 diagnostics_coding=FhirBundleAppender.get_diagnostic_coding(
                     access_token=access_token,
                     url=url,
@@ -204,7 +213,7 @@ class FhirGetErrorResponse(FhirGetResponse):
             )
         elif error:
             # create an operation outcome resource
-            response_json = FhirBundleAppender.create_operation_outcome_resource(
+            return FhirBundleAppender.create_operation_outcome_resource(
                 error=error,
                 url=url,
                 resource_type=resource_type,
@@ -213,9 +222,10 @@ class FhirGetErrorResponse(FhirGetResponse):
                 access_token=access_token,
                 extra_context_to_return=extra_context_to_return,
                 request_id=request_id,
+                storage_mode=storage_mode,
             )
 
-        return response_json
+        return FhirResource(initial_dict=response_json, storage_mode=storage_mode)
 
     @override
     def sort_resources(self) -> "FhirGetErrorResponse":
@@ -224,7 +234,7 @@ class FhirGetErrorResponse(FhirGetResponse):
     @override
     async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
         for resource in self.get_resources():
-            yield cast(FhirResource, resource)
+            yield resource
 
     @override
     async def get_bundle_entries_generator(self) -> AsyncGenerator[BundleEntry, None]:

@@ -44,6 +44,7 @@ class TestFhirGetListResponse:
             chunk_number=1,
             cache_hits=0,
             results_by_url=results_by_url,
+            storage_mode="compressed_msgpack",
         )
         assert response.request_id == "test-request"
         assert len(response.get_resources()) == 2
@@ -66,6 +67,7 @@ class TestFhirGetListResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
+            storage_mode="compressed_msgpack",
         )
         second_response = FhirGetListResponse(
             request_id="test-request-2",
@@ -81,6 +83,7 @@ class TestFhirGetListResponse:
             resource_type="Observation",
             id_=["456"],
             response_headers=None,
+            storage_mode="compressed_msgpack",
         )
         first_response.append(second_response)
         assert len(first_response.get_resources()) == 2
@@ -102,6 +105,7 @@ class TestFhirGetListResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
+            storage_mode="compressed_msgpack",
         )
         resources = response.get_resources()
         assert len(resources) == 2
@@ -127,6 +131,7 @@ class TestFhirGetListResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
+            storage_mode="compressed_msgpack",
         )
         response.remove_duplicates()
         assert len(response.get_resources()) == 2
@@ -173,6 +178,7 @@ class TestFhirGetListResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
+            storage_mode="compressed_msgpack",
         )
         bundle_entries = response.get_bundle_entries()
         assert len(bundle_entries) == 2
@@ -198,6 +204,7 @@ class TestFhirGetListResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
+            storage_mode="compressed_msgpack",
         )
         response_text = response.get_response_text()
         assert "Patient" in response_text
@@ -223,6 +230,7 @@ class TestFhirGetListResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
+            storage_mode="compressed_msgpack",
         )
         # Collect resources from the generator
         resources = []
@@ -252,6 +260,7 @@ class TestFhirGetListResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
+            storage_mode="compressed_msgpack",
         )
         # Collect bundle entries from the generator
         bundle_entries = []

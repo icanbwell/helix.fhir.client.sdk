@@ -1,3 +1,7 @@
-from typing import TypeAlias, Dict, Any
+from typing import TypeAlias, Any
 
-FhirResource: TypeAlias = Dict[str, Any]
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+    CompressedDict,
+)
+
+FhirResource: TypeAlias = CompressedDict[str, Any]

@@ -14,6 +14,9 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_single_response import (
     FhirGetSingleResponse,
 )
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -44,6 +47,7 @@ class FhirGetResponseFactory:
         chunk_number: Optional[int] = None,
         cache_hits: Optional[int] = None,
         results_by_url: List[RetryableAioHttpUrlResult],
+        storage_mode: CompressedDictStorageMode,
     ) -> FhirGetResponse:
 
         if not error and response_text:
@@ -72,6 +76,7 @@ class FhirGetResponseFactory:
                 chunk_number=chunk_number,
                 cache_hits=cache_hits,
                 results_by_url=results_by_url,
+                storage_mode=storage_mode,
             )
 
         child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
@@ -96,6 +101,7 @@ class FhirGetResponseFactory:
                 chunk_number=chunk_number,
                 cache_hits=cache_hits,
                 results_by_url=results_by_url,
+                storage_mode=storage_mode,
             )
 
         # then check if it is a bundle
@@ -119,6 +125,7 @@ class FhirGetResponseFactory:
                 chunk_number=chunk_number,
                 cache_hits=cache_hits,
                 results_by_url=results_by_url,
+                storage_mode=storage_mode,
             )
 
         # now assume it is a single resource
@@ -138,4 +145,5 @@ class FhirGetResponseFactory:
             chunk_number=chunk_number,
             cache_hits=cache_hits,
             results_by_url=results_by_url,
+            storage_mode=storage_mode,
         )

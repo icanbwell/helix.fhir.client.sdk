@@ -2,6 +2,7 @@ import json
 from typing import Any, Dict, List, Optional
 
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
+from helix_fhir_client_sdk.structures.fhir_types import FhirResource
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
@@ -39,8 +40,8 @@ class Bundle:
 
     @staticmethod
     def add_diagnostics_to_operation_outcomes(
-        *, resource: Dict[str, Any], diagnostics_coding: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        *, resource: FhirResource, diagnostics_coding: List[Dict[str, Any]]
+    ) -> FhirResource:
         """
         Adds diagnostic coding to OperationOutcome resources to identify which call resulted in that OperationOutcome
         being returned by the server

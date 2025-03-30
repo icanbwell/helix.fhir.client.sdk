@@ -27,6 +27,9 @@ from helix_fhir_client_sdk.responses.resource_separator import (
     ResourceSeparator,
     ResourceSeparatorResult,
 )
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
 )
@@ -61,6 +64,7 @@ class FhirResponseProcessor:
         url: Optional[str],
         separate_bundle_resources: bool,
         use_data_streaming: bool,
+        storage_mode: CompressedDictStorageMode,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         This method is responsible for handling the response from the FHIR server.
@@ -83,6 +87,7 @@ class FhirResponseProcessor:
         :param url: The URL.
         :param separate_bundle_resources: Whether to separate the bundle resources.
         :param use_data_streaming: Whether to use data streaming.
+        :param storage_mode: The storage mode.
 
         :return: An async generator of FhirGetResponse objects.
         """
@@ -105,6 +110,7 @@ class FhirResponseProcessor:
                 expand_fhir_bundle=expand_fhir_bundle,
                 url=url,
                 separate_bundle_resources=separate_bundle_resources,
+                storage_mode=storage_mode,
             ):
                 yield r
         elif response.status == 404:  # not found
@@ -118,6 +124,7 @@ class FhirResponseProcessor:
                 logger=logger,
                 id_=id_,
                 access_token=access_token,
+                storage_mode=storage_mode,
             ):
                 yield r
         else:  # unknown response
@@ -132,6 +139,7 @@ class FhirResponseProcessor:
                 extra_context_to_return=extra_context_to_return,
                 id_=id_,
                 internal_logger=internal_logger,
+                storage_mode=storage_mode,
             ):
                 yield r
 
@@ -148,6 +156,7 @@ class FhirResponseProcessor:
         extra_context_to_return: Optional[Dict[str, Any]],
         resource: Optional[str],
         id_: Optional[Union[List[str], str]],
+        storage_mode: CompressedDictStorageMode,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         This method is responsible for handling an unknown response from the FHIR server.
@@ -189,6 +198,7 @@ class FhirResponseProcessor:
             id_=id_,
             response_headers=response_headers,
             results_by_url=response.results_by_url,
+            storage_mode=storage_mode,
         )
 
     @staticmethod
@@ -203,6 +213,7 @@ class FhirResponseProcessor:
         resource: Optional[str],
         id_: Optional[Union[List[str], str]],
         logger: Optional[FhirLogger],
+        storage_mode: CompressedDictStorageMode,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         This method is responsible for handling a 404 response from the FHIR server.
@@ -235,6 +246,7 @@ class FhirResponseProcessor:
             id_=id_,
             response_headers=response_headers,
             results_by_url=response.results_by_url,
+            storage_mode=storage_mode,
         )
 
     @staticmethod
@@ -256,6 +268,7 @@ class FhirResponseProcessor:
         expand_fhir_bundle: bool,
         separate_bundle_resources: bool,
         url: Optional[str],
+        storage_mode: CompressedDictStorageMode,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         This method is responsible for handling a 200 response from the FHIR server. A 200 response indicates that the
@@ -304,6 +317,7 @@ class FhirResponseProcessor:
                 separate_bundle_resources=separate_bundle_resources,
                 expand_fhir_bundle=expand_fhir_bundle,
                 url=url,
+                storage_mode=storage_mode,
             ):
                 yield r
         else:
@@ -323,6 +337,7 @@ class FhirResponseProcessor:
                 separate_bundle_resources=separate_bundle_resources,
                 expand_fhir_bundle=expand_fhir_bundle,
                 url=url,
+                storage_mode=storage_mode,
             ):
                 yield r
 
@@ -344,6 +359,7 @@ class FhirResponseProcessor:
         resource: Optional[str],
         id_: Optional[Union[List[str], str]],
         url: Optional[str],
+        storage_mode: CompressedDictStorageMode,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         This method is responsible for handling a 200 response from the FHIR server. A 200 response indicates that the
@@ -414,6 +430,7 @@ class FhirResponseProcessor:
                 id_=id_,
                 response_headers=response_headers,
                 results_by_url=response.results_by_url,
+                storage_mode=storage_mode,
             )
         except Exception as e:
             if logger:
@@ -434,6 +451,7 @@ class FhirResponseProcessor:
                 id_=id_,
                 response_headers=response_headers,
                 results_by_url=response.results_by_url,
+                storage_mode=storage_mode,
             )
 
     @staticmethod
@@ -508,6 +526,7 @@ class FhirResponseProcessor:
         expand_fhir_bundle: bool,
         separate_bundle_resources: bool,
         url: Optional[str],
+        storage_mode: CompressedDictStorageMode,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         This method is responsible for handling a 200 response from the FHIR server. A 200 response indicates that the
@@ -581,6 +600,7 @@ class FhirResponseProcessor:
                     id_=id_,
                     response_headers=response_headers,
                     results_by_url=response.results_by_url,
+                    storage_mode=storage_mode,
                 )
             else:
                 # iterate over the chunks and return the completed resources as we get them
@@ -656,6 +676,7 @@ class FhirResponseProcessor:
                                 response_headers=response_headers,
                                 chunk_number=chunk_number,
                                 results_by_url=response.results_by_url,
+                                storage_mode=storage_mode,
                             )
         except Exception as e:
             if logger:
@@ -676,6 +697,7 @@ class FhirResponseProcessor:
                 id_=id_,
                 response_headers=response_headers,
                 results_by_url=response.results_by_url,
+                storage_mode=storage_mode,
             )
 
     @staticmethod

@@ -1,16 +1,24 @@
-from typing import Dict, Optional, Literal, Iterator, Tuple, cast
+from collections import UserDict
+from collections.abc import KeysView, ValuesView, ItemsView
+from contextlib import contextmanager
+from typing import Dict, Optional, Literal, Iterator, cast
 
 import msgpack
 import zlib
 
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_access_error import (
+    CompressedDictAccessError,
+)
+
 CompressedDictStorageMode = Literal["raw", "msgpack", "compressed_msgpack"]
 
 
-class CompressedDict[K, V]:
+class CompressedDict[K, V](UserDict[K, V]):
     def __init__(
         self,
+        *,
         initial_dict: Optional[Dict[K, V]] = None,
-        storage_mode: CompressedDictStorageMode = "raw",
+        storage_mode: CompressedDictStorageMode,
     ):
         """
         Initialize a dictionary with flexible storage options
@@ -21,8 +29,12 @@ class CompressedDict[K, V]:
                 - 'msgpack': Store as MessagePack serialized bytes
                 - 'compressed_msgpack': Store as compressed MessagePack bytes
         """
+        super().__init__()
         # Storage configuration
         self._storage_mode: CompressedDictStorageMode = storage_mode
+
+        # Working copy of the dictionary during context
+        self._working_dict: Optional[Dict[K, V]] = None
 
         # Private storage options
         self._raw_dict: Dict[K, V] = {}
@@ -30,8 +42,58 @@ class CompressedDict[K, V]:
 
         # Populate initial dictionary if provided
         if initial_dict:
-            for key, value in initial_dict.items():
-                self[key] = value
+            self.replace(value=initial_dict)
+
+        if storage_mode == "raw":
+            # Store the initial dictionary directly
+            self._working_dict = initial_dict
+
+    @contextmanager
+    def access_context(self) -> Iterator["CompressedDict[K, V]"]:
+        """
+        Context manager to safely access and modify the dictionary.
+
+        Deserializes the dictionary before entering the context
+        Serializes the dictionary after exiting the context
+
+        Raises:
+            CompressedDictAccessError: If methods are called outside the context
+        """
+        try:
+            # Deserialize the dictionary before entering the context
+            if self._storage_mode == "raw":
+                # For raw mode, create a deep copy of the existing dictionary
+                self._working_dict = self._raw_dict
+            else:
+                # For serialized modes, deserialize
+                compressed = self._storage_mode == "compressed_msgpack"
+                self._working_dict = (
+                    self._deserialize_dict(self._serialized_dict, compressed)
+                    if self._serialized_dict
+                    else {}
+                )
+
+            # Yield the working dictionary
+            yield self
+
+        finally:
+            # Serialize the dictionary after exiting the context
+            if self._storage_mode == "raw":
+                # Update raw dict
+                self._raw_dict = self._working_dict or {}
+            elif self._storage_mode == "msgpack":
+                # Serialize without compression
+                self._serialized_dict = self._serialize_dict(
+                    self._working_dict or {}, compressed=False
+                )
+            elif self._storage_mode == "compressed_msgpack":
+                # Serialize with compression
+                self._serialized_dict = self._serialize_dict(
+                    self._working_dict or {}, compressed=True
+                )
+
+            # Clear the working dictionary
+            self._working_dict = None
 
     @staticmethod
     def _serialize_dict(dictionary: Dict[K, V], compressed: bool = False) -> bytes:
@@ -118,6 +180,11 @@ class CompressedDict[K, V]:
         Returns:
             Value associated with the key
         """
+        if self._working_dict is None:
+            raise CompressedDictAccessError(
+                "Dictionary access is only allowed within an access_context() block. "
+                "Use 'with compressed_dict.access_context() as d:' to access the dictionary."
+            )
         return self._get_dict()[key]
 
     def __setitem__(self, key: K, value: V) -> None:
@@ -128,6 +195,11 @@ class CompressedDict[K, V]:
             key: Dictionary key
             value: Value to store
         """
+        if self._working_dict is None:
+            raise CompressedDictAccessError(
+                "Dictionary modification is only allowed within an access_context() block. "
+                "Use 'with compressed_dict.access_context() as d:' to modify the dictionary."
+            )
         if self._storage_mode == "raw":
             # Direct storage for raw mode
             self._raw_dict[key] = value
@@ -153,6 +225,11 @@ class CompressedDict[K, V]:
         Args:
             key: Key to delete
         """
+        if self._working_dict is None:
+            raise CompressedDictAccessError(
+                "Dictionary modification is only allowed within an access_context() block. "
+                "Use 'with compressed_dict.access_context() as d:' to modify the dictionary."
+            )
         if self._storage_mode == "raw":
             del self._raw_dict[key]
         else:
@@ -198,50 +275,39 @@ class CompressedDict[K, V]:
         Returns:
             Iterator of keys
         """
+        if self._working_dict is None:
+            raise CompressedDictAccessError(
+                "Dictionary modification is only allowed within an access_context() block. "
+                "Use 'with compressed_dict.access_context() as d:' to modify the dictionary."
+            )
         return iter(self._get_dict())
 
-    def keys(self) -> Iterator[K]:
+    def keys(self) -> KeysView[K]:
         """
         Get an iterator of keys
 
         Returns:
             Iterator of keys
         """
-        for k in self._get_dict().keys():
-            yield k
+        return self._get_dict().keys()
 
-    def values(self) -> Iterator[V]:
+    def values(self) -> ValuesView[V]:
         """
         Get an iterator of values
 
         Returns:
             Iterator of values
         """
-        for v in self._get_dict().values():
-            yield v
+        return self._get_dict().values()
 
-    def items(self) -> Iterator[Tuple[K, V]]:
+    def items(self) -> ItemsView[K, V]:
         """
         Get an iterator of key-value pairs
 
         Returns:
             Iterator of key-value pairs
         """
-        for c in self._get_dict().items():
-            yield c
-
-    def get(self, key: K, default: Optional[V] = None) -> Optional[V]:
-        """
-        Get a value with a default
-
-        Args:
-            key: Key to retrieve
-            default: Default value if key not found
-
-        Returns:
-            Value or default
-        """
-        return self._get_dict().get(key, default)
+        return self._get_dict().items()
 
     def to_dict(self) -> Dict[K, V]:
         """
@@ -254,7 +320,7 @@ class CompressedDict[K, V]:
 
     @classmethod
     def from_dict(
-        cls, input_dict: Dict[K, V], storage_mode: CompressedDictStorageMode = "raw"
+        cls, input_dict: Dict[K, V], storage_mode: CompressedDictStorageMode
     ) -> "CompressedDict[K, V]":
         """
         Create a CompressedDict from a standard dictionary
@@ -266,7 +332,7 @@ class CompressedDict[K, V]:
         Returns:
             CompressedDict instance
         """
-        return cls(input_dict, storage_mode=storage_mode)
+        return cls(initial_dict=input_dict, storage_mode=storage_mode)
 
     def __repr__(self) -> str:
         """
@@ -280,3 +346,46 @@ class CompressedDict[K, V]:
             f"CompressedDict(storage_mode='{self._storage_mode}', "
             f"items={dict_contents})"
         )
+
+    def replace(self, *, value: Dict[K, V]) -> "CompressedDict[K, V]":
+        """
+        Replace the current dictionary with a new one
+
+        Args:
+            value: New dictionary to store
+
+        Returns:
+            Self
+        """
+        if not value:
+            self.clear()
+            return self
+
+        key: K
+        value1: V
+        for key, value1 in value.items():
+            self[key] = value1
+        return self
+
+    def clear(self) -> None:
+        """
+        Clear the dictionary
+        """
+        if self._storage_mode == "raw":
+            self._raw_dict.clear()
+        else:
+            self._serialized_dict = None
+
+    def __eq__(self, other: object) -> bool:
+        """
+        Check equality with another dictionary
+
+        Args:
+            other: Dictionary to compare with
+
+        Returns:
+            Whether the dictionaries are equal
+        """
+        if isinstance(other, CompressedDict):
+            return self._get_dict() == other._get_dict()
+        return self._get_dict() == other

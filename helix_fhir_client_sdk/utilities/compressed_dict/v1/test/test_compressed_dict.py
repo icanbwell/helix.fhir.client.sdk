@@ -10,14 +10,14 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
 class TestCompressedDict:
     def test_init_empty(self) -> None:
         """Test initialization with no initial data"""
-        cd: CompressedDict[str, Any] = CompressedDict()
+        cd: CompressedDict[str, Any] = CompressedDict(storage_mode="raw")
         assert len(cd) == 0
         assert cd._storage_mode == "raw"
 
     def test_init_with_dict(self) -> None:
         """Test initialization with initial dictionary"""
         initial_data = {"a": 1, "b": 2, "c": 3}
-        cd = CompressedDict(initial_data)
+        cd = CompressedDict(initial_dict=initial_data, storage_mode="raw")
         assert len(cd) == 3
         assert cd["a"] == 1
         assert cd["b"] == 2
@@ -27,13 +27,13 @@ class TestCompressedDict:
     def test_storage_modes(self, storage_mode: CompressedDictStorageMode) -> None:
         """Test different storage modes"""
         initial_data = {"key": "value"}
-        cd = CompressedDict(initial_data, storage_mode=storage_mode)
+        cd = CompressedDict(initial_dict=initial_data, storage_mode=storage_mode)
         assert cd._storage_mode == storage_mode
         assert cd["key"] == "value"
 
     def test_setitem_and_getitem(self) -> None:
         """Test setting and getting items"""
-        cd: CompressedDict[str, Any] = CompressedDict()
+        cd: CompressedDict[str, Any] = CompressedDict(storage_mode="compressed_msgpack")
         cd["key1"] = "value1"
         cd["key2"] = 42
         cd["key3"] = {"nested": "dict"}
@@ -44,7 +44,9 @@ class TestCompressedDict:
 
     def test_delitem(self) -> None:
         """Test deleting items"""
-        cd = CompressedDict({"a": 1, "b": 2})
+        cd = CompressedDict(
+            initial_dict={"a": 1, "b": 2}, storage_mode="compressed_msgpack"
+        )
         del cd["a"]
 
         assert len(cd) == 1
@@ -53,7 +55,9 @@ class TestCompressedDict:
 
     def test_contains(self) -> None:
         """Test key existence checks"""
-        cd = CompressedDict({"a": 1, "b": 2})
+        cd = CompressedDict(
+            initial_dict={"a": 1, "b": 2}, storage_mode="compressed_msgpack"
+        )
 
         assert "a" in cd
         assert "b" in cd
@@ -62,7 +66,9 @@ class TestCompressedDict:
     def test_keys_and_values(self) -> None:
         """Test keys and values methods"""
         initial_data = {"a": 1, "b": 2, "c": 3}
-        cd: CompressedDict[str, int] = CompressedDict(initial_data)
+        cd: CompressedDict[str, int] = CompressedDict(
+            initial_dict=initial_data, storage_mode="compressed_msgpack"
+        )
 
         assert set(cd.keys()) == {"a", "b", "c"}
         assert set(cd.values()) == {1, 2, 3}
@@ -70,13 +76,17 @@ class TestCompressedDict:
     def test_items(self) -> None:
         """Test items method"""
         initial_data = {"a": 1, "b": 2, "c": 3}
-        cd = CompressedDict(initial_data)
+        cd = CompressedDict(
+            initial_dict=initial_data, storage_mode="compressed_msgpack"
+        )
 
         assert set(cd.items()) == {("a", 1), ("b", 2), ("c", 3)}
 
     def test_get_method(self) -> None:
         """Test get method with default"""
-        cd: CompressedDict[str, Any] = CompressedDict({"a": 1})
+        cd: CompressedDict[str, Any] = CompressedDict(
+            initial_dict={"a": 1}, storage_mode="compressed_msgpack"
+        )
 
         assert cd.get("a") == 1
         assert cd.get("b") is None
@@ -85,14 +95,16 @@ class TestCompressedDict:
     def test_to_dict(self) -> None:
         """Test conversion to standard dictionary"""
         initial_data = {"a": 1, "b": 2}
-        cd = CompressedDict(initial_data)
+        cd = CompressedDict(
+            initial_dict=initial_data, storage_mode="compressed_msgpack"
+        )
 
         assert cd.to_dict() == initial_data
 
     def test_from_dict(self) -> None:
         """Test class method from_dict"""
         initial_data = {"a": 1, "b": 2}
-        cd = CompressedDict.from_dict(initial_data)
+        cd = CompressedDict.from_dict(initial_data, storage_mode="compressed_msgpack")
 
         assert cd.to_dict() == initial_data
 
@@ -107,7 +119,8 @@ class TestCompressedDict:
         # Test each storage mode
         for mode in ["raw", "msgpack", "compressed_msgpack"]:
             cd = CompressedDict(
-                complex_data, storage_mode=cast(CompressedDictStorageMode, mode)
+                initial_dict=complex_data,
+                storage_mode=cast(CompressedDictStorageMode, mode),
             )
 
             assert cd["nested_dict"] == {"inner_key": "inner_value"}
@@ -116,7 +129,9 @@ class TestCompressedDict:
 
     def test_repr(self) -> None:
         """Test string representation"""
-        cd = CompressedDict({"a": 1, "b": 2})
+        cd = CompressedDict(
+            initial_dict={"a": 1, "b": 2}, storage_mode="compressed_msgpack"
+        )
         repr_str = repr(cd)
 
         assert "storage_mode" in repr_str
@@ -126,7 +141,7 @@ class TestCompressedDict:
 
     def test_error_handling(self) -> None:
         """Test error scenarios"""
-        cd: CompressedDict[str, Any] = CompressedDict()
+        cd: CompressedDict[str, Any] = CompressedDict(storage_mode="compressed_msgpack")
 
         # Test KeyError
         with pytest.raises(KeyError):
@@ -137,7 +152,7 @@ class TestCompressedDict:
         """Test handling of large datasets"""
         large_data = {f"key_{i}": f"value_{i}" for i in range(1000)}
 
-        cd = CompressedDict(large_data, storage_mode=storage_mode)
+        cd = CompressedDict(initial_dict=large_data, storage_mode=storage_mode)
 
         assert len(cd) == 1000
         assert cd["key_500"] == "value_500"

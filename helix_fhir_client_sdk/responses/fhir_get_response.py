@@ -9,6 +9,9 @@ from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
 )
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -42,6 +45,7 @@ class FhirGetResponse:
         chunk_number: Optional[int] = None,
         cache_hits: Optional[int] = None,
         results_by_url: List[RetryableAioHttpUrlResult],
+        storage_mode: CompressedDictStorageMode,
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -91,6 +95,8 @@ class FhirGetResponse:
         """ Count of cache hits """
         self.results_by_url: List[RetryableAioHttpUrlResult] = results_by_url
         """ Count of errors in the response by status """
+        self.storage_mode: CompressedDictStorageMode = storage_mode
+        """ Storage mode for the response """
 
     @abstractmethod
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse": ...
@@ -154,7 +160,7 @@ class FhirGetResponse:
         return result
 
     @abstractmethod
-    def get_resources(self) -> List[Dict[str, Any]]:
+    def get_resources(self) -> List[FhirResource]:
         """
         Gets the resources from the response
 
@@ -298,7 +304,7 @@ class FhirGetResponse:
         """
         Gets the ids of the resources from the response
         """
-        resources: List[Dict[str, Any]] = self.get_resources()
+        resources: List[FhirResource] = self.get_resources()
         try:
             return [f"{r.get('resourceType')}/{r.get('id')}" for r in resources]
         except Exception as e:
@@ -326,7 +332,7 @@ class FhirGetResponse:
         assert result
         return result
 
-    def get_operation_outcomes(self) -> List[Dict[str, Any]]:
+    def get_operation_outcomes(self) -> List[FhirResource]:
         """
         Gets the operation outcomes from the response
 
@@ -338,7 +344,7 @@ class FhirGetResponse:
             if r.get("resourceType") == "OperationOutcome"
         ]
 
-    def get_resources_except_operation_outcomes(self) -> List[Dict[str, Any]]:
+    def get_resources_except_operation_outcomes(self) -> List[FhirResource]:
         """
         Gets the normal FHIR resources by skipping any OperationOutcome resources
 

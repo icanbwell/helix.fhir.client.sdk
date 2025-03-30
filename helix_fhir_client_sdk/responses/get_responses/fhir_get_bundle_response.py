@@ -18,6 +18,9 @@ from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -51,6 +54,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         chunk_number: Optional[int] = None,
         cache_hits: Optional[int] = None,
         results_by_url: List[RetryableAioHttpUrlResult],
+        storage_mode: CompressedDictStorageMode,
     ) -> None:
         super().__init__(
             request_id=request_id,
@@ -67,6 +71,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             chunk_number=chunk_number,
             cache_hits=cache_hits,
             results_by_url=results_by_url,
+            storage_mode=storage_mode,
         )
         bundle_entries: List[BundleEntry]
         bundle: Bundle
@@ -89,6 +94,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             request_id=request_id,
             last_modified=self.lastModified,
             etag=self.etag,
+            storage_mode="raw",  # These are small so no reason to compress them
         )
         self._bundle_entries: List[BundleEntry] = bundle_entries
         self._bundle_metadata: Bundle = bundle
@@ -123,7 +129,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         return self
 
     @override
-    def get_resources(self) -> List[Dict[str, Any]]:
+    def get_resources(self) -> List[FhirResource]:
         """
         Gets the resources from the response
 
@@ -278,6 +284,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             chunk_number=other_response.chunk_number,
             cache_hits=other_response.cache_hits,
             results_by_url=other_response.results_by_url,
+            storage_mode=other_response.storage_mode,
         )
         response._bundle_entries = other_response.get_bundle_entries()
         return response

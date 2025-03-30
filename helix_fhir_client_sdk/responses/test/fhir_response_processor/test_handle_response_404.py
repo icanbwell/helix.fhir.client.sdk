@@ -39,6 +39,7 @@ async def test_handle_response_404() -> None:
             resource=resource,
             id_=id_,
             logger=logger,
+            storage_mode="compressed_msgpack",
         )
     ]
 

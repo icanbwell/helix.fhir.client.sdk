@@ -48,6 +48,7 @@ class TestFhirGetSingleResponse:
             chunk_number=1,
             cache_hits=0,
             results_by_url=results_by_url,
+            storage_mode="compressed_msgpack",
         )
         assert response.request_id == "test-request"
         assert response.url == "https://example.com/Patient/123"
@@ -69,6 +70,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
+            storage_mode="compressed_msgpack",
         )
         resources = response.get_resources()
         assert len(resources) == 1
@@ -92,6 +94,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
+            storage_mode="compressed_msgpack",
         )
         resources = response.get_resources()
         assert len(resources) == 0
@@ -113,6 +116,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
+            storage_mode="compressed_msgpack",
         )
         bundle_entry = response.get_bundle_entry()
         assert isinstance(bundle_entry, BundleEntry)
@@ -137,6 +141,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
+            storage_mode="compressed_msgpack",
         )
         bundle_entries = response.get_bundle_entries()
         assert len(bundle_entries) == 1
@@ -161,6 +166,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
+            storage_mode="compressed_msgpack",
         )
         result = response.remove_duplicates()
         assert result == response
@@ -182,6 +188,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
+            storage_mode="compressed_msgpack",
         )
         response_text = response.get_response_text()
         assert "Patient" in response_text
@@ -204,6 +211,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
+            storage_mode="compressed_msgpack",
         )
         sorted_response = response.sort_resources()
         assert sorted_response == response
@@ -234,6 +242,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
+            storage_mode="compressed_msgpack",
         )
         # Collect resources from the generator
         resources = []
@@ -262,6 +271,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
+            storage_mode="compressed_msgpack",
         )
         # Collect bundle entries from the generator
         bundle_entries = []
@@ -289,6 +299,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
+            storage_mode="compressed_msgpack",
         )
         mock_other_response = Mock(spec=FhirGetSingleResponse)
         # implement an async generator for the mock

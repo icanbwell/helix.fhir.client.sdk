@@ -24,7 +24,7 @@ class TestFhirGetResponse(FhirGetResponse):
         # Simple implementation for testing
         return self
 
-    def get_resources(self) -> List[Dict[str, Any]]:
+    def get_resources(self) -> List[FhirResource]:
         return self._resources
 
     async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
@@ -185,8 +185,14 @@ class TestFhirGetResponseClass:
         """Test get_operation_outcomes method."""
         response = TestFhirGetResponse(**sample_response_data)
         response._resources = [
-            {"resourceType": "OperationOutcome", "issue": []},
-            {"resourceType": "Patient", "id": "123"},
+            FhirResource(
+                initial_dict={"resourceType": "OperationOutcome", "issue": []},
+                storage_mode="compressed_msgpack",
+            ),
+            FhirResource(
+                initial_dict={"resourceType": "Patient", "id": "123"},
+                storage_mode="compressed_msgpack",
+            ),
         ]
 
         outcomes = response.get_operation_outcomes()
@@ -199,8 +205,14 @@ class TestFhirGetResponseClass:
         """Test get_resources_except_operation_outcomes method."""
         response = TestFhirGetResponse(**sample_response_data)
         response._resources = [
-            {"resourceType": "OperationOutcome", "issue": []},
-            {"resourceType": "Patient", "id": "123"},
+            FhirResource(
+                initial_dict={"resourceType": "OperationOutcome", "issue": []},
+                storage_mode="compressed_msgpack",
+            ),
+            FhirResource(
+                initial_dict={"resourceType": "Patient", "id": "123"},
+                storage_mode="compressed_msgpack",
+            ),
         ]
 
         resources = response.get_resources_except_operation_outcomes()
@@ -215,7 +227,12 @@ class TestFhirGetResponseClass:
         assert not response.has_resources()
 
         # With resources
-        response._resources = [{"resourceType": "Patient", "id": "123"}]
+        response._resources = [
+            FhirResource(
+                initial_dict={"resourceType": "Patient", "id": "123"},
+                storage_mode="compressed_msgpack",
+            )
+        ]
         assert response.has_resources()
 
     def test_to_dict(self, sample_response_data: Dict[str, Any]) -> None:

@@ -11,6 +11,7 @@ from mockserver_client.mockserver_client import (
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.structures.fhir_types import FhirResource
 from helix_fhir_client_sdk.utilities.fhir_helper import FhirHelper
 from tests.logger_for_test import LoggerForTest
 
@@ -62,7 +63,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
 
     responses: List[FhirGetResponse] = []
     response: Optional[FhirGetResponse] = None
-    resource_chunks: List[List[Dict[str, Any]]] = []
+    resource_chunks: List[List[FhirResource]] = []
     async for response1 in fhir_client.get_streaming_async():
         resources_in_chunk = response1.get_resources()
         print(
@@ -78,7 +79,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
 
     assert response is not None
 
-    resources: List[Dict[str, Any]] = response.get_resources()
+    resources: List[FhirResource] = response.get_resources()
 
     mock_client.verify_expectations()
 

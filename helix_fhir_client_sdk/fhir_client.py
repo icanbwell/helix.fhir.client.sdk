@@ -51,6 +51,9 @@ from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
 )
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 
 
@@ -876,4 +879,13 @@ class FhirClient(
         :param value: function to trace the request
         """
         self._trace_request_function = value
+        return self
+
+    def set_storage_mode(self, value: CompressedDictStorageMode) -> "FhirClient":
+        """
+        Sets the storage mode
+
+        :param value: storage mode
+        """
+        self._storage_mode = value
         return self

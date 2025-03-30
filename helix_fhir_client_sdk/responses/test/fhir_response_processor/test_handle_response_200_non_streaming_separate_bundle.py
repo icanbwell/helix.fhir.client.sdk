@@ -67,6 +67,7 @@ async def test_handle_response_200_non_streaming_separate_bundle() -> None:
             resource=resource,
             id_=id_,
             url=url,
+            storage_mode="compressed_msgpack",
         )
     ]
 

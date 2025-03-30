@@ -9,6 +9,9 @@ from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response impo
     FhirGetBundleResponse,
 )
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -43,6 +46,7 @@ class FhirGetSingleResponse(FhirGetResponse):
         chunk_number: Optional[int] = None,
         cache_hits: Optional[int] = None,
         results_by_url: List[RetryableAioHttpUrlResult],
+        storage_mode: CompressedDictStorageMode,
     ) -> None:
         super().__init__(
             request_id=request_id,
@@ -59,9 +63,10 @@ class FhirGetSingleResponse(FhirGetResponse):
             chunk_number=chunk_number,
             cache_hits=cache_hits,
             results_by_url=results_by_url,
+            storage_mode=storage_mode,
         )
-        self._resource: Optional[Dict[str, Any]] = self._parse_single_resource(
-            responses=response_text
+        self._resource: Optional[FhirResource] = self._parse_single_resource(
+            responses=response_text, storage_mode=storage_mode
         )
 
     @override
@@ -91,7 +96,7 @@ class FhirGetSingleResponse(FhirGetResponse):
         )
 
     @override
-    def get_resources(self) -> List[Dict[str, Any]]:
+    def get_resources(self) -> List[FhirResource]:
         """
         Gets the resources from the response
 
@@ -142,7 +147,9 @@ class FhirGetSingleResponse(FhirGetResponse):
         return self  # nothing to do since this is a single resource
 
     @classmethod
-    def _parse_single_resource(cls, *, responses: str) -> Dict[str, Any] | None:
+    def _parse_single_resource(
+        cls, *, responses: str, storage_mode: CompressedDictStorageMode
+    ) -> FhirResource | None:
         """
         Gets the single resource from the response
 
@@ -155,7 +162,9 @@ class FhirGetSingleResponse(FhirGetResponse):
                 cls.parse_json(responses)
             )
             assert isinstance(child_response_resources, dict)
-            return child_response_resources
+            return FhirResource(
+                initial_dict=child_response_resources, storage_mode=storage_mode
+            )
         except Exception as e:
             raise Exception(f"Could not get resources from: {responses}") from e
 

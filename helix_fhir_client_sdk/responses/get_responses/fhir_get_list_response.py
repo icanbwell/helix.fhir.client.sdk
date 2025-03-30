@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator, cast
+from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator
 
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
@@ -7,6 +7,9 @@ from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -41,6 +44,7 @@ class FhirGetListResponse(FhirGetResponse):
         chunk_number: Optional[int] = None,
         cache_hits: Optional[int] = None,
         results_by_url: List[RetryableAioHttpUrlResult],
+        storage_mode: CompressedDictStorageMode,
     ) -> None:
         super().__init__(
             request_id=request_id,
@@ -57,9 +61,10 @@ class FhirGetListResponse(FhirGetResponse):
             chunk_number=chunk_number,
             cache_hits=cache_hits,
             results_by_url=results_by_url,
+            storage_mode=storage_mode,
         )
-        self._resources: Optional[List[Dict[str, Any]]] = self._parse_resources(
-            responses=response_text
+        self._resources: Optional[List[FhirResource]] = self._parse_resources(
+            responses=response_text, storage_mode=storage_mode
         )
 
     @override
@@ -90,11 +95,13 @@ class FhirGetListResponse(FhirGetResponse):
 
         return self
 
-    def get_resources(self) -> List[Dict[str, Any]]:
+    def get_resources(self) -> List[FhirResource]:
         return self._resources if self._resources else []
 
     @classmethod
-    def _parse_resources(cls, *, responses: str) -> List[Dict[str, Any]]:
+    def _parse_resources(
+        cls, *, responses: str, storage_mode: CompressedDictStorageMode
+    ) -> List[FhirResource]:
         """
         Gets the resources from the response
 
@@ -107,7 +114,10 @@ class FhirGetListResponse(FhirGetResponse):
                 cls.parse_json(responses)
             )
             assert isinstance(child_response_resources, list)
-            return child_response_resources
+            return [
+                FhirResource(initial_dict=r, storage_mode=storage_mode)
+                for r in child_response_resources
+            ]
         except Exception as e:
             raise Exception(f"Could not get resources from: {responses}") from e
 
@@ -148,14 +158,16 @@ class FhirGetListResponse(FhirGetResponse):
             return self  # nothing to do
 
         try:
-            unique_resources: List[Dict[str, Any]] = list(
-                {
-                    f'{r.get("resourceType")}/{r.get("id")}': r
-                    for r in self._resources
-                    if r.get("resourceType") and r.get("id")
-                }.values()
-            )
-            null_id_resources: List[Dict[str, Any]] = [
+            # if self._resources find unique entries by resourceType and id
+
+            id_and_resource_dict: Dict[str, FhirResource] = {
+                f'{r.get("resourceType")}/{r.get("id")}': r
+                for r in self._resources
+                if r.get("resourceType") and r.get("id")
+            }
+
+            unique_resources: List[FhirResource] = list(id_and_resource_dict.values())
+            null_id_resources: List[FhirResource] = [
                 r for r in self._resources if not r.get("id")
             ]
             unique_resources.extend(null_id_resources)
@@ -170,7 +182,7 @@ class FhirGetListResponse(FhirGetResponse):
         if isinstance(other_response, FhirGetListResponse):
             return other_response
 
-        resources: List[Dict[str, Any]] = other_response.get_resources()
+        resources: List[FhirResource] = other_response.get_resources()
 
         response: FhirGetListResponse = FhirGetListResponse(
             request_id=other_response.request_id,
@@ -188,6 +200,7 @@ class FhirGetListResponse(FhirGetResponse):
             chunk_number=other_response.chunk_number,
             cache_hits=other_response.cache_hits,
             results_by_url=other_response.results_by_url,
+            storage_mode=other_response.storage_mode,
         )
         response._resources = other_response.get_resources()
         return response
@@ -216,7 +229,7 @@ class FhirGetListResponse(FhirGetResponse):
     @override
     async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
         for resource in self.get_resources():
-            yield cast(FhirResource, resource)
+            yield resource
 
     @override
     async def get_bundle_entries_generator(self) -> AsyncGenerator[BundleEntry, None]:

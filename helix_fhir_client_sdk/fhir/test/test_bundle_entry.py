@@ -9,7 +9,9 @@ class TestBundleEntry:
     def test_init_minimal(self) -> None:
         """Test initialization with minimal parameters."""
         entry = BundleEntry(
-            resource={"resourceType": "Patient"}, request=None, response=None
+            resource={"resourceType": "Patient"},
+            request=None,
+            response=None,
         )
         assert entry.resource == {"resourceType": "Patient"}
         assert entry.request is None
@@ -36,7 +38,9 @@ class TestBundleEntry:
     def test_to_dict_minimal(self) -> None:
         """Test converting to dictionary with minimal parameters."""
         entry = BundleEntry(
-            resource={"resourceType": "Patient"}, request=None, response=None
+            resource={"resourceType": "Patient"},
+            request=None,
+            response=None,
         )
         result = entry.to_dict()
         assert result == {"resource": {"resourceType": "Patient"}}
@@ -64,7 +68,7 @@ class TestBundleEntry:
     def test_from_dict_minimal(self) -> None:
         """Test creating from dictionary with minimal parameters."""
         data = {"resource": {"resourceType": "Patient"}}
-        entry = BundleEntry.from_dict(data)
+        entry = BundleEntry.from_dict(data, storage_mode="compressed_msgpack")
         assert entry.resource == {"resourceType": "Patient"}
         assert entry.request is None
         assert entry.response is None
@@ -83,7 +87,7 @@ class TestBundleEntry:
                 "etag": 'W/"abc"',
             },
         }
-        entry = BundleEntry.from_dict(data)
+        entry = BundleEntry.from_dict(data, storage_mode="compressed_msgpack")
         assert entry.fullUrl == "https://example.com/Patient/123"
         assert entry.resource == {"resourceType": "Patient", "id": "123"}
         assert entry.request is not None
@@ -94,5 +98,9 @@ class TestBundleEntry:
     def test_repr(self) -> None:
         """Test string representation of BundleEntry."""
         resource = {"resourceType": "Patient", "id": "123"}
-        entry = BundleEntry(resource=resource, request=None, response=None)
+        entry = BundleEntry(
+            resource=resource,
+            request=None,
+            response=None,
+        )
         assert repr(entry) == "resource={'resourceType': 'Patient', 'id': '123'}"

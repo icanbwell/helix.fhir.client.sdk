@@ -198,6 +198,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         extra_context_to_return=self._extra_context_to_return,
                         use_data_streaming=self._use_data_streaming,
                         fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+                        storage_mode=self._storage_mode,
                     ):
                         next_url = r.next_url
                         yield r

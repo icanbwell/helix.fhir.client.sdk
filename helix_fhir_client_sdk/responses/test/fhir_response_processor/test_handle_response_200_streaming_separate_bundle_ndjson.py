@@ -65,6 +65,7 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
             expand_fhir_bundle=expand_fhir_bundle,
             separate_bundle_resources=separate_bundle_resources,
             url=url,
+            storage_mode="compressed_msgpack",
         )
     ]
 

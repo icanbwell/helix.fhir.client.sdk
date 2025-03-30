@@ -1,12 +1,13 @@
 import json
 from os import environ
-from typing import Any, List, Dict, Optional
+from typing import Any, List, Optional
 
 import pytest
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
+from helix_fhir_client_sdk.structures.fhir_types import FhirResource
 from helix_fhir_client_sdk.utilities.fhir_helper import FhirHelper
 from helix_fhir_client_sdk.utilities.fhir_server_helpers import FhirServerHelpers
 
@@ -60,7 +61,7 @@ async def test_async_real_fhir_server_get_patients_large(
     if use_data_streaming:
         responses: List[FhirGetResponse] = []
         response: Optional[FhirGetResponse] = None
-        resource_chunks: List[List[Dict[str, Any]]] = []
+        resource_chunks: List[List[FhirResource]] = []
         async for response1 in fhir_client.get_streaming_async():
             resources_in_chunk = response1.get_resources()
             print(
@@ -78,7 +79,7 @@ async def test_async_real_fhir_server_get_patients_large(
         assert response.response_headers is not None
         assert "Transfer-Encoding:chunked" in response.response_headers
         assert "Content-Encoding:gzip" in response.response_headers
-        resources: List[Dict[str, Any]] = response.get_resources()
+        resources: List[FhirResource] = response.get_resources()
         assert len(resources) == count
         print("Number of chunks received:", len(responses))
         assert len(responses) > 1

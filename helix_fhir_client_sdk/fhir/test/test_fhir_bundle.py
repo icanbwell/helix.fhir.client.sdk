@@ -2,6 +2,7 @@ import json
 
 from helix_fhir_client_sdk.fhir.bundle import Bundle
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
+from helix_fhir_client_sdk.structures.fhir_types import FhirResource
 
 
 class TestBundle:
@@ -98,10 +99,13 @@ class TestBundle:
 
     def test_add_diagnostics_to_operation_outcomes(self) -> None:
         """Test adding diagnostics to OperationOutcome resources."""
-        resource = {
-            "resourceType": "OperationOutcome",
-            "issue": [{"severity": "error", "details": {}}],
-        }
+        resource = FhirResource(
+            initial_dict={
+                "resourceType": "OperationOutcome",
+                "issue": [{"severity": "error", "details": {}}],
+            },
+            storage_mode="compressed_msgpack",
+        )
         diagnostics_coding = [{"code": "test-code"}]
 
         updated_resource = Bundle.add_diagnostics_to_operation_outcomes(

@@ -10,6 +10,7 @@ from mockserver_client.mockserver_client import (
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.structures.fhir_types import FhirResource
 
 
 async def test_fhir_client_patient_list_async_resource_streaming() -> None:
@@ -54,7 +55,7 @@ async def test_fhir_client_patient_list_async_resource_streaming() -> None:
     fhir_client = fhir_client.use_data_streaming(True)
     fhir_client = fhir_client.chunk_size(10)
 
-    resource_chunks: List[List[Dict[str, Any]]] = []
+    resource_chunks: List[List[FhirResource]] = []
 
     response: Optional[FhirGetResponse] = None
     async for response1 in fhir_client.get_streaming_async():

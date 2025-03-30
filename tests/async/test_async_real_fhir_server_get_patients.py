@@ -1,13 +1,14 @@
 import datetime
 import json
 from os import environ
-from typing import Any, List, Dict, Optional
+from typing import Any, List, Optional
 
 import pytest
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
+from helix_fhir_client_sdk.structures.fhir_types import FhirResource
 from helix_fhir_client_sdk.utilities.fhir_server_helpers import FhirServerHelpers
 
 
@@ -74,7 +75,7 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
     print("----- end response_text -----")
 
     if use_data_streaming:
-        resources: List[Dict[str, Any]] = response.get_resources()
+        resources: List[FhirResource] = response.get_resources()
         assert len(resources) == 1, response_text
         assert resources[0]["id"] == "12355"
         assert resources[0]["resourceType"] == "Patient"

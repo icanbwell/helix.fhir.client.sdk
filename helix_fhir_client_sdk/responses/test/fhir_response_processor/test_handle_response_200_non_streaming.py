@@ -53,6 +53,7 @@ async def test_handle_response_200_non_streaming() -> None:
             resource=resource,
             id_=id_,
             url=url,
+            storage_mode="compressed_msgpack",
         )
     ]
 

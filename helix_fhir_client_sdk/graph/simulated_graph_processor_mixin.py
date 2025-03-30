@@ -39,6 +39,7 @@ from helix_fhir_client_sdk.responses.get_responses.fhir_get_list_response import
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_response_factory import (
     FhirGetResponseFactory,
 )
+from helix_fhir_client_sdk.structures.fhir_types import FhirResource
 
 from helix_fhir_client_sdk.utilities.async_parallel_processor.v1.async_parallel_processor import (
     AsyncParallelProcessor,
@@ -440,7 +441,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             for parent_bundle_entry in parent_bundle_entries:
                 parent_resource = parent_bundle_entry.resource
                 references: Union[List[Dict[str, Any]], Dict[str, Any], str, None] = (
-                    DictionaryParser.get_nested_property(parent_resource, path)
+                    DictionaryParser.get_nested_property(
+                        parent_resource.to_dict(), path
+                    )
                     if parent_resource
                     else None
                 )
@@ -500,7 +503,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             child_ids = []
             for parent_bundle_entry in parent_bundle_entries:
                 parent_resource = parent_bundle_entry.resource
-                reference = parent_resource.get(path, {}) if parent_resource else None
+                reference = parent_resource.get(path, None) if parent_resource else None
                 if parent_resource and reference and "reference" in reference:
                     parent_ids.append(parent_resource.get("id", ""))
                     parent_resource_type = parent_resource.get("resourceType", "")
@@ -655,6 +658,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     extra_context_to_return=None,
                     error=None,
                     results_by_url=[],
+                    storage_mode=self._storage_mode,
                 ),
                 0,
             )
@@ -705,6 +709,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 extra_context_to_return=None,
                 error=None,
                 results_by_url=[],
+                storage_mode=self._storage_mode,
             )
 
         all_result: Optional[FhirGetResponse] = None
@@ -768,9 +773,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             non_cached_bundle_entry: BundleEntry
             for non_cached_bundle_entry in all_result.get_bundle_entries():
                 if non_cached_bundle_entry.resource:
-                    non_cached_resource: Dict[str, Any] = (
-                        non_cached_bundle_entry.resource
-                    )
+                    non_cached_resource: FhirResource = non_cached_bundle_entry.resource
                     non_cached_resource_id: Optional[str] = non_cached_resource.get(
                         "id"
                     )

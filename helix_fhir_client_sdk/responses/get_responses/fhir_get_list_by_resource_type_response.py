@@ -6,6 +6,9 @@ from helix_fhir_client_sdk.fhir.bundle_entry import (
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -25,7 +28,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         *,
         request_id: Optional[str],
         url: str,
-        resources: List[Dict[str, Any]],
+        resources: List[FhirResource],
         error: Optional[str],
         access_token: Optional[str],
         total_count: Optional[int],
@@ -40,6 +43,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         chunk_number: Optional[int] = None,
         cache_hits: Optional[int] = None,
         results_by_url: List[RetryableAioHttpUrlResult],
+        storage_mode: CompressedDictStorageMode,
     ) -> None:
         super().__init__(
             request_id=request_id,
@@ -56,8 +60,9 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
             chunk_number=chunk_number,
             cache_hits=cache_hits,
             results_by_url=results_by_url,
+            storage_mode=storage_mode,
         )
-        self._resource_map: Dict[str, List[Dict[str, Any]]] = (
+        self._resource_map: Dict[str, List[FhirResource]] = (
             self._parse_into_resource_map(resources=resources)
         )
 
@@ -93,15 +98,15 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return self
 
     @override
-    def get_resources(self) -> List[Dict[str, Any]]:
+    def get_resources(self) -> List[FhirResource]:
         """
         Gets the resources from the response
 
 
         :return: list of resources
         """
-        resources: List[Dict[str, Any]] = []
-        resources_for_resource_type: List[Dict[str, Any]]
+        resources: List[FhirResource] = []
+        resources_for_resource_type: List[FhirResource]
         for resources_for_resource_type in self._resource_map.values():
             resources.extend(resources_for_resource_type)
 
@@ -163,6 +168,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
             chunk_number=other_response.chunk_number,
             cache_hits=other_response.cache_hits,
             results_by_url=other_response.results_by_url,
+            storage_mode=other_response.storage_mode,
         )
         return response
 
@@ -177,10 +183,10 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
     @classmethod
     def _parse_into_resource_map(
-        cls, resources: List[Dict[str, Any]]
-    ) -> Dict[str, List[Dict[str, Any]]]:
-        resource_map: Dict[str, List[Dict[str, Any]]] = {}
-        resource: Dict[str, Any]
+        cls, resources: List[FhirResource]
+    ) -> Dict[str, List[FhirResource]]:
+        resource_map: Dict[str, List[FhirResource]] = {}
+        resource: FhirResource
         for resource in resources:
             if resource:
                 resource_type = resource.get("resourceType")
@@ -211,7 +217,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         # noinspection PyUnreachableCode,PyTypeChecker
         yield None
 
-    def get_resource_map(self) -> Dict[str, List[Dict[str, Any]]]:
+    def get_resource_map(self) -> Dict[str, List[FhirResource]]:
         """
         Gets the resource map from the response
 
