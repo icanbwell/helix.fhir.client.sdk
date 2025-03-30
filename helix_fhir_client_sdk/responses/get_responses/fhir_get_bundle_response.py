@@ -194,3 +194,26 @@ class FhirGetBundleResponse(FhirGetResponse):
             self._bundle_entries = bundle.entry or []
         except Exception as e:
             raise Exception(f"Could not get parse json from: {self.responses}") from e
+
+    @classmethod
+    @override
+    def from_response(cls, other_response: "FhirGetResponse") -> "FhirGetResponse":
+        response: FhirGetBundleResponse = FhirGetBundleResponse(
+            request_id=other_response.request_id,
+            url=other_response.url,
+            responses=other_response.responses,
+            error=other_response.error,
+            access_token=other_response.access_token,
+            total_count=other_response.total_count,
+            status=other_response.status,
+            next_url=other_response.next_url,
+            extra_context_to_return=other_response.extra_context_to_return,
+            resource_type=other_response.resource_type,
+            id_=other_response.id_,
+            response_headers=other_response.response_headers,
+            chunk_number=other_response.chunk_number,
+            cache_hits=other_response.cache_hits,
+            results_by_url=other_response.results_by_url,
+        )
+        response._bundle_entries = other_response.get_bundle_entries()
+        return response

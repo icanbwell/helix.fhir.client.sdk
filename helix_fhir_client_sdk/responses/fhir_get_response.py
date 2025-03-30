@@ -334,3 +334,11 @@ class FhirGetResponse:
         :return: dictionary
         """
         return self.__dict__
+
+    @classmethod
+    @abstractmethod
+    def from_response(cls, other_response: "FhirGetResponse") -> "FhirGetResponse":
+        """
+        Creates a new instance of the class from another response class
+        """
+        ...

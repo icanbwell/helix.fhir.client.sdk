@@ -4,7 +4,7 @@ from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response impo
     FhirGetBundleResponse,
 )
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_list_response import (
-    FhirListGetResponse,
+    FhirGetListResponse,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_single_response import (
@@ -47,7 +47,7 @@ class FhirGetResponseFactory:
 
         # first see if it is just a list of resources
         if isinstance(child_response_resources, list):
-            return FhirListGetResponse(
+            return FhirGetListResponse(
                 request_id=request_id,
                 url=url,
                 responses=responses,

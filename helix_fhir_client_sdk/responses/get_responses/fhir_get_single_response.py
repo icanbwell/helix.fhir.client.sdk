@@ -6,6 +6,9 @@ from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntryResponse,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
+    FhirGetBundleResponse,
+)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -67,7 +70,10 @@ class FhirSingleGetResponse(FhirGetResponse):
         :param other_response: FhirGetResponse object to append to current one
         :return: self
         """
-        raise NotImplementedError("FhirSingleGetResponse does not support append")
+        # if someone is trying to append to a single resource then we need to convert it to a bundle
+        return FhirGetBundleResponse.from_response(other_response=self).append(
+            other_response=other_response
+        )
 
     @override
     def _extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
@@ -77,7 +83,10 @@ class FhirSingleGetResponse(FhirGetResponse):
         :param others: list of FhirGetResponse objects
         :return: self
         """
-        raise NotImplementedError("FhirSingleGetResponse does not support extend")
+        # if someone is trying to append to a single resource then we need to convert it to a bundle
+        return FhirGetBundleResponse.from_response(other_response=self).extend(
+            others=others
+        )
 
     @override
     def get_resources(self) -> List[Dict[str, Any]]:
@@ -145,3 +154,10 @@ class FhirSingleGetResponse(FhirGetResponse):
             return child_response_resources
         except Exception as e:
             raise Exception(f"Could not get resources from: {self.responses}") from e
+
+    @classmethod
+    @override
+    def from_response(cls, other_response: "FhirGetResponse") -> "FhirGetResponse":
+        raise NotImplementedError(
+            "FhirSingleGetResponse does not support from_response()"
+        )

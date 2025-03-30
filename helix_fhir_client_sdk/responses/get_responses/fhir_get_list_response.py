@@ -11,7 +11,7 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
 )
 
 
-class FhirListGetResponse(FhirGetResponse):
+class FhirGetListResponse(FhirGetResponse):
     """
     This class represents a response from a FHIR server.
     NOTE: This class does converted to a Row in Spark so keep all the property types simple python types
@@ -161,3 +161,26 @@ class FhirListGetResponse(FhirGetResponse):
             self._resources = unique_resources
         except Exception as e:
             raise Exception(f"Could not get parse json from: {self.responses}") from e
+
+    @classmethod
+    @override
+    def from_response(cls, other_response: "FhirGetResponse") -> "FhirGetResponse":
+        response: FhirGetListResponse = FhirGetListResponse(
+            request_id=other_response.request_id,
+            url=other_response.url,
+            responses=other_response.responses,
+            error=other_response.error,
+            access_token=other_response.access_token,
+            total_count=other_response.total_count,
+            status=other_response.status,
+            next_url=other_response.next_url,
+            extra_context_to_return=other_response.extra_context_to_return,
+            resource_type=other_response.resource_type,
+            id_=other_response.id_,
+            response_headers=other_response.response_headers,
+            chunk_number=other_response.chunk_number,
+            cache_hits=other_response.cache_hits,
+            results_by_url=other_response.results_by_url,
+        )
+        response._resources = other_response.get_resources()
+        return response
