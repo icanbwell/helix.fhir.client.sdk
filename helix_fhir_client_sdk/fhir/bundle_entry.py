@@ -33,7 +33,7 @@ class BundleEntry:
             resource
             if isinstance(resource, CompressedDict)
             else (
-                CompressedDict.from_dict(resource, storage_mode=storage_mode)
+                FhirResource(initial_dict=resource, storage_mode=storage_mode)
                 if resource is not None
                 else None
             )
@@ -64,7 +64,7 @@ class BundleEntry:
                 self._resource = value
             else:
                 if self._resource is None:
-                    self._resource = CompressedDict(
+                    self._resource = FhirResource(
                         initial_dict=value, storage_mode=self.storage_mode
                     )
                 else:
@@ -91,7 +91,7 @@ class BundleEntry:
         return BundleEntry(
             fullUrl=d["fullUrl"] if "fullUrl" in d else None,
             resource=(
-                CompressedDict.from_dict(d["resource"], storage_mode=storage_mode)
+                FhirResource(initial_dict=d["resource"], storage_mode=storage_mode)
                 if "resource" in d
                 else None
             ),

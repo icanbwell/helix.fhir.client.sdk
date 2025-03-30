@@ -1,7 +1,7 @@
 from collections import UserDict
 from collections.abc import KeysView, ValuesView, ItemsView
 from contextlib import contextmanager
-from typing import Dict, Optional, Literal, Iterator, cast
+from typing import Dict, Optional, Literal, Iterator, cast, List
 
 import msgpack
 import zlib
@@ -19,7 +19,8 @@ class CompressedDict[K, V](UserDict[K, V]):
         *,
         initial_dict: Optional[Dict[K, V]] = None,
         storage_mode: CompressedDictStorageMode,
-    ):
+        properties_to_cache: List[K] | None,
+    ) -> None:
         """
         Initialize a dictionary with flexible storage options
         Args:
@@ -39,6 +40,10 @@ class CompressedDict[K, V](UserDict[K, V]):
         # Private storage options
         self._raw_dict: Dict[K, V] = {}
         self._serialized_dict: Optional[bytes] = None
+
+        self._properties_to_cache: List[K] | None = properties_to_cache
+
+        self._cached_properties: Dict[K, V] = {}
 
         # Populate initial dictionary if provided
         if initial_dict:
@@ -180,6 +185,11 @@ class CompressedDict[K, V](UserDict[K, V]):
         Returns:
             Value associated with the key
         """
+
+        result: V | None = self._cached_properties.get(key)
+        if result is not None:
+            return result
+
         if self._working_dict is None:
             raise CompressedDictAccessError(
                 "Dictionary access is only allowed within an access_context() block. "
@@ -200,17 +210,25 @@ class CompressedDict[K, V](UserDict[K, V]):
                 "Dictionary modification is only allowed within an access_context() block. "
                 "Use 'with compressed_dict.access_context() as d:' to modify the dictionary."
             )
+
+        current_dict: Dict[K, V]
         if self._storage_mode == "raw":
             # Direct storage for raw mode
             self._raw_dict[key] = value
+            current_dict = self._raw_dict
         else:
             # For serialized modes, create a new dict
-            current_dict: Dict[K, V] = self._get_dict()
+            current_dict = self._get_dict()
             current_dict[key] = value
 
-            self._update_serialized_dict(current_dict)
+        self._update_serialized_dict(current_dict)
 
     def _update_serialized_dict(self, current_dict: Dict[K, V]) -> None:
+        if self._properties_to_cache:
+            for key in self._properties_to_cache:
+                if key in current_dict:
+                    self._cached_properties[key] = current_dict[key]
+
         if self._storage_mode == "raw":
             self._raw_dict = current_dict
         elif self._storage_mode == "msgpack":
@@ -309,22 +327,6 @@ class CompressedDict[K, V](UserDict[K, V]):
             Standard dictionary with all values
         """
         return dict(self._get_dict())
-
-    @classmethod
-    def from_dict(
-        cls, input_dict: Dict[K, V], storage_mode: CompressedDictStorageMode
-    ) -> "CompressedDict[K, V]":
-        """
-        Create a CompressedDict from a standard dictionary
-
-        Args:
-            input_dict: Input dictionary
-            storage_mode: Storage mode to use
-
-        Returns:
-            CompressedDict instance
-        """
-        return cls(initial_dict=input_dict, storage_mode=storage_mode)
 
     def __repr__(self) -> str:
         """
