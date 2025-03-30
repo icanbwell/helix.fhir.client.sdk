@@ -102,33 +102,33 @@ class FhirGetResponse:
         :return: self
         """
 
-        self._append(other_response=other_response)
+        result: FhirGetResponse = self._append(other_response=other_response)
 
         if other_response.chunk_number and (other_response.chunk_number or 0) > (
-            self.chunk_number or 0
+            result.chunk_number or 0
         ):
-            self.chunk_number = other_response.chunk_number
+            result.chunk_number = other_response.chunk_number
         if other_response.next_url:
-            self.next_url = other_response.next_url
-            self.access_token = other_response.access_token
-        self.cache_hits = (self.cache_hits or 0) + (other_response.cache_hits or 0)
+            result.next_url = other_response.next_url
+            result.access_token = other_response.access_token
+        result.cache_hits = (result.cache_hits or 0) + (other_response.cache_hits or 0)
 
         if other_response.results_by_url:
-            if self.results_by_url is None:
-                self.results_by_url = other_response.results_by_url
+            if result.results_by_url is None:
+                result.results_by_url = other_response.results_by_url
             else:
-                self.results_by_url.extend(
+                result.results_by_url.extend(
                     [
                         u
                         for u in other_response.results_by_url
-                        if u not in self.results_by_url
+                        if u not in result.results_by_url
                     ]
                 )
 
         if other_response.access_token:
-            self.access_token = other_response.access_token
+            result.access_token = other_response.access_token
 
-        return self
+        return result
 
     @abstractmethod
     def _extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse": ...
@@ -140,32 +140,14 @@ class FhirGetResponse:
         :param others: list of FhirGetResponse objects
         :return: self
         """
-        self._extend(others=others)
+        result: FhirGetResponse = self._extend(others=others)
 
         latest_chunk_number: List[int] = sorted(
             [o.chunk_number for o in others if o.chunk_number], reverse=True
         )
         if len(latest_chunk_number) > 0:
-            self.chunk_number = latest_chunk_number[0]
-        if len(others) > 0:
-            self.next_url = others[-1].next_url
-            self.access_token = others[-1].access_token
-        self.cache_hits = sum(
-            [r.cache_hits if r.cache_hits is not None else 0 for r in others]
-        )
-        for other_response in others:
-            if other_response.results_by_url:
-                if self.results_by_url is None:
-                    self.results_by_url = other_response.results_by_url
-                else:
-                    self.results_by_url.extend(
-                        [
-                            u
-                            for u in other_response.results_by_url
-                            if u not in self.results_by_url
-                        ]
-                    )
-        return self
+            result.chunk_number = latest_chunk_number[0]
+        return result
 
     @abstractmethod
     def get_resources(self) -> List[Dict[str, Any]]:
