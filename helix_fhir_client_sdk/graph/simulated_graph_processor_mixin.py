@@ -25,6 +25,9 @@ from helix_fhir_client_sdk.graph.graph_target_parameters import GraphTargetParam
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.responses.fhir_get_response_factory import (
+    FhirGetResponseFactory,
+)
 from helix_fhir_client_sdk.utilities.async_parallel_processor.v1.async_parallel_processor import (
     AsyncParallelProcessor,
     ParallelFunctionContext,
@@ -644,7 +647,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             if logger:
                 logger.debug(f"Skipping resource {resource_type} due to scope")
             return (
-                FhirGetResponse(
+                FhirGetResponseFactory.create(
                     request_id=None,
                     url="",
                     id_=None,
@@ -688,7 +691,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             if logger:
                 logger.debug(f"Returning resource {resource_type} from cache")
             cached_bundle: Bundle = Bundle(entry=cached_bundle_entries)
-            cached_response = FhirGetResponse(
+            cached_response = FhirGetResponseFactory.create(
                 request_id=None,
                 url=(
                     cached_bundle_entries[0].request.url

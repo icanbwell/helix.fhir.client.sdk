@@ -16,6 +16,9 @@ from helix_fhir_client_sdk.responses.bundle_expander import (
     BundleExpanderResult,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.responses.fhir_get_response_factory import (
+    FhirGetResponseFactory,
+)
 from helix_fhir_client_sdk.responses.resource_separator import (
     ResourceSeparator,
     ResourceSeparatorResult,
@@ -169,7 +172,7 @@ class FhirResponseProcessor:
             logger.error(error_text)
         if internal_logger:
             internal_logger.error(error_text)
-        yield FhirGetResponse(
+        yield FhirGetResponseFactory.create(
             request_id=request_id,
             url=full_url,
             responses=error_text,
@@ -215,7 +218,7 @@ class FhirResponseProcessor:
         last_response_text = await response.get_text_async()
         if logger:
             logger.error(f"resource not found! {full_url}")
-        yield FhirGetResponse(
+        yield FhirGetResponseFactory.create(
             request_id=request_id,
             url=full_url,
             responses=last_response_text,
@@ -393,7 +396,7 @@ class FhirResponseProcessor:
                         url=url,
                     )
                 )
-            yield FhirGetResponse(
+            yield FhirGetResponseFactory.create(
                 request_id=request_id,
                 url=full_url,
                 responses=resources_json,
@@ -413,7 +416,7 @@ class FhirResponseProcessor:
                 logger.error(
                     f"Error processing response from {full_url} with error: {str(e)}"
                 )
-            yield FhirGetResponse(
+            yield FhirGetResponseFactory.create(
                 request_id=request_id,
                 url=full_url,
                 responses=text or "",
@@ -560,7 +563,7 @@ class FhirResponseProcessor:
             # Check if the response content is empty or the stream has reached the end. If either condition is true,
             # yield a FhirGetResponse indicating no content was received from the request.
             if response.content is None or response.content.at_eof():
-                yield FhirGetResponse(
+                yield FhirGetResponseFactory.create(
                     request_id=request_id,
                     url=full_url,
                     responses="",
@@ -629,7 +632,7 @@ class FhirResponseProcessor:
                             else:
                                 resources_json = json.dumps(completed_resource)
 
-                            yield FhirGetResponse(
+                            yield FhirGetResponseFactory.create(
                                 request_id=request_id,
                                 url=full_url,
                                 responses=resources_json,
@@ -655,7 +658,7 @@ class FhirResponseProcessor:
                 logger.error(
                     f"Error processing response from {full_url} with error: {str(e)}"
                 )
-            yield FhirGetResponse(
+            yield FhirGetResponseFactory.create(
                 request_id=request_id,
                 url=full_url,
                 responses=chunk or "",

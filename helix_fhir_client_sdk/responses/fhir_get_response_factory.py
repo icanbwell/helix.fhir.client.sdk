@@ -1,0 +1,106 @@
+from typing import Optional, Dict, Any, Union, List
+
+from helix_fhir_client_sdk.responses.fhir_get_bundle_response import (
+    FhirGetBundleResponse,
+)
+from helix_fhir_client_sdk.responses.fhir_get_list_response import FhirListGetResponse
+from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.responses.fhir_get_single_response import (
+    FhirSingleGetResponse,
+)
+from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
+    RetryableAioHttpUrlResult,
+)
+
+
+class FhirGetResponseFactory:
+    """
+    Factory class to create FHIR Get responses.
+    """
+
+    @staticmethod
+    def create(
+        *,
+        request_id: Optional[str],
+        url: str,
+        responses: str,
+        error: Optional[str],
+        access_token: Optional[str],
+        total_count: Optional[int],
+        status: int,
+        next_url: Optional[str] = None,
+        extra_context_to_return: Optional[Dict[str, Any]],
+        resource_type: Optional[str],
+        id_: Optional[Union[List[str], str]],
+        response_headers: Optional[
+            List[str]
+        ],  # header name and value separated by a colon
+        chunk_number: Optional[int] = None,
+        cache_hits: Optional[int] = None,
+        results_by_url: List[RetryableAioHttpUrlResult],
+    ) -> FhirGetResponse:
+        child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
+            FhirGetResponse.parse_json(responses)
+        )
+
+        # first see if it is just a list of resources
+        if isinstance(child_response_resources, list):
+            return FhirListGetResponse(
+                request_id=request_id,
+                url=url,
+                responses=responses,
+                error=error,
+                access_token=access_token,
+                total_count=total_count,
+                status=status,
+                next_url=next_url,
+                extra_context_to_return=extra_context_to_return,
+                resource_type=resource_type,
+                id_=id_,
+                response_headers=response_headers,
+                chunk_number=chunk_number,
+                cache_hits=cache_hits,
+                results_by_url=results_by_url,
+            )
+
+        # then check if it is a bundle
+        if "entry" in child_response_resources or (
+            "resourceType" in child_response_resources
+            and child_response_resources["resourceType"].lower() == "bundle"
+        ):
+            return FhirGetBundleResponse(
+                request_id=request_id,
+                url=url,
+                responses=responses,
+                error=error,
+                access_token=access_token,
+                total_count=total_count,
+                status=status,
+                next_url=next_url,
+                extra_context_to_return=extra_context_to_return,
+                resource_type=resource_type,
+                id_=id_,
+                response_headers=response_headers,
+                chunk_number=chunk_number,
+                cache_hits=cache_hits,
+                results_by_url=results_by_url,
+            )
+
+        # now assume it is a single resource
+        return FhirSingleGetResponse(
+            request_id=request_id,
+            url=url,
+            responses=responses,
+            error=error,
+            access_token=access_token,
+            total_count=total_count,
+            status=status,
+            next_url=next_url,
+            extra_context_to_return=extra_context_to_return,
+            resource_type=resource_type,
+            id_=id_,
+            response_headers=response_headers,
+            chunk_number=chunk_number,
+            cache_hits=cache_hits,
+            results_by_url=results_by_url,
+        )

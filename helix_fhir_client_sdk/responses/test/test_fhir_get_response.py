@@ -5,6 +5,9 @@ from typing import List
 
 from helix_fhir_client_sdk.fhir_bundle import BundleEntry
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.responses.fhir_get_response_factory import (
+    FhirGetResponseFactory,
+)
 
 # Sample data for testing
 sample_response = {
@@ -30,7 +33,7 @@ sample_response = {
 
 # Helper function to create a FhirGetResponse instance
 def create_fhir_get_response(responses: str) -> FhirGetResponse:
-    return FhirGetResponse(
+    return FhirGetResponseFactory.create(
         request_id="123",
         url="http://example.com",
         responses=responses,
@@ -181,7 +184,7 @@ def test_get_resources_except_operation_outcomes() -> None:
 
 # Helper function to create a base FhirGetResponse
 def create_base_response(responses: str = "{}") -> FhirGetResponse:
-    return FhirGetResponse(
+    return FhirGetResponseFactory.create(
         request_id="test_request",
         url="http://example.com",
         responses=responses,

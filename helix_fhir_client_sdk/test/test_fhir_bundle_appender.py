@@ -10,12 +10,15 @@ from helix_fhir_client_sdk.fhir_bundle import (
 )
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.responses.fhir_get_response_factory import (
+    FhirGetResponseFactory,
+)
 
 
 @pytest.fixture
 def fhir_get_response() -> FhirGetResponse:
     """Fixture for FhirGetResponse instance."""
-    return FhirGetResponse(
+    return FhirGetResponseFactory.create(
         url="http://example.com/resource/1",
         resource_type="Patient",
         id_="1",
@@ -34,7 +37,7 @@ def fhir_get_response() -> FhirGetResponse:
 @pytest.fixture
 def error_fhir_get_response() -> FhirGetResponse:
     """Fixture for FhirGetResponse instance with an error."""
-    return FhirGetResponse(
+    return FhirGetResponseFactory.create(
         url="http://example.com/resource/2",
         resource_type="Patient",
         id_="2",
