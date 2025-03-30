@@ -316,7 +316,7 @@ async def test_fhir_simulated_graph_caching_async() -> None:
             {
                 "request": {
                     "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/12",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/13",
                 },
                 "resource": {"id": "13", "resourceType": "Binary"},
                 "response": {"status": "200"},
@@ -332,7 +332,7 @@ async def test_fhir_simulated_graph_caching_async() -> None:
             {
                 "request": {
                     "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/14",
+                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/15",
                 },
                 "resource": {"id": "15", "resourceType": "Binary"},
                 "response": {"status": "200"},

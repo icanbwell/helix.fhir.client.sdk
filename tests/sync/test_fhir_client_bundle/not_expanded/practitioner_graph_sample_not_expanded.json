@@ -1,8 +1,9 @@
 {
+  "type": "collection",
   "resourceType": "Bundle",
   "id": "bundle-example",
-  "type": "collection",
   "timestamp": "2021-04-30T10:31:52.5252Z",
+  "total": 2,
   "entry": [
     {
       "fullUrl": "https://fhir.staging.bwell.zone/4_0_0/Practitioner/1710949219",
@@ -491,6 +492,13 @@
             ]
           }
         ]
+      },
+      "request": {
+        "url": "http://mock-server:1080/test_fhir_client_bundle_not_expanded/Patient/$graph?_id=1053306548%2C1710949219&&contained=true",
+        "method": "GET"
+      },
+      "response": {
+        "status": "200"
       }
     },
     {
@@ -804,6 +812,13 @@
             "title": "Practitioner headshot: Paulette Browne - 1053306548"
           }
         ]
+      },
+      "request": {
+        "url": "http://mock-server:1080/test_fhir_client_bundle_not_expanded/Patient/$graph?_id=1053306548%2C1710949219&&contained=true",
+        "method": "GET"
+      },
+      "response": {
+        "status": "200"
       }
     }
   ]

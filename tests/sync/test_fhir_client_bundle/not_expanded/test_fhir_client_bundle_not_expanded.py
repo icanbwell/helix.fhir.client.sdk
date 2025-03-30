@@ -86,4 +86,8 @@ def test_fhir_client_bundle_not_expanded() -> None:
     with open(test_path.joinpath("./practitioner_graph_sample_not_expanded.json")) as f:
         expected_response = json.load(f)
 
+    print("=== Response Text ===")
+    print(response.get_response_text())
+    print("=== Expected Response Text ===")
+
     assert json.loads(response.get_response_text()) == expected_response

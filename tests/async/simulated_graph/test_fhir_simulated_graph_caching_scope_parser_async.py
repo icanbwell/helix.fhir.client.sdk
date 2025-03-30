@@ -92,7 +92,6 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
 
     response_text = {
         "resourceType": "Bundle",
-        "total": 5,
         "type": "collection",
         "entry": [
             {

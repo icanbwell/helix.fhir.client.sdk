@@ -132,7 +132,8 @@ async def test_fhir_simulated_graph_async() -> None:
         )
     )
     assert response is not None
-    print(response.get_response_text())
+    response_text1: str = response.get_response_text()
+    print(response_text)
 
     expected_json: Dict[str, Any] = {
         "Patient": [
@@ -250,7 +251,7 @@ async def test_fhir_simulated_graph_async() -> None:
         "Observation": [{"resourceType": "Observation", "id": "8"}],
     }
 
-    result = json.loads(response.get_response_text())
+    result = json.loads(response_text1)
     result = dict(sorted(result.items()))
     expected_json = dict(sorted(expected_json.items()))
     result["OperationOutcome"] = sorted(

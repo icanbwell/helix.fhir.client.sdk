@@ -180,8 +180,8 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
             if resource:
                 resource_type = resource.get("resourceType")
                 assert resource_type, f"No resourceType in {json.dumps(resource)}"
-                if resource_type not in resources:
+                if resource_type not in resource_map:
                     resource_map[resource_type] = []
-                else:
-                    resource_map[resource_type].append(resource)
+
+                resource_map[resource_type].append(resource)
         return resource_map
