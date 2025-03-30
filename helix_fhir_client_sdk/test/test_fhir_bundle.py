@@ -46,7 +46,7 @@ def bundle_entry(
 @pytest.fixture
 def bundle(bundle_entry: BundleEntry) -> Bundle:
     """Fixture for Bundle instance."""
-    return Bundle(entry=[bundle_entry])
+    return Bundle(entry=[bundle_entry], type_="collection")
 
 
 def test_bundle_entry_request_to_dict(bundle_entry_request: BundleEntryRequest) -> None:

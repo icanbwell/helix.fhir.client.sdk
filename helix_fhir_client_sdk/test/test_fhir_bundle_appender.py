@@ -56,7 +56,9 @@ def error_fhir_get_response() -> FhirGetResponse:
 @pytest.fixture
 def bundle() -> Bundle:
     """Fixture for Bundle instance."""
-    return Bundle(entry=[])
+    return Bundle(
+        entry=[], type_="collection"
+    )  # Initialize an empty bundle with type 'transaction'
 
 
 def test_append_responses_success(
@@ -99,6 +101,7 @@ def test_append_responses_error(
 def test_remove_duplicate_resources() -> None:
     """Test removing duplicate resources from the bundle."""
     bundle = Bundle(
+        type_="collection",  # Initialize a bundle with type 'transaction'
         entry=[
             BundleEntry(
                 resource={"resourceType": "Patient", "id": "1"},
@@ -121,7 +124,7 @@ def test_remove_duplicate_resources() -> None:
                     status="200", lastModified=datetime(2023, 8, 14), etag="12345"
                 ),
             ),
-        ]
+        ],
     )
 
     bundle = FhirBundleAppender.remove_duplicate_resources(bundle=bundle)

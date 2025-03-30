@@ -680,7 +680,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         if cached_bundle_entries and len(cached_bundle_entries) > 0:
             if logger:
                 logger.debug(f"Returning resource {resource_type} from cache")
-            cached_bundle: Bundle = Bundle(entry=cached_bundle_entries)
+            cached_bundle: Bundle = Bundle(
+                entry=cached_bundle_entries, type_="collection"
+            )
             cached_response = FhirGetBundleResponse(
                 request_id=None,
                 url=(

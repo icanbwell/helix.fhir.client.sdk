@@ -122,17 +122,33 @@ class Bundle:
     def __init__(
         self,
         *,
+        id_: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+        type_: str,
         entry: Optional[List[BundleEntry]] = None,
-        total_count: Optional[int] = None,
+        total: Optional[int] = None,
     ) -> None:
         self.entry: Optional[List[BundleEntry]] = entry
-        self.total_count: Optional[int] = total_count
+        self.total: Optional[int] = total
+        self.id_: Optional[str] = id_
+        self.timestamp: Optional[datetime] = timestamp
+        self.type_: str = type_
 
     def to_dict(self) -> Dict[str, Any]:
-        if self.entry:
-            return {"entry": [entry.to_dict() for entry in self.entry]}
-        else:
-            return {}
+        entries: List[Dict[str, Any]] | None = (
+            [entry.to_dict() for entry in self.entry] if self.entry else None
+        )
+        result: Dict[str, Any] = {}
+        if self.id_ is not None:
+            result["id"] = self.id_
+        if self.timestamp is not None:
+            result["timestamp"] = self.timestamp.isoformat()
+        result["type"] = self.type_
+        if self.total is not None:
+            result["total"] = self.total
+        if entries:
+            result["entry"] = entries
+        return result
 
     @staticmethod
     def add_diagnostics_to_operation_outcomes(

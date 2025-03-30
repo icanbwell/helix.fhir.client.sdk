@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Optional, Dict, Any, List, Union, cast, override
+from typing import Optional, Dict, Any, List, Union, cast, override, Tuple
 
 from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntry,
@@ -61,13 +61,17 @@ class FhirGetBundleResponse(FhirGetResponse):
             cache_hits=cache_hits,
             results_by_url=results_by_url,
         )
-        self._bundle_entries: List[BundleEntry] = self._parse_bundle_entries(
+        bundle_entries: List[BundleEntry]
+        bundle: Bundle
+        bundle_entries, bundle = self._parse_bundle_entries(
             responses=responses,
             url=url,
             status=status,
             last_modified=self.lastModified,
             etag=self.etag,
         )
+        self._bundle_entries: List[BundleEntry] = bundle_entries
+        self._bundle_metadata: Bundle = bundle
 
     @override
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
@@ -122,17 +126,31 @@ class FhirGetBundleResponse(FhirGetResponse):
         status: int,
         last_modified: Optional[datetime],
         etag: Optional[str],
-    ) -> List[BundleEntry]:
+    ) -> Tuple[List[BundleEntry], Bundle]:
         """
         Gets the Bundle entries from the response
 
 
-        :return: list of bundle entries
+        :return: list of bundle entries and a bundle with metadata but without any entries
         """
         try:
-            # THis is either a list of resources or a Bundle resource containing a list of resources
+            # This is either a list of resources or a Bundle resource containing a list of resources
             child_response_resources: Union[Dict[str, Any], List[Dict[str, Any]]] = (
                 cls.parse_json(responses)
+            )
+            assert isinstance(child_response_resources, dict)
+            assert "resourceType" in child_response_resources
+            assert child_response_resources["resourceType"] == "Bundle"
+
+            timestamp: Optional[str] = cast(
+                Optional[str], child_response_resources.get("timestamp")
+            )
+            bundle: Bundle = Bundle(
+                id_=child_response_resources.get("id"),
+                timestamp=(datetime.fromisoformat(timestamp) if timestamp else None),
+                type_=child_response_resources.get("type")
+                or "collection",  # default to collection if type is not provided
+                total=child_response_resources.get("total"),
             )
 
             # use these if the bundle entry does not have them
@@ -142,12 +160,7 @@ class FhirGetBundleResponse(FhirGetResponse):
                 lastModified=last_modified,
                 etag=etag,
             )
-            # if it is a list of resources then wrap them in a bundle entry and return them
-            if isinstance(child_response_resources, list):
-                return [
-                    BundleEntry(resource=r, request=request, response=response)
-                    for r in child_response_resources
-                ]
+
             # otherwise it is a bundle so parse out the resources
             if "entry" in child_response_resources:
                 bundle_entries: List[Dict[str, Any]] = child_response_resources["entry"]
@@ -173,7 +186,7 @@ class FhirGetBundleResponse(FhirGetResponse):
                         fullUrl=entry.get("fullUrl"),
                     )
                     for entry in bundle_entries
-                ]
+                ], bundle
             else:
                 return [
                     BundleEntry(
@@ -181,7 +194,7 @@ class FhirGetBundleResponse(FhirGetResponse):
                         request=request,
                         response=response,
                     )
-                ]
+                ], bundle
         except Exception as e:
             raise Exception(f"Could not get bundle entries from: {responses}") from e
 
@@ -189,7 +202,10 @@ class FhirGetBundleResponse(FhirGetResponse):
         bundle_entries: List[BundleEntry] = self.get_bundle_entries()
         return Bundle(
             entry=bundle_entries,
-            total_count=len(bundle_entries),
+            total=len(bundle_entries),
+            id_=self._bundle_metadata.id_,
+            timestamp=self._bundle_metadata.timestamp,
+            type_=self._bundle_metadata.type_,
         )
 
     @override
