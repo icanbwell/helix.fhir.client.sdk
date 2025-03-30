@@ -137,10 +137,6 @@ class FhirGetBundleResponse(FhirGetResponse):
                 cls.parse_json(responses)
             )
             assert isinstance(child_response_resources, dict)
-            assert "resourceType" in child_response_resources
-            assert (
-                child_response_resources["resourceType"] == "Bundle"
-            ), f"Expected resourceType to be 'Bundle' but got {child_response_resources.get('resourceType')}. "
 
             timestamp: Optional[str] = cast(
                 Optional[str], child_response_resources.get("timestamp")

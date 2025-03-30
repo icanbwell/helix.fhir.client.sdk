@@ -90,9 +90,7 @@ class FhirGetErrorResponse(FhirGetResponse):
 
         :return: list of resources
         """
-        raise NotImplementedError(
-            "FhirGetErrorResponse does not contain resources. It represents an error response from the FHIR server."
-        )
+        return []
 
     @override
     def get_bundle_entries(self) -> List[BundleEntry]:
@@ -102,9 +100,7 @@ class FhirGetErrorResponse(FhirGetResponse):
 
         :return: list of bundle entries
         """
-        raise NotImplementedError(
-            "FhirGetErrorResponse does not contain bundle entries. It represents an error response from the FHIR server."
-        )
+        return []
 
     @override
     def remove_duplicates(self) -> FhirGetResponse:

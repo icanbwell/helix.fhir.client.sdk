@@ -170,10 +170,12 @@ class FhirGetListResponse(FhirGetResponse):
         if isinstance(other_response, FhirGetListResponse):
             return other_response
 
+        resources: List[Dict[str, Any]] = other_response.get_resources()
+
         response: FhirGetListResponse = FhirGetListResponse(
             request_id=other_response.request_id,
             url=other_response.url,
-            responses=other_response.get_response_text(),
+            responses=json.dumps(resources, cls=FhirJSONEncoder),
             error=other_response.error,
             access_token=other_response.access_token,
             total_count=other_response.total_count,

@@ -174,9 +174,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 FhirGetBundleResponse, parent_response.extend(child_responses)
             )
 
-            for child_response in child_responses:
-                parent_response.results_by_url.extend(child_response.results_by_url)
-
             parent_response = parent_response.remove_duplicates()
 
             if sort_resources:

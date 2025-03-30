@@ -117,7 +117,16 @@ class FhirGetResponse:
             if self.results_by_url is None:
                 self.results_by_url = other_response.results_by_url
             else:
-                self.results_by_url.extend(other_response.results_by_url)
+                self.results_by_url.extend(
+                    [
+                        u
+                        for u in other_response.results_by_url
+                        if u not in self.results_by_url
+                    ]
+                )
+
+        if other_response.access_token:
+            self.access_token = other_response.access_token
 
         return self
 
@@ -149,7 +158,13 @@ class FhirGetResponse:
                 if self.results_by_url is None:
                     self.results_by_url = other_response.results_by_url
                 else:
-                    self.results_by_url.extend(other_response.results_by_url)
+                    self.results_by_url.extend(
+                        [
+                            u
+                            for u in other_response.results_by_url
+                            if u not in self.results_by_url
+                        ]
+                    )
         return self
 
     @abstractmethod
