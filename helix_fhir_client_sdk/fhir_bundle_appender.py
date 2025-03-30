@@ -1,5 +1,5 @@
 import json
-from typing import List, Optional, Dict, Any, Union, Callable
+from typing import List, Optional, Dict, Any, Callable
 
 from helix_fhir_client_sdk.fhir_bundle import (
     Bundle,
@@ -8,7 +8,6 @@ from helix_fhir_client_sdk.fhir_bundle import (
     BundleEntryResponse,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.utilities.json_helpers import FhirClientJsonHelpers
 
 
 class FhirBundleAppender:
@@ -29,179 +28,120 @@ class FhirBundleAppender:
         :return: The bundle with the responses appended
         """
         response: FhirGetResponse
+        bundle_entries: List[BundleEntry] = []
         for response in responses:
-            FhirBundleAppender.append_single_response(bundle, response)
+            bundle_entries_for_response: List[BundleEntry] = (
+                FhirBundleAppender.add_operation_outcomes(response=response)
+            )
+            bundle_entries.extend(bundle_entries_for_response)
+
+        bundle.entry = bundle_entries
         return bundle
 
     @staticmethod
-    def append_single_response(bundle: Bundle, response: FhirGetResponse) -> None:
-        response_text = response.get_response_text()
+    def add_operation_outcomes(*, response: FhirGetResponse) -> List[BundleEntry]:
+        bundle_entries: List[BundleEntry] = response.get_bundle_entries()
         response_url = response.url
-        if response_text or response.error:
-            if not bundle.entry:
-                bundle.entry = []
-            diagnostics_coding_nullable: List[Optional[Dict[str, Any]]] = [
-                (
-                    {
-                        "system": "https://www.icanbwell.com/url",
-                        "code": response.url,
-                    }
-                    if response.url
-                    else None
-                ),
-                (
-                    {
-                        "system": "https://www.icanbwell.com/resourceType",
-                        "code": response.resource_type,
-                    }
-                    if response.resource_type
-                    else None
-                ),
-                (
-                    {
-                        "system": "https://www.icanbwell.com/id",
-                        "code": (
-                            ",".join(response.id_)
-                            if isinstance(response.id_, list)
-                            else response.id_
-                        ),
-                    }
-                    if response.id_
-                    else None
-                ),
+        diagnostics_coding_nullable: List[Optional[Dict[str, Any]]] = [
+            (
                 {
-                    "system": "https://www.icanbwell.com/statuscode",
-                    "code": response.status,
-                },
-                (
+                    "system": "https://www.icanbwell.com/url",
+                    "code": response.url,
+                }
+                if response.url
+                else None
+            ),
+            (
+                {
+                    "system": "https://www.icanbwell.com/resourceType",
+                    "code": response.resource_type,
+                }
+                if response.resource_type
+                else None
+            ),
+            (
+                {
+                    "system": "https://www.icanbwell.com/id",
+                    "code": (
+                        ",".join(response.id_)
+                        if isinstance(response.id_, list)
+                        else response.id_
+                    ),
+                }
+                if response.id_
+                else None
+            ),
+            {
+                "system": "https://www.icanbwell.com/statuscode",
+                "code": response.status,
+            },
+            (
+                {
+                    "system": "https://www.icanbwell.com/accessToken",
+                    "code": response.access_token,
+                }
+                if response.access_token
+                else None
+            ),
+        ]
+        diagnostics_coding: List[Dict[str, Any]] = [
+            c for c in diagnostics_coding_nullable if c is not None
+        ]
+
+        bundle_entry: BundleEntry
+        for bundle_entry in bundle_entries:
+            if (
+                bundle_entry.resource
+                and bundle_entry.resource.get("resourceType") == "OperationOutcome"
+            ):
+                # This is an OperationOutcome resource so we need to add the diagnostics to it
+                bundle_entry.resource = Bundle.add_diagnostics_to_operation_outcomes(
+                    resource=bundle_entry.resource,
+                    diagnostics_coding=diagnostics_coding,
+                )
+
+        # now add a bundle entry for errors
+        if response.error and len(bundle_entries) == 0:
+            operation_outcome: Dict[str, Any] = {
+                "resourceType": "OperationOutcome",
+                "issue": [
                     {
-                        "system": "https://www.icanbwell.com/accessToken",
-                        "code": response.access_token,
-                    }
-                    if response.access_token
-                    else None
-                ),
-            ]
-            diagnostics_coding: List[Dict[str, Any]] = [
-                c for c in diagnostics_coding_nullable if c is not None
-            ]
-            # Now either use the response we received or if we received an error, create an OperationOutcome
-            response_json: Union[List[Dict[str, Any]], Dict[str, Any]] = (
-                json.loads(response_text)
-                if not response.error
-                else {
-                    "resourceType": "OperationOutcome",
-                    "issue": [
-                        {
-                            "severity": "error",
-                            "code": (
-                                "expired"
-                                if response.status == 401
-                                else (
-                                    "not-found"
-                                    if response.status == 404
-                                    else "exception"
-                                )
-                            ),
-                            "details": {"coding": diagnostics_coding},
-                            "diagnostics": json.dumps(
-                                {
-                                    "url": response.url,
-                                    "error": response.error,
-                                    "status": response.status,
-                                    "extra_context_to_return": response.extra_context_to_return,
-                                    "accessToken": response.access_token,
-                                    "requestId": response.request_id,
-                                    "resourceType": response.resource_type,
-                                    "id": response.id_,
-                                }
-                            ),
-                        }
-                    ],
-                }
-            )
-
-            if isinstance(response_json, str):
-                response_json = {
-                    "resourceType": "OperationOutcome",
-                    "issue": [
-                        {
-                            "severity": "error",
-                            "code": (
-                                "expired"
-                                if response.status == 401
-                                else (
-                                    "not-found"
-                                    if response.status == 404
-                                    else "exception"
-                                )
-                            ),
-                            "details": {"coding": diagnostics_coding},
-                            "diagnostics": json.dumps(
-                                {
-                                    "url": response.url,
-                                    "error": response.error,
-                                    "status": response.status,
-                                    "extra_context_to_return": response.extra_context_to_return,
-                                    "accessToken": response.access_token,
-                                    "requestId": response.request_id,
-                                    "resourceType": response.resource_type,
-                                    "id": response.id_,
-                                    "response_text": response_json,
-                                }
-                            ),
-                        }
-                    ],
-                }
-
-            response_json = FhirClientJsonHelpers.remove_empty_elements(response_json)
-            if isinstance(response_json, list):
-                bundle.entry.extend(
-                    [
-                        BundleEntry(
-                            request=BundleEntryRequest(url=response_url),
-                            response=BundleEntryResponse(
-                                status=str(response.status),
-                                lastModified=response.lastModified,
-                                etag=response.etag,
-                            ),
-                            resource=bundle.add_diagnostics_to_operation_outcomes(
-                                resource=r, diagnostics_coding=diagnostics_coding
-                            ),
-                        )
-                        for r in response_json
-                    ]
-                )
-            elif response_json.get("entry"):
-                bundle.entry.extend(
-                    [
-                        BundleEntry(
-                            request=BundleEntryRequest(url=response_url),
-                            response=BundleEntryResponse(
-                                status=str(response.status),
-                                lastModified=response.lastModified,
-                                etag=response.etag,
-                            ),
-                            resource=bundle.add_diagnostics_to_operation_outcomes(
-                                resource=entry["resource"],
-                                diagnostics_coding=diagnostics_coding,
-                            ),
-                        )
-                        for entry in response_json["entry"]
-                    ]
-                )
-            else:
-                bundle.entry.append(
-                    BundleEntry(
-                        request=BundleEntryRequest(url=response_url),
-                        response=BundleEntryResponse(
-                            status=str(response.status),
-                            lastModified=response.lastModified,
-                            etag=response.etag,
+                        "severity": "error",
+                        "code": (
+                            "expired"
+                            if response.status == 401
+                            else (
+                                "not-found" if response.status == 404 else "exception"
+                            )
                         ),
-                        resource=response_json,
-                    )
+                        "details": {"coding": diagnostics_coding},
+                        "diagnostics": json.dumps(
+                            {
+                                "url": response.url,
+                                "error": response.error,
+                                "status": response.status,
+                                "extra_context_to_return": response.extra_context_to_return,
+                                "accessToken": response.access_token,
+                                "requestId": response.request_id,
+                                "resourceType": response.resource_type,
+                                "id": response.id_,
+                            }
+                        ),
+                    }
+                ],
+            }
+            bundle_entries.append(
+                BundleEntry(
+                    request=BundleEntryRequest(url=response_url),
+                    response=BundleEntryResponse(
+                        status=str(response.status),
+                        lastModified=response.lastModified,
+                        etag=response.etag,
+                    ),
+                    resource=operation_outcome,
                 )
+            )
+        return bundle_entries
 
     @staticmethod
     def remove_duplicate_resources(*, bundle: Bundle) -> Bundle:

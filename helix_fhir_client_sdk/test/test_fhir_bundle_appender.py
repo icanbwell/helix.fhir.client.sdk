@@ -86,6 +86,9 @@ def test_append_responses_error(
         responses=[error_fhir_get_response], bundle=bundle
     )
 
+    print("===== Bundle =====")
+    print(bundle.to_json())
+    print("===================")
     assert bundle.entry is not None
     assert len(bundle.entry) == 1
     assert bundle.entry[0].resource is not None
