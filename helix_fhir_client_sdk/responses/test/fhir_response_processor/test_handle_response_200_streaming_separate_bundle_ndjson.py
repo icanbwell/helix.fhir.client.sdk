@@ -69,6 +69,7 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
             separate_bundle_resources=separate_bundle_resources,
             url=url,
             storage_mode=CompressedDictStorageMode(),
+            create_operation_outcome_for_error=False,
         )
     ]
 

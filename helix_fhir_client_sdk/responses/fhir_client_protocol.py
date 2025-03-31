@@ -42,6 +42,7 @@ from helix_fhir_client_sdk.well_known_configuration import (
 )
 
 
+# noinspection PyTypeChecker
 @runtime_checkable
 class FhirClientProtocol(Protocol):
     _action: Optional[str]
@@ -137,7 +138,10 @@ class FhirClientProtocol(Protocol):
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
         additional_parameters: Optional[List[str]],
         resource_type: Optional[str],
-    ) -> AsyncGenerator[FhirGetResponse, None]: ...
+        create_operation_outcome_for_error: Optional[bool],
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        # This is here to tell Python that this is an async generator
+        yield None  # type: ignore[misc]
 
     def separate_bundle_resources(self, separate_bundle_resources: bool):  # type: ignore[no-untyped-def]
         ...

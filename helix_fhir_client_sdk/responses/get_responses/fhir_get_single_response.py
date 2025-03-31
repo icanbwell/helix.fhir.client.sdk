@@ -183,7 +183,7 @@ class FhirGetSingleResponse(FhirGetResponse):
             return None
         try:
             child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
-                cls._parse_json(responses)
+                cls.parse_json(responses)
             )
             assert isinstance(child_response_resources, dict)
             return FhirResource(

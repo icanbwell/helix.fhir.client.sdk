@@ -18,6 +18,7 @@ class FhirGraphMixin(FhirClientProtocol):
         graph_definition: GraphDefinition,
         contained: bool,
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
+        create_operation_outcome_for_error: Optional[bool] = False,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Executes the $graph query on the FHIR server
@@ -29,6 +30,8 @@ class FhirGraphMixin(FhirClientProtocol):
         :param contained: whether we should return the related resources as top level list or nest them inside their
                             parent resources in a contained property
         :param id_: id of the resource to start the graph from.   Can be a list of ids
+        :type id_: str | List[str] | None
+        :param create_operation_outcome_for_error: if True, an OperationOutcome will be created for errors
         :return: response containing all the resources received
         """
         assert graph_definition
@@ -53,13 +56,14 @@ class FhirGraphMixin(FhirClientProtocol):
         result: Optional[FhirGetResponse]
         chunk_size: int = self._page_size or 1
         for chunk in ListChunker.divide_into_chunks(id_list, chunk_size):
-            async for result1 in self._get_with_session_async(  # type: ignore[attr-defined]
+            async for result1 in self._get_with_session_async(
                 fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                 additional_parameters=self._additional_parameters,
                 id_above=None,
                 page_number=self._page_number,
                 ids=chunk,
                 resource_type=self._resource,
+                create_operation_outcome_for_error=create_operation_outcome_for_error,
             ):
                 yield result1
 
@@ -68,6 +72,7 @@ class FhirGraphMixin(FhirClientProtocol):
         *,
         graph_definition: GraphDefinition,
         contained: bool,
+        create_operation_outcome_for_error: Optional[bool] = False,
     ) -> Optional[FhirGetResponse]:
 
         return AsyncRunner.run(
@@ -75,6 +80,7 @@ class FhirGraphMixin(FhirClientProtocol):
                 self.graph_async(
                     graph_definition=graph_definition,
                     contained=contained,
+                    create_operation_outcome_for_error=create_operation_outcome_for_error,
                 )
             )
         )

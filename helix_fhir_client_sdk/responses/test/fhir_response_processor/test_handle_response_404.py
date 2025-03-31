@@ -43,6 +43,7 @@ async def test_handle_response_404() -> None:
             id_=id_,
             logger=logger,
             storage_mode=CompressedDictStorageMode(),
+            create_operation_outcome_for_error=False,
         )
     ]
 

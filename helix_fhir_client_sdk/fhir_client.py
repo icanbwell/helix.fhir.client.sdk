@@ -609,6 +609,7 @@ class FhirClient(
         async for response in self._get_with_session_async(
             ids=ids,
             fn_handle_streaming_chunk=data_chunk_handler,
+            create_operation_outcome_for_error=False,
         ):
             if response:
                 if full_response:
@@ -647,6 +648,7 @@ class FhirClient(
         async for response in self._get_with_session_async(
             ids=ids,
             fn_handle_streaming_chunk=data_chunk_handler,
+            create_operation_outcome_for_error=False,
         ):
             yield response
 

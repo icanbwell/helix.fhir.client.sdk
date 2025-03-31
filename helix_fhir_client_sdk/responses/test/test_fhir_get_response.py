@@ -221,20 +221,20 @@ class TestFhirGetResponseClass:
     def test_parse_json(self) -> None:
         """Test parse_json method."""
         # Test valid JSON
-        result: Dict[str, Any] | List[Dict[str, Any]] = FhirGetResponse._parse_json(
+        result: Dict[str, Any] | List[Dict[str, Any]] = FhirGetResponse.parse_json(
             '{"resourceType": "Patient", "id": "123"}'
         )
         assert isinstance(result, dict)
         assert result == {"resourceType": "Patient", "id": "123"}
 
         # Test empty content
-        result = FhirGetResponse._parse_json("")
+        result = FhirGetResponse.parse_json("")
         assert isinstance(result, dict)
         assert result["resourceType"] == "OperationOutcome"
         assert result["issue"][0]["severity"] == "error"
 
         # Test invalid JSON
-        result = FhirGetResponse._parse_json("{invalid json")
+        result = FhirGetResponse.parse_json("{invalid json")
         assert isinstance(result, dict)
         assert result["resourceType"] == "OperationOutcome"
         assert result["issue"][0]["severity"] == "error"

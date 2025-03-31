@@ -615,15 +615,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         result: Optional[FhirGetResponse] = None
         for single_id in ids:
             result2: FhirGetResponse
-            async for (
-                result2
-            ) in self._get_with_session_async(  # type:ignore[attr-defined]
+            async for result2 in self._get_with_session_async(
                 page_number=None,
                 ids=[single_id],
                 additional_parameters=additional_parameters,
                 id_above=None,
                 fn_handle_streaming_chunk=None,
                 resource_type=resource_type,
+                create_operation_outcome_for_error=True,
             ):
                 if result2.resource_type == "OperationOutcome":
                     result2 = FhirGetErrorResponse.from_response(other_response=result2)
@@ -665,6 +664,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     error=None,
                     results_by_url=[],
                     storage_mode=self._storage_mode,
+                    create_operation_outcome_for_error=True,
                 ),
                 0,
             )
@@ -716,6 +716,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 error=None,
                 results_by_url=[],
                 storage_mode=self._storage_mode,
+                create_operation_outcome_for_error=True,
             )
 
         all_result: Optional[FhirGetResponse] = None
@@ -730,15 +731,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         ):
             result1: FhirGetResponse
             result: Optional[FhirGetResponse]
-            async for (
-                result1
-            ) in self._get_with_session_async(  # type:ignore[attr-defined]
+            async for result1 in self._get_with_session_async(
                 page_number=None,
                 ids=non_cached_id_list,
                 additional_parameters=parameters,
                 id_above=None,
                 fn_handle_streaming_chunk=None,
                 resource_type=resource_type,
+                create_operation_outcome_for_error=True,
             ):
                 result = result1
                 if (not result or result.status != 200) and len(non_cached_id_list) > 1:

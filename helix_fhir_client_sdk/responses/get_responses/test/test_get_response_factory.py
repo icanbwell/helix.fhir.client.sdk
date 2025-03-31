@@ -42,6 +42,7 @@ class TestFhirGetResponseFactory:
             "results_by_url": [],
             "error": None,
             "storage_mode": CompressedDictStorageMode(),
+            "create_operation_outcome_for_error": False,
         }
 
     def test_create_error_response(self, default_params: Dict[str, Any]) -> None:

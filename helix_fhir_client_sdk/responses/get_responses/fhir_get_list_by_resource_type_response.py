@@ -156,7 +156,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         try:
             # THis is either a list of resources or a Bundle resource containing a list of resources
             child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
-                cls._parse_json(responses)
+                cls.parse_json(responses)
             )
             assert isinstance(child_response_resources, list)
             return child_response_resources

@@ -48,6 +48,7 @@ class FhirGetResponseFactory:
         cache_hits: Optional[int] = None,
         results_by_url: List[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
+        create_operation_outcome_for_error: Optional[bool],
     ) -> FhirGetResponse:
 
         if not error and response_text:
@@ -77,10 +78,11 @@ class FhirGetResponseFactory:
                 cache_hits=cache_hits,
                 results_by_url=results_by_url,
                 storage_mode=storage_mode,
+                create_operation_outcome_for_error=create_operation_outcome_for_error,
             )
 
         child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
-            FhirGetResponse._parse_json(response_text)
+            FhirGetResponse.parse_json(response_text)
         )
 
         # first see if it is just a list of resources

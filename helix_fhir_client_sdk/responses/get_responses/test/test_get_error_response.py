@@ -49,6 +49,8 @@ class TestFhirGetErrorResponse:
             "chunk_number": 1,
             "cache_hits": 0,
             "results_by_url": [],
+            "storage_mode": CompressedDictStorageMode(),
+            "create_operation_outcome_for_error": True,
         }
 
     def test_init(
@@ -120,7 +122,6 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode=CompressedDictStorageMode(),
         )
 
         mock_other_response = Mock(spec=FhirGetResponse)
