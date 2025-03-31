@@ -19,6 +19,7 @@ from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
 )
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
+from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
@@ -189,7 +190,7 @@ class FhirGetResponse:
         return result
 
     @abstractmethod
-    def get_resources(self) -> Deque[FhirResource]:
+    def get_resources(self) -> Deque[FhirResource] | FhirResourceMap:
         """
         Gets the resources from the response
 
@@ -199,7 +200,20 @@ class FhirGetResponse:
         ...
 
     @abstractmethod
-    async def consume_resource_async(self) -> AsyncGenerator[FhirResource, None]:
+    def consume_resource(self) -> Generator[FhirResource | FhirResourceMap, None, None]:
+        """
+        Gets the resources from the response as a generator AND removes them from the response
+
+
+        :return: generator of resources
+        """
+        # This is just here for Python lint to be happy
+        yield None  # type: ignore[misc]
+
+    @abstractmethod
+    async def consume_resource_async(
+        self,
+    ) -> AsyncGenerator[FhirResource | FhirResourceMap, None]:
         """
         Gets the resources from the response as a generator AND removes them from the response
 
@@ -211,17 +225,6 @@ class FhirGetResponse:
 
     @abstractmethod
     async def consume_bundle_entry_async(self) -> AsyncGenerator[BundleEntry, None]:
-        """
-        Gets the resources from the response as a generator AND removes them from the response
-
-
-        :return: generator of resources
-        """
-        # This is just here for Python lint to be happy
-        yield None  # type: ignore[misc]
-
-    @abstractmethod
-    def consume_resource(self) -> Generator[FhirResource, None, None]:
         """
         Gets the resources from the response as a generator AND removes them from the response
 
@@ -355,7 +358,7 @@ class FhirGetResponse:
         """
         Gets the ids of the resources from the response
         """
-        resources: Deque[FhirResource] = self.get_resources()
+        resources: Deque[FhirResource] | FhirResourceMap = self.get_resources()
         try:
             return [f"{r.get('resourceType')}/{r.get('id')}" for r in resources]
         except Exception as e:

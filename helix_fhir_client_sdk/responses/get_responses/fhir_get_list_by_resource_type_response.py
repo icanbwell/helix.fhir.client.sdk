@@ -16,6 +16,7 @@ from typing import (
 from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
 )
+from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
@@ -80,9 +81,9 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
             storage_mode=storage_mode,
         )
         count: int
-        resource_map: Dict[str, List[FhirResource]]
+        resource_map: FhirResourceMap
         count, resource_map = self._parse_into_resource_map(resources=resources)
-        self._resource_map: Dict[str, List[FhirResource]] = resource_map
+        self._resource_map: FhirResourceMap = resource_map
 
     @override
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
@@ -94,13 +95,26 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         """
 
         new_count: int = 0
-        for resource in other_response.get_resources():
-            resource_type = resource.get("resourceType")
-            if resource_type:
+        resources: Deque[FhirResource] | FhirResourceMap = (
+            other_response.get_resources()
+        )
+        resource_type: str
+        if isinstance(resources, FhirResourceMap):
+            resource_list: Deque[FhirResource]
+            for resource_type, resource_list in resources.items():
                 if resource_type not in self._resource_map:
-                    self._resource_map[resource_type] = []
-                self._resource_map[resource_type].append(resource)
-                new_count += 1
+                    self._resource_map[resource_type] = deque()
+                for resource in resource_list:
+                    self._resource_map[resource_type].append(resource)
+                    new_count += 1
+        else:
+            for resource in other_response.get_resources():
+                resource_type = resource.get("resourceType")
+                if resource_type:
+                    if resource_type not in self._resource_map:
+                        self._resource_map[resource_type] = deque()
+                    self._resource_map[resource_type].append(resource)
+                    new_count += 1
 
         return self
 
@@ -118,7 +132,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return self
 
     @override
-    def get_resources(self) -> Deque[FhirResource]:
+    def get_resources(self) -> Deque[FhirResource] | FhirResourceMap:
         """
         Gets the resources from the response
 
@@ -208,13 +222,13 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
         :return: response text
         """
-        return json.dumps(self._resource_map, cls=FhirJSONEncoder)
+        return json.dumps(self._resource_map.to_dict(), cls=FhirJSONEncoder)
 
     @classmethod
     def _parse_into_resource_map(
         cls, resources: List[FhirResource]
-    ) -> Tuple[int, Dict[str, List[FhirResource]]]:
-        resource_map: Dict[str, List[FhirResource]] = {}
+    ) -> Tuple[int, FhirResourceMap]:
+        resource_map: FhirResourceMap = FhirResourceMap()
         resource: FhirResource
         count: int = 0
         for resource in resources:
@@ -222,7 +236,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
                 resource_type = resource.get("resourceType")
                 assert resource_type, f"No resourceType in {json.dumps(resource)}"
                 if resource_type not in resource_map:
-                    resource_map[resource_type] = []
+                    resource_map[resource_type] = deque()
 
                 count += 1
                 resource_map[resource_type].append(resource)
@@ -233,46 +247,16 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return self
 
     @override
-    async def consume_resource_async(self) -> AsyncGenerator[FhirResource, None]:
-        resource_map: Dict[str, List[Dict[str, Any]]] = {}
-        while self._resource_map:
-            # Get the first key
-            resource_type: str = next(iter(self._resource_map))
-            # Pop and process the item
-            resources_for_resource_type: List[FhirResource] = self._resource_map.pop(
-                resource_type
-            )
-            # Add it to the map
-            resource_map[resource_type] = [
-                r.to_dict() for r in resources_for_resource_type
-            ]
-
-        # Now create one resource to hold the resource map
-        resource_map_resource: FhirResource = FhirResource(
-            initial_dict=resource_map, storage_mode=self.storage_mode
-        )
-        yield resource_map_resource
+    async def consume_resource_async(
+        self,
+    ) -> AsyncGenerator[FhirResource | FhirResourceMap, None]:
+        yield self._resource_map
+        self._resource_map.clear()
 
     @override
-    def consume_resource(self) -> Generator[FhirResource, None, None]:
-        resource_map: Dict[str, List[Dict[str, Any]]] = {}
-        while self._resource_map:
-            # Get the first key
-            resource_type: str = next(iter(self._resource_map))
-            # Pop and process the item
-            resources_for_resource_type: List[FhirResource] = self._resource_map.pop(
-                resource_type
-            )
-            # Add it to the map
-            resource_map[resource_type] = [
-                r.to_dict() for r in resources_for_resource_type
-            ]
-
-        # Now create one resource to hold the resource map
-        resource_map_resource: FhirResource = FhirResource(
-            initial_dict=resource_map, storage_mode=self.storage_mode
-        )
-        yield resource_map_resource
+    def consume_resource(self) -> Generator[FhirResource | FhirResourceMap, None, None]:
+        yield self._resource_map
+        self._resource_map = {}
 
     @override
     async def consume_bundle_entry_async(self) -> AsyncGenerator[BundleEntry, None]:
@@ -290,7 +274,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         # noinspection PyUnreachableCode,PyTypeChecker
         yield None
 
-    def get_resource_map(self) -> Dict[str, List[FhirResource]]:
+    def get_resource_map(self) -> FhirResourceMap:
         """
         Gets the resource map from the response
 
@@ -326,4 +310,4 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
     @override
     def get_resource_count(self) -> int:
-        return sum(len(resources) for resources in self._resource_map.values())
+        return self._resource_map.get_resource_count()

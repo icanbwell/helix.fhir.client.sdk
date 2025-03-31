@@ -18,6 +18,7 @@ from helix_fhir_client_sdk.fhir.bundle import Bundle
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
 from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
@@ -139,7 +140,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         return self
 
     @override
-    def get_resources(self) -> Deque[FhirResource]:
+    def get_resources(self) -> Deque[FhirResource] | FhirResourceMap:
         """
         Gets the resources from the response
 
@@ -333,14 +334,16 @@ class FhirGetBundleResponse(FhirGetResponse):
         return self
 
     @override
-    async def consume_resource_async(self) -> AsyncGenerator[FhirResource, None]:
+    async def consume_resource_async(
+        self,
+    ) -> AsyncGenerator[FhirResource | FhirResourceMap, None]:
         while self._bundle_entries:
             entry: BundleEntry = self._bundle_entries.popleft()
             if entry.resource:
                 yield entry.resource
 
     @override
-    def consume_resource(self) -> Generator[FhirResource, None, None]:
+    def consume_resource(self) -> Generator[FhirResource | FhirResourceMap, None, None]:
         while self._bundle_entries:
             entry: BundleEntry = self._bundle_entries.popleft()
             if entry.resource:

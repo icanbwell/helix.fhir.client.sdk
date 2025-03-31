@@ -16,6 +16,7 @@ from helix_fhir_client_sdk.fhir.bundle import Bundle
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
 from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
@@ -122,7 +123,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         )
 
     @override
-    def get_resources(self) -> Deque[FhirResource]:
+    def get_resources(self) -> Deque[FhirResource] | FhirResourceMap:
         """
         Gets the resources from the response
 
@@ -244,14 +245,16 @@ class FhirGetErrorResponse(FhirGetResponse):
         return self
 
     @override
-    async def consume_resource_async(self) -> AsyncGenerator[FhirResource, None]:
+    async def consume_resource_async(
+        self,
+    ) -> AsyncGenerator[FhirResource | FhirResourceMap, None]:
         if self._resource:
             resource = self._resource
             self._resource = None
             yield resource
 
     @override
-    def consume_resource(self) -> Generator[FhirResource, None, None]:
+    def consume_resource(self) -> Generator[FhirResource | FhirResourceMap, None, None]:
         if self._resource:
             resource = self._resource
             self._resource = None

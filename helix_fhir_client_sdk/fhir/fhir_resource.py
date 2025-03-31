@@ -9,6 +9,8 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
 
 
 class FhirResource(CompressedDict[str, Any]):
+    __slots__ = CompressedDict.__slots__
+
     def __init__(
         self,
         *,

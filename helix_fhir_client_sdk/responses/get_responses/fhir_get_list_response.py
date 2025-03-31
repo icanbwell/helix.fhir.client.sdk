@@ -15,6 +15,7 @@ from typing import (
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
 from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
@@ -111,7 +112,7 @@ class FhirGetListResponse(FhirGetResponse):
 
         return self
 
-    def get_resources(self) -> Deque[FhirResource]:
+    def get_resources(self) -> Deque[FhirResource] | FhirResourceMap:
         return self._resources if self._resources else deque()
 
     @classmethod
@@ -255,12 +256,14 @@ class FhirGetListResponse(FhirGetResponse):
         return self
 
     @override
-    async def consume_resource_async(self) -> AsyncGenerator[FhirResource, None]:
+    async def consume_resource_async(
+        self,
+    ) -> AsyncGenerator[FhirResource | FhirResourceMap, None]:
         while self._resources:
             yield self._resources.popleft()
 
     @override
-    def consume_resource(self) -> Generator[FhirResource, None, None]:
+    def consume_resource(self) -> Generator[FhirResource | FhirResourceMap, None, None]:
         while self._resources:
             yield self._resources.popleft()
 
