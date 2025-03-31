@@ -891,21 +891,24 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
         encounter = [
             r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "8"
         ][0]
-        assert encounter == {
-            "resourceType": "Encounter",
-            "id": "8",
-            "participant": [{"individual": {"reference": "Practitioner/12345"}}],
-        }
+        with encounter.transaction():
+            assert encounter == {
+                "resourceType": "Encounter",
+                "id": "8",
+                "participant": [{"individual": {"reference": "Practitioner/12345"}}],
+            }
         encounter = [
             r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "10"
         ][0]
-        assert encounter == {
-            "resourceType": "Encounter",
-            "id": "10",
-            "participant": [{"individual": {"reference": "Practitioner/12345"}}],
-        }
+        with encounter.transaction():
+            assert encounter == {
+                "resourceType": "Encounter",
+                "id": "10",
+                "participant": [{"individual": {"reference": "Practitioner/12345"}}],
+            }
         condition = [r for r in resources if r["resourceType"] == "Practitioner"][0]
-        assert condition == {"resourceType": "Practitioner", "id": "12345"}
+        with condition.transaction():
+            assert condition == {"resourceType": "Practitioner", "id": "12345"}
 
 
 @pytest.mark.asyncio
@@ -1304,21 +1307,24 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
         encounter = [
             r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "8"
         ][0]
-        assert encounter == {
-            "resourceType": "Encounter",
-            "id": "8",
-            "participant": [{"individual": {"reference": "Practitioner/12345"}}],
-        }
+        with encounter.transaction():
+            assert encounter == {
+                "resourceType": "Encounter",
+                "id": "8",
+                "participant": [{"individual": {"reference": "Practitioner/12345"}}],
+            }
         encounter = [
             r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "10"
         ][0]
-        assert encounter == {
-            "resourceType": "Encounter",
-            "id": "10",
-            "participant": [{"individual": {"reference": "Practitioner/12345"}}],
-        }
+        with encounter.transaction():
+            assert encounter == {
+                "resourceType": "Encounter",
+                "id": "10",
+                "participant": [{"individual": {"reference": "Practitioner/12345"}}],
+            }
         condition = [r for r in resources if r["resourceType"] == "Practitioner"][0]
-        assert condition == {"resourceType": "Practitioner", "id": "12345"}
+        with condition.transaction():
+            assert condition == {"resourceType": "Practitioner", "id": "12345"}
 
         assert response[0].access_token == "new_access_token"
         assert response[0].results_by_url is not None
