@@ -181,6 +181,7 @@ class TestFhirGetResponseClass:
         assert response.status == 200
         assert response.successful is True
 
+    # noinspection PyPep8Naming
     def test_lastModified(self, sample_response_data: Dict[str, Any]) -> None:
         """Test lastModified property."""
         response = TestFhirGetResponse(**sample_response_data)

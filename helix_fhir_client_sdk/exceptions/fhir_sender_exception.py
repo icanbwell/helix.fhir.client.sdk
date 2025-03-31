@@ -1,6 +1,6 @@
 import sys
 import traceback
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 
 class FhirSenderException(Exception):
@@ -80,7 +80,7 @@ class FhirSenderException(Exception):
         :return: Detailed error message with traceback
         """
         # Start with the exception message
-        error_str = [super().__str__()]
+        error_str: List[str] = [super().__str__()]
 
         # Add original exception details if available
         if self.original_exception:
