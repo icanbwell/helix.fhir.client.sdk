@@ -6,6 +6,8 @@ from typing import Dict, Any, List, AsyncGenerator, Optional, Union, override, D
 import pytest
 
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
+from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
+from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
@@ -21,7 +23,6 @@ class TestFhirGetResponse(FhirGetResponse):
     __slots__ = FhirGetResponse.__slots__ + [
         # Specific to this subclass
         "_resources",
-        "_bundle_entries",
     ]
 
     def __init__(
@@ -63,7 +64,6 @@ class TestFhirGetResponse(FhirGetResponse):
             storage_mode=storage_mode,
         )
         self._resources: Deque[FhirResource] = deque()
-        self._bundle_entries: Deque[BundleEntry] = deque()
 
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
         # Simple implementation for testing
@@ -76,16 +76,24 @@ class TestFhirGetResponse(FhirGetResponse):
     def get_resources(self) -> Deque[FhirResource]:
         return self._resources
 
-    async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
-        for resource in self._resources:
-            yield resource
+    @override
+    async def consume_resource(self) -> AsyncGenerator[FhirResource, None]:
+        while self._resources:
+            yield self._resources.popleft()
+
+    @override
+    async def consume_bundle_entry(self) -> AsyncGenerator[BundleEntry, None]:
+        while self._resources:
+            resource: FhirResource = self._resources.popleft()
+            yield self.create_bundle_entry(resource=resource)
 
     def get_bundle_entries(self) -> Deque[BundleEntry]:
-        return self._bundle_entries
-
-    async def get_bundle_entries_generator(self) -> AsyncGenerator[BundleEntry, None]:
-        for entry in self._bundle_entries:
-            yield entry
+        return deque(
+            [
+                self.create_bundle_entry(resource=resource)
+                for resource in self._resources
+            ]
+        )
 
     def remove_duplicates(self) -> "FhirGetResponse":
         # Simple implementation for testing
@@ -122,6 +130,22 @@ class TestFhirGetResponse(FhirGetResponse):
     @override
     def get_resource_count(self) -> int:
         return len(self._resources)
+
+    def create_bundle_entry(self, *, resource: FhirResource) -> BundleEntry:
+        # use these if the bundle entry does not have them
+        request: BundleEntryRequest = BundleEntryRequest(url=self.url)
+        response: BundleEntryResponse = BundleEntryResponse(
+            status=str(self.status),
+            lastModified=self.lastModified,
+            etag=self.etag,
+        )
+        entry: BundleEntry = BundleEntry(
+            resource=resource,
+            request=request,
+            response=response,
+            storage_mode=self.storage_mode,
+        )
+        return entry
 
 
 class TestFhirGetResponseClass:

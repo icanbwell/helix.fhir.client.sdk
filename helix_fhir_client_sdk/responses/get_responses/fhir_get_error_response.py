@@ -130,20 +130,21 @@ class FhirGetErrorResponse(FhirGetResponse):
         :return: list of bundle entries
         """
         return deque(
-            [
-                BundleEntry(
-                    resource=self._resource,  # This will be the OperationOutcome or the resource itself
-                    request=BundleEntryRequest(url=self.url),
-                    response=BundleEntryResponse(
-                        status=str(self.status),
-                        lastModified=self.lastModified,
-                        etag=self.etag,
-                    ),
-                    storage_mode=self.storage_mode,
-                )
-            ]
+            [self.create_bundle_entry(resource=self._resource)]
             if self._resource
             else []
+        )
+
+    def create_bundle_entry(self, *, resource: FhirResource) -> BundleEntry:
+        return BundleEntry(
+            resource=self._resource,  # This will be the OperationOutcome or the resource itself
+            request=BundleEntryRequest(url=self.url),
+            response=BundleEntryResponse(
+                status=str(self.status),
+                lastModified=self.lastModified,
+                etag=self.etag,
+            ),
+            storage_mode=self.storage_mode,
         )
 
     @override
@@ -244,14 +245,18 @@ class FhirGetErrorResponse(FhirGetResponse):
         return self
 
     @override
-    async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
-        for resource in self.get_resources():
+    async def consume_resource(self) -> AsyncGenerator[FhirResource, None]:
+        if self._resource:
+            resource = self._resource
+            self._resource = None
             yield resource
 
     @override
-    async def get_bundle_entries_generator(self) -> AsyncGenerator[BundleEntry, None]:
-        for entry in self.get_bundle_entries():
-            yield entry
+    async def consume_bundle_entry(self) -> AsyncGenerator[BundleEntry, None]:
+        if self._resource:
+            resource = self._resource
+            self._resource = None
+            yield self.create_bundle_entry(resource=resource)
 
     @override
     def to_dict(self) -> Dict[str, Any]:

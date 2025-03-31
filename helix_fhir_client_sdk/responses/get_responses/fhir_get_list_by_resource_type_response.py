@@ -226,7 +226,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return self
 
     @override
-    async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
+    async def consume_resource(self) -> AsyncGenerator[FhirResource, None]:
         raise NotImplementedError(
             "get_resources_generator is not implemented for FhirGetListByResourceTypeResponse."
         )
@@ -234,7 +234,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         yield None
 
     @override
-    async def get_bundle_entries_generator(self) -> AsyncGenerator[BundleEntry, None]:
+    async def consume_bundle_entry(self) -> AsyncGenerator[BundleEntry, None]:
         raise NotImplementedError(
             "get_bundle_entries_generator is not implemented for FhirGetListByResourceTypeResponse."
         )

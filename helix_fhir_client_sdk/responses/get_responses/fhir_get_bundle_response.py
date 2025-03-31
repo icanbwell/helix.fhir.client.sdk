@@ -331,14 +331,16 @@ class FhirGetBundleResponse(FhirGetResponse):
         return self
 
     @override
-    async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
-        for entry in [e for e in self._bundle_entries if e.resource]:
-            yield cast(FhirResource, entry.resource)
+    async def consume_resource(self) -> AsyncGenerator[FhirResource, None]:
+        while self._bundle_entries:
+            entry: BundleEntry = self._bundle_entries.popleft()
+            if entry.resource:
+                yield entry.resource
 
     @override
-    async def get_bundle_entries_generator(self) -> AsyncGenerator[BundleEntry, None]:
-        for entry in self._bundle_entries:
-            yield entry
+    async def consume_bundle_entry(self) -> AsyncGenerator[BundleEntry, None]:
+        while self._bundle_entries:
+            yield self._bundle_entries.popleft()
 
     @override
     def to_dict(self) -> Dict[str, Any]:

@@ -189,9 +189,9 @@ class FhirGetResponse:
         ...
 
     @abstractmethod
-    async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
+    async def consume_resource(self) -> AsyncGenerator[FhirResource, None]:
         """
-        Gets the resources from the response as a generator
+        Gets the resources from the response as a generator AND removes them from the response
 
 
         :return: generator of resources
@@ -210,9 +210,9 @@ class FhirGetResponse:
         ...
 
     @abstractmethod
-    async def get_bundle_entries_generator(self) -> AsyncGenerator[BundleEntry, None]:
+    async def consume_bundle_entry(self) -> AsyncGenerator[BundleEntry, None]:
         """
-        Gets the resources from the response as a generator
+        Gets the resources from the response as a generator AND removes them from the response
 
 
         :return: generator of resources

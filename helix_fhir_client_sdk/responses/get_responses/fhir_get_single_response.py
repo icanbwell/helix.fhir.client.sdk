@@ -8,18 +8,17 @@ from typing import (
     Union,
     override,
     AsyncGenerator,
-    cast,
     Deque,
 )
 
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
 from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
-from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
@@ -124,7 +123,7 @@ class FhirGetSingleResponse(FhirGetResponse):
 
         return deque([self._resource]) if self._resource else deque()
 
-    def get_bundle_entry(self) -> BundleEntry:
+    def create_bundle_entry(self, *, resource: FhirResource) -> BundleEntry:
         # use these if the bundle entry does not have them
         request: BundleEntryRequest = BundleEntryRequest(url=self.url)
         response: BundleEntryResponse = BundleEntryResponse(
@@ -133,7 +132,7 @@ class FhirGetSingleResponse(FhirGetResponse):
             etag=self.etag,
         )
         bundle_entry = BundleEntry(
-            resource=self._resource,
+            resource=resource,
             request=request,
             response=response,
             storage_mode=self.storage_mode,
@@ -151,7 +150,7 @@ class FhirGetSingleResponse(FhirGetResponse):
         if not self._resource:
             return deque()
         try:
-            return deque([self.get_bundle_entry()])
+            return deque([self.create_bundle_entry(resource=self._resource)])
         except Exception as e:
             raise Exception(
                 f"Could not get bundle entries from: {self._resource}"
@@ -208,13 +207,18 @@ class FhirGetSingleResponse(FhirGetResponse):
         return self
 
     @override
-    async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
-        yield cast(FhirResource, self._resource)
+    async def consume_resource(self) -> AsyncGenerator[FhirResource, None]:
+        if self._resource:
+            resource = self._resource
+            self._resource = None
+            yield resource
 
     @override
-    async def get_bundle_entries_generator(self) -> AsyncGenerator[BundleEntry, None]:
-        bundle_entry: BundleEntry = self.get_bundle_entry()
-        yield bundle_entry
+    async def consume_bundle_entry(self) -> AsyncGenerator[BundleEntry, None]:
+        if self._resource:
+            resource = self._resource
+            self._resource = None
+            yield self.create_bundle_entry(resource=resource)
 
     @override
     def to_dict(self) -> Dict[str, Any]:

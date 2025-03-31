@@ -143,28 +143,31 @@ class FhirGetListResponse(FhirGetResponse):
         try:
             # THis is either a list of resources or a Bundle resource containing a list of resources
 
-            # use these if the bundle entry does not have them
-            request: BundleEntryRequest = BundleEntryRequest(url=self.url)
-            response: BundleEntryResponse = BundleEntryResponse(
-                status=str(self.status),
-                lastModified=self.lastModified,
-                etag=self.etag,
-            )
             result: Deque[BundleEntry] = deque()
-            for r in self._resources:
-                result.append(
-                    BundleEntry(
-                        resource=r,
-                        request=request,
-                        response=response,
-                        storage_mode=self.storage_mode,
-                    )
-                )
+            for resource in self._resources:
+                entry: BundleEntry = self.create_bundle_entry(resource=resource)
+                result.append(entry)
             return result
         except Exception as e:
             raise Exception(
                 f"Could not get bundle entries from: {self._resources}"
             ) from e
+
+    def create_bundle_entry(self, *, resource: FhirResource) -> BundleEntry:
+        # use these if the bundle entry does not have them
+        request: BundleEntryRequest = BundleEntryRequest(url=self.url)
+        response: BundleEntryResponse = BundleEntryResponse(
+            status=str(self.status),
+            lastModified=self.lastModified,
+            etag=self.etag,
+        )
+        entry: BundleEntry = BundleEntry(
+            resource=resource,
+            request=request,
+            response=response,
+            storage_mode=self.storage_mode,
+        )
+        return entry
 
     def remove_duplicates(self) -> FhirGetResponse:
         """
@@ -245,14 +248,15 @@ class FhirGetListResponse(FhirGetResponse):
         return self
 
     @override
-    async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
-        for resource in self.get_resources():
-            yield resource
+    async def consume_resource(self) -> AsyncGenerator[FhirResource, None]:
+        while self._resources:
+            yield self._resources.popleft()
 
     @override
-    async def get_bundle_entries_generator(self) -> AsyncGenerator[BundleEntry, None]:
-        for entry in self.get_bundle_entries():
-            yield entry
+    async def consume_bundle_entry(self) -> AsyncGenerator[BundleEntry, None]:
+        while self._resources:
+            resource: FhirResource = self._resources.popleft()
+            yield self.create_bundle_entry(resource=resource)
 
     @override
     def to_dict(self) -> Dict[str, Any]:
