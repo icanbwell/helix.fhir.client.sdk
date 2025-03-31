@@ -87,18 +87,24 @@ class CompressedDict[K, V](UserDict[K, V]):
         Ensures that the working dictionary is initialized and deserialized.
 
         """
+        if not self._working_dict:
+            self._working_dict = self.create_working_dict()
+
+    def create_working_dict(self) -> Dict[K, V]:
+        working_dict: Dict[K, V]
         # Deserialize the dictionary before entering the context
         if self._storage_mode.storage_type == "raw":
             # For raw mode, create a deep copy of the existing dictionary
-            self._working_dict = self._raw_dict
+            working_dict = self._raw_dict
         else:
             # For serialized modes, deserialize
             compressed = self._storage_mode.storage_type == "compressed_msgpack"
-            self._working_dict = (
+            working_dict = (
                 self._deserialize_dict(self._serialized_dict, compressed)
                 if self._serialized_dict
                 else {}
             )
+        return working_dict
 
     @staticmethod
     def _serialize_dict(dictionary: Dict[K, V], compressed: bool = False) -> bytes:
@@ -331,8 +337,11 @@ class CompressedDict[K, V](UserDict[K, V]):
         Returns:
             Standard dictionary with all values
         """
-        self.ensure_working_dict()
-        return self._get_dict()
+        if self._working_dict:
+            return self._working_dict
+        else:
+            # if the working dict is None, return it but don't store it in the self._working_dict to keep memory low
+            return self.create_working_dict()
 
     def __repr__(self) -> str:
         """
