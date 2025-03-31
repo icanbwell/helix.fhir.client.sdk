@@ -24,6 +24,9 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
+from helix_fhir_client_sdk.utilities.size_calculator.size_calculator import (
+    SizeCalculator,
+)
 
 
 class FhirGetBundleResponse(FhirGetResponse):
@@ -99,6 +102,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         )
         self._bundle_entries: List[BundleEntry] = bundle_entries
         self._bundle_metadata: Bundle = bundle
+        self._length: int = len(bundle_entries)
 
     @override
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
@@ -114,6 +118,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         else:
             self._bundle_entries.extend(other_response.get_bundle_entries())
 
+        self._length = len(self._bundle_entries)
         return self
 
     @override
@@ -127,6 +132,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         for other_response in others:
             self.append(other_response=other_response)
 
+        self._length = len(self._bundle_entries)
         return self
 
     @override
@@ -250,6 +256,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             # with the duplicates removed
             bundle = FhirBundleAppender.remove_duplicate_resources(bundle=bundle)
             self._bundle_entries = bundle.entry or []
+            self._length = len(self._bundle_entries)
             return self
         except Exception as e:
             raise Exception(f"Could not get parse json from: {bundle}") from e
@@ -354,10 +361,8 @@ class FhirGetBundleResponse(FhirGetResponse):
 
         :return: size in bytes
         """
-        return sum(
-            [
-                entry.resource.get_size_in_bytes()
-                for entry in self._bundle_entries
-                if entry.resource
-            ]
-        )
+        return SizeCalculator.get_recursive_size(self)
+
+    @override
+    def get_resource_count(self) -> int:
+        return self._length

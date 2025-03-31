@@ -8,13 +8,22 @@ from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+    CompressedDictStorageType,
+)
 from helix_fhir_client_sdk.utilities.fhir_helper import FhirHelper
 from helix_fhir_client_sdk.utilities.fhir_server_helpers import FhirServerHelpers
+from helix_fhir_client_sdk.utilities.size_calculator.size_calculator import (
+    SizeCalculator,
+)
 
 
 @pytest.mark.parametrize("use_data_streaming", [True, False])
+@pytest.mark.parametrize("storage_type", ["raw", "msgpack", "compressed_msgpack"])
 async def test_async_real_fhir_server_get_patients_large(
     use_data_streaming: bool,
+    storage_type: CompressedDictStorageType,
 ) -> None:
     print()
     resource_type = "Patient"
@@ -48,7 +57,11 @@ async def test_async_real_fhir_server_get_patients_large(
     assert len(merge_response.responses) == count, merge_response.responses
     assert merge_response.responses[0]["created"] is True, merge_response.responses
 
+    # Now start the test
     fhir_client = FhirClient()
+    fhir_client = fhir_client.set_storage_mode(
+        CompressedDictStorageMode(storage_type=storage_type)
+    )
     fhir_client = fhir_client.url(fhir_server_url).resource(resource_type)
     fhir_client = fhir_client.client_credentials(
         client_id=auth_client_id, client_secret=auth_client_secret
@@ -86,6 +99,11 @@ async def test_async_real_fhir_server_get_patients_large(
         assert resources[0]["id"].startswith("example-")
         assert resources[0]["resourceType"] == resource_type
         assert response.chunk_number == 8
+        print(f"====== Response with {storage_type=} {use_data_streaming=} ======")
+        print(
+            f"{response.get_resource_count()} resources, {SizeCalculator.locale_format_bytes(response.get_size_in_bytes())}"
+        )
+        print(f"====== End Response with {storage_type=} ======")
     else:
         response = await fhir_client.get_async()
         assert response.response_headers is not None
@@ -97,3 +115,8 @@ async def test_async_real_fhir_server_get_patients_large(
         assert len(responses_) == count
         assert responses_[0]["id"].startswith("example-")
         assert responses_[0]["resourceType"] == resource_type
+        print(f"====== Response with {storage_type=} {use_data_streaming=} ======")
+        print(
+            f"{response.get_resource_count()} resources, {SizeCalculator.locale_format_bytes(response.get_size_in_bytes())}"
+        )
+        print(f"====== End Response with {storage_type=} ======")

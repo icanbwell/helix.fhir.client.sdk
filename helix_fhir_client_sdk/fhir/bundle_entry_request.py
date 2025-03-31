@@ -3,6 +3,8 @@ from typing import Any, Dict, Optional
 
 
 class BundleEntryRequest:
+    __slots__ = ["url", "method", "ifModifiedSince", "ifNoneMatch"]
+
     # noinspection PyPep8Naming
     def __init__(
         self,

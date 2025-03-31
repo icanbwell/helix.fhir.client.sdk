@@ -92,7 +92,7 @@ class TestFhirGetListByResourceTypeResponse:
         self, sample_resources: List[FhirResource]
     ) -> None:
         """Test parsing resources into a resource map."""
-        resource_map = FhirGetListByResourceTypeResponse._parse_into_resource_map(
+        _, resource_map = FhirGetListByResourceTypeResponse._parse_into_resource_map(
             sample_resources
         )
         assert len(resource_map) == 2

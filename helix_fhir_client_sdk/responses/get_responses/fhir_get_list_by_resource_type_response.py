@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator
+from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator, Tuple
 
 from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
@@ -12,6 +12,9 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
+)
+from helix_fhir_client_sdk.utilities.size_calculator.size_calculator import (
+    SizeCalculator,
 )
 
 
@@ -62,9 +65,11 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
             results_by_url=results_by_url,
             storage_mode=storage_mode,
         )
-        self._resource_map: Dict[str, List[FhirResource]] = (
-            self._parse_into_resource_map(resources=resources)
-        )
+        count: int
+        resource_map: Dict[str, List[FhirResource]]
+        count, resource_map = self._parse_into_resource_map(resources=resources)
+        self._resource_map: Dict[str, List[FhirResource]] = resource_map
+        self._length: int = count
 
     @override
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
@@ -75,13 +80,16 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         :return: self
         """
 
+        new_count: int = 0
         for resource in other_response.get_resources():
             resource_type = resource.get("resourceType")
             if resource_type:
                 if resource_type not in self._resource_map:
                     self._resource_map[resource_type] = []
                 self._resource_map[resource_type].append(resource)
+                new_count += 1
 
+        self._length += new_count
         return self
 
     @override
@@ -184,9 +192,10 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
     @classmethod
     def _parse_into_resource_map(
         cls, resources: List[FhirResource]
-    ) -> Dict[str, List[FhirResource]]:
+    ) -> Tuple[int, Dict[str, List[FhirResource]]]:
         resource_map: Dict[str, List[FhirResource]] = {}
         resource: FhirResource
+        count: int = 0
         for resource in resources:
             if resource:
                 resource_type = resource.get("resourceType")
@@ -194,8 +203,9 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
                 if resource_type not in resource_map:
                     resource_map[resource_type] = []
 
+                count += 1
                 resource_map[resource_type].append(resource)
-        return resource_map
+        return count, resource_map
 
     @override
     def sort_resources(self) -> "FhirGetListByResourceTypeResponse":
@@ -258,10 +268,8 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
         :return: size in bytes
         """
-        return sum(
-            [
-                resource.get_size_in_bytes()
-                for resource_list in self._resource_map.values()
-                for resource in resource_list
-            ]
-        )
+        return SizeCalculator.get_recursive_size(self)
+
+    @override
+    def get_resource_count(self) -> int:
+        return self._length

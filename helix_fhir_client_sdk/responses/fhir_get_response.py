@@ -386,15 +386,6 @@ class FhirGetResponse:
             "Subclasses must implement the get_response_text method to return the response text from the FHIR server"
         )
 
-    def has_resources(self) -> bool:
-        """
-        Checks if the response has any resources
-
-        :return: True if there are resources, False otherwise
-        """
-        resources = self.get_resources()
-        return len(resources) > 0
-
     @abstractmethod
     def sort_resources(self) -> "FhirGetResponse": ...
 
@@ -408,11 +399,12 @@ class FhirGetResponse:
         """
         ...
 
-    def get_count(self) -> int:
+    @abstractmethod
+    def get_resource_count(self) -> int:
         """
         Get the count of resources in the response
 
         Returns:
             Count of resources
         """
-        return len(self.get_resources()) if self.get_resources() else 0
+        ...

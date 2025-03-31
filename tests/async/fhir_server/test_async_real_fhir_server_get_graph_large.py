@@ -1,5 +1,4 @@
 import json
-import locale
 from os import environ
 from typing import Any, List, Dict, Optional
 
@@ -16,6 +15,9 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
 from helix_fhir_client_sdk.utilities.fhir_helper import FhirHelper
 from helix_fhir_client_sdk.utilities.fhir_server_helpers import FhirServerHelpers
 from helix_fhir_client_sdk.utilities.practitioner_generator import PractitionerGenerator
+from helix_fhir_client_sdk.utilities.size_calculator.size_calculator import (
+    SizeCalculator,
+)
 from tests.logger_for_test import LoggerForTest
 
 
@@ -166,34 +168,6 @@ async def test_async_real_fhir_server_get_graph_large(
     fhir_client = fhir_client.limit(expected_resource_count)
     fhir_client = fhir_client.use_data_streaming(use_data_streaming)
 
-    def locale_format_bytes(bytes_size: int, precision: int = 2) -> str:
-        """
-        Use locale-specific formatting for bytes.
-
-        Args:
-            bytes_size: Size in bytes
-            precision: Number of decimal places
-
-        Returns:
-            Locale-formatted string with unit
-        """
-        # Set locale to use system default
-        locale.setlocale(locale.LC_ALL, "")
-
-        units = [
-            (1 << 30, "GB"),  # Gigabytes
-            (1 << 20, "MB"),  # Megabytes
-            (1 << 10, "KB"),  # Kilobytes
-            (1, "bytes"),  # Bytes
-        ]
-
-        for factor, unit in units:
-            if bytes_size >= factor:
-                # Use locale-specific formatting
-                return f"{locale.format_string('%.{}f'.format(precision), bytes_size / factor, grouping=True)} {unit}"
-
-        return f"{locale.format_string('%d', bytes_size, grouping=True)} bytes"
-
     if use_data_streaming:
         responses: List[FhirGetResponse] = []
         response: Optional[FhirGetResponse] = None
@@ -224,7 +198,7 @@ async def test_async_real_fhir_server_get_graph_large(
 
         print(f"====== Response with {storage_type=} {use_data_streaming=} ======")
         print(
-            f"{response.get_count()} resources, {locale_format_bytes(response.get_size_in_bytes())}"
+            f"{response.get_resource_count()} resources, {SizeCalculator.locale_format_bytes(response.get_size_in_bytes())}"
         )
         print(f"====== End Response with {storage_type=} ======")
         # assert response.chunk_number >= 5
@@ -242,6 +216,6 @@ async def test_async_real_fhir_server_get_graph_large(
 
         print(f"====== Response with {storage_type=} {use_data_streaming=} ======")
         print(
-            f"{response.get_count()} resources, {locale_format_bytes(response.get_size_in_bytes())}"
+            f"{response.get_resource_count()} resources, {SizeCalculator.locale_format_bytes(response.get_size_in_bytes())}"
         )
         print(f"====== End Response with {storage_type=} ======")

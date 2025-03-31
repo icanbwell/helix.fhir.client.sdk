@@ -13,6 +13,9 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
+from helix_fhir_client_sdk.utilities.size_calculator.size_calculator import (
+    SizeCalculator,
+)
 
 
 # Concrete implementation of FhirGetResponse for testing
@@ -114,7 +117,11 @@ class TestFhirGetResponse(FhirGetResponse):
 
     @override
     def get_size_in_bytes(self) -> int:
-        return 0
+        return SizeCalculator.get_recursive_size(self)
+
+    @override
+    def get_resource_count(self) -> int:
+        return len(self._resources)
 
 
 class TestFhirGetResponseClass:
@@ -268,22 +275,6 @@ class TestFhirGetResponseClass:
         resources = response.get_resources_except_operation_outcomes()
         assert len(resources) == 1
         assert resources[0]["resourceType"] == "Patient"
-
-    def test_has_resources(self, sample_response_data: Dict[str, Any]) -> None:
-        """Test has_resources method."""
-        response = TestFhirGetResponse(**sample_response_data)
-
-        # No resources
-        assert not response.has_resources()
-
-        # With resources
-        response._resources = [
-            FhirResource(
-                initial_dict={"resourceType": "Patient", "id": "123"},
-                storage_mode=CompressedDictStorageMode(),
-            )
-        ]
-        assert response.has_resources()
 
     def test_to_dict(self, sample_response_data: Dict[str, Any]) -> None:
         """Test to_dict method."""

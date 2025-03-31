@@ -130,7 +130,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 logger=logger,
                 id_search_unsupported_resources=id_search_unsupported_resources,
             )
-            if not parent_response.has_resources():
+            if parent_response.get_resource_count() == 0:
                 yield parent_response
                 return  # no resources to process
 
@@ -140,7 +140,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
             if logger:
                 logger.info(
-                    f"FhirClient.simulate_graph_async() got parent resources: {len(parent_response.get_resources())} "
+                    f"FhirClient.simulate_graph_async() got parent resources: {parent_response.get_resource_count()} "
                     + f"cached:{cache_hits}"
                 )
 

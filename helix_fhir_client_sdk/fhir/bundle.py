@@ -7,6 +7,8 @@ from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
 class Bundle:
+    __slots__ = ["entry", "total", "id_", "timestamp", "type_"]
+
     def __init__(
         self,
         *,

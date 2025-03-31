@@ -1,7 +1,6 @@
-from collections import UserDict
 from collections.abc import KeysView, ValuesView, ItemsView
 from contextlib import contextmanager
-from typing import Dict, Optional, Iterator, cast, List
+from typing import Dict, Optional, Iterator, cast, List, overload
 
 import msgpack
 import zlib
@@ -13,11 +12,22 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
     CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.size_calculator.size_calculator import (
-    get_recursive_size,
+    SizeCalculator,
 )
 
 
-class CompressedDict[K, V](UserDict[K, V]):
+class CompressedDict[K, V]:
+    # use slots to reduce memory usage
+    __slots__ = (
+        "_storage_mode",
+        "_working_dict",
+        "_raw_dict",
+        "_serialized_dict",
+        "_properties_to_cache",
+        "_cached_properties",
+        "_length",
+    )
+
     def __init__(
         self,
         *,
@@ -34,7 +44,6 @@ class CompressedDict[K, V](UserDict[K, V]):
                 - 'msgpack': Store as MessagePack serialized bytes
                 - 'compressed_msgpack': Store as compressed MessagePack bytes
         """
-        super().__init__()
         # Storage configuration
         self._storage_mode: CompressedDictStorageMode = storage_mode
 
@@ -399,4 +408,30 @@ class CompressedDict[K, V](UserDict[K, V]):
         Returns:
             Size in bytes
         """
-        return get_recursive_size(self)
+        return SizeCalculator.get_recursive_size(self)
+
+    @overload
+    def get(self, key: K) -> Optional[V]:
+        """
+        Get a value
+        """
+        ...
+
+    @overload
+    def get(self, key: K, default: V) -> V:
+        """
+        Get a value with a default
+
+        Args:
+            key: Key to retrieve
+            default: Default value if key is not found
+
+        Returns:
+            Value associated with the key or default
+        """
+        ...
+
+    def get(self, key: K, default: Optional[V] = None) -> V | None:
+        if key in self:
+            return self[key]
+        return default

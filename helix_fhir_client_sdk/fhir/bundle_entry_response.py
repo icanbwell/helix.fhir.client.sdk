@@ -3,6 +3,8 @@ from typing import Any, Dict, Optional
 
 
 class BundleEntryResponse:
+    __slots__ = ["status", "lastModified", "etag"]
+
     # noinspection PyPep8Naming
     def __init__(
         self,

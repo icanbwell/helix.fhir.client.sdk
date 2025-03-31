@@ -14,6 +14,9 @@ from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
+from helix_fhir_client_sdk.utilities.size_calculator.size_calculator import (
+    SizeCalculator,
+)
 
 
 class FhirGetListResponse(FhirGetResponse):
@@ -66,6 +69,7 @@ class FhirGetListResponse(FhirGetResponse):
         self._resources: Optional[List[FhirResource]] = self._parse_resources(
             responses=response_text, storage_mode=storage_mode
         )
+        self._length: int = len(self._resources) if self._resources else 0
 
     @override
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
@@ -80,6 +84,7 @@ class FhirGetListResponse(FhirGetResponse):
         else:
             self._resources.extend(other_response.get_resources())
 
+        self._length = len(self._resources) if self._resources else 0
         return self
 
     @override
@@ -93,6 +98,7 @@ class FhirGetListResponse(FhirGetResponse):
         for other_response in others:
             self.append(other_response=other_response)
 
+        self._length = len(self._resources) if self._resources else 0
         return self
 
     def get_resources(self) -> List[FhirResource]:
@@ -177,6 +183,7 @@ class FhirGetListResponse(FhirGetResponse):
             ]
             unique_resources.extend(null_id_resources)
             self._resources = unique_resources
+            self._length = len(self._resources) if self._resources else 0
             return self
         except Exception as e:
             raise Exception(f"Could not get parse json from: {self._resources}") from e
@@ -276,8 +283,8 @@ class FhirGetListResponse(FhirGetResponse):
 
         :return: size in bytes
         """
-        return (
-            sum([resource.get_size_in_bytes() for resource in self._resources])
-            if self._resources
-            else 0
-        )
+        return SizeCalculator.get_recursive_size(self)
+
+    @override
+    def get_resource_count(self) -> int:
+        return self._length

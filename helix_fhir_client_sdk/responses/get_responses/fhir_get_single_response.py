@@ -16,6 +16,9 @@ from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
+from helix_fhir_client_sdk.utilities.size_calculator.size_calculator import (
+    SizeCalculator,
+)
 
 
 class FhirGetSingleResponse(FhirGetResponse):
@@ -233,4 +236,8 @@ class FhirGetSingleResponse(FhirGetResponse):
 
         :return: size in bytes
         """
-        return self._resource.get_size_in_bytes() if self._resource else 0
+        return SizeCalculator.get_recursive_size(self)
+
+    @override
+    def get_resource_count(self) -> int:
+        return 1 if self._resource else 0
