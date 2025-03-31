@@ -234,19 +234,45 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
     @override
     async def consume_resource_async(self) -> AsyncGenerator[FhirResource, None]:
-        raise NotImplementedError(
-            "get_resources_generator is not implemented for FhirGetListByResourceTypeResponse."
+        resource_map: Dict[str, List[Dict[str, Any]]] = {}
+        while self._resource_map:
+            # Get the first key
+            resource_type: str = next(iter(self._resource_map))
+            # Pop and process the item
+            resources_for_resource_type: List[FhirResource] = self._resource_map.pop(
+                resource_type
+            )
+            # Add it to the map
+            resource_map[resource_type] = [
+                r.to_dict() for r in resources_for_resource_type
+            ]
+
+        # Now create one resource to hold the resource map
+        resource_map_resource: FhirResource = FhirResource(
+            initial_dict=resource_map, storage_mode=self.storage_mode
         )
-        # noinspection PyUnreachableCode,PyTypeChecker
-        yield None
+        yield resource_map_resource
 
     @override
     def consume_resource(self) -> Generator[FhirResource, None, None]:
-        raise NotImplementedError(
-            "get_resources_generator is not implemented for FhirGetListByResourceTypeResponse."
+        resource_map: Dict[str, List[Dict[str, Any]]] = {}
+        while self._resource_map:
+            # Get the first key
+            resource_type: str = next(iter(self._resource_map))
+            # Pop and process the item
+            resources_for_resource_type: List[FhirResource] = self._resource_map.pop(
+                resource_type
+            )
+            # Add it to the map
+            resource_map[resource_type] = [
+                r.to_dict() for r in resources_for_resource_type
+            ]
+
+        # Now create one resource to hold the resource map
+        resource_map_resource: FhirResource = FhirResource(
+            initial_dict=resource_map, storage_mode=self.storage_mode
         )
-        # noinspection PyUnreachableCode,PyTypeChecker
-        yield None
+        yield resource_map_resource
 
     @override
     async def consume_bundle_entry_async(self) -> AsyncGenerator[BundleEntry, None]:

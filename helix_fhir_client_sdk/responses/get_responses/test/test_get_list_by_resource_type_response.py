@@ -222,10 +222,6 @@ class TestFhirGetListByResourceTypeResponse:
             response.remove_duplicates()
 
         with pytest.raises(NotImplementedError):
-            async for _ in response.consume_resource_async():
-                pass
-
-        with pytest.raises(NotImplementedError):
             async for _ in response.consume_bundle_entry_async():
                 pass
 
@@ -250,3 +246,75 @@ class TestFhirGetListByResourceTypeResponse:
         )
         sorted_response = response.sort_resources()
         assert isinstance(sorted_response, FhirGetListByResourceTypeResponse)
+
+    async def test_consume_resource_async(
+        self, sample_resources: List[FhirResource]
+    ) -> None:
+        """Test the async consume_resource_async method."""
+        results_by_url: List[RetryableAioHttpUrlResult] = []
+        response = FhirGetListByResourceTypeResponse(
+            request_id="test-request",
+            url="https://example.com",
+            resources=sample_resources,
+            error=None,
+            access_token="test-token",
+            total_count=3,
+            status=200,
+            results_by_url=results_by_url,
+            next_url=None,
+            extra_context_to_return={},
+            resource_type="Patient",
+            id_=["123", "789"],
+            response_headers=None,
+            storage_mode=CompressedDictStorageMode(),
+        )
+
+        # Collect resources from the async generator
+        consumed_resources = []
+        async for resource in response.consume_resource_async():
+            consumed_resources.append(resource)
+
+        # Verify the results
+        assert len(consumed_resources) == 1
+        assert isinstance(consumed_resources[0], FhirResource)
+
+        # Check the structure of the resource map
+        resource_dict = consumed_resources[0].to_dict()
+        assert "Patient" in resource_dict
+        assert "Observation" in resource_dict
+        assert len(resource_dict["Patient"]) == 2
+        assert len(resource_dict["Observation"]) == 1
+
+    def test_consume_resource(self, sample_resources: List[FhirResource]) -> None:
+        """Test the synchronous consume_resource method."""
+        results_by_url: List[RetryableAioHttpUrlResult] = []
+        response = FhirGetListByResourceTypeResponse(
+            request_id="test-request",
+            url="https://example.com",
+            resources=sample_resources,
+            error=None,
+            access_token="test-token",
+            total_count=3,
+            status=200,
+            results_by_url=results_by_url,
+            next_url=None,
+            extra_context_to_return={},
+            resource_type="Patient",
+            id_=["123", "789"],
+            response_headers=None,
+            storage_mode=CompressedDictStorageMode(),
+        )
+
+        # Collect resources from the generator
+        consumed_resources = list(response.consume_resource())
+
+        # Verify the results
+        assert len(consumed_resources) == 1
+        assert isinstance(consumed_resources[0], FhirResource)
+
+        # Check the structure of the resource map
+        resource_dict = consumed_resources[0].to_dict()
+        assert "Patient" in resource_dict
+        assert "Observation" in resource_dict
+        assert len(resource_dict["Patient"]) == 2
+        assert len(resource_dict["Observation"]) == 1
