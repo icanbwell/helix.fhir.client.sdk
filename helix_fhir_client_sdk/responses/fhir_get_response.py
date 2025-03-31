@@ -26,6 +26,25 @@ class FhirGetResponse:
 
     """
 
+    __slots__ = [
+        "id_",
+        "resource_type",
+        "request_id",
+        "url",
+        "error",
+        "access_token",
+        "total_count",
+        "status",
+        "next_url",
+        "extra_context_to_return",
+        "successful",
+        "response_headers",
+        "chunk_number",
+        "cache_hits",
+        "results_by_url",
+        "storage_mode",
+    ]
+
     def __init__(
         self,
         *,
@@ -362,7 +381,25 @@ class FhirGetResponse:
 
         :return: dictionary
         """
-        return self.__dict__
+        return {
+            "id_": self.id_,
+            "resource_type": self.resource_type,
+            "request_id": self.request_id,
+            "url": self.url,
+            "error": self.error,
+            "access_token": self.access_token,
+            "total_count": self.total_count,
+            "status": self.status,
+            "next_url": self.next_url,
+            "extra_context_to_return": self.extra_context_to_return,
+            "successful": self.successful,
+            "response_headers": self.response_headers,
+            "chunk_number": self.chunk_number,
+            "cache_hits": self.cache_hits,
+            "results_by_url": [r.to_dict() for r in self.results_by_url],
+            "storage_type": self.storage_mode.storage_type,
+            "last_modified": self.lastModified,
+        }
 
     @classmethod
     @abstractmethod

@@ -7,7 +7,7 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.request_cache import RequestCache
 
 
-@dataclass
+@dataclass(slots=True)
 class GraphLinkParameters:
     """
     This class contains the parameters for a graph target

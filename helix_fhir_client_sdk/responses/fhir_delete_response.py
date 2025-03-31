@@ -2,6 +2,17 @@ from typing import Optional, AsyncGenerator
 
 
 class FhirDeleteResponse:
+    __slots__ = [
+        "request_id",
+        "url",
+        "responses",
+        "error",
+        "access_token",
+        "status",
+        "count",
+        "resource_type",
+    ]
+
     def __init__(
         self,
         *,

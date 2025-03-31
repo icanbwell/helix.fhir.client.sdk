@@ -2,6 +2,16 @@ from typing import Optional, AsyncGenerator
 
 
 class FhirUpdateResponse:
+    __slots__ = [
+        "request_id",
+        "url",
+        "responses",
+        "error",
+        "access_token",
+        "status",
+        "resource_type",
+    ]
+
     def __init__(
         self,
         *,

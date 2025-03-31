@@ -78,7 +78,7 @@ async def test_async_real_fhir_server_get_patients_large(
         async for response1 in fhir_client.get_streaming_async():
             resources_in_chunk = response1.get_resources()
             print(
-                f"Chunk Received {response1.chunk_number} [{len(resources_in_chunk)}]: {response1}"
+                f"Chunk Received {response1.chunk_number} [{len(resources_in_chunk)}]: {response1.to_dict()}"
             )
             resource_chunks.append(resources_in_chunk)
             responses.append(response1)

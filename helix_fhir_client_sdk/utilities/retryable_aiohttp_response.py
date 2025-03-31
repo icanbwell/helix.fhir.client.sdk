@@ -10,6 +10,24 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
 
 
 class RetryableAioHttpResponse:
+    """
+    Response object for retryable aiohttp requests
+    """
+
+    __slots__ = [
+        "ok",
+        "status",
+        "response_headers",
+        "_response_text",
+        "content",
+        "use_data_streaming",
+        "text_read",
+        "results_by_url",
+        "access_token",
+        "access_token_expiry_date",
+        "retry_count",
+    ]
+
     def __init__(
         self,
         *,

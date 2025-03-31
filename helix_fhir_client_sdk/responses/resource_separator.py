@@ -3,7 +3,7 @@ from copy import deepcopy
 from typing import List, Dict, Any, Optional, cast
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class ResourceSeparatorResult:
     resources_dicts: List[Dict[str, Optional[str] | List[Dict[str, Any]]]]
     total_count: int

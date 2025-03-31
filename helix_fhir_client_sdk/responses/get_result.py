@@ -2,7 +2,7 @@ import dataclasses
 from typing import List, Dict, Any, Optional, AsyncGenerator
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class GetResult:
     request_id: Optional[str]
     resources: List[Dict[str, Any]]

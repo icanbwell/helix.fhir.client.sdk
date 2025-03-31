@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class GetAccessTokenResult:
     """
     Result of a token refresh

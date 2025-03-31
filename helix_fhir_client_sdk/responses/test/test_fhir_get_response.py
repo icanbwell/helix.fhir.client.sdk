@@ -20,6 +20,12 @@ from helix_fhir_client_sdk.utilities.size_calculator.size_calculator import (
 
 # Concrete implementation of FhirGetResponse for testing
 class TestFhirGetResponse(FhirGetResponse):
+    __slots__ = FhirGetResponse.__slots__ + [
+        # Specific to this subclass
+        "_resources",
+        "_bundle_entries",
+    ]
+
     def __init__(
         self,
         *,

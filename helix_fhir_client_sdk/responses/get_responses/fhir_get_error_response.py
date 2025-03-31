@@ -28,6 +28,12 @@ class FhirGetErrorResponse(FhirGetResponse):
 
     """
 
+    __slots__ = FhirGetResponse.__slots__ + [
+        # Specific to this subclass
+        "_error_text",
+        "_resource",
+    ]
+
     def __init__(
         self,
         *,

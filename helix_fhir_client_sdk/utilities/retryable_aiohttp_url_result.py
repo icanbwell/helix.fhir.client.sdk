@@ -2,7 +2,7 @@ import dataclasses
 from typing import Dict, Any
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class RetryableAioHttpUrlResult:
     ok: bool
     url: str

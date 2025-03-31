@@ -11,6 +11,16 @@ class RequestCache:
 
     """
 
+    __slots__ = [
+        "cache_hits",
+        "cache_misses",
+        "_cache",
+    ]
+
+    def __init__(self) -> None:
+        self.cache_hits: int = 0
+        self.cache_misses: int = 0
+
     def __enter__(self) -> "RequestCache":
         """
         This method is called when the RequestCache is entered into a context manager. It returns the RequestCache
@@ -34,10 +44,6 @@ class RequestCache:
             return False  # Propagate any exception that occurred
         else:
             return True
-
-    def __init__(self) -> None:
-        self.cache_hits: int = 0
-        self.cache_misses: int = 0
 
     def get(self, *, resource_type: str, resource_id: str) -> Optional[BundleEntry]:
         """

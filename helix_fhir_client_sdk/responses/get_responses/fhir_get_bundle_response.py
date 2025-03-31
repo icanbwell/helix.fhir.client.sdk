@@ -37,6 +37,13 @@ class FhirGetBundleResponse(FhirGetResponse):
 
     """
 
+    __slots__ = FhirGetResponse.__slots__ + [
+        # Specific to this subclass
+        "_bundle_entries",
+        "_bundle_metadata",
+        "_length",
+    ]
+
     def __init__(
         self,
         *,

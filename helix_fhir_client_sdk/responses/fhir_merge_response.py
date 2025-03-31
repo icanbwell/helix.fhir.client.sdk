@@ -2,6 +2,17 @@ from typing import List, Optional, Dict, Any, AsyncGenerator
 
 
 class FhirMergeResponse:
+    __slots__ = [
+        "request_id",
+        "url",
+        "responses",
+        "error",
+        "access_token",
+        "status",
+        "data",
+        "successful",
+    ]
+
     def __init__(
         self,
         *,

@@ -176,7 +176,7 @@ async def test_async_real_fhir_server_get_graph_large(
             resources_in_chunk = response1.get_resources()
             print(
                 f"Chunk Number {response1.chunk_number} Received."
-                f" Resource count=[{len(resources_in_chunk)}]: {response1}"
+                f" Resource count=[{len(resources_in_chunk)}]: {response1.to_dict()}"
             )
             resource_chunks.append(resources_in_chunk)
             responses.append(response1)

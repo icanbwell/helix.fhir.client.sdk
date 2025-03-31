@@ -13,7 +13,7 @@ from typing import (
 )
 
 
-@dataclass
+@dataclass(slots=True)
 class ParallelFunctionContext:
     """
     This class contains the parameters for a parallel function

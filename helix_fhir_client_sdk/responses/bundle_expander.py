@@ -2,7 +2,7 @@ import dataclasses
 from typing import Dict, Any, List
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class BundleExpanderResult:
     resources: List[Dict[str, Any]]
     total_count: int

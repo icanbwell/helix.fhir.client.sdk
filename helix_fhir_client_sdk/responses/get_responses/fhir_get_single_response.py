@@ -29,6 +29,11 @@ class FhirGetSingleResponse(FhirGetResponse):
 
     """
 
+    __slots__ = FhirGetResponse.__slots__ + [
+        # Specific to this subclass
+        "_resource"
+    ]
+
     def __init__(
         self,
         *,
