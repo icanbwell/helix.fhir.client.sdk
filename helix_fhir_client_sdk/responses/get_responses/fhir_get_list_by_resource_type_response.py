@@ -10,6 +10,7 @@ from typing import (
     AsyncGenerator,
     Tuple,
     Deque,
+    Generator,
 )
 
 from helix_fhir_client_sdk.fhir.bundle_entry import (
@@ -232,7 +233,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return self
 
     @override
-    async def consume_resource(self) -> AsyncGenerator[FhirResource, None]:
+    async def consume_resource_async(self) -> AsyncGenerator[FhirResource, None]:
         raise NotImplementedError(
             "get_resources_generator is not implemented for FhirGetListByResourceTypeResponse."
         )
@@ -240,7 +241,23 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         yield None
 
     @override
-    async def consume_bundle_entry(self) -> AsyncGenerator[BundleEntry, None]:
+    def consume_resource(self) -> Generator[FhirResource, None, None]:
+        raise NotImplementedError(
+            "get_resources_generator is not implemented for FhirGetListByResourceTypeResponse."
+        )
+        # noinspection PyUnreachableCode,PyTypeChecker
+        yield None
+
+    @override
+    async def consume_bundle_entry_async(self) -> AsyncGenerator[BundleEntry, None]:
+        raise NotImplementedError(
+            "get_bundle_entries_generator is not implemented for FhirGetListByResourceTypeResponse."
+        )
+        # noinspection PyUnreachableCode,PyTypeChecker
+        yield None
+
+    @override
+    def consume_bundle_entry(self) -> Generator[BundleEntry, None, None]:
         raise NotImplementedError(
             "get_bundle_entries_generator is not implemented for FhirGetListByResourceTypeResponse."
         )

@@ -222,11 +222,11 @@ class TestFhirGetListByResourceTypeResponse:
             response.remove_duplicates()
 
         with pytest.raises(NotImplementedError):
-            async for _ in response.consume_resource():
+            async for _ in response.consume_resource_async():
                 pass
 
         with pytest.raises(NotImplementedError):
-            async for _ in response.consume_bundle_entry():
+            async for _ in response.consume_bundle_entry_async():
                 pass
 
     def test_sort_resources(self, sample_resources: List[FhirResource]) -> None:

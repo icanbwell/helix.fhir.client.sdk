@@ -1,7 +1,17 @@
 import json
 from collections import deque
 from datetime import datetime, UTC
-from typing import Dict, Any, List, AsyncGenerator, Optional, Union, override, Deque
+from typing import (
+    Dict,
+    Any,
+    List,
+    AsyncGenerator,
+    Optional,
+    Union,
+    override,
+    Deque,
+    Generator,
+)
 
 import pytest
 
@@ -77,12 +87,23 @@ class TestFhirGetResponse(FhirGetResponse):
         return self._resources
 
     @override
-    async def consume_resource(self) -> AsyncGenerator[FhirResource, None]:
+    async def consume_resource_async(self) -> AsyncGenerator[FhirResource, None]:
         while self._resources:
             yield self._resources.popleft()
 
     @override
-    async def consume_bundle_entry(self) -> AsyncGenerator[BundleEntry, None]:
+    def consume_resource(self) -> Generator[FhirResource, None, None]:
+        while self._resources:
+            yield self._resources.popleft()
+
+    @override
+    async def consume_bundle_entry_async(self) -> AsyncGenerator[BundleEntry, None]:
+        while self._resources:
+            resource: FhirResource = self._resources.popleft()
+            yield self._create_bundle_entry(resource=resource)
+
+    @override
+    def consume_bundle_entry(self) -> Generator[BundleEntry, None, None]:
         while self._resources:
             resource: FhirResource = self._resources.popleft()
             yield self._create_bundle_entry(resource=resource)

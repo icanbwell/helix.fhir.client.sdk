@@ -11,6 +11,7 @@ from typing import (
     Tuple,
     AsyncGenerator,
     Deque,
+    Generator,
 )
 
 from helix_fhir_client_sdk.fhir.bundle import Bundle
@@ -332,14 +333,26 @@ class FhirGetBundleResponse(FhirGetResponse):
         return self
 
     @override
-    async def consume_resource(self) -> AsyncGenerator[FhirResource, None]:
+    async def consume_resource_async(self) -> AsyncGenerator[FhirResource, None]:
         while self._bundle_entries:
             entry: BundleEntry = self._bundle_entries.popleft()
             if entry.resource:
                 yield entry.resource
 
     @override
-    async def consume_bundle_entry(self) -> AsyncGenerator[BundleEntry, None]:
+    def consume_resource(self) -> Generator[FhirResource, None, None]:
+        while self._bundle_entries:
+            entry: BundleEntry = self._bundle_entries.popleft()
+            if entry.resource:
+                yield entry.resource
+
+    @override
+    async def consume_bundle_entry_async(self) -> AsyncGenerator[BundleEntry, None]:
+        while self._bundle_entries:
+            yield self._bundle_entries.popleft()
+
+    @override
+    def consume_bundle_entry(self) -> Generator[BundleEntry, None, None]:
         while self._bundle_entries:
             yield self._bundle_entries.popleft()
 

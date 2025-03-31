@@ -9,6 +9,7 @@ from typing import (
     override,
     AsyncGenerator,
     Deque,
+    Generator,
 )
 
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
@@ -207,14 +208,28 @@ class FhirGetSingleResponse(FhirGetResponse):
         return self
 
     @override
-    async def consume_resource(self) -> AsyncGenerator[FhirResource, None]:
+    async def consume_resource_async(self) -> AsyncGenerator[FhirResource, None]:
         if self._resource:
             resource = self._resource
             self._resource = None
             yield resource
 
     @override
-    async def consume_bundle_entry(self) -> AsyncGenerator[BundleEntry, None]:
+    def consume_resource(self) -> Generator[FhirResource, None, None]:
+        if self._resource:
+            resource = self._resource
+            self._resource = None
+            yield resource
+
+    @override
+    async def consume_bundle_entry_async(self) -> AsyncGenerator[BundleEntry, None]:
+        if self._resource:
+            resource = self._resource
+            self._resource = None
+            yield self._create_bundle_entry(resource=resource)
+
+    @override
+    def consume_bundle_entry(self) -> Generator[BundleEntry, None, None]:
         if self._resource:
             resource = self._resource
             self._resource = None

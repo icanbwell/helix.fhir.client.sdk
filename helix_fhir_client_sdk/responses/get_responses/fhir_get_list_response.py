@@ -1,6 +1,16 @@
 import json
 from collections import deque
-from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator, Deque
+from typing import (
+    Optional,
+    Dict,
+    Any,
+    List,
+    Union,
+    override,
+    AsyncGenerator,
+    Deque,
+    Generator,
+)
 
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
@@ -245,12 +255,23 @@ class FhirGetListResponse(FhirGetResponse):
         return self
 
     @override
-    async def consume_resource(self) -> AsyncGenerator[FhirResource, None]:
+    async def consume_resource_async(self) -> AsyncGenerator[FhirResource, None]:
         while self._resources:
             yield self._resources.popleft()
 
     @override
-    async def consume_bundle_entry(self) -> AsyncGenerator[BundleEntry, None]:
+    def consume_resource(self) -> Generator[FhirResource, None, None]:
+        while self._resources:
+            yield self._resources.popleft()
+
+    @override
+    async def consume_bundle_entry_async(self) -> AsyncGenerator[BundleEntry, None]:
+        while self._resources:
+            resource: FhirResource = self._resources.popleft()
+            yield self._create_bundle_entry(resource=resource)
+
+    @override
+    def consume_bundle_entry(self) -> Generator[BundleEntry, None, None]:
         while self._resources:
             resource: FhirResource = self._resources.popleft()
             yield self._create_bundle_entry(resource=resource)

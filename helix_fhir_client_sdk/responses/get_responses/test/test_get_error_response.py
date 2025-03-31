@@ -184,7 +184,7 @@ class TestFhirGetErrorResponse:
         assert response.get_resource_count() == 1
 
         resources = []
-        async for resource in response.consume_resource():
+        async for resource in response.consume_resource_async():
             resources.append(resource)
 
         assert len(resources) == 1
@@ -207,7 +207,7 @@ class TestFhirGetErrorResponse:
         )
 
         entries = []
-        async for entry in response.consume_bundle_entry():
+        async for entry in response.consume_bundle_entry_async():
             entries.append(entry)
 
         assert len(entries) == 1

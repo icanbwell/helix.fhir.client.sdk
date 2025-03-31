@@ -252,7 +252,7 @@ class TestFhirGetSingleResponse:
         )
         # Collect resources from the generator
         resources = []
-        async for resource in response.consume_resource():
+        async for resource in response.consume_resource_async():
             resources.append(resource)
         assert len(resources) == 1
         assert resources[0]["resourceType"] == "Patient"
@@ -282,7 +282,7 @@ class TestFhirGetSingleResponse:
         )
         # Collect bundle entries from the generator
         bundle_entries = []
-        async for entry in response.consume_bundle_entry():
+        async for entry in response.consume_bundle_entry_async():
             bundle_entries.append(entry)
         assert len(bundle_entries) == 1
         assert isinstance(bundle_entries[0], BundleEntry)
