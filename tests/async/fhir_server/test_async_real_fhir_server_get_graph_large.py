@@ -19,7 +19,7 @@ from tests.logger_for_test import LoggerForTest
 
 
 @pytest.mark.parametrize("use_data_streaming", [True, False])
-@pytest.mark.parametrize("storage_type", ["raw", "compressed_msgpack"])
+@pytest.mark.parametrize("storage_type", ["raw", "msgpack", "compressed_msgpack"])
 async def test_async_real_fhir_server_get_graph_large(
     use_data_streaming: bool,
     storage_type: CompressedDictStorageType,
@@ -192,6 +192,10 @@ async def test_async_real_fhir_server_get_graph_large(
         assert resources[0]["id"].startswith("practitioner-")
         assert resources[0]["resourceType"] == resource_type
         assert response.chunk_number is not None
+
+        print(f"====== Response with {storage_type=} ======")
+        print(f"{response.get_count()} resources, {response.get_size_in_bytes()} bytes")
+        print(f"====== End Response with {storage_type=} ======")
         # assert response.chunk_number >= 5
     else:
         response = await fhir_client.get_async()
@@ -205,6 +209,6 @@ async def test_async_real_fhir_server_get_graph_large(
         assert responses_[0]["id"].startswith("practitioner-")
         assert responses_[0]["resourceType"] == resource_type
 
-        print(
-            f"Response with {storage_type=} has size: {response.get_size_in_bytes()} bytes"
-        )
+        print(f"====== Response with {storage_type=} ======")
+        print(f"{response.get_count()} resources, {response.get_size_in_bytes()} bytes")
+        print(f"====== End Response with {storage_type=} ======")

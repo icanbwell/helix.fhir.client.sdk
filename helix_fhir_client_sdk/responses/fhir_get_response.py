@@ -407,3 +407,12 @@ class FhirGetResponse:
             Size in bytes
         """
         ...
+
+    def get_count(self) -> int:
+        """
+        Get the count of resources in the response
+
+        Returns:
+            Count of resources
+        """
+        return len(self.get_resources()) if self.get_resources() else 0
