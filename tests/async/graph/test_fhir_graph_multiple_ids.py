@@ -103,7 +103,7 @@ async def test_fhir_graph_multiple_ids_async() -> None:
     ].get_response_text(), f"Expected {response_text} but got {responses[0].get_response_text()} from url {responses[0].url}"
     resources = responses[0].get_resources()
     assert isinstance(resources, FhirResourceList)
-    assert list(resources) == [
+    assert list([r.to_dict() for r in resources]) == [
         {"id": "1", "resourceType": "Patient"},
         {"id": "2", "resourceType": "Patient"},
     ]

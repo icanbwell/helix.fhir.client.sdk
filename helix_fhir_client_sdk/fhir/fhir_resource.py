@@ -13,8 +13,8 @@ class FhirResource(CompressedDict[str, Any]):
 
     def __init__(
         self,
-        *,
         initial_dict: Optional[Dict[str, Any]] = None,
+        *,
         storage_mode: CompressedDictStorageMode,
     ) -> None:
         super().__init__(
