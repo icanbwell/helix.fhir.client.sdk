@@ -328,8 +328,10 @@ class FhirBundleAppender:
             fn_sort = lambda r: (
                 (r.get("resourceType", "") + "/" + r.get("id", "")) if r else ""
             )
-        resources_list: List[FhirResource] = sorted(
-            list(resources),
-            key=fn_sort,
+
+        return deque(
+            sorted(
+                resources,
+                key=fn_sort,
+            )
         )
-        return deque(resources_list)

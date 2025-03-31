@@ -72,5 +72,5 @@ async def test_fhir_client_patient_list_async_resource_streaming() -> None:
     # assert response.responses == ""
 
     assert len(resource_chunks) == 2
-    assert resource_chunks[0] == [{"id": "1", "resourceType": "Patient"}]
-    assert resource_chunks[1] == [{"id": "2", "resourceType": "Patient"}]
+    assert list(resource_chunks[0]) == [{"id": "1", "resourceType": "Patient"}]
+    assert list(resource_chunks[1]) == [{"id": "2", "resourceType": "Patient"}]

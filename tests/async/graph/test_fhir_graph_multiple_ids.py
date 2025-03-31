@@ -100,7 +100,7 @@ async def test_fhir_graph_multiple_ids_async() -> None:
     assert responses[
         0
     ].get_response_text(), f"Expected {response_text} but got {responses[0].get_response_text()} from url {responses[0].url}"
-    assert responses[0].get_resources() == [
+    assert list(responses[0].get_resources()) == [
         {"id": "1", "resourceType": "Patient"},
         {"id": "2", "resourceType": "Patient"},
     ]

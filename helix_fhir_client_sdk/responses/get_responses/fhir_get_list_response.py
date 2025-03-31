@@ -205,7 +205,7 @@ class FhirGetListResponse(FhirGetResponse):
         response: FhirGetListResponse = FhirGetListResponse(
             request_id=other_response.request_id,
             url=other_response.url,
-            response_text=json.dumps(resources, cls=FhirJSONEncoder),
+            response_text=json.dumps(list(resources), cls=FhirJSONEncoder),
             error=other_response.error,
             access_token=other_response.access_token,
             total_count=other_response.total_count,
