@@ -2,7 +2,7 @@ import json
 from typing import Any, Dict, List, Optional
 
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
-from helix_fhir_client_sdk.structures.fhir_types import FhirResource
+from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 

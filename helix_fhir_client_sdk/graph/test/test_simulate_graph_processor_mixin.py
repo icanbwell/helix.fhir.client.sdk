@@ -16,7 +16,7 @@ from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.structures.fhir_types import FhirResource
+from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from tests.logger_for_test import LoggerForTest
 
 

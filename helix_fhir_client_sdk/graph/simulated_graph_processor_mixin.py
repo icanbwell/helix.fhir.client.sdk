@@ -39,7 +39,7 @@ from helix_fhir_client_sdk.responses.get_responses.fhir_get_list_response import
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_response_factory import (
     FhirGetResponseFactory,
 )
-from helix_fhir_client_sdk.structures.fhir_types import FhirResource
+from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 
 from helix_fhir_client_sdk.utilities.async_parallel_processor.v1.async_parallel_processor import (
     AsyncParallelProcessor,

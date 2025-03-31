@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any, List, Union, cast, AsyncGenerator
 from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
 )
-from helix_fhir_client_sdk.structures.fhir_types import FhirResource
+from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
