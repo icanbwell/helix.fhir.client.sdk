@@ -283,7 +283,7 @@ class TestFhirGetBundleResponse:
         assert "Observation" in response_text
 
     @pytest.mark.asyncio
-    async def test_get_resources_generator(
+    async def test_consume_resource(
         self, sample_bundle_response: Dict[str, Any]
     ) -> None:
         """Test async generator for resources."""
@@ -314,6 +314,8 @@ class TestFhirGetBundleResponse:
         assert len(resources) == 2
         assert resources[0]["resourceType"] == "Patient"
         assert resources[1]["resourceType"] == "Observation"
+        assert len(response.get_resources()) == 0
+        assert response.get_resource_count() == 0
 
     @pytest.mark.asyncio
     async def test_get_resources_generator_empty(self) -> None:

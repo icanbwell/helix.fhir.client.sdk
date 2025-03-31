@@ -123,7 +123,7 @@ class FhirGetSingleResponse(FhirGetResponse):
 
         return deque([self._resource]) if self._resource else deque()
 
-    def create_bundle_entry(self, *, resource: FhirResource) -> BundleEntry:
+    def _create_bundle_entry(self, *, resource: FhirResource) -> BundleEntry:
         # use these if the bundle entry does not have them
         request: BundleEntryRequest = BundleEntryRequest(url=self.url)
         response: BundleEntryResponse = BundleEntryResponse(
@@ -150,7 +150,7 @@ class FhirGetSingleResponse(FhirGetResponse):
         if not self._resource:
             return deque()
         try:
-            return deque([self.create_bundle_entry(resource=self._resource)])
+            return deque([self._create_bundle_entry(resource=self._resource)])
         except Exception as e:
             raise Exception(
                 f"Could not get bundle entries from: {self._resource}"
@@ -218,7 +218,7 @@ class FhirGetSingleResponse(FhirGetResponse):
         if self._resource:
             resource = self._resource
             self._resource = None
-            yield self.create_bundle_entry(resource=resource)
+            yield self._create_bundle_entry(resource=resource)
 
     @override
     def to_dict(self) -> Dict[str, Any]:

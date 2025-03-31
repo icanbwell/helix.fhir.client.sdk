@@ -40,7 +40,6 @@ class FhirGetBundleResponse(FhirGetResponse):
         # Specific to this subclass
         "_bundle_entries",
         "_bundle_metadata",
-        "_length",
     ]
 
     def __init__(
@@ -108,7 +107,6 @@ class FhirGetBundleResponse(FhirGetResponse):
         )
         self._bundle_entries: Deque[BundleEntry] = bundle_entries
         self._bundle_metadata: Bundle = bundle
-        self._length: int = len(bundle_entries)
 
     @override
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
@@ -124,7 +122,6 @@ class FhirGetBundleResponse(FhirGetResponse):
         else:
             self._bundle_entries.extend(other_response.get_bundle_entries())
 
-        self._length = len(self._bundle_entries)
         return self
 
     @override
@@ -138,7 +135,6 @@ class FhirGetBundleResponse(FhirGetResponse):
         for other_response in others:
             self.append(other_response=other_response)
 
-        self._length = len(self._bundle_entries)
         return self
 
     @override
@@ -266,7 +262,6 @@ class FhirGetBundleResponse(FhirGetResponse):
             # with the duplicates removed
             bundle = FhirBundleAppender.remove_duplicate_resources(bundle=bundle)
             self._bundle_entries = deque(bundle.entry) if bundle.entry else deque()
-            self._length = len(self._bundle_entries)
             return self
         except Exception as e:
             raise Exception(f"Could not get parse json from: {bundle}") from e
@@ -370,4 +365,4 @@ class FhirGetBundleResponse(FhirGetResponse):
 
     @override
     def get_resource_count(self) -> int:
-        return self._length
+        return len(self._bundle_entries)

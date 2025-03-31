@@ -130,14 +130,14 @@ class FhirGetErrorResponse(FhirGetResponse):
         :return: list of bundle entries
         """
         return deque(
-            [self.create_bundle_entry(resource=self._resource)]
+            [self._create_bundle_entry(resource=self._resource)]
             if self._resource
             else []
         )
 
-    def create_bundle_entry(self, *, resource: FhirResource) -> BundleEntry:
+    def _create_bundle_entry(self, *, resource: FhirResource) -> BundleEntry:
         return BundleEntry(
-            resource=self._resource,  # This will be the OperationOutcome or the resource itself
+            resource=resource,  # This will be the OperationOutcome or the resource itself
             request=BundleEntryRequest(url=self.url),
             response=BundleEntryResponse(
                 status=str(self.status),
@@ -256,7 +256,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         if self._resource:
             resource = self._resource
             self._resource = None
-            yield self.create_bundle_entry(resource=resource)
+            yield self._create_bundle_entry(resource=resource)
 
     @override
     def to_dict(self) -> Dict[str, Any]:

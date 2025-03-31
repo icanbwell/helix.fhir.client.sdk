@@ -37,7 +37,6 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
     __slots__ = FhirGetResponse.__slots__ + [
         # Specific to this subclass
         "_resource_map",
-        "_length",
     ]
 
     def __init__(
@@ -83,7 +82,6 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         resource_map: Dict[str, List[FhirResource]]
         count, resource_map = self._parse_into_resource_map(resources=resources)
         self._resource_map: Dict[str, List[FhirResource]] = resource_map
-        self._length: int = count
 
     @override
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
@@ -103,7 +101,6 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
                 self._resource_map[resource_type].append(resource)
                 new_count += 1
 
-        self._length += new_count
         return self
 
     @override
@@ -277,4 +274,4 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
     @override
     def get_resource_count(self) -> int:
-        return self._length
+        return sum(len(resources) for resources in self._resource_map.values())

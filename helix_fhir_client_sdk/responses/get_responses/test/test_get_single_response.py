@@ -122,7 +122,7 @@ class TestFhirGetSingleResponse:
             storage_mode=CompressedDictStorageMode(),
         )
         assert response._resource is not None
-        bundle_entry = response.create_bundle_entry(
+        bundle_entry = response._create_bundle_entry(
             resource=response._resource,
         )
         assert isinstance(bundle_entry, BundleEntry)

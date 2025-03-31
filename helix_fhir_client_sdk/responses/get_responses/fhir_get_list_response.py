@@ -28,7 +28,6 @@ class FhirGetListResponse(FhirGetResponse):
     __slots__ = FhirGetResponse.__slots__ + [
         # Specific to this subclass
         "_resources",
-        "_length",
     ]
 
     def __init__(
@@ -73,7 +72,6 @@ class FhirGetListResponse(FhirGetResponse):
         self._resources: Optional[Deque[FhirResource]] = self._parse_resources(
             responses=response_text, storage_mode=storage_mode
         )
-        self._length: int = len(self._resources) if self._resources else 0
 
     @override
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
@@ -88,7 +86,6 @@ class FhirGetListResponse(FhirGetResponse):
         else:
             self._resources.extend(other_response.get_resources())
 
-        self._length = len(self._resources) if self._resources else 0
         return self
 
     @override
@@ -102,7 +99,6 @@ class FhirGetListResponse(FhirGetResponse):
         for other_response in others:
             self.append(other_response=other_response)
 
-        self._length = len(self._resources) if self._resources else 0
         return self
 
     def get_resources(self) -> Deque[FhirResource]:
@@ -145,7 +141,7 @@ class FhirGetListResponse(FhirGetResponse):
 
             result: Deque[BundleEntry] = deque()
             for resource in self._resources:
-                entry: BundleEntry = self.create_bundle_entry(resource=resource)
+                entry: BundleEntry = self._create_bundle_entry(resource=resource)
                 result.append(entry)
             return result
         except Exception as e:
@@ -153,7 +149,7 @@ class FhirGetListResponse(FhirGetResponse):
                 f"Could not get bundle entries from: {self._resources}"
             ) from e
 
-    def create_bundle_entry(self, *, resource: FhirResource) -> BundleEntry:
+    def _create_bundle_entry(self, *, resource: FhirResource) -> BundleEntry:
         # use these if the bundle entry does not have them
         request: BundleEntryRequest = BundleEntryRequest(url=self.url)
         response: BundleEntryResponse = BundleEntryResponse(
@@ -192,7 +188,6 @@ class FhirGetListResponse(FhirGetResponse):
             ]
             unique_resources.extend(null_id_resources)
             self._resources = deque(unique_resources)
-            self._length = len(self._resources) if self._resources else 0
             return self
         except Exception as e:
             raise Exception(f"Could not get parse json from: {self._resources}") from e
@@ -256,7 +251,7 @@ class FhirGetListResponse(FhirGetResponse):
     async def consume_bundle_entry(self) -> AsyncGenerator[BundleEntry, None]:
         while self._resources:
             resource: FhirResource = self._resources.popleft()
-            yield self.create_bundle_entry(resource=resource)
+            yield self._create_bundle_entry(resource=resource)
 
     @override
     def to_dict(self) -> Dict[str, Any]:
@@ -288,4 +283,4 @@ class FhirGetListResponse(FhirGetResponse):
 
     @override
     def get_resource_count(self) -> int:
-        return self._length
+        return len(self._resources) if self._resources else 0

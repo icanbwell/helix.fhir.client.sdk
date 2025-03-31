@@ -189,7 +189,7 @@ class TestFhirGetErrorResponse:
         assert resources[0]["resourceType"] == "OperationOutcome"
 
     @pytest.mark.asyncio
-    async def test_get_bundle_entries_generator(
+    async def test_consume_bundle_entry(
         self,
         base_response_params: Dict[str, Any],
         sample_error_response: Dict[str, Any],

@@ -85,12 +85,12 @@ class TestFhirGetResponse(FhirGetResponse):
     async def consume_bundle_entry(self) -> AsyncGenerator[BundleEntry, None]:
         while self._resources:
             resource: FhirResource = self._resources.popleft()
-            yield self.create_bundle_entry(resource=resource)
+            yield self._create_bundle_entry(resource=resource)
 
     def get_bundle_entries(self) -> Deque[BundleEntry]:
         return deque(
             [
-                self.create_bundle_entry(resource=resource)
+                self._create_bundle_entry(resource=resource)
                 for resource in self._resources
             ]
         )
@@ -131,7 +131,7 @@ class TestFhirGetResponse(FhirGetResponse):
     def get_resource_count(self) -> int:
         return len(self._resources)
 
-    def create_bundle_entry(self, *, resource: FhirResource) -> BundleEntry:
+    def _create_bundle_entry(self, *, resource: FhirResource) -> BundleEntry:
         # use these if the bundle entry does not have them
         request: BundleEntryRequest = BundleEntryRequest(url=self.url)
         response: BundleEntryResponse = BundleEntryResponse(
