@@ -122,5 +122,5 @@ class TestBundleEntry:
         )
         assert (
             repr(entry)
-            == "resource=CompressedDict(storage_type='compressed_msgpack', items=2)"
+            == "resource=CompressedDict(storage_type='compressed_msgpack'), items=2, resourceType=Patient, id=123)"
         )
