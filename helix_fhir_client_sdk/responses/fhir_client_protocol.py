@@ -28,7 +28,7 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
 )
-from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
@@ -114,7 +114,9 @@ class FhirClientProtocol(Protocol):
 
     _log_all_response_urls: bool
 
-    _storage_mode: CompressedDictStorageMode = "raw"
+    _storage_mode: CompressedDictStorageMode = CompressedDictStorageMode(
+        storage_type="raw"
+    )
 
     async def get_access_token_async(self) -> GetAccessTokenResult: ...
 

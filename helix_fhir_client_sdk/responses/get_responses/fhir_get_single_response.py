@@ -9,7 +9,7 @@ from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response impo
     FhirGetBundleResponse,
 )
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
-from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
@@ -117,7 +117,10 @@ class FhirGetSingleResponse(FhirGetResponse):
             etag=self.etag,
         )
         bundle_entry = BundleEntry(
-            resource=self._resource, request=request, response=response
+            resource=self._resource,
+            request=request,
+            response=response,
+            storage_mode=self.storage_mode,
         )
         return bundle_entry
 

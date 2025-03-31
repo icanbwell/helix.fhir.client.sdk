@@ -51,7 +51,7 @@ from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
 )
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
-from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger

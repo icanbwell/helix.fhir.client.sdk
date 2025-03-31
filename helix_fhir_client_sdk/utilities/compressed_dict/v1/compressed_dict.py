@@ -1,7 +1,7 @@
 from collections import UserDict
 from collections.abc import KeysView, ValuesView, ItemsView
 from contextlib import contextmanager
-from typing import Dict, Optional, Literal, Iterator, cast, List
+from typing import Dict, Optional, Iterator, cast, List
 
 import msgpack
 import zlib
@@ -9,8 +9,9 @@ import zlib
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_access_error import (
     CompressedDictAccessError,
 )
-
-CompressedDictStorageMode = Literal["raw", "msgpack", "compressed_msgpack"]
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 
 
 class CompressedDict[K, V](UserDict[K, V]):
@@ -51,7 +52,7 @@ class CompressedDict[K, V](UserDict[K, V]):
         if initial_dict:
             self.replace(value=initial_dict)
 
-        if storage_mode == "raw":
+        if storage_mode.storage_type == "raw":
             # Store the initial dictionary directly
             self._working_dict = initial_dict
 
@@ -84,12 +85,12 @@ class CompressedDict[K, V](UserDict[K, V]):
 
         """
         # Deserialize the dictionary before entering the context
-        if self._storage_mode == "raw":
+        if self._storage_mode.storage_type == "raw":
             # For raw mode, create a deep copy of the existing dictionary
             self._working_dict = self._raw_dict
         else:
             # For serialized modes, deserialize
-            compressed = self._storage_mode == "compressed_msgpack"
+            compressed = self._storage_mode.storage_type == "compressed_msgpack"
             self._working_dict = (
                 self._deserialize_dict(self._serialized_dict, compressed)
                 if self._serialized_dict
@@ -164,7 +165,7 @@ class CompressedDict[K, V](UserDict[K, V]):
                 "Use 'with compressed_dict.transaction() as d:' to access the dictionary."
             )
 
-        if self._storage_mode == "raw":
+        if self._storage_mode.storage_type == "raw":
             return self._raw_dict
 
         # For non-raw modes, do not keep deserialized dict
@@ -223,15 +224,15 @@ class CompressedDict[K, V](UserDict[K, V]):
 
         self._length = len(current_dict)
 
-        if self._storage_mode == "raw":
+        if self._storage_mode.storage_type == "raw":
             self._raw_dict = current_dict
-        elif self._storage_mode == "msgpack":
+        elif self._storage_mode.storage_type == "msgpack":
             self._serialized_dict = (
                 self._serialize_dict(current_dict, compressed=False)
                 if current_dict
                 else None
             )
-        elif self._storage_mode == "compressed_msgpack":
+        elif self._storage_mode.storage_type == "compressed_msgpack":
             self._serialized_dict = (
                 self._serialize_dict(current_dict, compressed=True)
                 if current_dict

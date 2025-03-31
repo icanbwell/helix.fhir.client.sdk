@@ -4,8 +4,10 @@ from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
 from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
-    CompressedDictStorageMode,
     CompressedDict,
+)
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
 )
 
 
@@ -18,7 +20,7 @@ class BundleEntry:
         resource: Dict[str, Any] | FhirResource | None,
         request: Optional[BundleEntryRequest],
         response: Optional[BundleEntryResponse],
-        storage_mode: CompressedDictStorageMode = "raw",
+        storage_mode: CompressedDictStorageMode,
     ) -> None:
         """
         Initializes a BundleEntry object.
@@ -103,6 +105,7 @@ class BundleEntry:
                 if "response" in d
                 else None
             ),
+            storage_mode=storage_mode,
         )
 
     def __repr__(self) -> str:

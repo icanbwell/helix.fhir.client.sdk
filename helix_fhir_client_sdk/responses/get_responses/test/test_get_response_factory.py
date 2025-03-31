@@ -18,6 +18,9 @@ from helix_fhir_client_sdk.responses.get_responses.fhir_get_response_factory imp
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_single_response import (
     FhirGetSingleResponse,
 )
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 
 
 class TestFhirGetResponseFactory:
@@ -38,7 +41,7 @@ class TestFhirGetResponseFactory:
             "cache_hits": 0,
             "results_by_url": [],
             "error": None,
-            "storage_mode": "compressed_msgpack",
+            "storage_mode": CompressedDictStorageMode(),
         }
 
     def test_create_error_response(self, default_params: Dict[str, Any]) -> None:

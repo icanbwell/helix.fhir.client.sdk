@@ -7,7 +7,7 @@ import pytest
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
-from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
@@ -134,7 +134,7 @@ class TestFhirGetResponseClass:
             "chunk_number": 1,
             "cache_hits": 0,
             "results_by_url": [],
-            "storage_mode": "compressed_msgpack",
+            "storage_mode": CompressedDictStorageMode(),
         }
 
     def test_init(self, sample_response_data: Dict[str, Any]) -> None:
@@ -199,7 +199,7 @@ class TestFhirGetResponseClass:
                 chunk_number=1,
                 cache_hits=0,
                 results_by_url=[],
-                storage_mode="compressed_msgpack",
+                storage_mode=CompressedDictStorageMode(),
             )
             response2: FhirGetResponse = TestFhirGetResponse(
                 request_id="test2",
@@ -216,7 +216,7 @@ class TestFhirGetResponseClass:
                 chunk_number=2,
                 cache_hits=0,
                 results_by_url=[],
-                storage_mode="compressed_msgpack",
+                storage_mode=CompressedDictStorageMode(),
             )
             yield response1
             yield response2
@@ -233,11 +233,11 @@ class TestFhirGetResponseClass:
         response._resources = [
             FhirResource(
                 initial_dict={"resourceType": "OperationOutcome", "issue": []},
-                storage_mode="compressed_msgpack",
+                storage_mode=CompressedDictStorageMode(),
             ),
             FhirResource(
                 initial_dict={"resourceType": "Patient", "id": "123"},
-                storage_mode="compressed_msgpack",
+                storage_mode=CompressedDictStorageMode(),
             ),
         ]
 
@@ -253,11 +253,11 @@ class TestFhirGetResponseClass:
         response._resources = [
             FhirResource(
                 initial_dict={"resourceType": "OperationOutcome", "issue": []},
-                storage_mode="compressed_msgpack",
+                storage_mode=CompressedDictStorageMode(),
             ),
             FhirResource(
                 initial_dict={"resourceType": "Patient", "id": "123"},
-                storage_mode="compressed_msgpack",
+                storage_mode=CompressedDictStorageMode(),
             ),
         ]
 
@@ -276,7 +276,7 @@ class TestFhirGetResponseClass:
         response._resources = [
             FhirResource(
                 initial_dict={"resourceType": "Patient", "id": "123"},
-                storage_mode="compressed_msgpack",
+                storage_mode=CompressedDictStorageMode(),
             )
         ]
         assert response.has_resources()

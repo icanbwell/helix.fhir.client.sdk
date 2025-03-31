@@ -5,6 +5,9 @@ from unittest.mock import AsyncMock, MagicMock
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
 )
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
 )
@@ -70,7 +73,7 @@ async def test_handle_response_200_streaming() -> None:
             expand_fhir_bundle=expand_fhir_bundle,
             separate_bundle_resources=separate_bundle_resources,
             url=url,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
     ]
 
@@ -93,7 +96,7 @@ async def test_handle_response_200_streaming() -> None:
             "chunk_number": 1,
             "cache_hits": None,
             "results_by_url": [],
-            "storage_mode": "compressed_msgpack",
+            "storage_mode": CompressedDictStorageMode(),
         }
     ]
 

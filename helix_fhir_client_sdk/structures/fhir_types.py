@@ -2,6 +2,8 @@ from typing import Any, Optional, Dict
 
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
     CompressedDict,
+)
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 

@@ -12,6 +12,9 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -59,7 +62,7 @@ class TestFhirGetBundleResponse:
             chunk_number=1,
             cache_hits=0,
             results_by_url=results_by_url,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         assert response.request_id == "test-request"
@@ -85,7 +88,7 @@ class TestFhirGetBundleResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         second_response = FhirGetBundleResponse(
@@ -102,7 +105,7 @@ class TestFhirGetBundleResponse:
             resource_type="Observation",
             id_=["456"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         first_response.append(second_response)
@@ -127,7 +130,7 @@ class TestFhirGetBundleResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         resources = response.get_resources()
@@ -156,7 +159,7 @@ class TestFhirGetBundleResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         response.remove_duplicates()
@@ -180,7 +183,7 @@ class TestFhirGetBundleResponse:
         mock_response.response_headers = None
         mock_response.chunk_number = 1
         mock_response.cache_hits = 0
-        mock_response.storage_mode = "compressed_msgpack"
+        mock_response.storage_mode = CompressedDictStorageMode()
 
         mock_response.get_bundle_entries.return_value = [
             BundleEntry(
@@ -189,6 +192,7 @@ class TestFhirGetBundleResponse:
                 response=BundleEntryResponse(
                     status="200", etag="test-etag", lastModified=datetime.now(UTC)
                 ),
+                storage_mode=CompressedDictStorageMode(),
             )
         ]
 
@@ -215,7 +219,7 @@ class TestFhirGetBundleResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         bundle = response.create_bundle()
@@ -243,7 +247,7 @@ class TestFhirGetBundleResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         sorted_response = response.sort_resources()
@@ -269,7 +273,7 @@ class TestFhirGetBundleResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         response_text = response.get_response_text()
@@ -299,7 +303,7 @@ class TestFhirGetBundleResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         # Collect resources from the generator
@@ -330,7 +334,7 @@ class TestFhirGetBundleResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         # Collect resources from the generator
@@ -361,7 +365,7 @@ class TestFhirGetBundleResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         # Collect bundle entries from the generator
@@ -396,7 +400,7 @@ class TestFhirGetBundleResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         # Collect bundle entries from the generator
@@ -435,7 +439,7 @@ class TestFhirGetBundleResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         # Collect resources from the generator

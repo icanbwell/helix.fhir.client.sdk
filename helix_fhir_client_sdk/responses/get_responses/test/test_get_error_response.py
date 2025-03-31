@@ -11,6 +11,9 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_error_response import (
     FhirGetErrorResponse,
 )
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 
 
 class TestFhirGetErrorResponse:
@@ -58,7 +61,7 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         assert response.request_id == "test-request"
@@ -77,7 +80,7 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         resources = response.get_resources()
@@ -95,7 +98,7 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         entries = response.get_bundle_entries()
@@ -115,7 +118,7 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         mock_other_response = Mock(spec=FhirGetResponse)
@@ -136,7 +139,7 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         mock_other_responses: List[FhirGetResponse] = [Mock(spec=FhirGetResponse)]
@@ -157,7 +160,7 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         response_text = response.get_response_text()
@@ -175,7 +178,7 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         resources = []
@@ -197,7 +200,7 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         entries = []

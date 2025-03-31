@@ -5,6 +5,9 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
 )
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
@@ -53,7 +56,7 @@ async def test_handle_response_200_non_streaming() -> None:
             resource=resource,
             id_=id_,
             url=url,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
     ]
 
@@ -78,7 +81,7 @@ async def test_handle_response_200_non_streaming() -> None:
         "response_headers": response_headers,
         "cache_hits": None,
         "results_by_url": [],
-        "storage_mode": "compressed_msgpack",
+        "storage_mode": CompressedDictStorageMode(),
     }
 
     assert result[0].to_dict() == expected_result

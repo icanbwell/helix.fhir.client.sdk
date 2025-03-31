@@ -14,6 +14,9 @@ from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response impo
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_single_response import (
     FhirGetSingleResponse,
 )
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -48,7 +51,7 @@ class TestFhirGetSingleResponse:
             chunk_number=1,
             cache_hits=0,
             results_by_url=results_by_url,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         assert response.request_id == "test-request"
         assert response.url == "https://example.com/Patient/123"
@@ -70,7 +73,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         resources = response.get_resources()
         assert len(resources) == 1
@@ -94,7 +97,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         resources = response.get_resources()
         assert len(resources) == 0
@@ -116,7 +119,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         bundle_entry = response.get_bundle_entry()
         assert isinstance(bundle_entry, BundleEntry)
@@ -141,7 +144,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         bundle_entries = response.get_bundle_entries()
         assert len(bundle_entries) == 1
@@ -166,7 +169,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         result = response.remove_duplicates()
         assert result == response
@@ -188,7 +191,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         response_text = response.get_response_text()
         assert "Patient" in response_text
@@ -211,7 +214,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         sorted_response = response.sort_resources()
         assert sorted_response == response
@@ -242,7 +245,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         # Collect resources from the generator
         resources = []
@@ -271,7 +274,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         # Collect bundle entries from the generator
         bundle_entries = []
@@ -299,7 +302,7 @@ class TestFhirGetSingleResponse:
             id_=["123"],
             response_headers=None,
             results_by_url=results_by_url,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         mock_other_response = Mock(spec=FhirGetSingleResponse)
         # implement an async generator for the mock
@@ -314,6 +317,7 @@ class TestFhirGetSingleResponse:
                         fullUrl="https://example.com/Patient/123",
                         request=None,
                         response=None,
+                        storage_mode=CompressedDictStorageMode(),
                     )
                 ]
             )
@@ -325,6 +329,7 @@ class TestFhirGetSingleResponse:
                     fullUrl="https://example.com/Patient/123",
                     request=None,
                     response=None,
+                    storage_mode=CompressedDictStorageMode(),
                 )
             ]
         )

@@ -9,7 +9,7 @@ from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
 )
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
-from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder

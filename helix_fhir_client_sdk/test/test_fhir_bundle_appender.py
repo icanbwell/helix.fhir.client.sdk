@@ -11,6 +11,9 @@ from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response impo
     FhirGetBundleResponse,
 )
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 
 
 class TestFhirBundleAppender:
@@ -38,7 +41,7 @@ class TestFhirBundleAppender:
             chunk_number=None,
             cache_hits=None,
             results_by_url=[],
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         return mock_response
 
@@ -53,7 +56,9 @@ class TestFhirBundleAppender:
         """Test appending responses to a bundle."""
         responses = [sample_fhir_get_response]
         updated_bundle = FhirBundleAppender.append_responses(
-            responses=responses, bundle=sample_bundle, storage_mode="compressed_msgpack"
+            responses=responses,
+            bundle=sample_bundle,
+            storage_mode=CompressedDictStorageMode(),
         )
 
         assert updated_bundle.entry is not None
@@ -66,7 +71,7 @@ class TestFhirBundleAppender:
     ) -> None:
         """Test adding operation outcomes to a response."""
         bundle_entries = FhirBundleAppender.add_operation_outcomes_to_response(
-            response=sample_fhir_get_response, storage_mode="compressed_msgpack"
+            response=sample_fhir_get_response, storage_mode=CompressedDictStorageMode()
         )
 
         assert len(bundle_entries) == 1
@@ -84,7 +89,7 @@ class TestFhirBundleAppender:
             access_token="test-token",
             extra_context_to_return={},
             request_id="test-request",
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         assert operation_outcome["resourceType"] == "OperationOutcome"
@@ -117,16 +122,19 @@ class TestFhirBundleAppender:
                     resource={"resourceType": "Patient", "id": "123"},
                     request=None,
                     response=None,
+                    storage_mode=CompressedDictStorageMode(),
                 ),
                 BundleEntry(
                     resource={"resourceType": "Patient", "id": "123"},
                     request=None,
                     response=None,
+                    storage_mode=CompressedDictStorageMode(),
                 ),
                 BundleEntry(
                     resource={"resourceType": "Observation", "id": "456"},
                     request=None,
                     response=None,
+                    storage_mode=CompressedDictStorageMode(),
                 ),
             ],
         )
@@ -151,16 +159,19 @@ class TestFhirBundleAppender:
                     resource={"resourceType": "Patient", "id": "456"},
                     request=None,
                     response=None,
+                    storage_mode=CompressedDictStorageMode(),
                 ),
                 BundleEntry(
                     resource={"resourceType": "Patient", "id": "123"},
                     request=None,
                     response=None,
+                    storage_mode=CompressedDictStorageMode(),
                 ),
                 BundleEntry(
                     resource={"resourceType": "Observation", "id": "789"},
                     request=None,
                     response=None,
+                    storage_mode=CompressedDictStorageMode(),
                 ),
             ],
         )
@@ -193,16 +204,19 @@ class TestFhirBundleAppender:
                     },
                     request=None,
                     response=None,
+                    storage_mode=CompressedDictStorageMode(),
                 ),
                 BundleEntry(
                     resource={"resourceType": "Patient", "id": "123", "name": "Alice"},
                     request=None,
                     response=None,
+                    storage_mode=CompressedDictStorageMode(),
                 ),
                 BundleEntry(
                     resource={"resourceType": "Patient", "id": "789", "name": "Bob"},
                     request=None,
                     response=None,
+                    storage_mode=CompressedDictStorageMode(),
                 ),
             ],
         )
@@ -225,15 +239,15 @@ class TestFhirBundleAppender:
         resources: List[FhirResource] = [
             FhirResource(
                 initial_dict={"resourceType": "Patient", "id": "456"},
-                storage_mode="compressed_msgpack",
+                storage_mode=CompressedDictStorageMode(),
             ),
             FhirResource(
                 initial_dict={"resourceType": "Patient", "id": "123"},
-                storage_mode="compressed_msgpack",
+                storage_mode=CompressedDictStorageMode(),
             ),
             FhirResource(
                 initial_dict={"resourceType": "Observation", "id": "789"},
-                storage_mode="compressed_msgpack",
+                storage_mode=CompressedDictStorageMode(),
             ),
         ]
 

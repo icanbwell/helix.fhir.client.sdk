@@ -3,7 +3,10 @@ from typing import Any, cast
 
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
     CompressedDict,
+)
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
+    CompressedDictDictStorageType,
 )
 
 
@@ -11,37 +14,43 @@ class TestCompressedDict:
     def test_init_empty(self) -> None:
         """Test initialization with no initial data"""
         cd: CompressedDict[str, Any] = CompressedDict(
-            storage_mode="raw", properties_to_cache=[]
+            storage_mode=CompressedDictStorageMode(storage_type="raw"),
+            properties_to_cache=[],
         )
         assert len(cd) == 0
-        assert cd._storage_mode == "raw"
+        assert cd._storage_mode.storage_type == "raw"
 
     def test_init_with_dict(self) -> None:
         """Test initialization with initial dictionary"""
         initial_data = {"a": 1, "b": 2, "c": 3}
         cd = CompressedDict(
-            initial_dict=initial_data, storage_mode="raw", properties_to_cache=[]
+            initial_dict=initial_data,
+            storage_mode=CompressedDictStorageMode(storage_type="raw"),
+            properties_to_cache=[],
         )
         assert len(cd) == 3
         assert cd["a"] == 1
         assert cd["b"] == 2
         assert cd["c"] == 3
 
-    @pytest.mark.parametrize("storage_mode", ["raw", "msgpack", "compressed_msgpack"])
-    def test_storage_modes(self, storage_mode: CompressedDictStorageMode) -> None:
+    @pytest.mark.parametrize("storage_type", ["raw", "msgpack", "compressed_msgpack"])
+    def test_storage_modes(self, storage_type: CompressedDictDictStorageType) -> None:
         """Test different storage modes"""
         initial_data = {"key": "value"}
         cd = CompressedDict(
-            initial_dict=initial_data, storage_mode=storage_mode, properties_to_cache=[]
+            initial_dict=initial_data,
+            storage_mode=CompressedDictStorageMode(storage_type=storage_type),
+            properties_to_cache=[],
         )
-        assert cd._storage_mode == storage_mode
+        assert cd._storage_mode.storage_type == storage_type
         with cd.transaction():
             assert cd["key"] == "value"
 
     def test_setitem_and_getitem(self) -> None:
         """Test setting and getting items"""
         cd: CompressedDict[str, Any] = CompressedDict(
-            storage_mode="compressed_msgpack", properties_to_cache=[]
+            storage_mode=CompressedDictStorageMode(storage_type="compressed_msgpack"),
+            properties_to_cache=[],
         )
         with cd.transaction():
             cd["key1"] = "value1"
@@ -57,7 +66,7 @@ class TestCompressedDict:
         """Test deleting items"""
         cd = CompressedDict(
             initial_dict={"a": 1, "b": 2},
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(storage_type="compressed_msgpack"),
             properties_to_cache=[],
         )
         with cd.transaction():
@@ -75,7 +84,7 @@ class TestCompressedDict:
         """Test key existence checks"""
         cd = CompressedDict(
             initial_dict={"a": 1, "b": 2},
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
             properties_to_cache=[],
         )
 
@@ -89,7 +98,7 @@ class TestCompressedDict:
         initial_data = {"a": 1, "b": 2, "c": 3}
         cd: CompressedDict[str, int] = CompressedDict(
             initial_dict=initial_data,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
             properties_to_cache=[],
         )
 
@@ -102,7 +111,7 @@ class TestCompressedDict:
         initial_data = {"a": 1, "b": 2, "c": 3}
         cd = CompressedDict(
             initial_dict=initial_data,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
             properties_to_cache=[],
         )
 
@@ -113,7 +122,7 @@ class TestCompressedDict:
         """Test get method with default"""
         cd: CompressedDict[str, Any] = CompressedDict(
             initial_dict={"a": 1},
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
             properties_to_cache=[],
         )
         with cd.transaction():
@@ -126,7 +135,7 @@ class TestCompressedDict:
         initial_data = {"a": 1, "b": 2}
         cd = CompressedDict(
             initial_dict=initial_data,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
             properties_to_cache=[],
         )
 
@@ -157,7 +166,7 @@ class TestCompressedDict:
         """Test string representation"""
         cd = CompressedDict(
             initial_dict={"a": 1, "b": 2},
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
             properties_to_cache=[],
         )
         repr_str = repr(cd)
@@ -167,7 +176,7 @@ class TestCompressedDict:
     def test_error_handling(self) -> None:
         """Test error scenarios"""
         cd: CompressedDict[str, Any] = CompressedDict(
-            storage_mode="compressed_msgpack", properties_to_cache=[]
+            storage_mode=CompressedDictStorageMode(), properties_to_cache=[]
         )
 
         # Test KeyError
@@ -175,13 +184,17 @@ class TestCompressedDict:
             with cd.transaction():
                 _ = cd["non_existent_key"]
 
-    @pytest.mark.parametrize("storage_mode", ["raw", "msgpack", "compressed_msgpack"])
-    def test_large_data_handling(self, storage_mode: CompressedDictStorageMode) -> None:
+    @pytest.mark.parametrize("storage_type", ["raw", "msgpack", "compressed_msgpack"])
+    def test_large_data_handling(
+        self, storage_type: CompressedDictDictStorageType
+    ) -> None:
         """Test handling of large datasets"""
         large_data = {f"key_{i}": f"value_{i}" for i in range(1000)}
 
         cd = CompressedDict(
-            initial_dict=large_data, storage_mode=storage_mode, properties_to_cache=[]
+            initial_dict=large_data,
+            storage_mode=CompressedDictStorageMode(storage_type=storage_type),
+            properties_to_cache=[],
         )
 
         assert len(cd) == 1000

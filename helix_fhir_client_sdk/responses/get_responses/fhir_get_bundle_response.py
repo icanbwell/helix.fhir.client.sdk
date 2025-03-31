@@ -18,7 +18,7 @@ from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
-from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
@@ -81,6 +81,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             status=status,
             last_modified=self.lastModified,
             etag=self.etag,
+            storage_mode=self.storage_mode,
         )
         bundle_entries = FhirBundleAppender.add_operation_outcomes_to_bundle_entries(
             bundle_entries=bundle_entries,
@@ -94,7 +95,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             request_id=request_id,
             last_modified=self.lastModified,
             etag=self.etag,
-            storage_mode="raw",  # These are small so no reason to compress them
+            storage_mode=self.storage_mode,
         )
         self._bundle_entries: List[BundleEntry] = bundle_entries
         self._bundle_metadata: Bundle = bundle
@@ -152,6 +153,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         status: int,
         last_modified: Optional[datetime],
         etag: Optional[str],
+        storage_mode: CompressedDictStorageMode,
     ) -> Tuple[List[BundleEntry], Bundle]:
         """
         Gets the Bundle entries from the response
@@ -208,6 +210,7 @@ class FhirGetBundleResponse(FhirGetResponse):
                             else response
                         ),
                         fullUrl=entry.get("fullUrl"),
+                        storage_mode=storage_mode,
                     )
                     for entry in bundle_entries
                 ], bundle
@@ -217,6 +220,8 @@ class FhirGetBundleResponse(FhirGetResponse):
                         resource=child_response_resources,
                         request=request,
                         response=response,
+                        fullUrl=None,
+                        storage_mode=storage_mode,
                     )
                 ], bundle
         except Exception as e:

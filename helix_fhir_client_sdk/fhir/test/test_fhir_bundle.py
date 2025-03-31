@@ -3,6 +3,9 @@ import json
 from helix_fhir_client_sdk.fhir.bundle import Bundle
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 
 
 class TestBundle:
@@ -19,10 +22,16 @@ class TestBundle:
         """Test initialization with all parameters."""
         entries = [
             BundleEntry(
-                resource={"resourceType": "Patient"}, request=None, response=None
+                resource={"resourceType": "Patient"},
+                request=None,
+                response=None,
+                storage_mode=CompressedDictStorageMode(),
             ),
             BundleEntry(
-                resource={"resourceType": "Observation"}, request=None, response=None
+                resource={"resourceType": "Observation"},
+                request=None,
+                response=None,
+                storage_mode=CompressedDictStorageMode(),
             ),
         ]
         bundle = Bundle(
@@ -49,10 +58,16 @@ class TestBundle:
         """Test converting to dictionary with all parameters."""
         entries = [
             BundleEntry(
-                resource={"resourceType": "Patient"}, request=None, response=None
+                resource={"resourceType": "Patient"},
+                request=None,
+                response=None,
+                storage_mode=CompressedDictStorageMode(),
             ),
             BundleEntry(
-                resource={"resourceType": "Observation"}, request=None, response=None
+                resource={"resourceType": "Observation"},
+                request=None,
+                response=None,
+                storage_mode=CompressedDictStorageMode(),
             ),
         ]
         bundle = Bundle(
@@ -79,10 +94,16 @@ class TestBundle:
         """Test converting Bundle to JSON."""
         entries = [
             BundleEntry(
-                resource={"resourceType": "Patient"}, request=None, response=None
+                resource={"resourceType": "Patient"},
+                request=None,
+                response=None,
+                storage_mode=CompressedDictStorageMode(),
             ),
             BundleEntry(
-                resource={"resourceType": "Observation"}, request=None, response=None
+                resource={"resourceType": "Observation"},
+                request=None,
+                response=None,
+                storage_mode=CompressedDictStorageMode(),
             ),
         ]
         bundle = Bundle(
@@ -104,7 +125,7 @@ class TestBundle:
                 "resourceType": "OperationOutcome",
                 "issue": [{"severity": "error", "details": {}}],
             },
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         diagnostics_coding = [{"code": "test-code"}]
 

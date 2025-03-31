@@ -7,7 +7,7 @@ from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
-from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
@@ -141,7 +141,12 @@ class FhirGetListResponse(FhirGetResponse):
                 etag=self.etag,
             )
             return [
-                BundleEntry(resource=r, request=request, response=response)
+                BundleEntry(
+                    resource=r,
+                    request=request,
+                    response=response,
+                    storage_mode=self.storage_mode,
+                )
                 for r in self.get_resources()
             ]
         except Exception as e:

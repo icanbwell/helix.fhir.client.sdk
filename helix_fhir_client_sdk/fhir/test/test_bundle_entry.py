@@ -3,6 +3,9 @@ from datetime import datetime, timezone
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
 from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 
 
 class TestBundleEntry:
@@ -12,6 +15,7 @@ class TestBundleEntry:
             resource={"resourceType": "Patient"},
             request=None,
             response=None,
+            storage_mode=CompressedDictStorageMode(),
         )
         assert entry.resource == {"resourceType": "Patient"}
         assert entry.request is None
@@ -29,6 +33,7 @@ class TestBundleEntry:
             request=request,
             response=response,
             fullUrl="https://example.com/Patient/123",
+            storage_mode=CompressedDictStorageMode(),
         )
         assert entry.resource == resource
         assert entry.request == request
@@ -41,6 +46,7 @@ class TestBundleEntry:
             resource={"resourceType": "Patient"},
             request=None,
             response=None,
+            storage_mode=CompressedDictStorageMode(),
         )
         result = entry.to_dict()
         assert result == {"resource": {"resourceType": "Patient"}}
@@ -56,6 +62,7 @@ class TestBundleEntry:
             request=request,
             response=response,
             fullUrl="https://example.com/Patient/123",
+            storage_mode=CompressedDictStorageMode(),
         )
         result = entry.to_dict()
         assert result == {
@@ -68,7 +75,7 @@ class TestBundleEntry:
     def test_from_dict_minimal(self) -> None:
         """Test creating from dictionary with minimal parameters."""
         data = {"resource": {"resourceType": "Patient"}}
-        entry = BundleEntry.from_dict(data, storage_mode="compressed_msgpack")
+        entry = BundleEntry.from_dict(data, storage_mode=CompressedDictStorageMode())
 
         assert entry.resource is not None
         with entry.resource.transaction():
@@ -90,7 +97,7 @@ class TestBundleEntry:
                 "etag": 'W/"abc"',
             },
         }
-        entry = BundleEntry.from_dict(data, storage_mode="compressed_msgpack")
+        entry = BundleEntry.from_dict(data, storage_mode=CompressedDictStorageMode())
         assert entry.resource is not None
         with entry.resource.transaction():
             assert entry.fullUrl == "https://example.com/Patient/123"
@@ -107,5 +114,6 @@ class TestBundleEntry:
             resource=resource,
             request=None,
             response=None,
+            storage_mode=CompressedDictStorageMode(),
         )
         assert repr(entry) == "resource=CompressedDict(storage_mode='raw', items=2)"

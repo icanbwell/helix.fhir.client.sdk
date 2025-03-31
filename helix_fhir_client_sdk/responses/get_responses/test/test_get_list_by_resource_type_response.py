@@ -9,6 +9,9 @@ from helix_fhir_client_sdk.responses.get_responses.fhir_get_list_by_resource_typ
     FhirGetListByResourceTypeResponse,
 )
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -25,7 +28,7 @@ class TestFhirGetListByResourceTypeResponse:
                     "id": "123",
                     "name": "John Doe",
                 },
-                storage_mode="compressed_msgpack",
+                storage_mode=CompressedDictStorageMode(),
             ),
             FhirResource(
                 initial_dict={
@@ -33,7 +36,7 @@ class TestFhirGetListByResourceTypeResponse:
                     "id": "456",
                     "status": "final",
                 },
-                storage_mode="compressed_msgpack",
+                storage_mode=CompressedDictStorageMode(),
             ),
             FhirResource(
                 initial_dict={
@@ -41,7 +44,7 @@ class TestFhirGetListByResourceTypeResponse:
                     "id": "789",
                     "name": "Jane Smith",
                 },
-                storage_mode="compressed_msgpack",
+                storage_mode=CompressedDictStorageMode(),
             ),
         ]
 
@@ -64,7 +67,7 @@ class TestFhirGetListByResourceTypeResponse:
             chunk_number=1,
             cache_hits=0,
             results_by_url=results_by_url,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         assert response.request_id == "test-request"
         assert len(response._resource_map) == 2  # Patient and Observation
@@ -116,7 +119,7 @@ class TestFhirGetListByResourceTypeResponse:
         mock_response.chunk_number = 1
         mock_response.cache_hits = 0
         mock_response.get_resources.return_value = sample_resources
-        mock_response.storage_mode = "compressed_msgpack"
+        mock_response.storage_mode = CompressedDictStorageMode()
 
         bundle_response: FhirGetListByResourceTypeResponse = cast(
             FhirGetListByResourceTypeResponse,
@@ -142,7 +145,7 @@ class TestFhirGetListByResourceTypeResponse:
             resource_type="Patient",
             id_=["123", "789"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         response_text = response.get_response_text()
         assert "Patient" in response_text
@@ -167,7 +170,7 @@ class TestFhirGetListByResourceTypeResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         second_response = FhirGetListByResourceTypeResponse(
             request_id="test-request-2",
@@ -183,7 +186,7 @@ class TestFhirGetListByResourceTypeResponse:
             resource_type="Patient",
             id_=["789"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         first_response._append(second_response)
         assert len(first_response._resource_map["Patient"]) == 2
@@ -208,7 +211,7 @@ class TestFhirGetListByResourceTypeResponse:
             resource_type="Patient",
             id_=["123", "789"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
 
         # Test methods that raise NotImplementedError
@@ -243,7 +246,7 @@ class TestFhirGetListByResourceTypeResponse:
             resource_type="Patient",
             id_=["123", "789"],
             response_headers=None,
-            storage_mode="compressed_msgpack",
+            storage_mode=CompressedDictStorageMode(),
         )
         sorted_response = response.sort_resources()
         assert isinstance(sorted_response, FhirGetListByResourceTypeResponse)
