@@ -217,7 +217,7 @@ class TestFhirGetListResponse:
         assert "Observation" in response_text
 
     @pytest.mark.asyncio
-    async def test_get_resources_generator(
+    async def test_consume_resource(
         self, sample_resources: List[Dict[str, Any]]
     ) -> None:
         """Test async generator for resources."""
@@ -246,8 +246,10 @@ class TestFhirGetListResponse:
         assert resources[0]["resourceType"] == "Patient"
         assert resources[1]["resourceType"] == "Observation"
 
+        assert response.get_resource_count() == 0
+
     @pytest.mark.asyncio
-    async def test_get_bundle_entries_generator(
+    async def test_consume_bundle_entry(
         self, sample_resources: List[Dict[str, Any]]
     ) -> None:
         """Test async generator for bundle entries."""
@@ -279,3 +281,5 @@ class TestFhirGetListResponse:
         assert bundle_entries[1].resource is not None
         assert bundle_entries[0].resource["resourceType"] == "Patient"
         assert bundle_entries[1].resource["resourceType"] == "Observation"
+
+        assert response.get_resource_count() == 0

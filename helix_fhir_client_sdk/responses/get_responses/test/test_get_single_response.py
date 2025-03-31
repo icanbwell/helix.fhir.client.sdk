@@ -229,7 +229,7 @@ class TestFhirGetSingleResponse:
             FhirGetSingleResponse.from_response(mock_response)
 
     @pytest.mark.asyncio
-    async def test_get_resources_generator(
+    async def test_consume_resource(
         self, sample_single_resource: Dict[str, Any]
     ) -> None:
         """Test async generator for resources."""
@@ -256,9 +256,10 @@ class TestFhirGetSingleResponse:
             resources.append(resource)
         assert len(resources) == 1
         assert resources[0]["resourceType"] == "Patient"
+        assert response.get_resource_count() == 0
 
     @pytest.mark.asyncio
-    async def test_get_bundle_entries_generator(
+    async def test_consume_bundle_entry(
         self, sample_single_resource: Dict[str, Any]
     ) -> None:
         """Test async generator for bundle entries."""
@@ -287,6 +288,7 @@ class TestFhirGetSingleResponse:
         assert isinstance(bundle_entries[0], BundleEntry)
         assert bundle_entries[0].resource is not None
         assert bundle_entries[0].resource["resourceType"] == "Patient"
+        assert response.get_resource_count() == 0
 
     def test_append_method(self, sample_single_resource: Dict[str, Any]) -> None:
         """Test the _append method."""

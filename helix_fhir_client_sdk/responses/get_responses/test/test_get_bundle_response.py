@@ -318,7 +318,7 @@ class TestFhirGetBundleResponse:
         assert response.get_resource_count() == 0
 
     @pytest.mark.asyncio
-    async def test_get_resources_generator_empty(self) -> None:
+    async def test_consume_resource_empty(self) -> None:
         """Test resources generator with no entries."""
         results_by_url: List[RetryableAioHttpUrlResult] = []
 
@@ -347,7 +347,7 @@ class TestFhirGetBundleResponse:
         assert len(resources) == 0
 
     @pytest.mark.asyncio
-    async def test_get_bundle_entries_generator(
+    async def test_consume_bundle_entry(
         self, sample_bundle_response: Dict[str, Any]
     ) -> None:
         """Test async generator for bundle entries."""
@@ -382,9 +382,11 @@ class TestFhirGetBundleResponse:
         assert bundle_entries[1].resource is not None
         assert bundle_entries[0].resource["resourceType"] == "Patient"
         assert bundle_entries[1].resource["resourceType"] == "Observation"
+        assert response.get_resource_count() == 0
+        assert len(response._bundle_entries) == 0
 
     @pytest.mark.asyncio
-    async def test_get_bundle_entries_generator_empty(self) -> None:
+    async def test_consume_bundle_entry_empty(self) -> None:
         """Test bundle entries generator with no entries."""
         results_by_url: List[RetryableAioHttpUrlResult] = []
 
@@ -411,9 +413,10 @@ class TestFhirGetBundleResponse:
             bundle_entries.append(entry)
 
         assert len(bundle_entries) == 0
+        assert response.get_resource_count() == 0
 
     @pytest.mark.asyncio
-    async def test_get_resources_generator_with_none_resources(self) -> None:
+    async def test_consume_resource_with_none_resources(self) -> None:
         """Test resources generator with some None resources."""
         results_by_url: List[RetryableAioHttpUrlResult] = []
 
@@ -452,3 +455,5 @@ class TestFhirGetBundleResponse:
         assert len(resources) == 2
         assert resources[0]["resourceType"] == "Patient"
         assert resources[1]["resourceType"] == "Observation"
+
+        assert response.get_resource_count() == 0

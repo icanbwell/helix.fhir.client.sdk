@@ -167,7 +167,7 @@ class TestFhirGetErrorResponse:
         assert "OperationOutcome" in response_text
 
     @pytest.mark.asyncio
-    async def test_get_resources_generator(
+    async def test_consume_resource(
         self,
         base_response_params: Dict[str, Any],
         sample_error_response: Dict[str, Any],
@@ -181,12 +181,15 @@ class TestFhirGetErrorResponse:
             storage_mode=CompressedDictStorageMode(),
         )
 
+        assert response.get_resource_count() == 1
+
         resources = []
         async for resource in response.consume_resource():
             resources.append(resource)
 
         assert len(resources) == 1
         assert resources[0]["resourceType"] == "OperationOutcome"
+        assert response.get_resource_count() == 0
 
     @pytest.mark.asyncio
     async def test_consume_bundle_entry(
@@ -211,6 +214,7 @@ class TestFhirGetErrorResponse:
         assert isinstance(entries[0], BundleEntry)
         assert entries[0].resource is not None
         assert entries[0].resource["resourceType"] == "OperationOutcome"
+        assert response.get_resource_count() == 0
 
     def test_from_response_raises_not_implemented(
         self,
