@@ -1,3 +1,4 @@
+import json
 from collections.abc import KeysView, ValuesView, ItemsView
 from contextlib import contextmanager
 from typing import Dict, Optional, Iterator, cast, List, overload
@@ -10,7 +11,9 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_access_e
 )
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
+    CompressedDictStorageType,
 )
+from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
 class CompressedDict[K, V]:
@@ -104,26 +107,39 @@ class CompressedDict[K, V]:
             working_dict = self._raw_dict
         else:
             # For serialized modes, deserialize
-            compressed = self._storage_mode.storage_type == "compressed_msgpack"
             working_dict = (
-                self._deserialize_dict(self._serialized_dict, compressed)
+                self._deserialize_dict(
+                    serialized_dict=self._serialized_dict,
+                    storage_type=self._storage_mode.storage_type,
+                )
                 if self._serialized_dict
                 else {}
             )
         return working_dict
 
     @staticmethod
-    def _serialize_dict(dictionary: Dict[K, V], compressed: bool = False) -> bytes:
+    def _serialize_dict(
+        *, dictionary: Dict[K, V], storage_type: CompressedDictStorageType
+    ) -> bytes:
         """
         Serialize entire dictionary using MessagePack
 
         Args:
             dictionary: Dictionary to serialize
-            compressed: Whether to apply compression
+            storage_type: Storage type to use for serialization
 
         Returns:
             Serialized bytes
         """
+        if storage_type == "compressed":
+            # Serialize to JSON and compress with zlib
+            json_str = json.dumps(
+                dictionary, separators=(",", ":"), cls=FhirJSONEncoder
+            )  # Most compact JSON representation
+            return zlib.compress(
+                json_str.encode("utf-8"), level=zlib.Z_BEST_COMPRESSION
+            )
+
         # Serialize using MessagePack
         packed = msgpack.packb(
             dictionary,
@@ -132,29 +148,39 @@ class CompressedDict[K, V]:
         )
 
         # Optional compression
-        if compressed:
+        if storage_type == "compressed_msgpack":
             packed = zlib.compress(packed, level=zlib.Z_BEST_COMPRESSION)
 
         return packed
 
     @staticmethod
     def _deserialize_dict(
-        serialized_dict: bytes, compressed: bool = False
+        *,
+        serialized_dict: bytes,
+        storage_type: CompressedDictStorageType,
     ) -> Dict[K, V]:
         """
         Deserialize entire dictionary from MessagePack
 
         Args:
             serialized_dict: Serialized dictionary bytes
-            compressed: Whether the dictionary was compressed
 
         Returns:
             Deserialized dictionary
         """
         assert serialized_dict is not None, "Serialized dictionary cannot be None"
 
+        if storage_type == "compressed":
+            # Decompress and parse JSON
+            decompressed = zlib.decompress(serialized_dict)
+            return cast(Dict[K, V], json.loads(decompressed.decode("utf-8")))
+
         # Decompress if needed
-        to_unpack = zlib.decompress(serialized_dict) if compressed else serialized_dict
+        to_unpack = (
+            zlib.decompress(serialized_dict)
+            if storage_type == "compressed_msgpack"
+            else serialized_dict
+        )
 
         # Deserialize
         return cast(
@@ -242,15 +268,12 @@ class CompressedDict[K, V]:
 
         if self._storage_mode.storage_type == "raw":
             self._raw_dict = current_dict
-        elif self._storage_mode.storage_type == "msgpack":
+        else:
             self._serialized_dict = (
-                self._serialize_dict(current_dict, compressed=False)
-                if current_dict
-                else None
-            )
-        elif self._storage_mode.storage_type == "compressed_msgpack":
-            self._serialized_dict = (
-                self._serialize_dict(current_dict, compressed=True)
+                self._serialize_dict(
+                    dictionary=current_dict,
+                    storage_type=self._storage_mode.storage_type,
+                )
                 if current_dict
                 else None
             )

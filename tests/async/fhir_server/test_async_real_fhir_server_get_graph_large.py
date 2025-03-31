@@ -23,7 +23,9 @@ from tests.logger_for_test import LoggerForTest
 
 
 @pytest.mark.parametrize("use_data_streaming", [True, False])
-@pytest.mark.parametrize("storage_type", ["raw", "msgpack", "compressed_msgpack"])
+@pytest.mark.parametrize(
+    "storage_type", ["raw", "compressed", "msgpack", "compressed_msgpack"]
+)
 async def test_async_real_fhir_server_get_graph_large(
     use_data_streaming: bool,
     storage_type: CompressedDictStorageType,

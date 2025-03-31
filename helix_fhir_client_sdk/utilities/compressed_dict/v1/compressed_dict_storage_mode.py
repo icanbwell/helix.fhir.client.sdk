@@ -1,7 +1,9 @@
 import dataclasses
 from typing import Literal, TypeAlias
 
-CompressedDictStorageType: TypeAlias = Literal["raw", "msgpack", "compressed_msgpack"]
+CompressedDictStorageType: TypeAlias = Literal[
+    "raw", "compressed", "msgpack", "compressed_msgpack"
+]
 
 
 @dataclasses.dataclass(slots=True)
