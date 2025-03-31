@@ -248,5 +248,5 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
             chunk_number=self.chunk_number,
             cache_hits=self.cache_hits,
             results_by_url=[r.to_dict() for r in self.results_by_url],
-            storage_mode=self.storage_mode,
+            storage_type=self.storage_mode.storage_type,
         )

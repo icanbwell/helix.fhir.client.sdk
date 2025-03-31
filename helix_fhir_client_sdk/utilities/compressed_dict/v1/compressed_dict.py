@@ -163,6 +163,7 @@ class CompressedDict[K, V](UserDict[K, V]):
             raise CompressedDictAccessError(
                 "Dictionary access is only allowed within an transaction() block. "
                 "Use 'with compressed_dict.transaction() as d:' to access the dictionary."
+                f"You tried to access it with storage type {self._storage_mode.storage_type}."
             )
 
         if self._storage_mode.storage_type == "raw":
@@ -338,7 +339,7 @@ class CompressedDict[K, V](UserDict[K, V]):
             String representation
         """
         return (
-            f"CompressedDict(storage_mode='{self._storage_mode}', "
+            f"CompressedDict(storage_type='{self._storage_mode.storage_type}', "
             f"items={self._length})"
         )
 

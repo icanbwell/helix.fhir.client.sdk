@@ -150,11 +150,13 @@ class TestCompressedDict:
             "mixed": [{"a": 1}, 2, "three"],
         }
 
-        # Test each storage mode
-        for mode in ["raw", "msgpack", "compressed_msgpack"]:
+        # Test each storage storage_type
+        for storage_type in ["raw", "msgpack", "compressed_msgpack"]:
             cd = CompressedDict(
                 initial_dict=complex_data,
-                storage_mode=cast(CompressedDictStorageMode, mode),
+                storage_mode=CompressedDictStorageMode(
+                    storage_type=cast(CompressedDictDictStorageType, storage_type)
+                ),
                 properties_to_cache=[],
             )
             with cd.transaction():
@@ -171,7 +173,7 @@ class TestCompressedDict:
         )
         repr_str = repr(cd)
 
-        assert repr_str == "CompressedDict(storage_mode='compressed_msgpack', items=2)"
+        assert repr_str == "CompressedDict(storage_type='compressed_msgpack', items=2)"
 
     def test_error_handling(self) -> None:
         """Test error scenarios"""

@@ -114,9 +114,7 @@ class FhirClientProtocol(Protocol):
 
     _log_all_response_urls: bool
 
-    _storage_mode: CompressedDictStorageMode = CompressedDictStorageMode(
-        storage_type="raw"
-    )
+    _storage_mode: CompressedDictStorageMode
 
     async def get_access_token_async(self) -> GetAccessTokenResult: ...
 

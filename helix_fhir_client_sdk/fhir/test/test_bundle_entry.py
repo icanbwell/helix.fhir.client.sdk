@@ -17,10 +17,12 @@ class TestBundleEntry:
             response=None,
             storage_mode=CompressedDictStorageMode(),
         )
-        assert entry.resource == {"resourceType": "Patient"}
-        assert entry.request is None
-        assert entry.response is None
-        assert entry.fullUrl is None
+        assert entry.resource is not None
+        with entry.resource.transaction():
+            assert entry.resource == {"resourceType": "Patient"}
+            assert entry.request is None
+            assert entry.response is None
+            assert entry.fullUrl is None
 
     def test_init_full(self) -> None:
         """Test initialization with all parameters."""
@@ -35,10 +37,12 @@ class TestBundleEntry:
             fullUrl="https://example.com/Patient/123",
             storage_mode=CompressedDictStorageMode(),
         )
-        assert entry.resource == resource
-        assert entry.request == request
-        assert entry.response == response
-        assert entry.fullUrl == "https://example.com/Patient/123"
+        assert entry.resource is not None
+        with entry.resource.transaction():
+            assert entry.resource == resource
+            assert entry.request == request
+            assert entry.response == response
+            assert entry.fullUrl == "https://example.com/Patient/123"
 
     def test_to_dict_minimal(self) -> None:
         """Test converting to dictionary with minimal parameters."""
@@ -116,4 +120,7 @@ class TestBundleEntry:
             response=None,
             storage_mode=CompressedDictStorageMode(),
         )
-        assert repr(entry) == "resource=CompressedDict(storage_mode='raw', items=2)"
+        assert (
+            repr(entry)
+            == "resource=CompressedDict(storage_type='compressed_msgpack', items=2)"
+        )

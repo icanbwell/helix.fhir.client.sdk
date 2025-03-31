@@ -1,5 +1,5 @@
 import json
-from typing import List
+from typing import List, Any
 
 import pytest
 
@@ -193,7 +193,7 @@ class TestFhirBundleAppender:
 
     def test_sort_resources_with_custom_sort(self) -> None:
         """Test sorting resources with a custom sort function."""
-        bundle = Bundle(
+        bundle: Bundle = Bundle(
             type_="collection",
             entry=[
                 BundleEntry(
@@ -221,18 +221,32 @@ class TestFhirBundleAppender:
             ],
         )
 
-        sorted_bundle = FhirBundleAppender.sort_resources(
-            bundle=bundle,
-            fn_sort=lambda e: e.resource.get("name", "") if e.resource else "",
-        )
+        assert bundle.entry is not None
 
-        assert sorted_bundle.entry is not None
-        sorted_names = [
-            entry.resource["name"]
-            for entry in sorted_bundle.entry
-            if entry.resource is not None
-        ]
-        assert sorted_names == ["Alice", "Bob", "Charlie"]
+        transactions: List[Any] = []
+        # start transactions for each entry
+        for entry in bundle.entry:
+            if entry.resource is not None:
+                transactions.append(entry.resource.transaction().__enter__())
+
+        try:
+            sorted_bundle: Bundle = FhirBundleAppender.sort_resources(
+                bundle=bundle,
+                fn_sort=lambda e: e.resource.get("name", "") if e.resource else "",
+            )
+
+            assert sorted_bundle.entry is not None
+            bundle_entries: List[BundleEntry] = sorted_bundle.entry
+
+            sorted_names: List[str] = [
+                entry.resource["name"]
+                for entry in bundle_entries
+                if entry.resource is not None
+            ]
+            assert sorted_names == ["Alice", "Bob", "Charlie"]
+        finally:
+            for transaction in transactions:
+                transaction.__exit__(None, None, None)
 
     def test_sort_resources_in_list(self) -> None:
         """Test sorting resources in a list."""

@@ -148,6 +148,8 @@ class FhirClient(
         self._log_all_response_urls: bool = False
         """ If True, logs all response URLs and status codes.  Can take a lot of memory for when there are many responses. """
 
+        self._storage_mode = CompressedDictStorageMode(storage_type="raw")
+
     def action(self, action: str) -> "FhirClient":
         """
         Set the action
