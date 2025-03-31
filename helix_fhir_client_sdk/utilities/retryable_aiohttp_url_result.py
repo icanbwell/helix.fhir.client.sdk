@@ -17,4 +17,11 @@ class RetryableAioHttpUrlResult:
 
         :return: dictionary
         """
-        return self.__dict__
+        return {
+            "ok": self.ok,
+            "url": self.url,
+            "status_code": self.status_code,
+            "retry_count": self.retry_count,
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+        }
