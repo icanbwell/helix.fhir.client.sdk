@@ -283,7 +283,7 @@ class TestFhirGetBundleResponse:
         assert "Observation" in response_text
 
     @pytest.mark.asyncio
-    async def test_consume_resource(
+    async def test_consume_resource_async(
         self, sample_bundle_response: Dict[str, Any]
     ) -> None:
         """Test async generator for resources."""
@@ -317,8 +317,40 @@ class TestFhirGetBundleResponse:
         assert len(response.get_resources()) == 0
         assert response.get_resource_count() == 0
 
+    def test_consume_resource(self, sample_bundle_response: Dict[str, Any]) -> None:
+        """Test async generator for resources."""
+        results_by_url: List[RetryableAioHttpUrlResult] = []
+
+        response = FhirGetBundleResponse(
+            request_id="test-request",
+            url="https://example.com",
+            response_text=json.dumps(sample_bundle_response),
+            error=None,
+            access_token="test-token",
+            total_count=2,
+            status=200,
+            results_by_url=results_by_url,
+            next_url=None,
+            extra_context_to_return={},
+            resource_type="Patient",
+            id_=["123"],
+            response_headers=None,
+            storage_mode=CompressedDictStorageMode(),
+        )
+
+        # Collect resources from the generator
+        resources = []
+        for resource in response.consume_resource():
+            resources.append(resource)
+
+        assert len(resources) == 2
+        assert resources[0]["resourceType"] == "Patient"
+        assert resources[1]["resourceType"] == "Observation"
+        assert len(response.get_resources()) == 0
+        assert response.get_resource_count() == 0
+
     @pytest.mark.asyncio
-    async def test_consume_resource_empty(self) -> None:
+    async def test_consume_resource_async_empty(self) -> None:
         """Test resources generator with no entries."""
         results_by_url: List[RetryableAioHttpUrlResult] = []
 
@@ -347,7 +379,7 @@ class TestFhirGetBundleResponse:
         assert len(resources) == 0
 
     @pytest.mark.asyncio
-    async def test_consume_bundle_entry(
+    async def test_consume_bundle_entry_async(
         self, sample_bundle_response: Dict[str, Any]
     ) -> None:
         """Test async generator for bundle entries."""
@@ -385,8 +417,44 @@ class TestFhirGetBundleResponse:
         assert response.get_resource_count() == 0
         assert len(response._bundle_entries) == 0
 
+    def test_consume_bundle_async(self, sample_bundle_response: Dict[str, Any]) -> None:
+        """Test async generator for bundle entries."""
+        results_by_url: List[RetryableAioHttpUrlResult] = []
+
+        response = FhirGetBundleResponse(
+            request_id="test-request",
+            url="https://example.com",
+            response_text=json.dumps(sample_bundle_response),
+            error=None,
+            access_token="test-token",
+            total_count=2,
+            status=200,
+            results_by_url=results_by_url,
+            next_url=None,
+            extra_context_to_return={},
+            resource_type="Patient",
+            id_=["123"],
+            response_headers=None,
+            storage_mode=CompressedDictStorageMode(),
+        )
+
+        # Collect bundle entries from the generator
+        bundle_entries = []
+        for entry in response.consume_bundle_entry():
+            bundle_entries.append(entry)
+
+        assert len(bundle_entries) == 2
+        assert isinstance(bundle_entries[0], BundleEntry)
+        assert isinstance(bundle_entries[1], BundleEntry)
+        assert bundle_entries[0].resource is not None
+        assert bundle_entries[1].resource is not None
+        assert bundle_entries[0].resource["resourceType"] == "Patient"
+        assert bundle_entries[1].resource["resourceType"] == "Observation"
+        assert response.get_resource_count() == 0
+        assert len(response._bundle_entries) == 0
+
     @pytest.mark.asyncio
-    async def test_consume_bundle_entry_empty(self) -> None:
+    async def test_consume_bundle_entry_async_empty(self) -> None:
         """Test bundle entries generator with no entries."""
         results_by_url: List[RetryableAioHttpUrlResult] = []
 
@@ -416,7 +484,7 @@ class TestFhirGetBundleResponse:
         assert response.get_resource_count() == 0
 
     @pytest.mark.asyncio
-    async def test_consume_resource_with_none_resources(self) -> None:
+    async def test_consume_resource_async_with_none_resources(self) -> None:
         """Test resources generator with some None resources."""
         results_by_url: List[RetryableAioHttpUrlResult] = []
 

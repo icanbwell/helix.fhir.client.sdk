@@ -229,7 +229,7 @@ class TestFhirGetSingleResponse:
             FhirGetSingleResponse.from_response(mock_response)
 
     @pytest.mark.asyncio
-    async def test_consume_resource(
+    async def test_consume_resource_async(
         self, sample_single_resource: Dict[str, Any]
     ) -> None:
         """Test async generator for resources."""
@@ -258,8 +258,35 @@ class TestFhirGetSingleResponse:
         assert resources[0]["resourceType"] == "Patient"
         assert response.get_resource_count() == 0
 
+    def test_consume_resource(self, sample_single_resource: Dict[str, Any]) -> None:
+        """Test async generator for resources."""
+        results_by_url: List[RetryableAioHttpUrlResult] = []
+        response = FhirGetSingleResponse(
+            request_id="test-request",
+            url="https://example.com/Patient/123",
+            response_text=json.dumps(sample_single_resource),
+            error=None,
+            access_token="test-token",
+            total_count=1,
+            status=200,
+            next_url=None,
+            extra_context_to_return={},
+            resource_type="Patient",
+            id_=["123"],
+            response_headers=None,
+            results_by_url=results_by_url,
+            storage_mode=CompressedDictStorageMode(),
+        )
+        # Collect resources from the generator
+        resources = []
+        for resource in response.consume_resource():
+            resources.append(resource)
+        assert len(resources) == 1
+        assert resources[0]["resourceType"] == "Patient"
+        assert response.get_resource_count() == 0
+
     @pytest.mark.asyncio
-    async def test_consume_bundle_entry(
+    async def test_consume_bundle_entry_async(
         self, sample_single_resource: Dict[str, Any]
     ) -> None:
         """Test async generator for bundle entries."""
@@ -283,6 +310,35 @@ class TestFhirGetSingleResponse:
         # Collect bundle entries from the generator
         bundle_entries = []
         async for entry in response.consume_bundle_entry_async():
+            bundle_entries.append(entry)
+        assert len(bundle_entries) == 1
+        assert isinstance(bundle_entries[0], BundleEntry)
+        assert bundle_entries[0].resource is not None
+        assert bundle_entries[0].resource["resourceType"] == "Patient"
+        assert response.get_resource_count() == 0
+
+    def test_consume_bundle_entry(self, sample_single_resource: Dict[str, Any]) -> None:
+        """Test async generator for bundle entries."""
+        results_by_url: List[RetryableAioHttpUrlResult] = []
+        response = FhirGetSingleResponse(
+            request_id="test-request",
+            url="https://example.com/Patient/123",
+            response_text=json.dumps(sample_single_resource),
+            error=None,
+            access_token="test-token",
+            total_count=1,
+            status=200,
+            next_url=None,
+            extra_context_to_return={},
+            resource_type="Patient",
+            id_=["123"],
+            response_headers=None,
+            results_by_url=results_by_url,
+            storage_mode=CompressedDictStorageMode(),
+        )
+        # Collect bundle entries from the generator
+        bundle_entries = []
+        for entry in response.consume_bundle_entry():
             bundle_entries.append(entry)
         assert len(bundle_entries) == 1
         assert isinstance(bundle_entries[0], BundleEntry)

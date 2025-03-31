@@ -167,7 +167,7 @@ class TestFhirGetErrorResponse:
         assert "OperationOutcome" in response_text
 
     @pytest.mark.asyncio
-    async def test_consume_resource(
+    async def test_consume_resource_async(
         self,
         base_response_params: Dict[str, Any],
         sample_error_response: Dict[str, Any],
@@ -191,8 +191,32 @@ class TestFhirGetErrorResponse:
         assert resources[0]["resourceType"] == "OperationOutcome"
         assert response.get_resource_count() == 0
 
+    def test_consume_resource(
+        self,
+        base_response_params: Dict[str, Any],
+        sample_error_response: Dict[str, Any],
+    ) -> None:
+        """Test async resources generator."""
+
+        response = FhirGetErrorResponse(
+            **base_response_params,
+            response_text=json.dumps(sample_error_response),
+            error="Sample error",
+            storage_mode=CompressedDictStorageMode(),
+        )
+
+        assert response.get_resource_count() == 1
+
+        resources = []
+        for resource in response.consume_resource():
+            resources.append(resource)
+
+        assert len(resources) == 1
+        assert resources[0]["resourceType"] == "OperationOutcome"
+        assert response.get_resource_count() == 0
+
     @pytest.mark.asyncio
-    async def test_consume_bundle_entry(
+    async def test_consume_bundle_entry_async(
         self,
         base_response_params: Dict[str, Any],
         sample_error_response: Dict[str, Any],
@@ -208,6 +232,30 @@ class TestFhirGetErrorResponse:
 
         entries = []
         async for entry in response.consume_bundle_entry_async():
+            entries.append(entry)
+
+        assert len(entries) == 1
+        assert isinstance(entries[0], BundleEntry)
+        assert entries[0].resource is not None
+        assert entries[0].resource["resourceType"] == "OperationOutcome"
+        assert response.get_resource_count() == 0
+
+    def test_consume_bundle_entry(
+        self,
+        base_response_params: Dict[str, Any],
+        sample_error_response: Dict[str, Any],
+    ) -> None:
+        """Test async bundle entries generator."""
+
+        response = FhirGetErrorResponse(
+            **base_response_params,
+            response_text=json.dumps(sample_error_response),
+            error="Sample error",
+            storage_mode=CompressedDictStorageMode(),
+        )
+
+        entries = []
+        for entry in response.consume_bundle_entry():
             entries.append(entry)
 
         assert len(entries) == 1
