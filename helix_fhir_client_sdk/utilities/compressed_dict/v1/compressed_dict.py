@@ -379,10 +379,12 @@ class CompressedDict[K, V]:
         Returns:
             String representation
         """
+        cached_property_list: List[str] = [
+            f"{k}={v}" for k, v in self._cached_properties.items()
+        ]
         return (
-            f"CompressedDict(storage_type='{self._storage_mode.storage_type}', "
-            f"items={self._length})"
-        )
+            f"CompressedDict(storage_type='{self._storage_mode.storage_type}'"
+        ) + ", ".join(cached_property_list)
 
     def replace(self, *, value: Dict[K, V]) -> "CompressedDict[K, V]":
         """

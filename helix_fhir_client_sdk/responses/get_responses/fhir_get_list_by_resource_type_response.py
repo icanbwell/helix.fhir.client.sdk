@@ -126,8 +126,17 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         """
         resources: Deque[FhirResource] = deque()
         resources_for_resource_type: List[FhirResource]
-        for resources_for_resource_type in self._resource_map.values():
-            resources.extend(resources_for_resource_type)
+        resource_map: Dict[str, List[Dict[str, Any]]] = {}
+        for resource_type, resources_for_resource_type in self._resource_map.items():
+            resource_map[resource_type] = [
+                r.to_dict() for r in resources_for_resource_type
+            ]
+
+        # Now create one resource to hold the resource map
+        resource_map_resource: FhirResource = FhirResource(
+            initial_dict=resource_map, storage_mode=self.storage_mode
+        )
+        resources.append(resource_map_resource)
 
         return resources
 
