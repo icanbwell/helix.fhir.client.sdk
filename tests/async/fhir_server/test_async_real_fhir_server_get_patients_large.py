@@ -3,6 +3,7 @@ from os import environ
 from typing import Any, List, Optional
 
 import pytest
+from objsize import get_deep_size
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -101,7 +102,7 @@ async def test_async_real_fhir_server_get_patients_large(
         assert response.chunk_number == 8
         print(f"====== Response with {storage_type=} {use_data_streaming=} ======")
         print(
-            f"{response.get_resource_count()} resources, {SizeCalculator.locale_format_bytes(response.get_size_in_bytes())}"
+            f"{response.get_resource_count()} resources, {SizeCalculator.locale_format_bytes(get_deep_size(response))}"
         )
         print(f"====== End Response with {storage_type=} ======")
     else:
@@ -117,6 +118,6 @@ async def test_async_real_fhir_server_get_patients_large(
         assert responses_[0]["resourceType"] == resource_type
         print(f"====== Response with {storage_type=} {use_data_streaming=} ======")
         print(
-            f"{response.get_resource_count()} resources, {SizeCalculator.locale_format_bytes(response.get_size_in_bytes())}"
+            f"{response.get_resource_count()} resources, {SizeCalculator.locale_format_bytes(get_deep_size(response))}"
         )
         print(f"====== End Response with {storage_type=} ======")

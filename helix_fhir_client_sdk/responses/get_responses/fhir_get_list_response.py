@@ -14,9 +14,6 @@ from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
-from helix_fhir_client_sdk.utilities.size_calculator.size_calculator import (
-    SizeCalculator,
-)
 
 
 class FhirGetListResponse(FhirGetResponse):
@@ -281,15 +278,6 @@ class FhirGetListResponse(FhirGetResponse):
             results_by_url=[r.to_dict() for r in self.results_by_url],
             storage_type=self.storage_mode.storage_type,
         )
-
-    @override
-    def get_size_in_bytes(self) -> int:
-        """
-        Gets the size of the response in bytes
-
-        :return: size in bytes
-        """
-        return SizeCalculator.get_recursive_size(self)
 
     @override
     def get_resource_count(self) -> int:

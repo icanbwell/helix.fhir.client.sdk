@@ -11,9 +11,6 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_access_e
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
-from helix_fhir_client_sdk.utilities.size_calculator.size_calculator import (
-    SizeCalculator,
-)
 
 
 class CompressedDict[K, V]:
@@ -400,15 +397,6 @@ class CompressedDict[K, V]:
         if isinstance(other, CompressedDict):
             return self._get_dict() == other._get_dict()
         return self._get_dict() == other
-
-    def get_size_in_bytes(self) -> int:
-        """
-        Get the size of the serialized dictionary in bytes
-
-        Returns:
-            Size in bytes
-        """
-        return SizeCalculator.get_recursive_size(self)
 
     @overload
     def get(self, key: K) -> Optional[V]:

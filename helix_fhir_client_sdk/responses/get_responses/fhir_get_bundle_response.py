@@ -24,9 +24,6 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
-from helix_fhir_client_sdk.utilities.size_calculator.size_calculator import (
-    SizeCalculator,
-)
 
 
 class FhirGetBundleResponse(FhirGetResponse):
@@ -360,15 +357,6 @@ class FhirGetBundleResponse(FhirGetResponse):
             results_by_url=[r.to_dict() for r in self.results_by_url],
             storage_type=self.storage_mode.storage_type,
         )
-
-    @override
-    def get_size_in_bytes(self) -> int:
-        """
-        Gets the size of the response in bytes
-
-        :return: size in bytes
-        """
-        return SizeCalculator.get_recursive_size(self)
 
     @override
     def get_resource_count(self) -> int:
