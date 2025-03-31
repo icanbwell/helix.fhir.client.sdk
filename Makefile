@@ -60,7 +60,7 @@ tests_integration: up
 
 .PHONY:shell
 shell:devdocker ## Brings up the bash shell in dev docker
-	docker compose run --rm --name helix.fhir.client.sdk dev /bin/bash
+	docker compose run -it --rm --name helix.fhir.client.sdk dev /bin/sh
 
 .PHONY:build
 build: ## Builds the docker for dev
