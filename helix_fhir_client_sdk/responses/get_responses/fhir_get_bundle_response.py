@@ -169,6 +169,12 @@ class FhirGetBundleResponse(FhirGetResponse):
 
         :return: list of bundle entries and a bundle with metadata but without any entries
         """
+        if not responses:
+            return deque(), Bundle(
+                id_=None,
+                timestamp=None,
+                type_="collection",
+            )
         try:
             # This is either a list of resources or a Bundle resource containing a list of resources
             child_response_resources: Union[Dict[str, Any], List[Dict[str, Any]]] = (

@@ -70,7 +70,7 @@ class FhirGetListResponse(FhirGetResponse):
             storage_mode=storage_mode,
         )
         self._resources: Optional[Deque[FhirResource]] = self._parse_resources(
-            responses=response_text, storage_mode=storage_mode
+            response_text=response_text, storage_mode=storage_mode
         )
 
     @override
@@ -106,7 +106,7 @@ class FhirGetListResponse(FhirGetResponse):
 
     @classmethod
     def _parse_resources(
-        cls, *, responses: str, storage_mode: CompressedDictStorageMode
+        cls, *, response_text: str, storage_mode: CompressedDictStorageMode
     ) -> Deque[FhirResource]:
         """
         Gets the resources from the response
@@ -114,10 +114,12 @@ class FhirGetListResponse(FhirGetResponse):
 
         :return: list of resources
         """
+        if not response_text:
+            return deque()
         try:
             # THis is either a list of resources or a Bundle resource containing a list of resources
             child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
-                cls.parse_json(responses)
+                cls.parse_json(response_text)
             )
             assert isinstance(child_response_resources, list)
             result: Deque[FhirResource] = deque()
@@ -125,7 +127,7 @@ class FhirGetListResponse(FhirGetResponse):
                 result.append(FhirResource(initial_dict=r, storage_mode=storage_mode))
             return result
         except Exception as e:
-            raise Exception(f"Could not get resources from: {responses}") from e
+            raise Exception(f"Could not get resources from: {response_text}") from e
 
     def get_bundle_entries(self) -> Deque[BundleEntry]:
         """
