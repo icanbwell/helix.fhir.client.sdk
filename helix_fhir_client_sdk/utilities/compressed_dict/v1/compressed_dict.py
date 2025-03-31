@@ -1,3 +1,4 @@
+import sys
 from collections import UserDict
 from collections.abc import KeysView, ValuesView, ItemsView
 from contextlib import contextmanager
@@ -379,3 +380,19 @@ class CompressedDict[K, V](UserDict[K, V]):
         if isinstance(other, CompressedDict):
             return self._get_dict() == other._get_dict()
         return self._get_dict() == other
+
+    def get_size_in_bytes(self) -> int:
+        """
+        Get the size of the serialized dictionary in bytes
+
+        Returns:
+            Size in bytes
+        """
+        if self._storage_mode.storage_type == "raw":
+            return sys.getsizeof(self._raw_dict)
+        elif self._storage_mode.storage_type == "msgpack":
+            return sys.getsizeof(self._serialized_dict) if self._serialized_dict else 0
+        elif self._storage_mode.storage_type == "compressed_msgpack":
+            return sys.getsizeof(self._serialized_dict) if self._serialized_dict else 0
+        else:
+            raise ValueError("Unknown storage mode")

@@ -6,7 +6,7 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
 )
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
-    CompressedDictDictStorageType,
+    CompressedDictStorageType,
 )
 
 
@@ -34,7 +34,7 @@ class TestCompressedDict:
         assert cd["c"] == 3
 
     @pytest.mark.parametrize("storage_type", ["raw", "msgpack", "compressed_msgpack"])
-    def test_storage_modes(self, storage_type: CompressedDictDictStorageType) -> None:
+    def test_storage_modes(self, storage_type: CompressedDictStorageType) -> None:
         """Test different storage modes"""
         initial_data = {"key": "value"}
         cd = CompressedDict(
@@ -155,7 +155,7 @@ class TestCompressedDict:
             cd = CompressedDict(
                 initial_dict=complex_data,
                 storage_mode=CompressedDictStorageMode(
-                    storage_type=cast(CompressedDictDictStorageType, storage_type)
+                    storage_type=cast(CompressedDictStorageType, storage_type)
                 ),
                 properties_to_cache=[],
             )
@@ -187,9 +187,7 @@ class TestCompressedDict:
                 _ = cd["non_existent_key"]
 
     @pytest.mark.parametrize("storage_type", ["raw", "msgpack", "compressed_msgpack"])
-    def test_large_data_handling(
-        self, storage_type: CompressedDictDictStorageType
-    ) -> None:
+    def test_large_data_handling(self, storage_type: CompressedDictStorageType) -> None:
         """Test handling of large datasets"""
         large_data = {f"key_{i}": f"value_{i}" for i in range(1000)}
 

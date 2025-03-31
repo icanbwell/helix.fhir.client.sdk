@@ -271,3 +271,12 @@ class FhirGetErrorResponse(FhirGetResponse):
             results_by_url=[r.to_dict() for r in self.results_by_url],
             storage_type=self.storage_mode.storage_type,
         )
+
+    @override
+    def get_size_in_bytes(self) -> int:
+        """
+        Gets the size of the response in bytes
+
+        :return: size in bytes
+        """
+        return self._resource.get_size_in_bytes() if self._resource else 0

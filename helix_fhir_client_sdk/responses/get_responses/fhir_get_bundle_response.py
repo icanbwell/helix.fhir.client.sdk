@@ -346,3 +346,18 @@ class FhirGetBundleResponse(FhirGetResponse):
             results_by_url=[r.to_dict() for r in self.results_by_url],
             storage_type=self.storage_mode.storage_type,
         )
+
+    @override
+    def get_size_in_bytes(self) -> int:
+        """
+        Gets the size of the response in bytes
+
+        :return: size in bytes
+        """
+        return sum(
+            [
+                entry.resource.get_size_in_bytes()
+                for entry in self._bundle_entries
+                if entry.resource
+            ]
+        )

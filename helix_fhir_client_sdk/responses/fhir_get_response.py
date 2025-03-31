@@ -397,3 +397,13 @@ class FhirGetResponse:
 
     @abstractmethod
     def sort_resources(self) -> "FhirGetResponse": ...
+
+    @abstractmethod
+    def get_size_in_bytes(self) -> int:
+        """
+        Get the size of the serialized dictionary in bytes
+
+        Returns:
+            Size in bytes
+        """
+        ...

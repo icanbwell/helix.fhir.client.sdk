@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, UTC
-from typing import Dict, Any, List, AsyncGenerator, Optional, Union
+from typing import Dict, Any, List, AsyncGenerator, Optional, Union, override
 
 import pytest
 
@@ -111,6 +111,10 @@ class TestFhirGetResponse(FhirGetResponse):
     def sort_resources(self) -> "FhirGetResponse":
         # Simple implementation for testing
         return self
+
+    @override
+    def get_size_in_bytes(self) -> int:
+        return 0
 
 
 class TestFhirGetResponseClass:

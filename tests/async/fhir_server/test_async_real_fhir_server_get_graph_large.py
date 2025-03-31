@@ -8,6 +8,10 @@ from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
 from helix_fhir_client_sdk.structures.fhir_types import FhirResource
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageType,
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.fhir_helper import FhirHelper
 from helix_fhir_client_sdk.utilities.fhir_server_helpers import FhirServerHelpers
 from helix_fhir_client_sdk.utilities.practitioner_generator import PractitionerGenerator
@@ -15,8 +19,10 @@ from tests.logger_for_test import LoggerForTest
 
 
 @pytest.mark.parametrize("use_data_streaming", [True, False])
+@pytest.mark.parametrize("storage_type", ["raw", "compressed_msgpack"])
 async def test_async_real_fhir_server_get_graph_large(
     use_data_streaming: bool,
+    storage_type: CompressedDictStorageType,
 ) -> None:
     environ["LOGLEVEL"] = "DEBUG"
 
@@ -90,6 +96,7 @@ async def test_async_real_fhir_server_get_graph_large(
     ), merge_response.responses
     # assert merge_response.responses[0]["created"] is True, merge_response.responses
 
+    # Now start the test
     slot_practitioner_graph = {
         "resourceType": "GraphDefinition",
         "id": "o",
@@ -143,6 +150,9 @@ async def test_async_real_fhir_server_get_graph_large(
     }
 
     fhir_client = FhirClient()
+    fhir_client = fhir_client.set_storage_mode(
+        CompressedDictStorageMode(storage_type=storage_type)
+    )
     fhir_client = fhir_client.url(fhir_server_url).resource(resource_type)
     fhir_client = fhir_client.id_(id_dict[resource_type])
     fhir_client = fhir_client.action("$graph").action_payload(slot_practitioner_graph)
@@ -194,3 +204,7 @@ async def test_async_real_fhir_server_get_graph_large(
         assert len(responses_) == count
         assert responses_[0]["id"].startswith("practitioner-")
         assert responses_[0]["resourceType"] == resource_type
+
+        print(
+            f"Response with {storage_type=} has size: {response.get_size_in_bytes()} bytes"
+        )
