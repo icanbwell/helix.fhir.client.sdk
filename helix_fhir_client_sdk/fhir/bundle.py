@@ -54,7 +54,7 @@ class Bundle:
         :return: The resource with the diagnostics added
         """
         with resource.transaction():
-            if resource.get("resourceType") == "OperationOutcome":
+            if resource.resource_type == "OperationOutcome":
                 if resource.get("issue"):
                     for issue in resource["issue"]:
                         details: Dict[str, Any] = issue.get("details")

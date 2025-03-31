@@ -7,6 +7,7 @@ import pytest
 from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
 )
+from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_list_response import (
     FhirGetListResponse,
@@ -50,8 +51,10 @@ class TestFhirGetListResponse:
             storage_mode=CompressedDictStorageMode(),
         )
         assert response.request_id == "test-request"
-        assert len(response.get_resources()) == 2
-        resource = response.get_resources()[0]
+        resources = response.get_resources()
+        assert isinstance(resources, FhirResourceList)
+        assert len(resources) == 2
+        resource = resources[0]
         with resource.transaction():
             assert resource["resourceType"] == "Patient"
 
@@ -91,7 +94,9 @@ class TestFhirGetListResponse:
             storage_mode=CompressedDictStorageMode(),
         )
         first_response.append(second_response)
-        assert len(first_response.get_resources()) == 2
+        resources = first_response.get_resources()
+        assert isinstance(resources, FhirResourceList)
+        assert len(resources) == 2
 
     def test_get_resources(self, sample_resources: List[Dict[str, Any]]) -> None:
         """Test getting resources from the response."""
@@ -114,6 +119,7 @@ class TestFhirGetListResponse:
         )
         resources = response.get_resources()
         assert len(resources) == 2
+        assert isinstance(resources, FhirResourceList)
         assert resources[0]["resourceType"] == "Patient"
         assert resources[1]["resourceType"] == "Observation"
 

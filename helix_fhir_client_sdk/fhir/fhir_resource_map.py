@@ -1,14 +1,14 @@
-from collections import deque
-from typing import Any, Optional, Dict, Deque, AsyncGenerator, Generator
+import json
+from typing import Any, Optional, Dict, Deque, AsyncGenerator, Generator, List, Tuple
 
-from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
+from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 
 
 class FhirResourceMap:
     def __init__(
         self,
         *,
-        initial_dict: Dict[str, Deque[FhirResource]] | None = None,
+        initial_dict: Dict[str, FhirResourceList] | None = None,
     ) -> None:
         """
         This class represents a map of FHIR resources, where each key is a string
@@ -16,7 +16,7 @@ class FhirResourceMap:
 
         :param initial_dict: A dictionary where the keys are strings and the values
         """
-        self._resource_map: Dict[str, Deque[FhirResource]] = initial_dict or {}
+        self._resource_map: Dict[str, FhirResourceList] = initial_dict or {}
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -28,7 +28,7 @@ class FhirResourceMap:
             result[key] = [resource.to_dict() for resource in value]
         return result
 
-    def get(self, *, resource_type: str) -> Optional[Deque[FhirResource]]:
+    def get(self, *, resource_type: str) -> Optional[FhirResourceList]:
         """
         Get the FHIR resources for a specific resource type.
 
@@ -39,49 +39,48 @@ class FhirResourceMap:
 
     async def consume_resource_async(
         self,
-    ) -> AsyncGenerator[Dict[str, Deque[FhirResource]], None]:
+    ) -> AsyncGenerator[Dict[str, FhirResourceList], None]:
         while self._resource_map:
             # Get the first key
             resource_type: str = next(iter(self._resource_map))
             # Pop and process the item
-            resources_for_resource_type: Deque[FhirResource] = self._resource_map.pop(
+            resources_for_resource_type: FhirResourceList = self._resource_map.pop(
                 resource_type
             )
             yield {
                 resource_type: resources_for_resource_type,
             }
 
-    def consume_resource(self) -> Generator[Dict[str, Deque[FhirResource]], None, None]:
+    def consume_resource(self) -> Generator[Dict[str, FhirResourceList], None, None]:
         while self._resource_map:
             # Get the first key
             resource_type: str = next(iter(self._resource_map))
             # Pop and process the item
-            resources_for_resource_type: Deque[FhirResource] = self._resource_map.pop(
+            resources_for_resource_type: FhirResourceList = self._resource_map.pop(
                 resource_type
             )
-            yield dict(
-                resource_type=resource_type,
-                resources=resources_for_resource_type,
-            )
+            yield {
+                resource_type: resources_for_resource_type,
+            }
 
-    def get_resources(self) -> Deque[FhirResource]:
+    def get_resources(self) -> FhirResourceList:
         """
         Get all resources in the map.
 
         :return: A deque of FhirResource objects.
         """
-        resources: Deque[FhirResource] = deque()
+        resources: FhirResourceList = FhirResourceList()
         for resource_type, resource_list in self._resource_map.items():
             resources.extend(resource_list)
         return resources
 
-    def __setitem__(self, key: str, value: Deque[FhirResource]) -> None:
+    def __setitem__(self, key: str, value: FhirResourceList) -> None:
         """Set the value for a specific key in the resource map."""
         if not isinstance(value, Deque):
             raise TypeError("Value must be a deque of FhirResource objects.")
         self._resource_map[key] = value
 
-    def __getitem__(self, key: str) -> Deque[FhirResource]:
+    def __getitem__(self, key: str) -> FhirResourceList:
         """Get the value for a specific key in the resource map."""
         return self._resource_map[key]
 
@@ -89,9 +88,9 @@ class FhirResourceMap:
         """Check if a key exists in the resource map."""
         return key in self._resource_map
 
-    def items(self) -> Dict[str, deque[FhirResource]]:
+    def items(self) -> List[Tuple[str, FhirResourceList]]:
         """Get all items in the resource map."""
-        return {k: v for k, v in self._resource_map.items()}
+        return [(k, v) for k, v in self._resource_map.items()]
 
     def get_resource_count(self) -> int:
         return sum(len(resources) for resources in self._resource_map.values())
@@ -99,3 +98,51 @@ class FhirResourceMap:
     def clear(self) -> None:
         """Clear the resource map."""
         self._resource_map.clear()
+
+    def get_resource_type_and_ids(self) -> List[str]:
+        """
+        Get the resource type and IDs of the resources in the map.
+
+        :return: A list of strings representing the resource type and IDs.
+        """
+        resource_type_and_ids: List[str] = []
+        for resource_type, resources in self._resource_map.items():
+            for resource in resources:
+                resource_type_and_ids.append(f"{resource_type}/{resource['id']}")
+        return resource_type_and_ids
+
+    def get_operation_outcomes(self) -> FhirResourceList:
+        """
+        Gets the operation outcomes from the response
+
+        :return: list of operation outcomes
+        """
+        return (
+            self._resource_map["OperationOutcome"]
+            if "OperationOutcome" in self._resource_map
+            else FhirResourceList()
+        )
+
+    def get_resources_except_operation_outcomes(self) -> FhirResourceList:
+        """
+        Gets the normal FHIR resources by skipping any OperationOutcome resources
+
+        :return: list of valid resources
+        """
+        combined_resources: FhirResourceList = FhirResourceList()
+        for resource_type, resources in self._resource_map.items():
+            if resource_type != "OperationOutcome":
+                combined_resources.extend(resources)
+        return combined_resources
+
+    def to_json(self) -> str:
+        """
+        Convert the list of FhirResource objects to a JSON string.
+
+        :return: JSON string representation of the list.
+        """
+        return json.dumps(self.to_dict())
+
+    def __len__(self) -> int:
+        """Get the number of items in the resource map."""
+        return self.get_resource_count()

@@ -1,11 +1,11 @@
 import json
-from collections import deque
-from typing import List, Any, Deque
+from typing import List, Any
 
 import pytest
 
 from helix_fhir_client_sdk.fhir.bundle import Bundle
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
+from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
@@ -260,7 +260,7 @@ class TestFhirBundleAppender:
 
     def test_sort_resources_in_list(self) -> None:
         """Test sorting resources in a list."""
-        resources: Deque[FhirResource] = deque(
+        resources: FhirResourceList = FhirResourceList(
             [
                 FhirResource(
                     initial_dict={"resourceType": "Patient", "id": "456"},
@@ -277,10 +277,8 @@ class TestFhirBundleAppender:
             ]
         )
 
-        sorted_resources: Deque[FhirResource] = (
-            FhirBundleAppender.sort_resources_in_list(
-                resources=resources,
-            )
+        sorted_resources: FhirResourceList = FhirBundleAppender.sort_resources_in_list(
+            resources=resources,
         )
 
         sorted_ids = [

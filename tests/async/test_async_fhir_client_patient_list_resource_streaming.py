@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Any, Dict, List, Deque
+from typing import Optional, Any, Dict, List
 
 from mockserver_client.mockserver_client import (
     mock_request,
@@ -8,9 +8,9 @@ from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
 )
 
+from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 
 
 async def test_fhir_client_patient_list_async_resource_streaming() -> None:
@@ -55,14 +55,16 @@ async def test_fhir_client_patient_list_async_resource_streaming() -> None:
     fhir_client = fhir_client.use_data_streaming(True)
     fhir_client = fhir_client.chunk_size(10)
 
-    resource_chunks: List[Deque[FhirResource]] = []
+    resource_chunks: List[FhirResourceList] = []
 
     response: Optional[FhirGetResponse] = None
     async for response1 in fhir_client.get_streaming_async():
         print(
             f"Got response from chunk {response1.chunk_number}: {response1.to_dict()}"
         )
-        resource_chunks.append(response1.get_resources())
+        resources = response1.get_resources()
+        assert isinstance(resources, FhirResourceList)
+        resource_chunks.append(resources)
         if not response:
             response = response1
         else:

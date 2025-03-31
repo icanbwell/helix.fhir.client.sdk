@@ -1,5 +1,4 @@
 import json
-from collections import deque
 from typing import (
     Optional,
     Dict,
@@ -8,13 +7,14 @@ from typing import (
     Union,
     override,
     AsyncGenerator,
-    Deque,
     Generator,
 )
 
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
 from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
+from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -80,7 +80,7 @@ class FhirGetListResponse(FhirGetResponse):
             results_by_url=results_by_url,
             storage_mode=storage_mode,
         )
-        self._resources: Optional[Deque[FhirResource]] = self._parse_resources(
+        self._resources: Optional[FhirResourceList] = self._parse_resources(
             response_text=response_text, storage_mode=storage_mode
         )
 
@@ -92,10 +92,11 @@ class FhirGetListResponse(FhirGetResponse):
         :param other_response: FhirGetResponse object to append to current one
         :return: self
         """
+        resources: FhirResourceList | FhirResourceMap = other_response.get_resources()
         if self._resources is None:
-            self._resources = other_response.get_resources()
+            self._resources = resources.get_resources()
         else:
-            self._resources.extend(other_response.get_resources())
+            self._resources.extend(resources.get_resources())
 
         return self
 
@@ -112,13 +113,13 @@ class FhirGetListResponse(FhirGetResponse):
 
         return self
 
-    def get_resources(self) -> Deque[FhirResource] | FhirResourceMap:
-        return self._resources if self._resources else deque()
+    def get_resources(self) -> FhirResourceList | FhirResourceMap:
+        return self._resources if self._resources else FhirResourceList()
 
     @classmethod
     def _parse_resources(
         cls, *, response_text: str, storage_mode: CompressedDictStorageMode
-    ) -> Deque[FhirResource]:
+    ) -> FhirResourceList:
         """
         Gets the resources from the response
 
@@ -126,21 +127,21 @@ class FhirGetListResponse(FhirGetResponse):
         :return: list of resources
         """
         if not response_text:
-            return deque()
+            return FhirResourceList()
         try:
             # THis is either a list of resources or a Bundle resource containing a list of resources
             child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
-                cls.parse_json(response_text)
+                cls._parse_json(response_text)
             )
             assert isinstance(child_response_resources, list)
-            result: Deque[FhirResource] = deque()
+            result: FhirResourceList = FhirResourceList()
             for r in child_response_resources:
                 result.append(FhirResource(initial_dict=r, storage_mode=storage_mode))
             return result
         except Exception as e:
             raise Exception(f"Could not get resources from: {response_text}") from e
 
-    def get_bundle_entries(self) -> Deque[BundleEntry]:
+    def get_bundle_entries(self) -> FhirBundleEntryList:
         """
         Gets the Bundle entries from the response
 
@@ -148,11 +149,11 @@ class FhirGetListResponse(FhirGetResponse):
         :return: list of bundle entries
         """
         if not self._resources:
-            return deque()
+            return FhirBundleEntryList()
         try:
             # THis is either a list of resources or a Bundle resource containing a list of resources
 
-            result: Deque[BundleEntry] = deque()
+            result: FhirBundleEntryList = FhirBundleEntryList()
             for resource in self._resources:
                 entry: BundleEntry = self._create_bundle_entry(resource=resource)
                 result.append(entry)
@@ -186,24 +187,8 @@ class FhirGetListResponse(FhirGetResponse):
         if not self._resources:
             return self  # nothing to do
 
-        try:
-            # if self._resources find unique entries by resourceType and id
-
-            id_and_resource_dict: Dict[str, FhirResource] = {
-                f'{r.get("resourceType")}/{r.get("id")}': r
-                for r in self._resources
-                if r.get("resourceType") and r.get("id")
-            }
-
-            unique_resources: List[FhirResource] = list(id_and_resource_dict.values())
-            null_id_resources: List[FhirResource] = [
-                r for r in self._resources if not r.get("id")
-            ]
-            unique_resources.extend(null_id_resources)
-            self._resources = deque(unique_resources)
-            return self
-        except Exception as e:
-            raise Exception(f"Could not get parse json from: {self._resources}") from e
+        self._resources.remove_duplicates()
+        return self
 
     @classmethod
     @override
@@ -211,12 +196,12 @@ class FhirGetListResponse(FhirGetResponse):
         if isinstance(other_response, FhirGetListResponse):
             return other_response
 
-        resources: Deque[FhirResource] = other_response.get_resources()
+        resources: FhirResourceList | FhirResourceMap = other_response.get_resources()
 
         response: FhirGetListResponse = FhirGetListResponse(
             request_id=other_response.request_id,
             url=other_response.url,
-            response_text=json.dumps(list(resources), cls=FhirJSONEncoder),
+            response_text=resources.to_json(),
             error=other_response.error,
             access_token=other_response.access_token,
             total_count=other_response.total_count,
@@ -231,7 +216,6 @@ class FhirGetListResponse(FhirGetResponse):
             results_by_url=other_response.results_by_url,
             storage_mode=other_response.storage_mode,
         )
-        response._resources = other_response.get_resources()
         return response
 
     @override

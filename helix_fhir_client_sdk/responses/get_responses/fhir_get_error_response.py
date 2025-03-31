@@ -1,5 +1,4 @@
 import json
-from collections import deque
 from typing import (
     Optional,
     Dict,
@@ -8,7 +7,6 @@ from typing import (
     Union,
     override,
     AsyncGenerator,
-    Deque,
     Generator,
 )
 
@@ -16,6 +14,8 @@ from helix_fhir_client_sdk.fhir.bundle import Bundle
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
 from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
+from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -123,24 +123,26 @@ class FhirGetErrorResponse(FhirGetResponse):
         )
 
     @override
-    def get_resources(self) -> Deque[FhirResource] | FhirResourceMap:
+    def get_resources(self) -> FhirResourceList | FhirResourceMap:
         """
         Gets the resources from the response
 
 
         :return: list of resources
         """
-        return deque([self._resource]) if self._resource else deque()
+        return (
+            FhirResourceList([self._resource]) if self._resource else FhirResourceList()
+        )
 
     @override
-    def get_bundle_entries(self) -> Deque[BundleEntry]:
+    def get_bundle_entries(self) -> FhirBundleEntryList:
         """
         Gets the Bundle entries from the response
 
 
         :return: list of bundle entries
         """
-        return deque(
+        return FhirBundleEntryList(
             [self._create_bundle_entry(resource=self._resource)]
             if self._resource
             else []
@@ -218,7 +220,7 @@ class FhirGetErrorResponse(FhirGetResponse):
                 return None
 
             child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
-                cls.parse_json(response_text)
+                cls._parse_json(response_text)
             )
             assert isinstance(child_response_resources, dict)
             response_json: Dict[str, Any] | None = child_response_resources

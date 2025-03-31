@@ -7,6 +7,7 @@ import pytest
 from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
 )
+from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
     FhirGetBundleResponse,
@@ -76,6 +77,7 @@ class TestFhirGetSingleResponse:
             storage_mode=CompressedDictStorageMode(),
         )
         resources = response.get_resources()
+        assert isinstance(response, FhirResourceList)
         assert len(resources) == 1
         assert resources[0]["resourceType"] == "Patient"
         assert resources[0]["id"] == "123"
@@ -100,6 +102,7 @@ class TestFhirGetSingleResponse:
             storage_mode=CompressedDictStorageMode(),
         )
         resources = response.get_resources()
+        assert isinstance(resources, FhirResourceList)
         assert len(resources) == 0
 
     def test_get_bundle_entry(self, sample_single_resource: Dict[str, Any]) -> None:

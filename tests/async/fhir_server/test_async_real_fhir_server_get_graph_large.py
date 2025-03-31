@@ -1,14 +1,15 @@
 import json
 from os import environ
-from typing import Any, List, Dict, Optional, Deque
+from typing import Any, List, Dict, Optional
 
 import pytest
 from objsize import get_deep_size
 
+from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
+from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
-from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageType,
     CompressedDictStorageMode,
@@ -174,9 +175,10 @@ async def test_async_real_fhir_server_get_graph_large(
     if use_data_streaming:
         responses: List[FhirGetResponse] = []
         response: Optional[FhirGetResponse] = None
-        resource_chunks: List[Deque[FhirResource]] = []
+        resource_chunks: List[FhirResourceList] = []
         async for response1 in fhir_client.get_streaming_async():
             resources_in_chunk = response1.get_resources()
+            assert isinstance(resources_in_chunk, FhirResourceList)
             print(
                 f"Chunk Number {response1.chunk_number} Received."
                 f" Resource count=[{len(resources_in_chunk)}]: {response1.to_dict()}"
@@ -189,7 +191,9 @@ async def test_async_real_fhir_server_get_graph_large(
                 response = response.append(response1)
 
         assert response is not None
-        resources: Deque[FhirResource] = response.get_resources()
+        resources: FhirResourceList | FhirResourceMap = response.get_resources()
+        assert isinstance(resources, FhirResourceList)
+
         assert response.response_headers is not None
         assert "Transfer-Encoding:chunked" in response.response_headers
         assert "Content-Encoding:gzip" in response.response_headers

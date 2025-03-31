@@ -7,6 +7,7 @@ import pytest
 from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
 )
+from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_error_response import (
     FhirGetErrorResponse,
@@ -85,6 +86,7 @@ class TestFhirGetErrorResponse:
 
         resources = response.get_resources()
         assert len(resources) == 1
+        assert isinstance(resources, FhirResourceList)
         assert resources[0]["resourceType"] == "OperationOutcome"
 
     def test_get_bundle_entries(

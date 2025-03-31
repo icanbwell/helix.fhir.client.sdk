@@ -1,5 +1,4 @@
 import json
-from collections import deque
 from datetime import datetime, UTC
 from typing import (
     Dict,
@@ -9,7 +8,6 @@ from typing import (
     Optional,
     Union,
     override,
-    Deque,
     Generator,
 )
 
@@ -18,6 +16,8 @@ import pytest
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
 from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
+from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
@@ -74,7 +74,7 @@ class TestFhirGetResponse(FhirGetResponse):
             results_by_url=results_by_url,
             storage_mode=storage_mode,
         )
-        self._resources: Deque[FhirResource] = deque()
+        self._resources: FhirResourceList = FhirResourceList()
 
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
         # Simple implementation for testing
@@ -84,7 +84,7 @@ class TestFhirGetResponse(FhirGetResponse):
         # Simple implementation for testing
         return self
 
-    def get_resources(self) -> Deque[FhirResource] | FhirResourceMap:
+    def get_resources(self) -> FhirResourceList | FhirResourceMap:
         return self._resources
 
     @override
@@ -111,8 +111,8 @@ class TestFhirGetResponse(FhirGetResponse):
             resource: FhirResource = self._resources.popleft()
             yield self._create_bundle_entry(resource=resource)
 
-    def get_bundle_entries(self) -> Deque[BundleEntry]:
-        return deque(
+    def get_bundle_entries(self) -> FhirBundleEntryList:
+        return FhirBundleEntryList(
             [
                 self._create_bundle_entry(resource=resource)
                 for resource in self._resources
@@ -221,20 +221,20 @@ class TestFhirGetResponseClass:
     def test_parse_json(self) -> None:
         """Test parse_json method."""
         # Test valid JSON
-        result: Dict[str, Any] | List[Dict[str, Any]] = FhirGetResponse.parse_json(
+        result: Dict[str, Any] | List[Dict[str, Any]] = FhirGetResponse._parse_json(
             '{"resourceType": "Patient", "id": "123"}'
         )
         assert isinstance(result, dict)
         assert result == {"resourceType": "Patient", "id": "123"}
 
         # Test empty content
-        result = FhirGetResponse.parse_json("")
+        result = FhirGetResponse._parse_json("")
         assert isinstance(result, dict)
         assert result["resourceType"] == "OperationOutcome"
         assert result["issue"][0]["severity"] == "error"
 
         # Test invalid JSON
-        result = FhirGetResponse.parse_json("{invalid json")
+        result = FhirGetResponse._parse_json("{invalid json")
         assert isinstance(result, dict)
         assert result["resourceType"] == "OperationOutcome"
         assert result["issue"][0]["severity"] == "error"
@@ -290,7 +290,7 @@ class TestFhirGetResponseClass:
     def test_get_operation_outcomes(self, sample_response_data: Dict[str, Any]) -> None:
         """Test get_operation_outcomes method."""
         response = TestFhirGetResponse(**sample_response_data)
-        response._resources = deque(
+        response._resources = FhirResourceList(
             [
                 FhirResource(
                     initial_dict={"resourceType": "OperationOutcome", "issue": []},
@@ -312,7 +312,7 @@ class TestFhirGetResponseClass:
     ) -> None:
         """Test get_resources_except_operation_outcomes method."""
         response = TestFhirGetResponse(**sample_response_data)
-        response._resources = deque(
+        response._resources = FhirResourceList(
             [
                 FhirResource(
                     initial_dict={"resourceType": "OperationOutcome", "issue": []},

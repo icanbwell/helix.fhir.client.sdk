@@ -11,14 +11,15 @@ from typing import (
     Union,
     cast,
     AsyncGenerator,
-    Deque,
     Generator,
 )
 
 from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
 )
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
+from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
@@ -190,7 +191,7 @@ class FhirGetResponse:
         return result
 
     @abstractmethod
-    def get_resources(self) -> Deque[FhirResource] | FhirResourceMap:
+    def get_resources(self) -> FhirResourceList | FhirResourceMap:
         """
         Gets the resources from the response
 
@@ -246,7 +247,7 @@ class FhirGetResponse:
         yield None  # type: ignore[misc]
 
     @abstractmethod
-    def get_bundle_entries(self) -> Deque[BundleEntry]:
+    def get_bundle_entries(self) -> FhirBundleEntryList:
         """
         Gets the Bundle entries from the response
 
@@ -256,7 +257,7 @@ class FhirGetResponse:
         ...
 
     @staticmethod
-    def parse_json(responses: str) -> Dict[str, Any] | List[Dict[str, Any]]:
+    def _parse_json(responses: str) -> Dict[str, Any] | List[Dict[str, Any]]:
         """
         Parses the json response from the fhir server
 
@@ -358,9 +359,9 @@ class FhirGetResponse:
         """
         Gets the ids of the resources from the response
         """
-        resources: Deque[FhirResource] | FhirResourceMap = self.get_resources()
+        resources: FhirResourceList | FhirResourceMap = self.get_resources()
         try:
-            return [f"{r.get('resourceType')}/{r.get('id')}" for r in resources]
+            return resources.get_resource_type_and_ids()
         except Exception as e:
             raise Exception(
                 f"Could not get resourceType and id from resources: {json.dumps(resources, cls=FhirJSONEncoder)}"
@@ -386,29 +387,21 @@ class FhirGetResponse:
         assert result
         return result
 
-    def get_operation_outcomes(self) -> List[FhirResource]:
+    def get_operation_outcomes(self) -> FhirResourceList:
         """
         Gets the operation outcomes from the response
 
         :return: list of operation outcomes
         """
-        return [
-            r
-            for r in self.get_resources()
-            if r.get("resourceType") == "OperationOutcome"
-        ]
+        return self.get_resources().get_operation_outcomes()
 
-    def get_resources_except_operation_outcomes(self) -> List[FhirResource]:
+    def get_resources_except_operation_outcomes(self) -> FhirResourceList:
         """
         Gets the normal FHIR resources by skipping any OperationOutcome resources
 
         :return: list of valid resources
         """
-        return [
-            r
-            for r in self.get_resources()
-            if r.get("resourceType") != "OperationOutcome"
-        ]
+        return self.get_resources().get_resources_except_operation_outcomes()
 
     def to_dict(self) -> Dict[str, Any]:
         """

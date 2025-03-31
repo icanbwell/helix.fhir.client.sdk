@@ -80,7 +80,7 @@ class FhirGetResponseFactory:
             )
 
         child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
-            FhirGetResponse.parse_json(response_text)
+            FhirGetResponse._parse_json(response_text)
         )
 
         # first see if it is just a list of resources

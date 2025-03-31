@@ -8,6 +8,7 @@ from mockserver_client.mockserver_client import (
     times,
 )
 
+from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,
@@ -120,10 +121,12 @@ async def test_fhir_graph_multiple_ids_in_batches_async() -> None:
     assert len(responses) == 2
     print(f"Response: {responses[0].get_response_text()}")
     assert responses[0].get_response_text()
-    assert list(responses[0].get_resources()) == [
-        {"id": "1", "resourceType": "Patient"}
-    ]
-    assert list(responses[1].get_resources()) == [
+    resources = responses[0].get_resources()
+    assert isinstance(resources, FhirResourceList)
+    assert list(resources) == [{"id": "1", "resourceType": "Patient"}]
+    resources = responses[1].get_resources()
+    assert isinstance(resources, FhirResourceList)
+    assert list(resources) == [
         {
             "contained": [{"id": "1", "resourceType": "Location"}],
             "id": "2",

@@ -8,6 +8,7 @@ from mockserver_client.mockserver_client import (
     times,
 )
 
+from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,
@@ -100,7 +101,9 @@ async def test_fhir_graph_multiple_ids_async() -> None:
     assert responses[
         0
     ].get_response_text(), f"Expected {response_text} but got {responses[0].get_response_text()} from url {responses[0].url}"
-    assert list(responses[0].get_resources()) == [
+    resources = responses[0].get_resources()
+    assert isinstance(resources, FhirResourceList)
+    assert list(resources) == [
         {"id": "1", "resourceType": "Patient"},
         {"id": "2", "resourceType": "Patient"},
     ]

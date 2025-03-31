@@ -1,5 +1,4 @@
 import json
-from collections import deque
 from typing import (
     Optional,
     Dict,
@@ -9,13 +8,14 @@ from typing import (
     override,
     AsyncGenerator,
     Tuple,
-    Deque,
     Generator,
 )
 
 from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
 )
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
+from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
@@ -46,7 +46,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         *,
         request_id: Optional[str],
         url: str,
-        resources: List[FhirResource],
+        resources: FhirResourceList | FhirResourceMap,
         error: Optional[str],
         access_token: Optional[str],
         total_count: Optional[int],
@@ -95,24 +95,22 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         """
 
         new_count: int = 0
-        resources: Deque[FhirResource] | FhirResourceMap = (
-            other_response.get_resources()
-        )
-        resource_type: str
+        resources: FhirResourceList | FhirResourceMap = other_response.get_resources()
+        resource_type: Optional[str]
         if isinstance(resources, FhirResourceMap):
-            resource_list: Deque[FhirResource]
+            resource_list: FhirResourceList
             for resource_type, resource_list in resources.items():
                 if resource_type not in self._resource_map:
-                    self._resource_map[resource_type] = deque()
+                    self._resource_map[resource_type] = FhirResourceList()
                 for resource in resource_list:
                     self._resource_map[resource_type].append(resource)
                     new_count += 1
         else:
-            for resource in other_response.get_resources():
-                resource_type = resource.get("resourceType")
+            for resource in resources:
+                resource_type = resource.resource_type
                 if resource_type:
                     if resource_type not in self._resource_map:
-                        self._resource_map[resource_type] = deque()
+                        self._resource_map[resource_type] = FhirResourceList()
                     self._resource_map[resource_type].append(resource)
                     new_count += 1
 
@@ -132,15 +130,15 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return self
 
     @override
-    def get_resources(self) -> Deque[FhirResource] | FhirResourceMap:
+    def get_resources(self) -> FhirResourceList | FhirResourceMap:
         """
         Gets the resources from the response
 
 
         :return: list of resources
         """
-        resources: Deque[FhirResource] = deque()
-        resources_for_resource_type: List[FhirResource]
+        resources: FhirResourceList = FhirResourceList()
+        resources_for_resource_type: FhirResourceList
         resource_map: Dict[str, List[Dict[str, Any]]] = {}
         for resource_type, resources_for_resource_type in self._resource_map.items():
             resource_map[resource_type] = [
@@ -156,7 +154,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return resources
 
     @override
-    def get_bundle_entries(self) -> Deque[BundleEntry]:
+    def get_bundle_entries(self) -> FhirBundleEntryList:
         raise NotImplementedError(
             "get_bundle_entries is not implemented for FhirGetListByResourceTypeResponse. "
         )
@@ -172,7 +170,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         try:
             # THis is either a list of resources or a Bundle resource containing a list of resources
             child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
-                cls.parse_json(responses)
+                cls._parse_json(responses)
             )
             assert isinstance(child_response_resources, list)
             return child_response_resources
@@ -198,7 +196,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         response: FhirGetListByResourceTypeResponse = FhirGetListByResourceTypeResponse(
             request_id=other_response.request_id,
             url=other_response.url,
-            resources=list(other_response.get_resources()),
+            resources=other_response.get_resources(),
             error=other_response.error,
             access_token=other_response.access_token,
             total_count=other_response.total_count,
@@ -226,17 +224,20 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
     @classmethod
     def _parse_into_resource_map(
-        cls, resources: List[FhirResource]
+        cls, resources: FhirResourceList | FhirResourceMap
     ) -> Tuple[int, FhirResourceMap]:
+        if isinstance(resources, FhirResourceMap):
+            return resources.get_resource_count(), resources
+
         resource_map: FhirResourceMap = FhirResourceMap()
         resource: FhirResource
         count: int = 0
         for resource in resources:
             if resource:
-                resource_type = resource.get("resourceType")
+                resource_type = resource.resource_type
                 assert resource_type, f"No resourceType in {json.dumps(resource)}"
                 if resource_type not in resource_map:
-                    resource_map[resource_type] = deque()
+                    resource_map[resource_type] = FhirResourceList()
 
                 count += 1
                 resource_map[resource_type].append(resource)
@@ -256,7 +257,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
     @override
     def consume_resource(self) -> Generator[FhirResource | FhirResourceMap, None, None]:
         yield self._resource_map
-        self._resource_map = {}
+        self._resource_map.clear()
 
     @override
     async def consume_bundle_entry_async(self) -> AsyncGenerator[BundleEntry, None]:

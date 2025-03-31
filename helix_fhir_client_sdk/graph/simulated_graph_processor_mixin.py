@@ -9,12 +9,12 @@ from typing import (
     Tuple,
     cast,
     AsyncGenerator,
-    Deque,
 )
 
 from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
 from helix_fhir_client_sdk.fhir.bundle import Bundle
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,
     GraphDefinitionLink,
@@ -135,7 +135,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 yield parent_response
                 return  # no resources to process
 
-            parent_bundle_entries: Deque[BundleEntry] = (
+            parent_bundle_entries: FhirBundleEntryList = (
                 parent_response.get_bundle_entries()
             )
 
@@ -148,13 +148,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # now process the graph links
             child_responses: List[FhirGetResponse] = []
             parent_link_map: List[
-                Tuple[List[GraphDefinitionLink], Deque[BundleEntry]]
+                Tuple[List[GraphDefinitionLink], FhirBundleEntryList]
             ] = []
             if graph_definition.link and parent_bundle_entries:
                 parent_link_map.append((graph_definition.link, parent_bundle_entries))
             while len(parent_link_map):
                 new_parent_link_map: List[
-                    Tuple[List[GraphDefinitionLink], Deque[BundleEntry]]
+                    Tuple[List[GraphDefinitionLink], FhirBundleEntryList]
                 ] = []
                 for link, parent_bundle_entries in parent_link_map:
                     link_responses: List[FhirGetResponse]
@@ -284,11 +284,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         self,
         *,
         link: GraphDefinitionLink,
-        parent_bundle_entries: Optional[Deque[BundleEntry]],
+        parent_bundle_entries: Optional[FhirBundleEntryList],
         logger: Optional[FhirLogger],
         cache: RequestCache,
         scope_parser: FhirScopeParser,
-        parent_link_map: List[Tuple[List[GraphDefinitionLink], Deque[BundleEntry]]],
+        parent_link_map: List[Tuple[List[GraphDefinitionLink], FhirBundleEntryList]],
         request_size: int,
         id_search_unsupported_resources: List[str],
         max_concurrent_tasks: Optional[int],
@@ -409,7 +409,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         *,
         target: GraphDefinitionTarget,
         path: Optional[str],
-        parent_bundle_entries: Optional[Deque[BundleEntry]],
+        parent_bundle_entries: Optional[FhirBundleEntryList],
         logger: Optional[FhirLogger],
         cache: RequestCache,
         scope_parser: FhirScopeParser,

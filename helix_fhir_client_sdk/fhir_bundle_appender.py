@@ -1,13 +1,14 @@
 import json
-from collections import deque
 from datetime import datetime
-from typing import List, Optional, Dict, Any, Callable, Deque
+from typing import List, Optional, Dict, Any, Callable
 
 from helix_fhir_client_sdk.fhir.bundle import Bundle
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
 from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
+from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
@@ -38,9 +39,9 @@ class FhirBundleAppender:
         :return: The bundle with the responses appended
         """
         response: FhirGetResponse
-        bundle_entries: Deque[BundleEntry] = deque()
+        bundle_entries: FhirBundleEntryList = FhirBundleEntryList()
         for response in responses:
-            bundle_entries_for_response: Deque[BundleEntry] = (
+            bundle_entries_for_response: FhirBundleEntryList = (
                 FhirBundleAppender.add_operation_outcomes_to_response(
                     response=response, storage_mode=storage_mode
                 )
@@ -53,8 +54,8 @@ class FhirBundleAppender:
     @staticmethod
     def add_operation_outcomes_to_response(
         *, response: FhirGetResponse, storage_mode: CompressedDictStorageMode
-    ) -> Deque[BundleEntry]:
-        bundle_entries: Deque[BundleEntry] = response.get_bundle_entries()
+    ) -> FhirBundleEntryList:
+        bundle_entries: FhirBundleEntryList = response.get_bundle_entries()
         return FhirBundleAppender.add_operation_outcomes_to_bundle_entries(
             bundle_entries=bundle_entries,
             error=response.error,
@@ -73,7 +74,7 @@ class FhirBundleAppender:
     @staticmethod
     def add_operation_outcomes_to_bundle_entries(
         *,
-        bundle_entries: Deque[BundleEntry],
+        bundle_entries: FhirBundleEntryList,
         error: Optional[str],
         url: str,
         resource_type: Optional[str],
@@ -85,7 +86,7 @@ class FhirBundleAppender:
         last_modified: Optional[datetime],
         etag: Optional[str],
         storage_mode: CompressedDictStorageMode,
-    ) -> Deque[BundleEntry]:
+    ) -> FhirBundleEntryList:
         """
         Adds operation outcomes to the bundle entries
 
@@ -116,7 +117,7 @@ class FhirBundleAppender:
         for bundle_entry in bundle_entries:
             if (
                 bundle_entry.resource
-                and bundle_entry.resource.get("resourceType") == "OperationOutcome"
+                and bundle_entry.resource.resource_type == "OperationOutcome"
             ):
                 # This is an OperationOutcome resource so we need to add the diagnostics to it
                 bundle_entry.resource = Bundle.add_diagnostics_to_operation_outcomes(
@@ -272,13 +273,11 @@ class FhirBundleAppender:
             {
                 f'{e.resource["resourceType"]}/{e.resource["id"]}': e
                 for e in bundle_entries
-                if e.resource
-                and e.resource.get("resourceType")
-                and e.resource.get("id")
+                if e.resource and e.resource.resource_type and e.resource.id
             }.values()
         )
         null_id_bundle_entries: List[BundleEntry] = [
-            e for e in bundle_entries if not e.resource or not e.resource.get("id")
+            e for e in bundle_entries if not e.resource or not e.resource.resource_type
         ]
         unique_bundle_entries.extend(null_id_bundle_entries)
         bundle.entry = unique_bundle_entries
@@ -312,9 +311,9 @@ class FhirBundleAppender:
     @staticmethod
     def sort_resources_in_list(
         *,
-        resources: Deque[FhirResource],
+        resources: FhirResourceList,
         fn_sort: Callable[[FhirResource], str] | None = None,
-    ) -> Deque[FhirResource]:
+    ) -> FhirResourceList:
         """
         Sorts the resources in the bundle
 
@@ -329,7 +328,7 @@ class FhirBundleAppender:
                 (r.get("resourceType", "") + "/" + r.get("id", "")) if r else ""
             )
 
-        return deque(
+        return FhirResourceList(
             sorted(
                 resources,
                 key=fn_sort,

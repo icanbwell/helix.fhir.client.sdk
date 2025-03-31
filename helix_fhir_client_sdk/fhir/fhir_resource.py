@@ -22,3 +22,22 @@ class FhirResource(CompressedDict[str, Any]):
             storage_mode=storage_mode,
             properties_to_cache=["resourceType", "id"],
         )
+
+    @property
+    def resource_type(self) -> Optional[str]:
+        """Get the resource type from the resource dictionary."""
+        return self.get("resourceType")
+
+    @property
+    def id(self) -> Optional[str]:
+        """Get the ID from the resource dictionary."""
+        return self.get("id")
+
+    @property
+    def resource_type_and_id(self) -> Optional[str]:
+        """Get the resource type and ID from the resource dictionary."""
+        return (
+            f"{self.resource_type}/{self.id}"
+            if self.resource_type and self.id
+            else None
+        )
