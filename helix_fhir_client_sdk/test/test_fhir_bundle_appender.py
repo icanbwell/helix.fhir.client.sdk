@@ -223,11 +223,18 @@ class TestFhirBundleAppender:
 
         assert bundle.entry is not None
 
-        transactions: List[Any] = []
+        transaction_generators: List[Any] = []
         # start transactions for each entry
         for entry in bundle.entry:
             if entry.resource is not None:
-                transactions.append(entry.resource.transaction().__enter__())
+                # Create the context manager
+                context_manager = entry.resource.transaction()
+
+                # Store the context manager
+                transaction_generators.append(context_manager)
+
+                # Manually enter the context
+                context_manager.__enter__()
 
         try:
             sorted_bundle: Bundle = FhirBundleAppender.sort_resources(
@@ -236,6 +243,7 @@ class TestFhirBundleAppender:
             )
 
             assert sorted_bundle.entry is not None
+            # noinspection PyTypeChecker
             bundle_entries: List[BundleEntry] = sorted_bundle.entry
 
             sorted_names: List[str] = [
@@ -245,8 +253,9 @@ class TestFhirBundleAppender:
             ]
             assert sorted_names == ["Alice", "Bob", "Charlie"]
         finally:
-            for transaction in transactions:
-                transaction.__exit__(None, None, None)
+            # Attempt to close all transactions
+            for context_manager in transaction_generators:
+                context_manager.__exit__(None, None, None)
 
     def test_sort_resources_in_list(self) -> None:
         """Test sorting resources in a list."""
