@@ -1,4 +1,3 @@
-import sys
 from collections import UserDict
 from collections.abc import KeysView, ValuesView, ItemsView
 from contextlib import contextmanager
@@ -12,6 +11,9 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_access_e
 )
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
+)
+from helix_fhir_client_sdk.utilities.size_calculator.size_calculator import (
+    get_recursive_size,
 )
 
 
@@ -388,11 +390,4 @@ class CompressedDict[K, V](UserDict[K, V]):
         Returns:
             Size in bytes
         """
-        if self._storage_mode.storage_type == "raw":
-            return sys.getsizeof(self._raw_dict)
-        elif self._storage_mode.storage_type == "msgpack":
-            return sys.getsizeof(self._serialized_dict) if self._serialized_dict else 0
-        elif self._storage_mode.storage_type == "compressed_msgpack":
-            return sys.getsizeof(self._serialized_dict) if self._serialized_dict else 0
-        else:
-            raise ValueError("Unknown storage mode")
+        return get_recursive_size(self)
