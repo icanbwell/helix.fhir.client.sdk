@@ -1,4 +1,4 @@
-from typing import Optional, AsyncGenerator
+from typing import Optional, AsyncGenerator, Dict, Any
 
 
 class FhirDeleteResponse:
@@ -73,3 +73,20 @@ class FhirDeleteResponse:
             else:
                 result.append(value)
         return result
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Converts the object to a dictionary
+
+        :return: dictionary representation of the object
+        """
+        return {
+            "request_id": self.request_id,
+            "url": self.url,
+            "responses": self.responses,
+            "error": self.error,
+            "access_token": self.access_token,
+            "status": self.status,
+            "count": self.count,
+            "resource_type": self.resource_type,
+        }

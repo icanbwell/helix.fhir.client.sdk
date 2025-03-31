@@ -71,3 +71,20 @@ class FhirMergeResponse:
 
         assert result
         return result
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Converts the FhirMergeResponse to a dictionary
+
+        :return: dictionary representation of the FhirMergeResponse
+        """
+        return {
+            "request_id": self.request_id,
+            "url": self.url,
+            "responses": self.responses,
+            "error": self.error,
+            "access_token": self.access_token,
+            "status": self.status,
+            "data": self.data,
+            "successful": self.successful,
+        }
