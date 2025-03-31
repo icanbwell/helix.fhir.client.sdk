@@ -133,7 +133,7 @@ async def test_fhir_simulated_graph_separate_resources_async() -> None:
     )
     assert response is not None
     response_text1: str = response.get_response_text()
-    print(response_text)
+    print(response_text1)
 
     expected_file_path = data_dir.joinpath("expected")
     with open(expected_file_path.joinpath(test_name + ".json")) as f:
@@ -142,13 +142,5 @@ async def test_fhir_simulated_graph_separate_resources_async() -> None:
     result = json.loads(response_text1)
     result = dict(sorted(result.items()))
     expected_json = dict(sorted(expected_json.items()))
-    result["OperationOutcome"] = sorted(
-        result["OperationOutcome"],
-        key=lambda x: x["issue"][0]["details"]["coding"][0]["code"],
-    )
-    expected_json["OperationOutcome"] = sorted(
-        expected_json["OperationOutcome"],
-        key=lambda x: x["issue"][0]["details"]["coding"][0]["code"],
-    )
 
     assert result == expected_json
