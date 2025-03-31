@@ -5,6 +5,10 @@ from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 
 
 class FhirResourceMap:
+    __slots__ = [
+        "_resource_map",
+    ]
+
     def __init__(
         self,
         *,
@@ -143,6 +147,10 @@ class FhirResourceMap:
         """
         return json.dumps(self.to_dict())
 
-    def __len__(self) -> int:
-        """Get the number of items in the resource map."""
-        return self.get_resource_count()
+    def get_count_of_resource_types(self) -> int:
+        """
+        Get the count of unique resource types in the map.
+
+        :return: The count of unique resource types.
+        """
+        return len(self._resource_map)

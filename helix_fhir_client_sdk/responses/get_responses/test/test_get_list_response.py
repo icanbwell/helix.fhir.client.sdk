@@ -7,6 +7,7 @@ import pytest
 from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
 )
+from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_list_response import (
@@ -118,6 +119,7 @@ class TestFhirGetListResponse:
             storage_mode=CompressedDictStorageMode(),
         )
         resources = response.get_resources()
+        assert isinstance(resources, FhirResourceList)
         assert len(resources) == 2
         assert isinstance(resources, FhirResourceList)
         assert resources[0]["resourceType"] == "Patient"
@@ -145,7 +147,9 @@ class TestFhirGetListResponse:
             storage_mode=CompressedDictStorageMode(),
         )
         response.remove_duplicates()
-        assert len(response.get_resources()) == 2
+        resources = response.get_resources()
+        assert isinstance(resources, FhirResourceList)
+        assert len(resources) == 2
 
     def test_from_response(self) -> None:
         """Test creating a FhirGetListResponse from another response."""
@@ -164,14 +168,21 @@ class TestFhirGetListResponse:
         mock_response.response_headers = None
         mock_response.chunk_number = 1
         mock_response.cache_hits = 0
-        mock_response.get_resources.return_value = [
-            {"resourceType": "Patient", "id": "123"}
-        ]
+        mock_response.get_resources.return_value = FhirResourceList(
+            [
+                FhirResource(
+                    initial_dict={"resourceType": "Patient", "id": "123"},
+                    storage_mode=CompressedDictStorageMode(),
+                )
+            ]
+        )
         mock_response.storage_mode = CompressedDictStorageMode()
 
         list_response = FhirGetListResponse.from_response(mock_response)
         assert list_response.request_id == "test-request"
-        assert len(list_response.get_resources()) == 1
+        resources = list_response.get_resources()
+        assert isinstance(resources, FhirResourceList)
+        assert len(resources) == 1
 
     def test_get_bundle_entries(self, sample_resources: List[Dict[str, Any]]) -> None:
         """Test getting bundle entries."""

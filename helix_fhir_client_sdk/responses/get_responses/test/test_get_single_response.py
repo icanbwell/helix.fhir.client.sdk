@@ -77,7 +77,9 @@ class TestFhirGetSingleResponse:
             storage_mode=CompressedDictStorageMode(),
         )
         resources = response.get_resources()
-        assert isinstance(response, FhirResourceList)
+        assert isinstance(
+            resources, FhirResourceList
+        ), f"response is not a FhirResourceList but {type(response)}"
         assert len(resources) == 1
         assert resources[0]["resourceType"] == "Patient"
         assert resources[0]["id"] == "123"

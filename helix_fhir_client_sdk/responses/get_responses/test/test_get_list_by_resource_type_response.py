@@ -5,6 +5,7 @@ from unittest.mock import Mock
 import pytest
 
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
+from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_list_by_resource_type_response import (
     FhirGetListByResourceTypeResponse,
@@ -73,7 +74,9 @@ class TestFhirGetListByResourceTypeResponse:
             storage_mode=CompressedDictStorageMode(),
         )
         assert response.request_id == "test-request"
-        assert len(response._resource_map) == 2  # Patient and Observation
+        assert (
+            response._resource_map.get_count_of_resource_types() == 2
+        )  # Patient and Observation
         assert len(response._resource_map["Patient"]) == 2
         assert len(response._resource_map["Observation"]) == 1
 
@@ -96,7 +99,7 @@ class TestFhirGetListByResourceTypeResponse:
         _, resource_map = FhirGetListByResourceTypeResponse._parse_into_resource_map(
             sample_resources
         )
-        assert len(resource_map) == 2
+        assert resource_map.get_count_of_resource_types() == 2
         assert "Patient" in resource_map
         assert "Observation" in resource_map
         assert len(resource_map["Patient"]) == 2
@@ -127,7 +130,7 @@ class TestFhirGetListByResourceTypeResponse:
             FhirGetListByResourceTypeResponse.from_response(mock_response),
         )
         assert bundle_response.request_id == "test-request"
-        assert len(bundle_response._resource_map) == 2
+        assert bundle_response._resource_map.get_count_of_resource_types() == 2
 
     def test_get_response_text(self, sample_resources: FhirResourceList) -> None:
         """Test getting the response text as JSON."""
@@ -277,7 +280,7 @@ class TestFhirGetListByResourceTypeResponse:
 
         # Verify the results
         assert len(consumed_resources) == 1
-        assert isinstance(consumed_resources[0], FhirResource)
+        assert isinstance(consumed_resources[0], FhirResourceMap)
 
         # Check the structure of the resource map
         resource_dict = consumed_resources[0].to_dict()
@@ -311,7 +314,7 @@ class TestFhirGetListByResourceTypeResponse:
 
         # Verify the results
         assert len(consumed_resources) == 1
-        assert isinstance(consumed_resources[0], FhirResource)
+        assert isinstance(consumed_resources[0], FhirResourceMap)
 
         # Check the structure of the resource map
         resource_dict = consumed_resources[0].to_dict()

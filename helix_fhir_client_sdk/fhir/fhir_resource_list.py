@@ -6,6 +6,8 @@ from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
 class FhirResourceList(Deque[FhirResource]):
+    __slots__: List[str] = []
+
     def get_resource_type_and_ids(self) -> List[str]:
         """
         Get the resource type and IDs of the resources in the list.

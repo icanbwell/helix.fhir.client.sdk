@@ -135,8 +135,8 @@ class TestFhirGetBundleResponse:
         )
 
         resources = response.get_resources()
-        assert len(resources) == 2
         assert isinstance(resources, FhirResourceList)
+        assert len(resources) == 2
         assert resources[0]["resourceType"] == "Patient"
         assert resources[1]["resourceType"] == "Observation"
 
@@ -316,7 +316,6 @@ class TestFhirGetBundleResponse:
         assert len(resources) == 2
         assert resources[0]["resourceType"] == "Patient"
         assert resources[1]["resourceType"] == "Observation"
-        assert len(response.get_resources()) == 0
         assert response.get_resource_count() == 0
 
     def test_consume_resource(self, sample_bundle_response: Dict[str, Any]) -> None:
@@ -348,7 +347,6 @@ class TestFhirGetBundleResponse:
         assert len(resources) == 2
         assert resources[0]["resourceType"] == "Patient"
         assert resources[1]["resourceType"] == "Observation"
-        assert len(response.get_resources()) == 0
         assert response.get_resource_count() == 0
 
     @pytest.mark.asyncio

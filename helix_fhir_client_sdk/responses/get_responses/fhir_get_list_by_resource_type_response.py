@@ -137,21 +137,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
         :return: list of resources
         """
-        resources: FhirResourceList = FhirResourceList()
-        resources_for_resource_type: FhirResourceList
-        resource_map: Dict[str, List[Dict[str, Any]]] = {}
-        for resource_type, resources_for_resource_type in self._resource_map.items():
-            resource_map[resource_type] = [
-                r.to_dict() for r in resources_for_resource_type
-            ]
-
-        # Now create one resource to hold the resource map
-        resource_map_resource: FhirResource = FhirResource(
-            initial_dict=resource_map, storage_mode=self.storage_mode
-        )
-        resources.append(resource_map_resource)
-
-        return resources
+        return self._resource_map
 
     @override
     def get_bundle_entries(self) -> FhirBundleEntryList:
@@ -252,12 +238,12 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         self,
     ) -> AsyncGenerator[FhirResource | FhirResourceMap, None]:
         yield self._resource_map
-        self._resource_map.clear()
+        self._resource_map = FhirResourceMap()
 
     @override
     def consume_resource(self) -> Generator[FhirResource | FhirResourceMap, None, None]:
         yield self._resource_map
-        self._resource_map.clear()
+        self._resource_map = FhirResourceMap()
 
     @override
     async def consume_bundle_entry_async(self) -> AsyncGenerator[BundleEntry, None]:

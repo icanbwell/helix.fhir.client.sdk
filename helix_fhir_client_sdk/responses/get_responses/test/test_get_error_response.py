@@ -85,8 +85,8 @@ class TestFhirGetErrorResponse:
         )
 
         resources = response.get_resources()
-        assert len(resources) == 1
         assert isinstance(resources, FhirResourceList)
+        assert len(resources) == 1
         assert resources[0]["resourceType"] == "OperationOutcome"
 
     def test_get_bundle_entries(

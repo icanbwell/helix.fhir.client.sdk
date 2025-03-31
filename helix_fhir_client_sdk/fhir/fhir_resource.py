@@ -41,3 +41,9 @@ class FhirResource(CompressedDict[str, Any]):
             if self.resource_type and self.id
             else None
         )
+
+    def __eq__(self, other: object) -> bool:
+        """Check equality based on resource type and ID."""
+        if not isinstance(other, FhirResource):
+            return False
+        return self.resource_type == other.resource_type and self.id == other.id
