@@ -1,6 +1,6 @@
 import json
 from os import environ
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Deque
 
 import pytest
 from objsize import get_deep_size
@@ -75,7 +75,7 @@ async def test_async_real_fhir_server_get_patients_large(
     if use_data_streaming:
         responses: List[FhirGetResponse] = []
         response: Optional[FhirGetResponse] = None
-        resource_chunks: List[List[FhirResource]] = []
+        resource_chunks: List[Deque[FhirResource]] = []
         async for response1 in fhir_client.get_streaming_async():
             resources_in_chunk = response1.get_resources()
             print(
@@ -93,7 +93,7 @@ async def test_async_real_fhir_server_get_patients_large(
         assert response.response_headers is not None
         assert "Transfer-Encoding:chunked" in response.response_headers
         assert "Content-Encoding:gzip" in response.response_headers
-        resources: List[FhirResource] = response.get_resources()
+        resources: Deque[FhirResource] = response.get_resources()
         assert len(resources) == count
         print("Number of chunks received:", len(responses))
         assert len(responses) > 1

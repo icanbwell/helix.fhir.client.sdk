@@ -1,3 +1,4 @@
+from collections import deque
 from datetime import datetime
 from typing import (
     Optional,
@@ -9,6 +10,7 @@ from typing import (
     override,
     Tuple,
     AsyncGenerator,
+    Deque,
 )
 
 from helix_fhir_client_sdk.fhir.bundle import Bundle
@@ -80,7 +82,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             results_by_url=results_by_url,
             storage_mode=storage_mode,
         )
-        bundle_entries: List[BundleEntry]
+        bundle_entries: Deque[BundleEntry]
         bundle: Bundle
         bundle_entries, bundle = self._parse_bundle_entries(
             responses=response_text,
@@ -104,7 +106,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             etag=self.etag,
             storage_mode=self.storage_mode,
         )
-        self._bundle_entries: List[BundleEntry] = bundle_entries
+        self._bundle_entries: Deque[BundleEntry] = bundle_entries
         self._bundle_metadata: Bundle = bundle
         self._length: int = len(bundle_entries)
 
@@ -140,7 +142,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         return self
 
     @override
-    def get_resources(self) -> List[FhirResource]:
+    def get_resources(self) -> Deque[FhirResource]:
         """
         Gets the resources from the response
 
@@ -148,10 +150,10 @@ class FhirGetBundleResponse(FhirGetResponse):
         :return: list of resources
         """
 
-        return [c.resource for c in self.get_bundle_entries() if c.resource is not None]
+        return deque(c.resource for c in self._bundle_entries if c.resource is not None)
 
     @override
-    def get_bundle_entries(self) -> List[BundleEntry]:
+    def get_bundle_entries(self) -> Deque[BundleEntry]:
         return self._bundle_entries
 
     @classmethod
@@ -164,7 +166,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         last_modified: Optional[datetime],
         etag: Optional[str],
         storage_mode: CompressedDictStorageMode,
-    ) -> Tuple[List[BundleEntry], Bundle]:
+    ) -> Tuple[Deque[BundleEntry], Bundle]:
         """
         Gets the Bundle entries from the response
 
@@ -197,35 +199,38 @@ class FhirGetBundleResponse(FhirGetResponse):
                 etag=etag,
             )
 
+            result: Deque[BundleEntry] = deque()
+
             # otherwise it is a bundle so parse out the resources
             if "entry" in child_response_resources:
                 bundle_entries: List[Dict[str, Any]] = child_response_resources["entry"]
-                return [
-                    BundleEntry(
-                        resource=entry["resource"],
-                        request=(
-                            BundleEntryRequest.from_dict(
-                                cast(Dict[str, Any], entry.get("request"))
-                            )
-                            if entry.get("request")
-                            and isinstance(entry.get("request"), dict)
-                            else request
-                        ),
-                        response=(
-                            BundleEntryResponse.from_dict(
-                                cast(Dict[str, Any], entry.get("response"))
-                            )
-                            if entry.get("response")
-                            and isinstance(entry.get("response"), dict)
-                            else response
-                        ),
-                        fullUrl=entry.get("fullUrl"),
-                        storage_mode=storage_mode,
+                for entry in bundle_entries:
+                    result.append(
+                        BundleEntry(
+                            resource=entry["resource"],
+                            request=(
+                                BundleEntryRequest.from_dict(
+                                    cast(Dict[str, Any], entry.get("request"))
+                                )
+                                if entry.get("request")
+                                and isinstance(entry.get("request"), dict)
+                                else request
+                            ),
+                            response=(
+                                BundleEntryResponse.from_dict(
+                                    cast(Dict[str, Any], entry.get("response"))
+                                )
+                                if entry.get("response")
+                                and isinstance(entry.get("response"), dict)
+                                else response
+                            ),
+                            fullUrl=entry.get("fullUrl"),
+                            storage_mode=storage_mode,
+                        )
                     )
-                    for entry in bundle_entries
-                ], bundle
+                return result, bundle
             else:
-                return [
+                result.append(
                     BundleEntry(
                         resource=child_response_resources,
                         request=request,
@@ -233,14 +238,15 @@ class FhirGetBundleResponse(FhirGetResponse):
                         fullUrl=None,
                         storage_mode=storage_mode,
                     )
-                ], bundle
+                )
+                return result, bundle
         except Exception as e:
             raise Exception(f"Could not get bundle entries from: {responses}") from e
 
     def create_bundle(self) -> Bundle:
-        bundle_entries: List[BundleEntry] = self.get_bundle_entries()
+        bundle_entries: Deque[BundleEntry] = self.get_bundle_entries()
         return Bundle(
-            entry=bundle_entries,
+            entry=list(bundle_entries),
             total=len(bundle_entries),
             id_=self._bundle_metadata.id_,
             timestamp=self._bundle_metadata.timestamp,
@@ -259,7 +265,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             # this will remove duplicates from the bundle and return a new bundle
             # with the duplicates removed
             bundle = FhirBundleAppender.remove_duplicate_resources(bundle=bundle)
-            self._bundle_entries = bundle.entry or []
+            self._bundle_entries = deque(bundle.entry) if bundle.entry else deque()
             self._length = len(self._bundle_entries)
             return self
         except Exception as e:
@@ -280,7 +286,9 @@ class FhirGetBundleResponse(FhirGetResponse):
         # convert the resources from the other response into a bundle
         bundle: Bundle = Bundle(
             # create a new bundle with the entries from the other response
-            entry=other_response.get_bundle_entries(),  # this will be a list of resources from the other response
+            entry=list(
+                other_response.get_bundle_entries()
+            ),  # this will be a list of resources from the other response
             type_="collection",  # default to collection if type is not provided
         )
 
@@ -319,17 +327,17 @@ class FhirGetBundleResponse(FhirGetResponse):
     def sort_resources(self) -> "FhirGetBundleResponse":
         bundle: Bundle = self.create_bundle()
         bundle = FhirBundleAppender.sort_resources(bundle=bundle)
-        self._bundle_entries = bundle.entry or []
+        self._bundle_entries = deque(bundle.entry) if bundle.entry else deque()
         return self
 
     @override
     async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
-        for entry in [e for e in self.get_bundle_entries() if e.resource]:
+        for entry in [e for e in self._bundle_entries if e.resource]:
             yield cast(FhirResource, entry.resource)
 
     @override
     async def get_bundle_entries_generator(self) -> AsyncGenerator[BundleEntry, None]:
-        for entry in self.get_bundle_entries():
+        for entry in self._bundle_entries:
             yield entry
 
     @override

@@ -1,5 +1,16 @@
 import json
-from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator, Tuple
+from collections import deque
+from typing import (
+    Optional,
+    Dict,
+    Any,
+    List,
+    Union,
+    override,
+    AsyncGenerator,
+    Tuple,
+    Deque,
+)
 
 from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
@@ -109,14 +120,14 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return self
 
     @override
-    def get_resources(self) -> List[FhirResource]:
+    def get_resources(self) -> Deque[FhirResource]:
         """
         Gets the resources from the response
 
 
         :return: list of resources
         """
-        resources: List[FhirResource] = []
+        resources: Deque[FhirResource] = deque()
         resources_for_resource_type: List[FhirResource]
         for resources_for_resource_type in self._resource_map.values():
             resources.extend(resources_for_resource_type)
@@ -124,7 +135,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return resources
 
     @override
-    def get_bundle_entries(self) -> List[BundleEntry]:
+    def get_bundle_entries(self) -> Deque[BundleEntry]:
         raise NotImplementedError(
             "get_bundle_entries is not implemented for FhirGetListByResourceTypeResponse. "
         )
@@ -166,7 +177,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         response: FhirGetListByResourceTypeResponse = FhirGetListByResourceTypeResponse(
             request_id=other_response.request_id,
             url=other_response.url,
-            resources=other_response.get_resources(),
+            resources=list(other_response.get_resources()),
             error=other_response.error,
             access_token=other_response.access_token,
             total_count=other_response.total_count,

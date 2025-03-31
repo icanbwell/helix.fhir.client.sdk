@@ -3,7 +3,7 @@ from abc import abstractmethod
 from datetime import datetime, UTC
 
 from dateutil import parser
-from typing import Optional, Dict, Any, List, Union, cast, AsyncGenerator
+from typing import Optional, Dict, Any, List, Union, cast, AsyncGenerator, Deque
 
 from helix_fhir_client_sdk.fhir.bundle_entry import (
     BundleEntry,
@@ -179,7 +179,7 @@ class FhirGetResponse:
         return result
 
     @abstractmethod
-    def get_resources(self) -> List[FhirResource]:
+    def get_resources(self) -> Deque[FhirResource]:
         """
         Gets the resources from the response
 
@@ -200,7 +200,7 @@ class FhirGetResponse:
         yield None  # type: ignore[misc]
 
     @abstractmethod
-    def get_bundle_entries(self) -> List[BundleEntry]:
+    def get_bundle_entries(self) -> Deque[BundleEntry]:
         """
         Gets the Bundle entries from the response
 
@@ -323,7 +323,7 @@ class FhirGetResponse:
         """
         Gets the ids of the resources from the response
         """
-        resources: List[FhirResource] = self.get_resources()
+        resources: Deque[FhirResource] = self.get_resources()
         try:
             return [f"{r.get('resourceType')}/{r.get('id')}" for r in resources]
         except Exception as e:

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional, Deque
 
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
@@ -13,7 +13,7 @@ class GraphLinkParameters:
     This class contains the parameters for a graph target
     """
 
-    parent_bundle_entries: List[BundleEntry] | None
+    parent_bundle_entries: Deque[BundleEntry] | None
 
     logger: Optional[FhirLogger]
 

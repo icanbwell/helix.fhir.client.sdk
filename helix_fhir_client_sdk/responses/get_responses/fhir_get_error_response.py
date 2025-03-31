@@ -1,5 +1,6 @@
 import json
-from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator
+from collections import deque
+from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator, Deque
 
 from helix_fhir_client_sdk.fhir.bundle import Bundle
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
@@ -111,24 +112,24 @@ class FhirGetErrorResponse(FhirGetResponse):
         )
 
     @override
-    def get_resources(self) -> List[FhirResource]:
+    def get_resources(self) -> Deque[FhirResource]:
         """
         Gets the resources from the response
 
 
         :return: list of resources
         """
-        return [self._resource] if self._resource else []
+        return deque([self._resource]) if self._resource else deque()
 
     @override
-    def get_bundle_entries(self) -> List[BundleEntry]:
+    def get_bundle_entries(self) -> Deque[BundleEntry]:
         """
         Gets the Bundle entries from the response
 
 
         :return: list of bundle entries
         """
-        return (
+        return deque(
             [
                 BundleEntry(
                     resource=self._resource,  # This will be the OperationOutcome or the resource itself

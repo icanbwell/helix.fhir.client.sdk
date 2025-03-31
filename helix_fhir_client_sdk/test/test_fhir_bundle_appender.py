@@ -1,5 +1,6 @@
 import json
-from typing import List, Any
+from collections import deque
+from typing import List, Any, Deque
 
 import pytest
 
@@ -259,22 +260,24 @@ class TestFhirBundleAppender:
 
     def test_sort_resources_in_list(self) -> None:
         """Test sorting resources in a list."""
-        resources: List[FhirResource] = [
-            FhirResource(
-                initial_dict={"resourceType": "Patient", "id": "456"},
-                storage_mode=CompressedDictStorageMode(),
-            ),
-            FhirResource(
-                initial_dict={"resourceType": "Patient", "id": "123"},
-                storage_mode=CompressedDictStorageMode(),
-            ),
-            FhirResource(
-                initial_dict={"resourceType": "Observation", "id": "789"},
-                storage_mode=CompressedDictStorageMode(),
-            ),
-        ]
+        resources: Deque[FhirResource] = deque(
+            [
+                FhirResource(
+                    initial_dict={"resourceType": "Patient", "id": "456"},
+                    storage_mode=CompressedDictStorageMode(),
+                ),
+                FhirResource(
+                    initial_dict={"resourceType": "Patient", "id": "123"},
+                    storage_mode=CompressedDictStorageMode(),
+                ),
+                FhirResource(
+                    initial_dict={"resourceType": "Observation", "id": "789"},
+                    storage_mode=CompressedDictStorageMode(),
+                ),
+            ]
+        )
 
-        sorted_resources: List[FhirResource] = (
+        sorted_resources: Deque[FhirResource] = (
             FhirBundleAppender.sort_resources_in_list(
                 resources=resources,
             )

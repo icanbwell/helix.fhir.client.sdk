@@ -9,6 +9,7 @@ from typing import (
     Tuple,
     cast,
     AsyncGenerator,
+    Deque,
 )
 
 from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
@@ -134,7 +135,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 yield parent_response
                 return  # no resources to process
 
-            parent_bundle_entries: List[BundleEntry] = (
+            parent_bundle_entries: Deque[BundleEntry] = (
                 parent_response.get_bundle_entries()
             )
 
@@ -147,13 +148,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # now process the graph links
             child_responses: List[FhirGetResponse] = []
             parent_link_map: List[
-                Tuple[List[GraphDefinitionLink], List[BundleEntry]]
+                Tuple[List[GraphDefinitionLink], Deque[BundleEntry]]
             ] = []
             if graph_definition.link and parent_bundle_entries:
                 parent_link_map.append((graph_definition.link, parent_bundle_entries))
             while len(parent_link_map):
                 new_parent_link_map: List[
-                    Tuple[List[GraphDefinitionLink], List[BundleEntry]]
+                    Tuple[List[GraphDefinitionLink], Deque[BundleEntry]]
                 ] = []
                 for link, parent_bundle_entries in parent_link_map:
                     link_responses: List[FhirGetResponse]
@@ -283,11 +284,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         self,
         *,
         link: GraphDefinitionLink,
-        parent_bundle_entries: Optional[List[BundleEntry]],
+        parent_bundle_entries: Optional[Deque[BundleEntry]],
         logger: Optional[FhirLogger],
         cache: RequestCache,
         scope_parser: FhirScopeParser,
-        parent_link_map: List[Tuple[List[GraphDefinitionLink], List[BundleEntry]]],
+        parent_link_map: List[Tuple[List[GraphDefinitionLink], Deque[BundleEntry]]],
         request_size: int,
         id_search_unsupported_resources: List[str],
         max_concurrent_tasks: Optional[int],
@@ -408,7 +409,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         *,
         target: GraphDefinitionTarget,
         path: Optional[str],
-        parent_bundle_entries: Optional[List[BundleEntry]],
+        parent_bundle_entries: Optional[Deque[BundleEntry]],
         logger: Optional[FhirLogger],
         cache: RequestCache,
         scope_parser: FhirScopeParser,
@@ -506,11 +507,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 if parent_resource is not None:
                     with parent_resource.transaction():
                         reference = parent_resource.get(path, None)
-                        if reference and "reference" in reference:
+                        if reference is not None and "reference" in reference:
                             parent_ids.append(parent_resource.get("id", ""))
                             parent_resource_type = parent_resource.get(
                                 "resourceType", ""
                             )
+                            # noinspection PyUnresolvedReferences
                             reference_id = reference["reference"]
                             reference_parts = reference_id.split("/")
                             if (

@@ -1,7 +1,7 @@
 import datetime
 import json
 from os import environ
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Deque
 
 import pytest
 
@@ -75,7 +75,7 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
     print("----- end response_text -----")
 
     if use_data_streaming:
-        resources: List[FhirResource] = response.get_resources()
+        resources: Deque[FhirResource] = response.get_resources()
         assert len(resources) == 1, response_text
         assert resources[0]["id"] == "12355"
         assert resources[0]["resourceType"] == "Patient"

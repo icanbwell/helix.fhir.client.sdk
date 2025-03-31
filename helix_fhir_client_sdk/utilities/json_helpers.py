@@ -1,6 +1,10 @@
+import dataclasses
 import json
-from typing import Any, Dict, List, cast
+from enum import Enum
+from typing import Any, Dict, List, cast, Union, Optional
 from datetime import datetime, date
+
+import orjson
 
 
 class FhirClientJsonHelpers:
@@ -66,3 +70,75 @@ class FhirClientJsonHelpers:
             instance_variables, default=FhirClientJsonHelpers.json_serial
         )
         return instance_variables_text
+
+    @staticmethod
+    def custom_serializer(
+        obj: Any,
+    ) -> Union[Dict[str, Any], str, int, float, bool, None]:
+        """
+        Custom serialization function compatible with orjson
+
+        This replaces the JSONEncoder's default method for orjson
+        """
+        if dataclasses.is_dataclass(obj):
+            return dataclasses.asdict(obj)  # type: ignore[arg-type]
+
+        if isinstance(obj, Enum):
+            return cast(int, obj.value)
+
+        if isinstance(obj, (datetime, date)):
+            # Convert to ISO format with .000Z suffix
+            return obj.isoformat().replace("+00:00", ".000Z")
+
+        if hasattr(obj, "to_dict"):
+            return cast(Dict[str, Any], obj.to_dict())
+
+        # For objects orjson can't serialize, raise an error
+        raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+    @staticmethod
+    def orjson_dumps(
+        obj: Any, indent: Optional[int] = None, sort_keys: bool = False
+    ) -> str:
+        """
+        Wrapper for orjson.dumps() to mimic json.dumps() behavior
+
+        Args:
+            obj: Object to serialize
+            indent: Optional indentation (note: orjson has limited indent support)
+            sort_keys: Whether to sort dictionary keys
+
+        Returns:
+            JSON string
+        """
+        # Serialization options
+        options = 0
+
+        # Handle sorting keys
+        if sort_keys:
+            options |= orjson.OPT_SORT_KEYS
+
+        # Handle indentation (limited support)
+        if indent is not None:
+            options |= orjson.OPT_INDENT_2  # Fixed indentation
+
+        # Serialize to bytes
+        json_bytes = orjson.dumps(obj, option=options)
+
+        # Convert bytes to string
+        return json_bytes.decode("utf-8")
+
+    @staticmethod
+    def orjson_loads(json_input: Union[str, bytes]) -> Any:
+        """
+        Safely load JSON with type flexibility
+        """
+        try:
+            # Converts input to appropriate type if needed
+            if isinstance(json_input, str):
+                json_input = json_input.encode("utf-8")
+
+            return orjson.loads(json_input)
+        except (orjson.JSONDecodeError, TypeError) as e:
+            print(f"JSON Parsing Error: {e}")
+            return None

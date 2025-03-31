@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional, Deque
 
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
@@ -16,7 +16,7 @@ class GraphTargetParameters:
     path: Optional[str]
     """ path to the target """
 
-    parent_bundle_entries: List[BundleEntry] | None
+    parent_bundle_entries: Deque[BundleEntry] | None
     """ parent bundle entry """
 
     logger: Optional[FhirLogger]

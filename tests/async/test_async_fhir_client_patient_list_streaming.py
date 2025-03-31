@@ -1,6 +1,6 @@
 import json
 from os import environ
-from typing import List, Any, Dict, Optional
+from typing import List, Any, Dict, Optional, Deque
 
 from mockserver_client.mockserver_client import (
     mock_request,
@@ -63,7 +63,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
 
     responses: List[FhirGetResponse] = []
     response: Optional[FhirGetResponse] = None
-    resource_chunks: List[List[FhirResource]] = []
+    resource_chunks: List[Deque[FhirResource]] = []
     async for response1 in fhir_client.get_streaming_async():
         resources_in_chunk = response1.get_resources()
         print(
@@ -79,7 +79,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
 
     assert response is not None
 
-    resources: List[FhirResource] = response.get_resources()
+    resources: Deque[FhirResource] = response.get_resources()
 
     mock_client.verify_expectations()
 

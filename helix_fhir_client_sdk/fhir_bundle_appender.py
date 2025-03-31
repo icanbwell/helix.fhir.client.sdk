@@ -1,13 +1,14 @@
 import json
+from collections import deque
 from datetime import datetime
-from typing import List, Optional, Dict, Any, Callable
+from typing import List, Optional, Dict, Any, Callable, Deque
 
 from helix_fhir_client_sdk.fhir.bundle import Bundle
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
 from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
-from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
+from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
@@ -37,23 +38,23 @@ class FhirBundleAppender:
         :return: The bundle with the responses appended
         """
         response: FhirGetResponse
-        bundle_entries: List[BundleEntry] = []
+        bundle_entries: Deque[BundleEntry] = deque()
         for response in responses:
-            bundle_entries_for_response: List[BundleEntry] = (
+            bundle_entries_for_response: Deque[BundleEntry] = (
                 FhirBundleAppender.add_operation_outcomes_to_response(
                     response=response, storage_mode=storage_mode
                 )
             )
             bundle_entries.extend(bundle_entries_for_response)
 
-        bundle.entry = bundle_entries
+        bundle.entry = list(bundle_entries)
         return bundle
 
     @staticmethod
     def add_operation_outcomes_to_response(
         *, response: FhirGetResponse, storage_mode: CompressedDictStorageMode
-    ) -> List[BundleEntry]:
-        bundle_entries: List[BundleEntry] = response.get_bundle_entries()
+    ) -> Deque[BundleEntry]:
+        bundle_entries: Deque[BundleEntry] = response.get_bundle_entries()
         return FhirBundleAppender.add_operation_outcomes_to_bundle_entries(
             bundle_entries=bundle_entries,
             error=response.error,
@@ -72,7 +73,7 @@ class FhirBundleAppender:
     @staticmethod
     def add_operation_outcomes_to_bundle_entries(
         *,
-        bundle_entries: List[BundleEntry],
+        bundle_entries: Deque[BundleEntry],
         error: Optional[str],
         url: str,
         resource_type: Optional[str],
@@ -84,7 +85,7 @@ class FhirBundleAppender:
         last_modified: Optional[datetime],
         etag: Optional[str],
         storage_mode: CompressedDictStorageMode,
-    ) -> List[BundleEntry]:
+    ) -> Deque[BundleEntry]:
         """
         Adds operation outcomes to the bundle entries
 
@@ -311,9 +312,9 @@ class FhirBundleAppender:
     @staticmethod
     def sort_resources_in_list(
         *,
-        resources: List[FhirResource],
+        resources: Deque[FhirResource],
         fn_sort: Callable[[FhirResource], str] | None = None,
-    ) -> List[FhirResource]:
+    ) -> Deque[FhirResource]:
         """
         Sorts the resources in the bundle
 
@@ -327,8 +328,8 @@ class FhirBundleAppender:
             fn_sort = lambda r: (
                 (r.get("resourceType", "") + "/" + r.get("id", "")) if r else ""
             )
-        resources = sorted(
-            resources,
+        resources_list: List[FhirResource] = sorted(
+            list(resources),
             key=fn_sort,
         )
-        return resources
+        return deque(resources_list)

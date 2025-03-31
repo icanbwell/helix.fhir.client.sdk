@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 from logging import Logger
-from typing import Dict, Any, List, Optional, cast, Callable, Awaitable
+from typing import Dict, Any, Optional, cast, Callable, Awaitable, Deque
 from datetime import datetime
 
 import aiohttp
@@ -244,7 +244,7 @@ async def test_graph_definition_with_single_link() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[FhirResource] = response[0].get_resources()
+        resources: Deque[FhirResource] = response[0].get_resources()
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
@@ -328,7 +328,7 @@ async def test_graph_definition_with_nested_links() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[FhirResource] = response[0].get_resources()
+        resources: Deque[FhirResource] = response[0].get_resources()
         assert (
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
@@ -408,7 +408,7 @@ async def test_graph_definition_with_multiple_links() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[FhirResource] = response[0].get_resources()
+        resources: Deque[FhirResource] = response[0].get_resources()
         assert (
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
@@ -484,7 +484,7 @@ async def test_graph_definition_with_multiple_targets() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[FhirResource] = response[0].get_resources()
+        resources: Deque[FhirResource] = response[0].get_resources()
         assert (
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
@@ -543,7 +543,7 @@ async def test_graph_definition_with_no_links() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[FhirResource] = response[0].get_resources()
+        resources: Deque[FhirResource] = response[0].get_resources()
         assert len(resources) == 1
         assert resources[0] == {"resourceType": "Patient", "id": "1"}
 
@@ -601,7 +601,7 @@ async def test_process_simulate_graph_async_multiple_patients() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[FhirResource] = response[0].get_resources()
+        resources: Deque[FhirResource] = response[0].get_resources()
         patient = [
             r for r in resources if r["resourceType"] == "Patient" and r["id"] == "1"
         ][0]
@@ -684,7 +684,7 @@ async def test_graph_definition_with_multiple_links_concurrent_requests() -> Non
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[FhirResource] = response[0].get_resources()
+        resources: Deque[FhirResource] = response[0].get_resources()
         assert (
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
@@ -760,7 +760,7 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests() -> N
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[FhirResource] = response[0].get_resources()
+        resources: Deque[FhirResource] = response[0].get_resources()
         assert (
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
@@ -882,7 +882,7 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
         m.assert_any_call(url="http://example.com/fhir/Encounter?patient=1")
         m.assert_any_call(url="http://example.com/fhir/Practitioner/12345")
 
-        resources: List[FhirResource] = response[0].get_resources()
+        resources: Deque[FhirResource] = response[0].get_resources()
         assert (
             len(resources) == 4
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
@@ -1110,7 +1110,7 @@ async def test_graph_definition_with_single_link_401() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[FhirResource] = response[0].get_resources()
+        resources: Deque[FhirResource] = response[0].get_resources()
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
@@ -1298,7 +1298,7 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
         m.assert_any_call(url="http://example.com/fhir/Encounter?patient=1")
         m.assert_any_call(url="http://example.com/fhir/Practitioner/12345")
 
-        resources: List[FhirResource] = response[0].get_resources()
+        resources: Deque[FhirResource] = response[0].get_resources()
         assert (
             len(resources) == 4
         ), f"Expected 3 resources, got {len(resources)}: {resources}"

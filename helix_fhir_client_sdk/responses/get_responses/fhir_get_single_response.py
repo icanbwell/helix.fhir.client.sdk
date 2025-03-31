@@ -1,5 +1,16 @@
 import json
-from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator, cast
+from collections import deque
+from typing import (
+    Optional,
+    Dict,
+    Any,
+    List,
+    Union,
+    override,
+    AsyncGenerator,
+    cast,
+    Deque,
+)
 
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
@@ -101,7 +112,7 @@ class FhirGetSingleResponse(FhirGetResponse):
         )
 
     @override
-    def get_resources(self) -> List[FhirResource]:
+    def get_resources(self) -> Deque[FhirResource]:
         """
         Gets the resources from the response
 
@@ -109,9 +120,9 @@ class FhirGetSingleResponse(FhirGetResponse):
         :return: list of resources
         """
         if not self._resource:
-            return []
+            return deque()
 
-        return [self._resource] if self._resource else []
+        return deque([self._resource]) if self._resource else deque()
 
     def get_bundle_entry(self) -> BundleEntry:
         # use these if the bundle entry does not have them
@@ -130,7 +141,7 @@ class FhirGetSingleResponse(FhirGetResponse):
         return bundle_entry
 
     @override
-    def get_bundle_entries(self) -> List[BundleEntry]:
+    def get_bundle_entries(self) -> Deque[BundleEntry]:
         """
         Gets the Bundle entries from the response
 
@@ -138,9 +149,9 @@ class FhirGetSingleResponse(FhirGetResponse):
         :return: list of bundle entries
         """
         if not self._resource:
-            return []
+            return deque()
         try:
-            return [self.get_bundle_entry()]
+            return deque([self.get_bundle_entry()])
         except Exception as e:
             raise Exception(
                 f"Could not get bundle entries from: {self._resource}"

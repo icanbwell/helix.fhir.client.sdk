@@ -1,6 +1,7 @@
 import json
+from collections import deque
 from datetime import datetime, UTC
-from typing import Dict, Any, List, AsyncGenerator, Optional, Union, override
+from typing import Dict, Any, List, AsyncGenerator, Optional, Union, override, Deque
 
 import pytest
 
@@ -61,8 +62,8 @@ class TestFhirGetResponse(FhirGetResponse):
             results_by_url=results_by_url,
             storage_mode=storage_mode,
         )
-        self._resources: List[FhirResource] = []
-        self._bundle_entries: List[BundleEntry] = []
+        self._resources: Deque[FhirResource] = deque()
+        self._bundle_entries: Deque[BundleEntry] = deque()
 
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
         # Simple implementation for testing
@@ -72,14 +73,14 @@ class TestFhirGetResponse(FhirGetResponse):
         # Simple implementation for testing
         return self
 
-    def get_resources(self) -> List[FhirResource]:
+    def get_resources(self) -> Deque[FhirResource]:
         return self._resources
 
     async def get_resources_generator(self) -> AsyncGenerator[FhirResource, None]:
         for resource in self._resources:
             yield resource
 
-    def get_bundle_entries(self) -> List[BundleEntry]:
+    def get_bundle_entries(self) -> Deque[BundleEntry]:
         return self._bundle_entries
 
     async def get_bundle_entries_generator(self) -> AsyncGenerator[BundleEntry, None]:
@@ -240,16 +241,18 @@ class TestFhirGetResponseClass:
     def test_get_operation_outcomes(self, sample_response_data: Dict[str, Any]) -> None:
         """Test get_operation_outcomes method."""
         response = TestFhirGetResponse(**sample_response_data)
-        response._resources = [
-            FhirResource(
-                initial_dict={"resourceType": "OperationOutcome", "issue": []},
-                storage_mode=CompressedDictStorageMode(),
-            ),
-            FhirResource(
-                initial_dict={"resourceType": "Patient", "id": "123"},
-                storage_mode=CompressedDictStorageMode(),
-            ),
-        ]
+        response._resources = deque(
+            [
+                FhirResource(
+                    initial_dict={"resourceType": "OperationOutcome", "issue": []},
+                    storage_mode=CompressedDictStorageMode(),
+                ),
+                FhirResource(
+                    initial_dict={"resourceType": "Patient", "id": "123"},
+                    storage_mode=CompressedDictStorageMode(),
+                ),
+            ]
+        )
 
         outcomes = response.get_operation_outcomes()
         assert len(outcomes) == 1
@@ -260,16 +263,18 @@ class TestFhirGetResponseClass:
     ) -> None:
         """Test get_resources_except_operation_outcomes method."""
         response = TestFhirGetResponse(**sample_response_data)
-        response._resources = [
-            FhirResource(
-                initial_dict={"resourceType": "OperationOutcome", "issue": []},
-                storage_mode=CompressedDictStorageMode(),
-            ),
-            FhirResource(
-                initial_dict={"resourceType": "Patient", "id": "123"},
-                storage_mode=CompressedDictStorageMode(),
-            ),
-        ]
+        response._resources = deque(
+            [
+                FhirResource(
+                    initial_dict={"resourceType": "OperationOutcome", "issue": []},
+                    storage_mode=CompressedDictStorageMode(),
+                ),
+                FhirResource(
+                    initial_dict={"resourceType": "Patient", "id": "123"},
+                    storage_mode=CompressedDictStorageMode(),
+                ),
+            ]
+        )
 
         resources = response.get_resources_except_operation_outcomes()
         assert len(resources) == 1

@@ -1,5 +1,6 @@
 import json
-from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator
+from collections import deque
+from typing import Optional, Dict, Any, List, Union, override, AsyncGenerator, Deque
 
 from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
 from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
@@ -69,7 +70,7 @@ class FhirGetListResponse(FhirGetResponse):
             results_by_url=results_by_url,
             storage_mode=storage_mode,
         )
-        self._resources: Optional[List[FhirResource]] = self._parse_resources(
+        self._resources: Optional[Deque[FhirResource]] = self._parse_resources(
             responses=response_text, storage_mode=storage_mode
         )
         self._length: int = len(self._resources) if self._resources else 0
@@ -104,13 +105,13 @@ class FhirGetListResponse(FhirGetResponse):
         self._length = len(self._resources) if self._resources else 0
         return self
 
-    def get_resources(self) -> List[FhirResource]:
-        return self._resources if self._resources else []
+    def get_resources(self) -> Deque[FhirResource]:
+        return self._resources if self._resources else deque()
 
     @classmethod
     def _parse_resources(
         cls, *, responses: str, storage_mode: CompressedDictStorageMode
-    ) -> List[FhirResource]:
+    ) -> Deque[FhirResource]:
         """
         Gets the resources from the response
 
@@ -123,14 +124,14 @@ class FhirGetListResponse(FhirGetResponse):
                 cls.parse_json(responses)
             )
             assert isinstance(child_response_resources, list)
-            return [
-                FhirResource(initial_dict=r, storage_mode=storage_mode)
-                for r in child_response_resources
-            ]
+            result: Deque[FhirResource] = deque()
+            for r in child_response_resources:
+                result.append(FhirResource(initial_dict=r, storage_mode=storage_mode))
+            return result
         except Exception as e:
             raise Exception(f"Could not get resources from: {responses}") from e
 
-    def get_bundle_entries(self) -> List[BundleEntry]:
+    def get_bundle_entries(self) -> Deque[BundleEntry]:
         """
         Gets the Bundle entries from the response
 
@@ -138,7 +139,7 @@ class FhirGetListResponse(FhirGetResponse):
         :return: list of bundle entries
         """
         if not self._resources:
-            return []
+            return deque()
         try:
             # THis is either a list of resources or a Bundle resource containing a list of resources
 
@@ -149,15 +150,17 @@ class FhirGetListResponse(FhirGetResponse):
                 lastModified=self.lastModified,
                 etag=self.etag,
             )
-            return [
-                BundleEntry(
-                    resource=r,
-                    request=request,
-                    response=response,
-                    storage_mode=self.storage_mode,
+            result: Deque[BundleEntry] = deque()
+            for r in self._resources:
+                result.append(
+                    BundleEntry(
+                        resource=r,
+                        request=request,
+                        response=response,
+                        storage_mode=self.storage_mode,
+                    )
                 )
-                for r in self.get_resources()
-            ]
+            return result
         except Exception as e:
             raise Exception(
                 f"Could not get bundle entries from: {self._resources}"
@@ -185,7 +188,7 @@ class FhirGetListResponse(FhirGetResponse):
                 r for r in self._resources if not r.get("id")
             ]
             unique_resources.extend(null_id_resources)
-            self._resources = unique_resources
+            self._resources = deque(unique_resources)
             self._length = len(self._resources) if self._resources else 0
             return self
         except Exception as e:
@@ -197,7 +200,7 @@ class FhirGetListResponse(FhirGetResponse):
         if isinstance(other_response, FhirGetListResponse):
             return other_response
 
-        resources: List[FhirResource] = other_response.get_resources()
+        resources: Deque[FhirResource] = other_response.get_resources()
 
         response: FhirGetListResponse = FhirGetListResponse(
             request_id=other_response.request_id,
