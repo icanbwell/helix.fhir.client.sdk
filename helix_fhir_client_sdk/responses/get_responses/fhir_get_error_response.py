@@ -195,7 +195,6 @@ class FhirGetErrorResponse(FhirGetResponse):
 
         :return: parsed response text or None if not applicable
         """
-        response_json: Dict[str, Any] | None = None
         if response_text:
             # we don't know if the response text is FHIR resource or not
             # noinspection PyBroadException
@@ -211,7 +210,7 @@ class FhirGetErrorResponse(FhirGetResponse):
                 cls.parse_json(response_text)
             )
             assert isinstance(child_response_resources, dict)
-            response_json = child_response_resources
+            response_json: Dict[str, Any] | None = child_response_resources
             return Bundle.add_diagnostics_to_operation_outcomes(
                 resource=FhirResource(
                     initial_dict=response_json, storage_mode=storage_mode
@@ -226,19 +225,9 @@ class FhirGetErrorResponse(FhirGetResponse):
             )
         elif error:
             # create an operation outcome resource
-            return FhirBundleAppender.create_operation_outcome_resource(
-                error=error,
-                url=url,
-                resource_type=resource_type,
-                id_=id_,
-                status=status,
-                access_token=access_token,
-                extra_context_to_return=extra_context_to_return,
-                request_id=request_id,
-                storage_mode=storage_mode,
-            )
+            return None
 
-        return FhirResource(initial_dict=response_json, storage_mode=storage_mode)
+        return None
 
     @override
     def sort_resources(self) -> "FhirGetErrorResponse":
