@@ -80,7 +80,7 @@ async def test_handle_response_200() -> None:
             "chunk_number": None,
             "cache_hits": None,
             "results_by_url": [],
-            "storage_mode": CompressedDictStorageMode(),
+            "storage_type": "compressed_msgpack",
         }
     ]
 

@@ -107,7 +107,7 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
             "chunk_number": 1,
             "cache_hits": None,
             "results_by_url": [],
-            "storage_mode": CompressedDictStorageMode(),
+            "storage_type": "compressed_msgpack",
         },
         {
             "request_id": request_id,
@@ -125,7 +125,7 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
             "chunk_number": 1,
             "cache_hits": None,
             "results_by_url": [],
-            "storage_mode": CompressedDictStorageMode(),
+            "storage_type": "compressed_msgpack",
         },
     ]
 

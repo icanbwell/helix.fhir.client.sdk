@@ -81,7 +81,7 @@ async def test_handle_response_200_non_streaming() -> None:
         "response_headers": response_headers,
         "cache_hits": None,
         "results_by_url": [],
-        "storage_mode": CompressedDictStorageMode(),
+        "storage_type": "compressed_msgpack",
     }
 
     assert result[0].to_dict() == expected_result
