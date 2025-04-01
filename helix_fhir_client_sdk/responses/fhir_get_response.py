@@ -190,12 +190,22 @@ class FhirGetResponse:
         return result
 
     @abstractmethod
-    def get_resources(self) -> FhirResourceList | FhirResourceMap:
+    def get_resources(self) -> FhirResourceList:
         """
         Gets the resources from the response
 
 
         :return: list of resources
+        """
+        ...
+
+    @abstractmethod
+    def get_resource_map(self) -> FhirResourceMap:
+        """
+        Gets the resources from the response as a map
+
+
+        :return: map of resourceType, list of resources
         """
         ...
 

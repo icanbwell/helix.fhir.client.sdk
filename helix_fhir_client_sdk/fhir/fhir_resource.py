@@ -53,3 +53,10 @@ class FhirResource(CompressedDict[str, Any]):
     def to_json(self) -> str:
         """Convert the resource to a JSON string."""
         return json.dumps(obj=self, cls=FhirJSONEncoder)
+
+    def copy(self) -> "FhirResource":
+        """Create a copy of the resource."""
+        return FhirResource(
+            initial_dict=self.to_dict(),
+            storage_mode=self._storage_mode,
+        )

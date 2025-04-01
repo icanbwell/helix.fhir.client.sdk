@@ -115,7 +115,7 @@ class FhirGetSingleResponse(FhirGetResponse):
         )
 
     @override
-    def get_resources(self) -> FhirResourceList | FhirResourceMap:
+    def get_resources(self) -> FhirResourceList:
         """
         Gets the resources from the response
 
@@ -127,6 +127,23 @@ class FhirGetSingleResponse(FhirGetResponse):
 
         return (
             FhirResourceList([self._resource]) if self._resource else FhirResourceList()
+        )
+
+    @override
+    def get_resource_map(self) -> FhirResourceMap:
+        """
+        Gets the resources from the response as a map
+
+
+        :return: map of resourceType, list of resources
+        """
+        raise NotImplementedError(
+            self.get_resource_map.__name__
+            + " is not implemented for "
+            + self.__class__.__name__
+            + ". Use "
+            + self.get_resources.__name__
+            + " instead."
         )
 
     def _create_bundle_entry(self, *, resource: FhirResource) -> FhirBundleEntry:

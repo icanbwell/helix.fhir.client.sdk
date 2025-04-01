@@ -38,3 +38,10 @@ class FhirBundleEntryResponse:
             ),
             etag=d["etag"] if "etag" in d else None,
         )
+
+    def copy(self) -> "FhirBundleEntryResponse":
+        return FhirBundleEntryResponse(
+            status=self.status,
+            lastModified=self.lastModified,
+            etag=self.etag,
+        )

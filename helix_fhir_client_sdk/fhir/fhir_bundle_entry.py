@@ -131,3 +131,17 @@ class FhirBundleEntry:
         :return: A JSON string representation of the BundleEntry.
         """
         return json.dumps(obj=self.to_dict(), cls=FhirJSONEncoder)
+
+    def copy(self) -> "FhirBundleEntry":
+        """
+        Creates a copy of the BundleEntry object.
+
+        :return: A new BundleEntry object with the same attributes.
+        """
+        return FhirBundleEntry(
+            fullUrl=self.fullUrl,
+            resource=self.resource.copy() if self.resource else None,
+            request=self.request.copy() if self.request else None,
+            response=self.response.copy() if self.response else None,
+            storage_mode=self.storage_mode,
+        )

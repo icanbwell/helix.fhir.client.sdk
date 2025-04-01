@@ -130,7 +130,24 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return self
 
     @override
-    def get_resources(self) -> FhirResourceList | FhirResourceMap:
+    def get_resources(self) -> FhirResourceList:
+        """
+        Gets the resources from the response
+
+
+        :return: list of resources
+        """
+        raise NotImplementedError(
+            self.get_resources.__name__
+            + " is not implemented for "
+            + self.__class__.__name__
+            + ". Use "
+            + self.get_resource_map.__name__
+            + " instead."
+        )
+
+    @override
+    def get_resource_map(self) -> FhirResourceMap:
         """
         Gets the resources from the response
 
@@ -142,7 +159,12 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
     @override
     def get_bundle_entries(self) -> FhirBundleEntryList:
         raise NotImplementedError(
-            "get_bundle_entries is not implemented for FhirGetListByResourceTypeResponse. "
+            self.get_bundle_entries.__name__
+            + " is not implemented for "
+            + self.__class__.__name__
+            + ". Use "
+            + self.get_resources.__name__
+            + " instead."
         )
 
     @classmethod
@@ -260,14 +282,6 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         )
         # noinspection PyUnreachableCode,PyTypeChecker
         yield None
-
-    def get_resource_map(self) -> FhirResourceMap:
-        """
-        Gets the resource map from the response
-
-        :return: resource map
-        """
-        return self._resource_map
 
     @override
     def to_dict(self) -> Dict[str, Any]:

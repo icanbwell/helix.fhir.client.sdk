@@ -39,3 +39,11 @@ class FhirBundleEntryRequest:
             ),
             ifNoneMatch=d["ifNoneMatch"] if "ifNoneMatch" in d else None,
         )
+
+    def copy(self) -> "FhirBundleEntryRequest":
+        return FhirBundleEntryRequest(
+            url=self.url,
+            method=self.method,
+            ifModifiedSince=self.ifModifiedSince,
+            ifNoneMatch=self.ifNoneMatch,
+        )

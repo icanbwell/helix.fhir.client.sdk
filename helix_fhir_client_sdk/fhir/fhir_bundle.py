@@ -78,3 +78,17 @@ class FhirBundle:
         """
         bundle_dict = self.to_dict()
         return json.dumps(bundle_dict, cls=FhirJSONEncoder)
+
+    def copy(self) -> "FhirBundle":
+        """
+        Creates a copy of the Bundle.
+
+        :return: A new FhirBundle object with the same attributes
+        """
+        return FhirBundle(
+            entry=self.entry.copy() if self.entry else None,
+            total=self.total,
+            id_=self.id_,
+            timestamp=self.timestamp,
+            type_=self.type_,
+        )

@@ -115,8 +115,25 @@ class FhirGetListResponse(FhirGetResponse):
 
         return self
 
-    def get_resources(self) -> FhirResourceList | FhirResourceMap:
+    def get_resources(self) -> FhirResourceList:
         return self._resources if self._resources else FhirResourceList()
+
+    @override
+    def get_resource_map(self) -> FhirResourceMap:
+        """
+        Gets the resources from the response as a map
+
+
+        :return: map of resourceType, list of resources
+        """
+        raise NotImplementedError(
+            self.get_resource_map.__name__
+            + " is not implemented for "
+            + self.__class__.__name__
+            + ". Use "
+            + self.get_resources.__name__
+            + " instead."
+        )
 
     @classmethod
     def _parse_resources(

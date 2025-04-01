@@ -28,3 +28,11 @@ class FhirBundleEntryList(Deque[FhirBundleEntry]):
                 for _ in range(min(batch_size, len(self))):
                     batch.append(self.popleft())
                 yield batch
+
+    def copy(self) -> "FhirBundleEntryList":
+        """
+        Create a shallow copy of the FhirBundleEntryList.
+
+        :return: A new FhirBundleEntryList instance with the same entries.
+        """
+        return FhirBundleEntryList([entry.copy() for entry in self])

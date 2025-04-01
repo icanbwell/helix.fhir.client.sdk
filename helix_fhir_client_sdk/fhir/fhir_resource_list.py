@@ -103,3 +103,11 @@ class FhirResourceList(Deque[FhirResource]):
                 for _ in range(min(batch_size, len(self))):
                     batch.append(self.popleft())
                 yield batch
+
+    def copy(self) -> "FhirResourceList":
+        """
+        Create a copy of the FhirResourceList.
+
+        :return: A new FhirResourceList object with the same resources.
+        """
+        return FhirResourceList([r.copy() for r in self])

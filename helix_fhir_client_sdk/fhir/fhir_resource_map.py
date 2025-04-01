@@ -161,3 +161,11 @@ class FhirResourceMap:
         :return: The count of unique resource types.
         """
         return len(self._resource_map)
+
+    def copy(self) -> "FhirResourceMap":
+        """
+        Create a copy of the FhirResourceMap.
+
+        :return: A new FhirResourceMap object with the same attributes.
+        """
+        return FhirResourceMap(initial_dict=self._resource_map.copy())
