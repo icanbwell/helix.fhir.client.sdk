@@ -169,3 +169,11 @@ class FhirResourceMap:
         :return: A new FhirResourceMap object with the same attributes.
         """
         return FhirResourceMap(initial_dict=self._resource_map.copy())
+
+    def __repr__(self) -> str:
+        """
+        Return a string representation of the FhirResourceMap.
+
+        :return: String representation of the FhirResourceMap.
+        """
+        return f"FhirResourceMap(keys: {len(self._resource_map.keys())})"

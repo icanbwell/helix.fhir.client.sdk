@@ -60,3 +60,7 @@ class FhirResource(CompressedDict[str, Any]):
             initial_dict=self.to_dict(),
             storage_mode=self._storage_mode,
         )
+
+    def __repr__(self) -> str:
+        """Custom string representation for debugging."""
+        return f"FhirResource({self.resource_type}/{self.id})"

@@ -36,3 +36,11 @@ class FhirBundleEntryList(Deque[FhirBundleEntry]):
         :return: A new FhirBundleEntryList instance with the same entries.
         """
         return FhirBundleEntryList([entry.copy() for entry in self])
+
+    def __repr__(self) -> str:
+        """
+        Return a string representation of the FhirBundleEntryList.
+
+        :return: A string representation of the FhirBundleEntryList.
+        """
+        return f"FhirBundleEntryList(entries: {len(self)})"

@@ -116,14 +116,6 @@ class FhirBundleEntry:
             storage_mode=storage_mode,
         )
 
-    def __repr__(self) -> str:
-        """
-        Returns a string representation of the BundleEntry object.
-
-        :return: A string representation of the BundleEntry.
-        """
-        return f"resource={self.resource}"
-
     def to_json(self) -> str:
         """
         Converts the BundleEntry object to a JSON string.
@@ -144,4 +136,16 @@ class FhirBundleEntry:
             request=self.request.copy() if self.request else None,
             response=self.response.copy() if self.response else None,
             storage_mode=self.storage_mode,
+        )
+
+    def __repr__(self) -> str:
+        """
+        Returns a string representation of the BundleEntry object.
+
+        :return: A string representation of the BundleEntry.
+        """
+        return (
+            f"BundleEntry(resource_type={self.resource.resource_type}, id_={self.resource.id})"
+            if self.resource
+            else f"BundleEntry(resource=None)"
         )

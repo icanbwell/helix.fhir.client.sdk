@@ -47,3 +47,9 @@ class FhirBundleEntryRequest:
             ifModifiedSince=self.ifModifiedSince,
             ifNoneMatch=self.ifNoneMatch,
         )
+
+    def __repr__(self) -> str:
+        return (
+            f"FhirBundleEntryRequest(url={self.url}, method={self.method}, "
+            f"ifModifiedSince={self.ifModifiedSince}, ifNoneMatch={self.ifNoneMatch})"
+        )

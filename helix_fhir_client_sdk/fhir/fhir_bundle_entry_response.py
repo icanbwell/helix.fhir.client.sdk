@@ -45,3 +45,6 @@ class FhirBundleEntryResponse:
             lastModified=self.lastModified,
             etag=self.etag,
         )
+
+    def __repr__(self) -> str:
+        return f"FhirBundleEntryResponse(status: {self.status}, lastModified: {self.lastModified}, etag: {self.etag})"

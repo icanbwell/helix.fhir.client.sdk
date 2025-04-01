@@ -111,3 +111,11 @@ class FhirResourceList(Deque[FhirResource]):
         :return: A new FhirResourceList object with the same resources.
         """
         return FhirResourceList([r.copy() for r in self])
+
+    def __repr__(self) -> str:
+        """
+        Return a string representation of the FhirResourceList.
+
+        :return: A string representation of the FhirResourceList.
+        """
+        return f"FhirResourceList(resources: {len(self)})"

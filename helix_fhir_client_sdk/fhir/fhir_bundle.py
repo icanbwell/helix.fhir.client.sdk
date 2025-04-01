@@ -92,3 +92,22 @@ class FhirBundle:
             timestamp=self.timestamp,
             type_=self.type_,
         )
+
+    def __repr__(self) -> str:
+        """
+        Returns a string representation of the Bundle.
+
+        :return: String representation of the Bundle
+        """
+        properties: List[str] = []
+        if self.id_:
+            properties.append(f"id_={self.id_}")
+        if self.type_:
+            properties.append(f"type_={self.type_}")
+        if self.timestamp:
+            properties.append(f"timestamp={self.timestamp}")
+        if self.total:
+            properties.append(f"total={self.total}")
+        if self.entry:
+            properties.append(f"entry={len(self.entry)}")
+        return f"FhirBundle({', '.join(properties)})"
