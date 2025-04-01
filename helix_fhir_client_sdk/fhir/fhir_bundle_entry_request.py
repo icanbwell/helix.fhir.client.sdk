@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 
 
 class FhirBundleEntryRequest:
-    __slots__ = ["url", "method", "ifModifiedSince", "ifNoneMatch"]
+    __slots__ = ["url", "method", "ifModifiedSince", "ifNoneMatch", "ifNoneExist"]
 
     # noinspection PyPep8Naming
     def __init__(
@@ -13,11 +13,13 @@ class FhirBundleEntryRequest:
         method: str = "GET",
         ifNoneMatch: Optional[str] = None,
         ifModifiedSince: Optional[datetime] = None,
+        ifNoneExist: Optional[str] = None,
     ) -> None:
         self.url: str = url
         self.method: str = method
         self.ifModifiedSince: Optional[datetime] = ifModifiedSince
         self.ifNoneMatch: Optional[str] = ifNoneMatch
+        self.ifNoneExist: Optional[str] = ifNoneExist
 
     def to_dict(self) -> Dict[str, Any]:
         result: Dict[str, Any] = {"url": self.url, "method": self.method}
@@ -25,11 +27,13 @@ class FhirBundleEntryRequest:
             result["ifModifiedSince"] = self.ifModifiedSince.isoformat()
         if self.ifNoneMatch is not None:
             result["ifNoneMatch"] = self.ifNoneMatch
+        if self.ifNoneExist is not None:
+            result["ifNoneExist"] = self.ifNoneExist
         return result
 
-    @staticmethod
-    def from_dict(d: Dict[str, Any]) -> "FhirBundleEntryRequest":
-        return FhirBundleEntryRequest(
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "FhirBundleEntryRequest":
+        return cls(
             url=d["url"],
             method=d["method"],
             ifModifiedSince=(
@@ -38,6 +42,7 @@ class FhirBundleEntryRequest:
                 else None
             ),
             ifNoneMatch=d["ifNoneMatch"] if "ifNoneMatch" in d else None,
+            ifNoneExist=d["ifNoneExist"] if "ifNoneExist" in d else None,
         )
 
     def copy(self) -> "FhirBundleEntryRequest":
@@ -46,6 +51,7 @@ class FhirBundleEntryRequest:
             method=self.method,
             ifModifiedSince=self.ifModifiedSince,
             ifNoneMatch=self.ifNoneMatch,
+            ifNoneExist=self.ifNoneExist,
         )
 
     def __repr__(self) -> str:

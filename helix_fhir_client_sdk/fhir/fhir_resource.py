@@ -17,7 +17,7 @@ class FhirResource(CompressedDict[str, Any]):
         self,
         initial_dict: Optional[Dict[str, Any]] = None,
         *,
-        storage_mode: CompressedDictStorageMode,
+        storage_mode: CompressedDictStorageMode = CompressedDictStorageMode.default(),
     ) -> None:
         super().__init__(
             initial_dict=initial_dict,

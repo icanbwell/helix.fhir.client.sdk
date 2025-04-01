@@ -1,13 +1,22 @@
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
+from helix_fhir_client_sdk.fhir.fhir_link import FhirLink
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
 class FhirBundle:
-    __slots__ = ["entry", "total", "id_", "timestamp", "type_"]
+    """
+    FhirBundle represents a FHIR Bundle resource.
+    """
+
+    __slots__ = ["entry", "total", "id_", "timestamp", "type_", "link"]
 
     def __init__(
         self,
@@ -17,12 +26,25 @@ class FhirBundle:
         type_: str,
         entry: Optional[FhirBundleEntryList] = None,
         total: Optional[int] = None,
+        link: Optional[List[FhirLink]] = None,
     ) -> None:
+        """
+        Initializes a FhirBundle object.
+
+
+        :param id_: The ID of the Bundle.
+        :param timestamp: The timestamp of the Bundle.
+        :param type_: The type of the Bundle (e.g., "searchset").
+        :param entry: The entries in the Bundle.
+        :param total: The total number of entries in the Bundle.
+        :param link: The links associated with the Bundle.
+        """
         self.entry: Optional[FhirBundleEntryList] = entry
         self.total: Optional[int] = total
         self.id_: Optional[str] = id_
         self.timestamp: Optional[str] = timestamp
         self.type_: str = type_
+        self.link: Optional[List[FhirLink]] = link
 
     def to_dict(self) -> Dict[str, Any]:
         entries: List[Dict[str, Any]] | None = (
@@ -38,7 +60,47 @@ class FhirBundle:
             result["total"] = self.total
         if entries:
             result["entry"] = entries
+        if self.link:
+            result["link"] = [link.to_dict() for link in self.link]
         return result
+
+    @classmethod
+    def from_dict(
+        cls, data: Dict[str, Any], storage_mode: CompressedDictStorageMode
+    ) -> "FhirBundle":
+        """
+        Creates a FhirBundle object from a dictionary.
+
+        :param data: A dictionary containing the Bundle data.
+        :param storage_mode: The storage mode for the Bundle.
+        :return: A FhirBundle object.
+        """
+        bundle = cls(
+            id_=data.get("id") if isinstance(data.get("id"), str) else None,
+            timestamp=(
+                data.get("timestamp")
+                if isinstance(data.get("timestamp"), str)
+                else None
+            ),
+            type_=(
+                cast(str, data.get("type"))
+                if isinstance(data.get("type"), str)
+                else "collection"
+            ),
+            total=data.get("total") if isinstance(data.get("total"), int) else None,
+            entry=(
+                FhirBundleEntryList(
+                    [
+                        FhirBundleEntry.from_dict(entry, storage_mode=storage_mode)
+                        for entry in data.get("entry", [])
+                    ]
+                )
+                if "entry" in data
+                else None
+            ),
+            link=[FhirLink.from_dict(link) for link in data.get("link", [])],
+        )
+        return bundle
 
     @staticmethod
     def add_diagnostics_to_operation_outcomes(
@@ -91,6 +153,7 @@ class FhirBundle:
             id_=self.id_,
             timestamp=self.timestamp,
             type_=self.type_,
+            link=[link.copy() for link in self.link] if self.link else None,
         )
 
     def __repr__(self) -> str:
@@ -110,4 +173,7 @@ class FhirBundle:
             properties.append(f"total={self.total}")
         if self.entry:
             properties.append(f"entry={len(self.entry)}")
+        if self.link:
+            properties.append(f"link={len(self.link)}")
+
         return f"FhirBundle({', '.join(properties)})"

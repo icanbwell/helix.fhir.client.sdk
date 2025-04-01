@@ -11,7 +11,6 @@ class FhirResourceMap:
 
     def __init__(
         self,
-        *,
         initial_dict: Dict[str, FhirResourceList] | None = None,
     ) -> None:
         """

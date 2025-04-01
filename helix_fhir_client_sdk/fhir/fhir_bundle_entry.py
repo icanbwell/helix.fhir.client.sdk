@@ -1,6 +1,8 @@
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_search import FhirBundleEntrySearch
+from helix_fhir_client_sdk.fhir.fhir_link import FhirLink
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_response import (
     FhirBundleEntryResponse,
@@ -16,7 +18,19 @@ from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
 class FhirBundleEntry:
-    __slots__ = ["_resource", "request", "response", "fullUrl", "storage_mode"]
+    """
+    Represents a single entry in a FHIR Bundle.
+    """
+
+    __slots__ = [
+        "_resource",
+        "request",
+        "response",
+        "fullUrl",
+        "link",
+        "search",
+        "storage_mode",
+    ]
 
     # noinspection PyPep8Naming
     def __init__(
@@ -24,9 +38,11 @@ class FhirBundleEntry:
         *,
         fullUrl: Optional[str] = None,
         resource: Dict[str, Any] | FhirResource | None,
-        request: Optional[FhirBundleEntryRequest],
-        response: Optional[FhirBundleEntryResponse],
-        storage_mode: CompressedDictStorageMode,
+        request: Optional[FhirBundleEntryRequest] = None,
+        response: Optional[FhirBundleEntryResponse] = None,
+        link: Optional[List[FhirLink]] = None,
+        search: Optional[FhirBundleEntrySearch] = None,
+        storage_mode: CompressedDictStorageMode = CompressedDictStorageMode.default(),
     ) -> None:
         """
         Initializes a BundleEntry object.
@@ -49,6 +65,8 @@ class FhirBundleEntry:
         self.request: Optional[FhirBundleEntryRequest] = request
         self.response: Optional[FhirBundleEntryResponse] = response
         self.fullUrl: Optional[str] = fullUrl
+        self.link: Optional[List[FhirLink]] = link
+        self.search: Optional[FhirBundleEntrySearch] = search
         self.storage_mode: CompressedDictStorageMode = storage_mode
 
     @property
@@ -90,13 +108,17 @@ class FhirBundleEntry:
             result["request"] = self.request.to_dict()
         if self.response is not None:
             result["response"] = self.response.to_dict()
+        if self.link is not None:
+            result["link"] = [link.to_dict() for link in self.link]
+        if self.search is not None:
+            result["search"] = self.search.to_dict()
         return result
 
-    @staticmethod
+    @classmethod
     def from_dict(
-        d: Dict[str, Any], storage_mode: CompressedDictStorageMode
+        cls, d: Dict[str, Any], storage_mode: CompressedDictStorageMode
     ) -> "FhirBundleEntry":
-        return FhirBundleEntry(
+        return cls(
             fullUrl=d["fullUrl"] if "fullUrl" in d else None,
             resource=(
                 FhirResource(initial_dict=d["resource"], storage_mode=storage_mode)
@@ -112,6 +134,14 @@ class FhirBundleEntry:
                 FhirBundleEntryResponse.from_dict(d["response"])
                 if "response" in d
                 else None
+            ),
+            link=(
+                [FhirLink.from_dict(link) for link in d["link"]]
+                if "link" in d
+                else None
+            ),
+            search=(
+                FhirBundleEntrySearch.from_dict(d["search"]) if "search" in d else None
             ),
             storage_mode=storage_mode,
         )
@@ -135,6 +165,8 @@ class FhirBundleEntry:
             resource=self.resource.copy() if self.resource else None,
             request=self.request.copy() if self.request else None,
             response=self.response.copy() if self.response else None,
+            link=[link.copy() for link in self.link] if self.link else None,
+            search=self.search.copy() if self.search else None,
             storage_mode=self.storage_mode,
         )
 

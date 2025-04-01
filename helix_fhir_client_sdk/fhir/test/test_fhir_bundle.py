@@ -144,3 +144,102 @@ class TestBundle:
             assert (
                 updated_resource["issue"][0]["details"]["coding"] == diagnostics_coding
             )
+
+
+class TestFhirBundleCopy:
+    def test_copy_full_bundle(self) -> None:
+        """
+        Test copying a fully populated FhirBundle
+        """
+        # Create a mock FhirBundleEntryList
+        mock_entry_list = FhirBundleEntryList()
+        mock_resource = FhirBundleEntry(
+            resource=FhirResource({"resourceType": "Patient", "id": "123"})
+        )
+        mock_entry_list.append(mock_resource)
+
+        # Create original bundle
+        original_bundle = FhirBundle(
+            id_="test-bundle-id",
+            timestamp="2023-01-01T00:00:00Z",
+            type_="transaction",
+            entry=mock_entry_list,
+            total=1,
+        )
+
+        # Create a copy
+        copied_bundle = original_bundle.copy()
+
+        # Assert that the copied bundle has the same attributes
+        assert copied_bundle.id_ == original_bundle.id_
+        assert copied_bundle.timestamp == original_bundle.timestamp
+        assert copied_bundle.type_ == original_bundle.type_
+        assert copied_bundle.total == original_bundle.total
+
+        # Ensure the entry list is a copy, not the same object
+        assert copied_bundle.entry is not original_bundle.entry
+        assert copied_bundle.entry is not None
+        assert original_bundle.entry is not None
+        assert len(copied_bundle.entry) == len(original_bundle.entry)
+        assert copied_bundle.entry[0].to_dict() == original_bundle.entry[0].to_dict()
+
+    def test_copy_empty_bundle(self) -> None:
+        """
+        Test copying a bundle with no entries
+        """
+        # Create an empty bundle
+        original_bundle = FhirBundle(type_="batch", entry=None, total=None)
+
+        # Create a copy
+        copied_bundle = original_bundle.copy()
+
+        # Assert that the copied bundle has the same attributes
+        assert copied_bundle.id_ is None
+        assert copied_bundle.timestamp is None
+        assert copied_bundle.type_ == "batch"
+        assert copied_bundle.total is None
+        assert copied_bundle.entry is None
+
+    def test_copy_modifying_original_does_not_affect_copy(self) -> None:
+        """
+        Test that modifying the original bundle does not affect the copy
+        """
+        # Create a mock FhirBundleEntryList
+        mock_entry_list = FhirBundleEntryList()
+        mock_resource = FhirResource({"resourceType": "Patient", "id": "123"})
+        mock_entry_list.append(FhirBundleEntry(resource=mock_resource))
+
+        # Create original bundle
+        original_bundle = FhirBundle(
+            id_="test-bundle-id",
+            timestamp="2023-01-01T00:00:00Z",
+            type_="transaction",
+            entry=mock_entry_list,
+            total=1,
+        )
+
+        # Create a copy
+        copied_bundle = original_bundle.copy()
+
+        # Modify the original bundle
+        original_bundle.id_ = "modified-id"
+        original_bundle.timestamp = "2023-02-01T00:00:00Z"
+        original_bundle.total = 2
+
+        # Assert that the copied bundle remains unchanged
+        assert copied_bundle.id_ == "test-bundle-id"
+        assert copied_bundle.timestamp == "2023-01-01T00:00:00Z"
+        assert copied_bundle.total == 1
+
+    def test_copy_returns_new_instance(self) -> None:
+        """
+        Test that copy() returns a new FhirBundle instance
+        """
+        # Create a bundle
+        original_bundle = FhirBundle(type_="batch")
+
+        # Create a copy
+        copied_bundle = original_bundle.copy()
+
+        # Assert that it's a different object
+        assert copied_bundle is not original_bundle
