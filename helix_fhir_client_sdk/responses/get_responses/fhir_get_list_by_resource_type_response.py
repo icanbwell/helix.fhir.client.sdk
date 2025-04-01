@@ -169,9 +169,9 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         removes duplicate resources from the response i.e., resources with same resourceType and id
 
         """
-        raise NotImplementedError(
-            "Remove duplicates is not implemented for FhirGetListByResourceTypeResponse. "
-        )
+        for _, resource_list in self._resource_map.items():
+            resource_list.remove_duplicates()
+        return self
 
     @classmethod
     @override

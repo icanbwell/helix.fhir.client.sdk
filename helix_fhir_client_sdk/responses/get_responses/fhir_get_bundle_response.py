@@ -10,6 +10,7 @@ from typing import (
     Tuple,
     AsyncGenerator,
     Generator,
+    Set,
 )
 
 from helix_fhir_client_sdk.fhir.bundle import Bundle
@@ -267,15 +268,39 @@ class FhirGetBundleResponse(FhirGetResponse):
         """
         bundle: Bundle = self.create_bundle()
         try:
-            # remove duplicates from the bundle
-            # this will remove duplicates from the bundle and return a new bundle
-            # with the duplicates removed
-            bundle = FhirBundleAppender.remove_duplicate_resources(bundle=bundle)
-            self._bundle_entries = (
-                FhirBundleEntryList(bundle.entry)
-                if bundle.entry
-                else FhirBundleEntryList()
-            )
+            # remove duplicates from the list if they have the same resourceType and id
+            resource_type_plus_id_seen: Set[str] = set()
+            entry_request_url_seen: Set[str] = set()
+            i = 0
+            while i < len(self._bundle_entries):
+                if self._bundle_entries[i] is not None:
+                    # Create a tuple of values for specified keys
+                    resource = self._bundle_entries[i].resource
+                    resource_id: Optional[str] = (
+                        resource.id if resource is not None else None
+                    )
+                    resource_type_plus_id: Optional[str] = (
+                        resource.resource_type_and_id if resource is not None else None
+                    )
+                    request = self._bundle_entries[i].request
+                    entry_request_url: Optional[str] = (
+                        request.url if request is not None else None
+                    )
+
+                    if resource_id is None and entry_request_url is not None:
+                        # check only the entry request url if the resource has no id
+                        if entry_request_url in entry_request_url_seen:
+                            # Remove duplicate entry
+                            self._bundle_entries.remove(self._bundle_entries[i])
+                        else:
+                            entry_request_url_seen.add(entry_request_url)
+                    elif resource_type_plus_id is not None:  # resource has an id
+                        if resource_type_plus_id in resource_type_plus_id_seen:
+                            # Remove duplicate entry
+                            self._bundle_entries.remove(self._bundle_entries[i])
+                        else:
+                            resource_type_plus_id_seen.add(resource_type_plus_id)
+                i += 1
             return self
         except Exception as e:
             raise Exception(f"Could not get parse json from: {bundle}") from e
@@ -396,3 +421,10 @@ class FhirGetBundleResponse(FhirGetResponse):
     @override
     def get_resource_count(self) -> int:
         return len(self._bundle_entries)
+
+    def __repr__(self) -> str:
+        return (
+            f"FhirGetBundleResponse(request_id={self.request_id}"
+            f", url={self.url}"
+            f", count={self.get_resource_count()}"
+        )

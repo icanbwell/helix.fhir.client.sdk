@@ -55,8 +55,9 @@ class Bundle:
         """
         with resource.transaction():
             if resource.resource_type == "OperationOutcome":
-                if resource.get("issue"):
-                    for issue in resource["issue"]:
+                issues = resource.get("issue")
+                if issues:
+                    for issue in issues:
                         details: Dict[str, Any] = issue.get("details")
                         if details is None:
                             issue["details"] = {}

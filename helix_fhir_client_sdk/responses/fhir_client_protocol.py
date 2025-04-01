@@ -132,6 +132,7 @@ class FhirClientProtocol(Protocol):
 
     async def _get_with_session_async(
         self,
+        *,
         page_number: Optional[int],
         ids: Optional[List[str]],
         id_above: Optional[str],
@@ -143,11 +144,11 @@ class FhirClientProtocol(Protocol):
         # This is here to tell Python that this is an async generator
         yield None  # type: ignore[misc]
 
-    def separate_bundle_resources(self, separate_bundle_resources: bool):  # type: ignore[no-untyped-def]
-        ...
+    def separate_bundle_resources(
+        self, separate_bundle_resources: bool
+    ) -> "FhirClientProtocol": ...
 
-    def resource(self, resource: str):  # type: ignore[no-untyped-def]
-        ...
+    def resource(self, resource: str) -> "FhirClientProtocol": ...
 
     def set_access_token(self, value: str | None) -> "FhirClientProtocol": ...
 

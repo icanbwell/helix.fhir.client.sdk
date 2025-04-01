@@ -610,6 +610,10 @@ class FhirClient(
             ids=ids,
             fn_handle_streaming_chunk=data_chunk_handler,
             create_operation_outcome_for_error=False,
+            page_number=None,
+            id_above=None,
+            additional_parameters=None,
+            resource_type=None,
         ):
             if response:
                 if full_response:
@@ -649,6 +653,10 @@ class FhirClient(
             ids=ids,
             fn_handle_streaming_chunk=data_chunk_handler,
             create_operation_outcome_for_error=False,
+            page_number=None,
+            id_above=None,
+            additional_parameters=None,
+            resource_type=None,
         ):
             yield response
 

@@ -64,7 +64,6 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode=CompressedDictStorageMode(),
         )
 
         assert response.request_id == "test-request"
@@ -83,7 +82,6 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode=CompressedDictStorageMode(),
         )
 
         resources = response.get_resources()
@@ -102,7 +100,6 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode=CompressedDictStorageMode(),
         )
 
         entries = response.get_bundle_entries()
@@ -142,7 +139,6 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode=CompressedDictStorageMode(),
         )
 
         mock_other_responses: List[FhirGetResponse] = [Mock(spec=FhirGetResponse)]
@@ -163,7 +159,6 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode=CompressedDictStorageMode(),
         )
 
         response_text = response.get_response_text()
@@ -181,7 +176,6 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode=CompressedDictStorageMode(),
         )
 
         assert response.get_resource_count() == 1
@@ -205,7 +199,6 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode=CompressedDictStorageMode(),
         )
 
         assert response.get_resource_count() == 1
@@ -230,7 +223,6 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode=CompressedDictStorageMode(),
         )
 
         entries = []
@@ -254,7 +246,6 @@ class TestFhirGetErrorResponse:
             **base_response_params,
             response_text=json.dumps(sample_error_response),
             error="Sample error",
-            storage_mode=CompressedDictStorageMode(),
         )
 
         entries = []
