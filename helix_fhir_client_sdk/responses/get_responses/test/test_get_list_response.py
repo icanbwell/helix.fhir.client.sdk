@@ -49,7 +49,7 @@ class TestFhirGetListResponse:
             chunk_number=1,
             cache_hits=0,
             results_by_url=results_by_url,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
         assert response.request_id == "test-request"
         resources = response.get_resources()
@@ -76,7 +76,7 @@ class TestFhirGetListResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
         second_response = FhirGetListResponse(
             request_id="test-request-2",
@@ -92,7 +92,7 @@ class TestFhirGetListResponse:
             resource_type="Observation",
             id_=["456"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
         first_response.append(second_response)
         resources = first_response.get_resources()
@@ -116,7 +116,7 @@ class TestFhirGetListResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
         resources = response.get_resources()
         assert isinstance(resources, FhirResourceList)
@@ -144,7 +144,7 @@ class TestFhirGetListResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
         response.remove_duplicates()
         resources = response.get_resources()
@@ -172,11 +172,11 @@ class TestFhirGetListResponse:
             [
                 FhirResource(
                     initial_dict={"resourceType": "Patient", "id": "123"},
-                    storage_mode=CompressedDictStorageMode(),
+                    storage_mode=CompressedDictStorageMode.default(),
                 )
             ]
         )
-        mock_response.storage_mode = CompressedDictStorageMode()
+        mock_response.storage_mode = CompressedDictStorageMode.default()
 
         list_response = FhirGetListResponse.from_response(mock_response)
         assert list_response.request_id == "test-request"
@@ -201,7 +201,7 @@ class TestFhirGetListResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
         bundle_entries = response.get_bundle_entries()
         assert len(bundle_entries) == 2
@@ -227,7 +227,7 @@ class TestFhirGetListResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
         response_text = response.get_response_text()
         assert "Patient" in response_text
@@ -253,7 +253,7 @@ class TestFhirGetListResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
         # Collect resources from the generator
         resources = []
@@ -282,7 +282,7 @@ class TestFhirGetListResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
         # Collect resources from the generator
         resources = []
@@ -314,7 +314,7 @@ class TestFhirGetListResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
         # Collect bundle entries from the generator
         bundle_entries = []
@@ -347,7 +347,7 @@ class TestFhirGetListResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
         # Collect bundle entries from the generator
         bundle_entries = []

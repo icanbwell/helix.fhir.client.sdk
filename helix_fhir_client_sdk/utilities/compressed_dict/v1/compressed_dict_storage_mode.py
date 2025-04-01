@@ -9,3 +9,7 @@ CompressedDictStorageType: TypeAlias = Literal[
 @dataclasses.dataclass(slots=True)
 class CompressedDictStorageMode:
     storage_type: CompressedDictStorageType = "compressed_msgpack"
+
+    @classmethod
+    def default(cls) -> "CompressedDictStorageMode":
+        return cls(storage_type="compressed_msgpack")

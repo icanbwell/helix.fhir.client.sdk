@@ -31,7 +31,7 @@ class TestFhirGetListByResourceTypeResponse:
                         "id": "123",
                         "name": "John Doe",
                     },
-                    storage_mode=CompressedDictStorageMode(),
+                    storage_mode=CompressedDictStorageMode.default(),
                 ),
                 FhirResource(
                     initial_dict={
@@ -39,7 +39,7 @@ class TestFhirGetListByResourceTypeResponse:
                         "id": "456",
                         "status": "final",
                     },
-                    storage_mode=CompressedDictStorageMode(),
+                    storage_mode=CompressedDictStorageMode.default(),
                 ),
                 FhirResource(
                     initial_dict={
@@ -47,7 +47,7 @@ class TestFhirGetListByResourceTypeResponse:
                         "id": "789",
                         "name": "Jane Smith",
                     },
-                    storage_mode=CompressedDictStorageMode(),
+                    storage_mode=CompressedDictStorageMode.default(),
                 ),
             ]
         )
@@ -71,7 +71,7 @@ class TestFhirGetListByResourceTypeResponse:
             chunk_number=1,
             cache_hits=0,
             results_by_url=results_by_url,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
         assert response.request_id == "test-request"
         assert (
@@ -123,7 +123,7 @@ class TestFhirGetListByResourceTypeResponse:
         mock_response.chunk_number = 1
         mock_response.cache_hits = 0
         mock_response.get_resources.return_value = sample_resources
-        mock_response.storage_mode = CompressedDictStorageMode()
+        mock_response.storage_mode = CompressedDictStorageMode.default()
 
         bundle_response: FhirGetListByResourceTypeResponse = cast(
             FhirGetListByResourceTypeResponse,
@@ -149,7 +149,7 @@ class TestFhirGetListByResourceTypeResponse:
             resource_type="Patient",
             id_=["123", "789"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
         response_text = response.get_response_text()
         assert "Patient" in response_text
@@ -174,7 +174,7 @@ class TestFhirGetListByResourceTypeResponse:
             resource_type="Patient",
             id_=["123"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
         second_response = FhirGetListByResourceTypeResponse(
             request_id="test-request-2",
@@ -190,7 +190,7 @@ class TestFhirGetListByResourceTypeResponse:
             resource_type="Patient",
             id_=["789"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
         first_response._append(second_response)
         assert len(first_response._resource_map["Patient"]) == 2
@@ -215,7 +215,7 @@ class TestFhirGetListByResourceTypeResponse:
             resource_type="Patient",
             id_=["123", "789"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
 
         # Test methods that raise NotImplementedError
@@ -243,7 +243,7 @@ class TestFhirGetListByResourceTypeResponse:
             resource_type="Patient",
             id_=["123", "789"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
         sorted_response = response.sort_resources()
         assert isinstance(sorted_response, FhirGetListByResourceTypeResponse)
@@ -267,7 +267,7 @@ class TestFhirGetListByResourceTypeResponse:
             resource_type="Patient",
             id_=["123", "789"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
 
         # Collect resources from the async generator
@@ -303,7 +303,7 @@ class TestFhirGetListByResourceTypeResponse:
             resource_type="Patient",
             id_=["123", "789"],
             response_headers=None,
-            storage_mode=CompressedDictStorageMode(),
+            storage_mode=CompressedDictStorageMode.default(),
         )
 
         # Collect resources from the generator

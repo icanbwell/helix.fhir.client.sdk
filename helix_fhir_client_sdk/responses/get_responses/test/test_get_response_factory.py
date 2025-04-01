@@ -41,7 +41,7 @@ class TestFhirGetResponseFactory:
             "cache_hits": 0,
             "results_by_url": [],
             "error": None,
-            "storage_mode": CompressedDictStorageMode(),
+            "storage_mode": CompressedDictStorageMode.default(),
             "create_operation_outcome_for_error": False,
         }
 

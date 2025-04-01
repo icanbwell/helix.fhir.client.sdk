@@ -49,7 +49,7 @@ class TestFhirGetErrorResponse:
             "chunk_number": 1,
             "cache_hits": 0,
             "results_by_url": [],
-            "storage_mode": CompressedDictStorageMode(),
+            "storage_mode": CompressedDictStorageMode.default(),
             "create_operation_outcome_for_error": True,
         }
 
