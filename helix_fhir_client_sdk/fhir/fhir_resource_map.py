@@ -88,6 +88,13 @@ class FhirResourceMap:
         """Get the value for a specific key in the resource map."""
         return self._resource_map[key]
 
+    def __delitem__(self, key: str) -> None:
+        """Delete a key-value pair from the resource map."""
+        if key in self._resource_map:
+            del self._resource_map[key]
+        else:
+            raise KeyError(f"Key '{key}' not found in resource map.")
+
     def __contains__(self, key: str) -> bool:
         """Check if a key exists in the resource map."""
         return key in self._resource_map
