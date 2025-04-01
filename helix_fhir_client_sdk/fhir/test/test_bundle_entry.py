@@ -126,4 +126,4 @@ class TestBundleEntry:
             response=None,
             storage_mode=CompressedDictStorageMode(),
         )
-        assert repr(entry) == "BundleEntry(resourceType=Patient, id=123)"
+        assert repr(entry) == "BundleEntry(Patient/123)"

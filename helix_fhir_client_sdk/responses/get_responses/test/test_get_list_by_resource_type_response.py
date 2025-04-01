@@ -307,7 +307,9 @@ class TestFhirGetListByResourceTypeResponse:
         )
 
         # Collect resources from the generator
-        consumed_resources = list(response.consume_resource())
+        consumed_resources: List[FhirResourceMap] = []
+        for resource_map in response.consume_resource_map():
+            consumed_resources.append(resource_map)
 
         # Verify the results
         assert len(consumed_resources) == 1
