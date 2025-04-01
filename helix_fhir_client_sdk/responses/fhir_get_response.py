@@ -24,7 +24,6 @@ from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
-from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -364,7 +363,7 @@ class FhirGetResponse:
             return resources.get_resource_type_and_ids()
         except Exception as e:
             raise Exception(
-                f"Could not get resourceType and id from resources: {json.dumps(resources, cls=FhirJSONEncoder)}"
+                f"Could not get resourceType and id from resources: {resources.to_json()}"
             ) from e
 
     @classmethod

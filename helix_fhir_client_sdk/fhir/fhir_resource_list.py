@@ -16,7 +16,7 @@ class FhirResourceList(Deque[FhirResource]):
         """
         resource_type_and_ids: List[str] = []
         for resource in self:
-            resource_type_and_ids.append(f"{resource['resourceType']}/{resource['id']}")
+            resource_type_and_ids.append(f"{resource.resource_type}/{resource.id}")
         return resource_type_and_ids
 
     def get_operation_outcomes(self) -> "FhirResourceList":

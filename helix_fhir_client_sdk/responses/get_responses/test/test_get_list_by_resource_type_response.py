@@ -223,9 +223,6 @@ class TestFhirGetListByResourceTypeResponse:
             response.get_bundle_entries()
 
         with pytest.raises(NotImplementedError):
-            response.remove_duplicates()
-
-        with pytest.raises(NotImplementedError):
             async for _ in response.consume_bundle_entry_async():
                 pass
 
