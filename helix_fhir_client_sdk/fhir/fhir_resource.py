@@ -1,3 +1,4 @@
+import json
 from typing import Any, Optional, Dict
 
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
@@ -6,6 +7,7 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
+from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
 class FhirResource(CompressedDict[str, Any]):
@@ -47,3 +49,7 @@ class FhirResource(CompressedDict[str, Any]):
         if not isinstance(other, FhirResource):
             return False
         return self.resource_type == other.resource_type and self.id == other.id
+
+    def to_json(self) -> str:
+        """Convert the resource to a JSON string."""
+        return json.dumps(obj=self, cls=FhirJSONEncoder)

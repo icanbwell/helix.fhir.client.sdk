@@ -1,5 +1,5 @@
 import json
-from typing import Deque, List, Set
+from typing import Deque, List, Set, AsyncGenerator, Optional
 
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
@@ -80,3 +80,26 @@ class FhirResourceList(Deque[FhirResource]):
         """
         # this is here to keep compatibility with FhirResourceMap
         return self
+
+    async def consume_resource_async(
+        self,
+        *,
+        batch_size: Optional[int],
+    ) -> AsyncGenerator["FhirResourceList", None]:
+        """
+        Consume resources in batches asynchronously.
+
+        :param batch_size: The size of each batch.
+        :return: An async generator yielding batches of FhirResourceList.
+        """
+        if batch_size is None:
+            while self:
+                yield FhirResourceList([self.popleft()])
+        elif batch_size <= 0:
+            raise ValueError("Batch size must be greater than 0.")
+        else:
+            while self:
+                batch = FhirResourceList()
+                for _ in range(min(batch_size, len(self))):
+                    batch.append(self.popleft())
+                yield batch

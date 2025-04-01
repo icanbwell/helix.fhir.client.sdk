@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, Optional
 
 from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
@@ -9,6 +10,7 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
+from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
 class BundleEntry:
@@ -117,3 +119,11 @@ class BundleEntry:
         :return: A string representation of the BundleEntry.
         """
         return f"resource={self.resource}"
+
+    def to_json(self) -> str:
+        """
+        Converts the BundleEntry object to a JSON string.
+
+        :return: A JSON string representation of the BundleEntry.
+        """
+        return json.dumps(obj=self.to_dict(), cls=FhirJSONEncoder)
