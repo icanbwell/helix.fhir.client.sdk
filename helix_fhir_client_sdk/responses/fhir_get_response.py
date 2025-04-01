@@ -31,8 +31,10 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
 
 class FhirGetResponse:
     """
-    This class represents a response from a FHIR server.
-    NOTE: This class does converted to a Row in Spark so keep all the property types simple python types
+    This class represents the response from a FHIR server for a GET request.
+    It encapsulates the response data, including the status code, headers, and any errors that occurred.
+    It also provides methods for processing the response, such as getting resources, handling pagination, and managing errors.
+    The class is designed to be extended by specific implementations that handle different types of FHIR responses.
 
 
     """

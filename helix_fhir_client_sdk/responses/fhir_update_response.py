@@ -2,6 +2,10 @@ from typing import Optional, AsyncGenerator, Dict, Any
 
 
 class FhirUpdateResponse:
+    """
+    FHIR Update Response class for encapsulating the response from FHIR server when updating resources
+    """
+
     __slots__ = [
         "request_id",
         "url",

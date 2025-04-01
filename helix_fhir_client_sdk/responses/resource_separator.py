@@ -5,11 +5,19 @@ from typing import List, Dict, Any, Optional, cast
 
 @dataclasses.dataclass(slots=True)
 class ResourceSeparatorResult:
+    """
+    ResourceSeparatorResult class for encapsulating the response from FHIR server when separating resources
+    """
+
     resources_dicts: List[Dict[str, Optional[str] | List[Dict[str, Any]]]]
     total_count: int
 
 
 class ResourceSeparator:
+    """
+    ResourceSeparator class for separating resources from contained resources
+    """
+
     @staticmethod
     async def separate_contained_resources_async(
         *,

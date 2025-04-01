@@ -18,6 +18,12 @@ from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
 class CompressedDict[K, V]:
+    """
+    A dictionary-like class that supports flexible storage options.
+
+    It can store data in raw format, MessagePack format, or compressed MessagePack format.
+    """
+
     # use slots to reduce memory usage
     __slots__ = (
         "_storage_mode",

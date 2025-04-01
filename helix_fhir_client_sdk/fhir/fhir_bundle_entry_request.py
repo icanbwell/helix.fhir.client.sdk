@@ -3,6 +3,10 @@ from typing import Any, Dict, Optional
 
 
 class FhirBundleEntryRequest:
+    """
+    FHIR Bundle Entry Request class for encapsulating the request to be sent to FHIR server
+    """
+
     __slots__ = ["url", "method", "ifModifiedSince", "ifNoneMatch", "ifNoneExist"]
 
     # noinspection PyPep8Naming

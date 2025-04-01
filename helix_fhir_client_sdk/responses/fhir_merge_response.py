@@ -2,6 +2,10 @@ from typing import List, Optional, Dict, Any, AsyncGenerator
 
 
 class FhirMergeResponse:
+    """
+    FHIR Merge Response class for encapsulating the response from FHIR server when merging resources
+    """
+
     __slots__ = [
         "request_id",
         "url",

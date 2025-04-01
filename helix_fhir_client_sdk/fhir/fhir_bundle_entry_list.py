@@ -5,6 +5,10 @@ from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
 
 
 class FhirBundleEntryList(Deque[FhirBundleEntry]):
+    """
+    Represents a list of FHIR Bundle entries.
+    """
+
     __slots__: List[str] = []
 
     async def consume_resource_async(

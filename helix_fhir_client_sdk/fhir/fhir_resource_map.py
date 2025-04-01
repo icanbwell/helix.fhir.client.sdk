@@ -5,6 +5,11 @@ from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 
 
 class FhirResourceMap:
+    """
+    FhirResourceMap is a class that represents a map of FHIR resources.
+    Each key is a string representing the resource type, and the value is a deque of FhirResource objects.
+    """
+
     __slots__ = [
         "_resource_map",
     ]

@@ -4,6 +4,10 @@ from typing import List, Dict, Any, Optional, AsyncGenerator
 
 @dataclasses.dataclass(slots=True)
 class PagingResult:
+    """
+    PagingResult class for encapsulating the response from FHIR server when paging resources
+    """
+
     request_id: Optional[str]
     resources: List[Dict[str, Any]]
     page_number: int

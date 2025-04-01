@@ -2,6 +2,11 @@ from typing import Optional, AsyncGenerator, Dict, Any
 
 
 class FhirDeleteResponse:
+    """
+    FHIR Delete Response class for encapsulating the response from FHIR server
+
+    """
+
     __slots__ = [
         "request_id",
         "url",

@@ -45,6 +45,10 @@ from helix_fhir_client_sdk.well_known_configuration import (
 # noinspection PyTypeChecker
 @runtime_checkable
 class FhirClientProtocol(Protocol):
+    """
+    FhirClientProtocol defines the interface for a FHIR client.
+    """
+
     _action: Optional[str]
     _action_payload: Optional[Dict[str, Any]]
     _resource: Optional[str]

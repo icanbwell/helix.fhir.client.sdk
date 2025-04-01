@@ -3,6 +3,10 @@ from typing import Any, Dict, Optional
 
 
 class FhirBundleEntryResponse:
+    """
+    FHIR Bundle Entry Response class for encapsulating the response from FHIR server when processing bundle entries
+    """
+
     __slots__ = ["status", "lastModified", "etag", "location"]
 
     # noinspection PyPep8Naming

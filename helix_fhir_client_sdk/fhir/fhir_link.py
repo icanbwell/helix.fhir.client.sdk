@@ -5,10 +5,11 @@ from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
 class FhirLink:
-    __slots__ = ["url", "relation"]
     """
     Represents a link in a FHIR
     """
+
+    __slots__ = ["url", "relation"]
 
     def __init__(self, *, url: str, relation: str) -> None:
         """

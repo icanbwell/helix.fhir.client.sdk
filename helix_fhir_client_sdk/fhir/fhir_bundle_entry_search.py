@@ -5,11 +5,12 @@ from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
 class FhirBundleEntrySearch:
-    __slots__ = ["mode", "score"]
     """
     FhirBundleEntrySearch is a class that represents a search entry in a FHIR Bundle.
     It contains the resource, search mode, and search parameters.
     """
+
+    __slots__ = ["mode", "score"]
 
     def __init__(self, *, mode: Optional[str], score: Optional[float]) -> None:
         """

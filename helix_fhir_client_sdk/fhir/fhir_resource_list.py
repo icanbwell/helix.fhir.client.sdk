@@ -7,6 +7,10 @@ from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
 class FhirResourceList(Deque[FhirResource]):
+    """
+    Represents a list of FHIR resources.
+    """
+
     __slots__: List[str] = []
 
     def get_resource_type_and_ids(self) -> List[str]:
