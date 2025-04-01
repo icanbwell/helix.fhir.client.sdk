@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, cast
 
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
+from helix_fhir_client_sdk.fhir.fhir_identifier import FhirIdentifier
 from helix_fhir_client_sdk.fhir.fhir_link import FhirLink
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
@@ -16,12 +17,13 @@ class FhirBundle:
     FhirBundle represents a FHIR Bundle resource.
     """
 
-    __slots__ = ["entry", "total", "id_", "timestamp", "type_", "link"]
+    __slots__ = ["entry", "total", "id_", "identifier", "timestamp", "type_", "link"]
 
     def __init__(
         self,
         *,
         id_: Optional[str] = None,
+        identifier: Optional[FhirIdentifier] = None,
         timestamp: Optional[str] = None,
         type_: str,
         entry: Optional[FhirBundleEntryList] = None,
@@ -33,6 +35,7 @@ class FhirBundle:
 
 
         :param id_: The ID of the Bundle.
+        :param identifier: The identifier of the Bundle.
         :param timestamp: The timestamp of the Bundle.
         :param type_: The type of the Bundle (e.g., "searchset").
         :param entry: The entries in the Bundle.
@@ -42,6 +45,7 @@ class FhirBundle:
         self.entry: Optional[FhirBundleEntryList] = entry
         self.total: Optional[int] = total
         self.id_: Optional[str] = id_
+        self.identifier: Optional[FhirIdentifier] = identifier
         self.timestamp: Optional[str] = timestamp
         self.type_: str = type_
         self.link: Optional[List[FhirLink]] = link
@@ -54,6 +58,8 @@ class FhirBundle:
 
         if self.id_ is not None:
             result["id"] = self.id_
+        if self.identifier is not None:
+            result["identifier"] = self.identifier.to_dict()
         if self.timestamp is not None:
             result["timestamp"] = self.timestamp
         if self.total is not None:
@@ -77,6 +83,11 @@ class FhirBundle:
         """
         bundle = cls(
             id_=data.get("id") if isinstance(data.get("id"), str) else None,
+            identifier=(
+                FhirIdentifier.from_dict(data["identifier"])
+                if "identifier" in data
+                else None
+            ),
             timestamp=(
                 data.get("timestamp")
                 if isinstance(data.get("timestamp"), str)
@@ -151,6 +162,7 @@ class FhirBundle:
             entry=self.entry.copy() if self.entry else None,
             total=self.total,
             id_=self.id_,
+            identifier=self.identifier.copy() if self.identifier else None,
             timestamp=self.timestamp,
             type_=self.type_,
             link=[link.copy() for link in self.link] if self.link else None,
