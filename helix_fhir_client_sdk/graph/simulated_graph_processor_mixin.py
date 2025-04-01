@@ -622,7 +622,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 id_above=None,
                 fn_handle_streaming_chunk=None,
                 resource_type=resource_type,
-                create_operation_outcome_for_error=True,
             ):
                 if result2.resource_type == "OperationOutcome":
                     result2 = FhirGetErrorResponse.from_response(other_response=result2)
@@ -664,7 +663,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     error=None,
                     results_by_url=[],
                     storage_mode=self._storage_mode,
-                    create_operation_outcome_for_error=True,
+                    create_operation_outcome_for_error=self._create_operation_outcome_for_error,
                 ),
                 0,
             )
@@ -716,7 +715,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 error=None,
                 results_by_url=[],
                 storage_mode=self._storage_mode,
-                create_operation_outcome_for_error=True,
+                create_operation_outcome_for_error=self._create_operation_outcome_for_error,
             )
 
         all_result: Optional[FhirGetResponse] = None
@@ -738,7 +737,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 id_above=None,
                 fn_handle_streaming_chunk=None,
                 resource_type=resource_type,
-                create_operation_outcome_for_error=True,
             ):
                 result = result1
                 if (not result or result.status != 200) and len(non_cached_id_list) > 1:

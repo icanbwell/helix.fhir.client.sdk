@@ -116,6 +116,10 @@ class FhirClientProtocol(Protocol):
     _log_all_response_urls: bool
 
     _storage_mode: CompressedDictStorageMode
+    """ storage mode to store the responses """
+
+    _create_operation_outcome_for_error: Optional[bool]
+    """ whether to create OperationOutcome resource for errors """
 
     async def get_access_token_async(self) -> GetAccessTokenResult: ...
 
@@ -139,7 +143,6 @@ class FhirClientProtocol(Protocol):
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
         additional_parameters: Optional[List[str]],
         resource_type: Optional[str],
-        create_operation_outcome_for_error: Optional[bool],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         # This is here to tell Python that this is an async generator
         yield None  # type: ignore[misc]

@@ -150,6 +150,8 @@ class FhirClient(
 
         self._storage_mode = CompressedDictStorageMode(storage_type="raw")
 
+        self._create_operation_outcome_for_error = False
+
     def action(self, action: str) -> "FhirClient":
         """
         Set the action
@@ -609,7 +611,6 @@ class FhirClient(
         async for response in self._get_with_session_async(
             ids=ids,
             fn_handle_streaming_chunk=data_chunk_handler,
-            create_operation_outcome_for_error=False,
             page_number=None,
             id_above=None,
             additional_parameters=None,
@@ -652,7 +653,6 @@ class FhirClient(
         async for response in self._get_with_session_async(
             ids=ids,
             fn_handle_streaming_chunk=data_chunk_handler,
-            create_operation_outcome_for_error=False,
             page_number=None,
             id_above=None,
             additional_parameters=None,
@@ -900,4 +900,13 @@ class FhirClient(
         :param value: storage mode
         """
         self._storage_mode = value
+        return self
+
+    def set_create_operation_outcome_for_error(self, value: bool) -> "FhirClient":
+        """
+        Sets the create_operation_outcome_for_error flag
+
+        :param value: whether to create operation outcome for error
+        """
+        self._create_operation_outcome_for_error = value
         return self

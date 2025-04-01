@@ -63,7 +63,6 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
         additional_parameters: Optional[List[str]],
         resource_type: Optional[str],
-        create_operation_outcome_for_error: Optional[bool],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         issues a GET call with the specified session, page_number and ids
@@ -199,7 +198,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         use_data_streaming=self._use_data_streaming,
                         fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                         storage_mode=self._storage_mode,
-                        create_operation_outcome_for_error=create_operation_outcome_for_error,
+                        create_operation_outcome_for_error=self._create_operation_outcome_for_error,
                     ):
                         next_url = r.next_url
                         yield r
