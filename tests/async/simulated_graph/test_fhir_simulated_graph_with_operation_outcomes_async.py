@@ -118,6 +118,8 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
 
     fhir_client.extra_context_to_return({"service_slug": "medstar"})
 
+    fhir_client = fhir_client.set_create_operation_outcome_for_error(True)
+
     auth_access_token = "my_access_token"
     if auth_access_token:
         fhir_client = fhir_client.set_access_token(auth_access_token)

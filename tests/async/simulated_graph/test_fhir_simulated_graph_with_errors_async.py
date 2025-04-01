@@ -93,6 +93,8 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
 
     fhir_client = fhir_client.exclude_status_codes_from_retry([401])
 
+    fhir_client = fhir_client.set_create_operation_outcome_for_error(True)
+
     response: Optional[FhirGetResponse] = await FhirGetResponse.from_async_generator(
         fhir_client.simulate_graph_streaming_async(
             id_="1",
