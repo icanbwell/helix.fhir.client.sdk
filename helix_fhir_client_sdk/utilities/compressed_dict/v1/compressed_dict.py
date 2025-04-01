@@ -486,3 +486,31 @@ class CompressedDict[K, V]:
         :return: A new BundleEntry object with the same attributes.
         """
         return copy.deepcopy(self)
+
+    def get_storage_mode(self) -> CompressedDictStorageMode:
+        """
+        Get the storage mode
+
+        Returns:
+            Storage mode
+        """
+        return self._storage_mode
+
+    def pop(self, key: K, default: Optional[V] = None) -> V | None:
+        """
+        Remove and return a value
+
+        Args:
+            key: Key to remove
+            default: Default value if key is not found
+
+        Returns:
+            Removed value or default
+        """
+        if self._working_dict is None:
+            raise CompressedDictAccessError(
+                "Dictionary modification is only allowed within an transaction() block. "
+                "Use 'with compressed_dict.transaction() as d:' to modify the dictionary."
+            )
+
+        return self._working_dict.pop(key, default)
