@@ -1,5 +1,6 @@
+import copy
 import json
-from typing import Deque, List, Set, AsyncGenerator, Optional
+from typing import Deque, List, Set, AsyncGenerator, Optional, Any, Dict
 
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
@@ -104,13 +105,13 @@ class FhirResourceList(Deque[FhirResource]):
                     batch.append(self.popleft())
                 yield batch
 
-    def copy(self) -> "FhirResourceList":
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "FhirResourceList":
         """
         Create a copy of the FhirResourceList.
 
         :return: A new FhirResourceList object with the same resources.
         """
-        return FhirResourceList([r.copy() for r in self])
+        return FhirResourceList([copy.deepcopy(r) for r in self])
 
     def __repr__(self) -> str:
         """

@@ -1,4 +1,5 @@
-from typing import Deque, Optional, AsyncGenerator, List
+import copy
+from typing import Deque, Optional, AsyncGenerator, List, Any, Dict
 
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
 
@@ -29,13 +30,13 @@ class FhirBundleEntryList(Deque[FhirBundleEntry]):
                     batch.append(self.popleft())
                 yield batch
 
-    def copy(self) -> "FhirBundleEntryList":
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "FhirBundleEntryList":
         """
         Create a shallow copy of the FhirBundleEntryList.
 
         :return: A new FhirBundleEntryList instance with the same entries.
         """
-        return FhirBundleEntryList([entry.copy() for entry in self])
+        return FhirBundleEntryList([copy.deepcopy(entry) for entry in self])
 
     def __repr__(self) -> str:
         """

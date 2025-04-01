@@ -51,7 +51,7 @@ class FhirLink:
             relation=data.get("relation") or "unknown",
         )
 
-    def copy(self) -> "FhirLink":
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "FhirLink":
         """
         Creates a copy of the FhirLink instance.
 

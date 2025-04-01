@@ -68,7 +68,7 @@ class FhirIdentifier:
             f"FhirIdentifier(use={self.use}, system={self.system}, value={self.value})"
         )
 
-    def copy(self) -> "FhirIdentifier":
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "FhirIdentifier":
         """
         Create a copy of the FhirIdentifier object.
 

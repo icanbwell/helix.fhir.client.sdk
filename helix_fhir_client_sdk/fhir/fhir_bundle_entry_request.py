@@ -45,7 +45,7 @@ class FhirBundleEntryRequest:
             ifNoneExist=d["ifNoneExist"] if "ifNoneExist" in d else None,
         )
 
-    def copy(self) -> "FhirBundleEntryRequest":
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "FhirBundleEntryRequest":
         return FhirBundleEntryRequest(
             url=self.url,
             method=self.method,

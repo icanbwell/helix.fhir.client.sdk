@@ -161,7 +161,7 @@ class FhirResourceMap:
         """
         return len(self._resource_map)
 
-    def copy(self) -> "FhirResourceMap":
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "FhirResourceMap":
         """
         Create a copy of the FhirResourceMap.
 

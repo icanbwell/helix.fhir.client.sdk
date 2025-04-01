@@ -44,7 +44,7 @@ class FhirBundleEntryResponse:
             location=d["location"] if "location" in d else None,
         )
 
-    def copy(self) -> "FhirBundleEntryResponse":
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "FhirBundleEntryResponse":
         return FhirBundleEntryResponse(
             status=self.status,
             lastModified=self.lastModified,

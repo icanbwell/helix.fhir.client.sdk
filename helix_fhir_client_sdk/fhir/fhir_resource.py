@@ -1,3 +1,4 @@
+import copy
 import json
 from typing import Any, Optional, Dict
 
@@ -54,7 +55,7 @@ class FhirResource(CompressedDict[str, Any]):
         """Convert the resource to a JSON string."""
         return json.dumps(obj=self, cls=FhirJSONEncoder)
 
-    def copy(self) -> "FhirResource":
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "FhirResource":
         """Create a copy of the resource."""
         return FhirResource(
             initial_dict=self.to_dict(),
@@ -64,3 +65,11 @@ class FhirResource(CompressedDict[str, Any]):
     def __repr__(self) -> str:
         """Custom string representation for debugging."""
         return f"FhirResource({self.resource_type}/{self.id})"
+
+    def copy(self) -> "FhirResource":
+        """
+        Creates a copy of the BundleEntry object.
+
+        :return: A new BundleEntry object with the same attributes.
+        """
+        return copy.deepcopy(self)

@@ -1,7 +1,8 @@
+import copy
 import json
 from collections.abc import KeysView, ValuesView, ItemsView
 from contextlib import contextmanager
-from typing import Dict, Optional, Iterator, cast, List, overload
+from typing import Dict, Optional, Iterator, cast, List, overload, Any
 
 import msgpack
 import zlib
@@ -453,3 +454,29 @@ class CompressedDict[K, V]:
         if key in self:
             return self[key]
         return default
+
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "CompressedDict[K, V]":
+        """
+        Create a deep copy of the dictionary
+
+        Args:
+            memo: Memoization dictionary for deep copy
+
+        Returns:
+            Deep copy of the dictionary
+        """
+        # Create a new instance with the same storage mode
+        new_instance = CompressedDict(
+            initial_dict=self.to_dict(),
+            storage_mode=self._storage_mode,
+            properties_to_cache=self._properties_to_cache,
+        )
+        return new_instance
+
+    def copy(self) -> "CompressedDict[K,V]":
+        """
+        Creates a copy of the BundleEntry object.
+
+        :return: A new BundleEntry object with the same attributes.
+        """
+        return copy.deepcopy(self)

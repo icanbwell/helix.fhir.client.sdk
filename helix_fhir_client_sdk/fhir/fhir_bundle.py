@@ -1,3 +1,4 @@
+import copy
 import json
 from typing import Any, Dict, List, Optional, cast
 
@@ -153,19 +154,22 @@ class FhirBundle:
         return json.dumps(bundle_dict, cls=FhirJSONEncoder)
 
     def copy(self) -> "FhirBundle":
+        return copy.deepcopy(self)
+
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "FhirBundle":
         """
         Creates a copy of the Bundle.
 
         :return: A new FhirBundle object with the same attributes
         """
         return FhirBundle(
-            entry=self.entry.copy() if self.entry else None,
+            entry=copy.deepcopy(self.entry) if self.entry else None,
             total=self.total,
             id_=self.id_,
-            identifier=self.identifier.copy() if self.identifier else None,
+            identifier=copy.deepcopy(self.identifier) if self.identifier else None,
             timestamp=self.timestamp,
             type_=self.type_,
-            link=[link.copy() for link in self.link] if self.link else None,
+            link=[copy.deepcopy(link) for link in self.link] if self.link else None,
         )
 
     def __repr__(self) -> str:

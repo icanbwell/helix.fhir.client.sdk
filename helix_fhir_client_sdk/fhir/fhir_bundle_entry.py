@@ -1,3 +1,4 @@
+import copy
 import json
 from typing import Any, Dict, Optional, List
 
@@ -154,7 +155,7 @@ class FhirBundleEntry:
         """
         return json.dumps(obj=self.to_dict(), cls=FhirJSONEncoder)
 
-    def copy(self) -> "FhirBundleEntry":
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "FhirBundleEntry":
         """
         Creates a copy of the BundleEntry object.
 
@@ -162,11 +163,11 @@ class FhirBundleEntry:
         """
         return FhirBundleEntry(
             fullUrl=self.fullUrl,
-            resource=self.resource.copy() if self.resource else None,
-            request=self.request.copy() if self.request else None,
-            response=self.response.copy() if self.response else None,
-            link=[link.copy() for link in self.link] if self.link else None,
-            search=self.search.copy() if self.search else None,
+            resource=copy.deepcopy(self.resource) if self.resource else None,
+            request=copy.deepcopy(self.request) if self.request else None,
+            response=copy.deepcopy(self.response) if self.response else None,
+            link=[copy.deepcopy(link) for link in self.link] if self.link else None,
+            search=copy.deepcopy(self.search) if self.search else None,
             storage_mode=self.storage_mode,
         )
 
@@ -181,3 +182,11 @@ class FhirBundleEntry:
             if self.resource
             else f"BundleEntry(resource=None)"
         )
+
+    def copy(self) -> "FhirBundleEntry":
+        """
+        Creates a copy of the BundleEntry object.
+
+        :return: A new BundleEntry object with the same attributes.
+        """
+        return copy.deepcopy(self)

@@ -59,7 +59,7 @@ class FhirBundleEntrySearch:
         """
         return f"FhirBundleEntrySearch(mode={self.mode}, score={self.score})"
 
-    def copy(self) -> "FhirBundleEntrySearch":
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "FhirBundleEntrySearch":
         """
         Creates a copy of the FhirBundleEntrySearch instance.
 
