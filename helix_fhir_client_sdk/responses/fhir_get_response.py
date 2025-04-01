@@ -474,3 +474,21 @@ class FhirGetResponse:
             Count of resources
         """
         ...
+
+    @property
+    def has_resource_map(self) -> bool:
+        """
+        Returns True if the response has a resource map
+
+        :return: True if the response has a resource map
+        """
+        return False
+
+    @property
+    def has_single_resource(self) -> bool:
+        """
+        Returns True if the response has a single resource
+
+        :return: True if the response has a single resource
+        """
+        return False

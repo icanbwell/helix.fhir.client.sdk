@@ -290,3 +290,8 @@ class FhirGetSingleResponse(FhirGetResponse):
     @override
     def get_resource_count(self) -> int:
         return 1 if self._resource else 0
+
+    @override
+    @property
+    def has_single_resource(self) -> bool:
+        return True

@@ -95,17 +95,19 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         """
 
         new_count: int = 0
-        resources: FhirResourceList | FhirResourceMap = other_response.get_resources()
+
         resource_type: Optional[str]
-        if isinstance(resources, FhirResourceMap):
+        if other_response.has_resource_map:
+            resource_map: FhirResourceMap = other_response.get_resource_map()
             resource_list: FhirResourceList
-            for resource_type, resource_list in resources.items():
+            for resource_type, resource_list in resource_map.items():
                 if resource_type not in self._resource_map:
                     self._resource_map[resource_type] = FhirResourceList()
                 for resource in resource_list:
                     self._resource_map[resource_type].append(resource)
                     new_count += 1
         else:
+            resources: FhirResourceList = other_response.get_resources()
             for resource in resources:
                 resource_type = resource.resource_type
                 if resource_type:
@@ -312,3 +314,8 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
     @override
     def get_resource_count(self) -> int:
         return self._resource_map.get_resource_count()
+
+    @override
+    @property
+    def has_resource_map(self) -> bool:
+        return True

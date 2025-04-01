@@ -178,9 +178,9 @@ class FhirBundleEntry:
         :return: A string representation of the BundleEntry.
         """
         return (
-            f"BundleEntry(resource_type={self.resource.resource_type}, id_={self.resource.id})"
+            f"BundleEntry({self.resource.resource_type}/{self.resource.id})"
             if self.resource
-            else f"BundleEntry(resource=None)"
+            else f"BundleEntry(Empty)"
         )
 
     def copy(self) -> "FhirBundleEntry":
