@@ -271,9 +271,9 @@ class TestFhirGetListByResourceTypeResponse:
         )
 
         # Collect resources from the async generator
-        consumed_resources = []
-        async for resource in response.consume_resource_async():
-            consumed_resources.append(resource)
+        consumed_resources: List[FhirResourceMap] = []
+        async for resource_map in response.consume_resource_map_async():
+            consumed_resources.append(resource_map)
 
         # Verify the results
         assert len(consumed_resources) == 1

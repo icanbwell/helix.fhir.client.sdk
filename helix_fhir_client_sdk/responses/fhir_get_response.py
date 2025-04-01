@@ -212,7 +212,7 @@ class FhirGetResponse:
         ...
 
     @abstractmethod
-    def consume_resource(self) -> Generator[FhirResource | FhirResourceMap, None, None]:
+    def consume_resource(self) -> Generator[FhirResource, None, None]:
         """
         Gets the resources from the response as a generator AND removes them from the response
 
@@ -225,7 +225,7 @@ class FhirGetResponse:
     @abstractmethod
     async def consume_resource_async(
         self,
-    ) -> AsyncGenerator[FhirResource | FhirResourceMap, None]:
+    ) -> AsyncGenerator[FhirResource, None]:
         """
         Gets the resources from the response as a generator AND removes them from the response
 
@@ -234,6 +234,24 @@ class FhirGetResponse:
         """
         # This is just here for Python lint to be happy
         yield None  # type: ignore[misc]
+
+    async def consume_resource_map_async(
+        self,
+    ) -> AsyncGenerator[FhirResourceMap, None]:
+        raise NotImplementedError(
+            f"{self.consume_resource_map_async.__name__} is not implemented in {self.__class__.__name__}. Use {self.consume_resource_async.__name__} instead."
+        )
+        # This is just here for Python lint to be happy
+        # noinspection PyUnreachableCode,PyTypeChecker
+        yield None
+
+    def consume_resource_map(self) -> Generator[FhirResourceMap, None, None]:
+        raise NotImplementedError(
+            f"{self.consume_resource_map.__name__} is not implemented in {self.__class__.__name__}. Use {self.consume_resource.__name__} instead."
+        )
+        # This is just here for Python lint to be happy
+        # noinspection PyUnreachableCode,PyTypeChecker
+        yield None
 
     @abstractmethod
     async def consume_bundle_entry_async(self) -> AsyncGenerator[FhirBundleEntry, None]:

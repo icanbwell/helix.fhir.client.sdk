@@ -386,14 +386,14 @@ class FhirGetBundleResponse(FhirGetResponse):
     @override
     async def consume_resource_async(
         self,
-    ) -> AsyncGenerator[FhirResource | FhirResourceMap, None]:
+    ) -> AsyncGenerator[FhirResource, None]:
         while self._bundle_entries:
             entry: FhirBundleEntry = self._bundle_entries.popleft()
             if entry.resource:
                 yield entry.resource
 
     @override
-    def consume_resource(self) -> Generator[FhirResource | FhirResourceMap, None, None]:
+    def consume_resource(self) -> Generator[FhirResource, None, None]:
         while self._bundle_entries:
             entry: FhirBundleEntry = self._bundle_entries.popleft()
             if entry.resource:

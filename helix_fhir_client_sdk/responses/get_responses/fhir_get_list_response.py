@@ -261,12 +261,12 @@ class FhirGetListResponse(FhirGetResponse):
     @override
     async def consume_resource_async(
         self,
-    ) -> AsyncGenerator[FhirResource | FhirResourceMap, None]:
+    ) -> AsyncGenerator[FhirResource, None]:
         while self._resources:
             yield self._resources.popleft()
 
     @override
-    def consume_resource(self) -> Generator[FhirResource | FhirResourceMap, None, None]:
+    def consume_resource(self) -> Generator[FhirResource, None, None]:
         while self._resources:
             yield self._resources.popleft()
 

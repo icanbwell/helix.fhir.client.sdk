@@ -260,12 +260,42 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
     @override
     async def consume_resource_async(
         self,
-    ) -> AsyncGenerator[FhirResource | FhirResourceMap, None]:
+    ) -> AsyncGenerator[FhirResource, None]:
+        raise NotImplementedError(
+            self.consume_resource_async.__name__
+            + " is not implemented for "
+            + self.__class__.__name__
+            + ". Use "
+            + self.consume_resource_map_async.__name__
+            + " instead."
+        )
+        # This is here to keep the linter happy
+        # noinspection PyUnreachableCode,PyTypeChecker
+        yield None
+
+    @override
+    def consume_resource(self) -> Generator[FhirResource, None, None]:
+        raise NotImplementedError(
+            self.consume_resource.__name__
+            + " is not implemented for "
+            + self.__class__.__name__
+            + ". Use "
+            + self.consume_resource_map.__name__
+            + " instead."
+        )
+        # This is here to keep the linter happy
+        # noinspection PyUnreachableCode,PyTypeChecker
+        yield None
+
+    @override
+    async def consume_resource_map_async(
+        self,
+    ) -> AsyncGenerator[FhirResourceMap, None]:
         yield self._resource_map
         self._resource_map = FhirResourceMap()
 
     @override
-    def consume_resource(self) -> Generator[FhirResource | FhirResourceMap, None, None]:
+    def consume_resource_map(self) -> Generator[FhirResourceMap, None, None]:
         yield self._resource_map
         self._resource_map = FhirResourceMap()
 

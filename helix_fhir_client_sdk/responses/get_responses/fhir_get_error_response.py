@@ -281,14 +281,14 @@ class FhirGetErrorResponse(FhirGetResponse):
     @override
     async def consume_resource_async(
         self,
-    ) -> AsyncGenerator[FhirResource | FhirResourceMap, None]:
+    ) -> AsyncGenerator[FhirResource, None]:
         if self._resource:
             resource = self._resource
             self._resource = None
             yield resource
 
     @override
-    def consume_resource(self) -> Generator[FhirResource | FhirResourceMap, None, None]:
+    def consume_resource(self) -> Generator[FhirResource, None, None]:
         if self._resource:
             resource = self._resource
             self._resource = None
