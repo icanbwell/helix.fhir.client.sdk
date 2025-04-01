@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 
-class BundleEntryResponse:
+class FhirBundleEntryResponse:
     __slots__ = ["status", "lastModified", "etag"]
 
     # noinspection PyPep8Naming
@@ -28,8 +28,8 @@ class BundleEntryResponse:
         return result
 
     @staticmethod
-    def from_dict(d: Dict[str, Any]) -> "BundleEntryResponse":
-        return BundleEntryResponse(
+    def from_dict(d: Dict[str, Any]) -> "FhirBundleEntryResponse":
+        return FhirBundleEntryResponse(
             status=d["status"],
             lastModified=(
                 datetime.fromisoformat(d["lastModified"])

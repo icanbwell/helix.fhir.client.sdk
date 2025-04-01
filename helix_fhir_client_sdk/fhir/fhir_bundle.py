@@ -1,12 +1,12 @@
 import json
 from typing import Any, Dict, List, Optional
 
-from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
-class Bundle:
+class FhirBundle:
     __slots__ = ["entry", "total", "id_", "timestamp", "type_"]
 
     def __init__(
@@ -15,10 +15,10 @@ class Bundle:
         id_: Optional[str] = None,
         timestamp: Optional[str] = None,
         type_: str,
-        entry: Optional[List[BundleEntry]] = None,
+        entry: Optional[FhirBundleEntryList] = None,
         total: Optional[int] = None,
     ) -> None:
-        self.entry: Optional[List[BundleEntry]] = entry
+        self.entry: Optional[FhirBundleEntryList] = entry
         self.total: Optional[int] = total
         self.id_: Optional[str] = id_
         self.timestamp: Optional[str] = timestamp

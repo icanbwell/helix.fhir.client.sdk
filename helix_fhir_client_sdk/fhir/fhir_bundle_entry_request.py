@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 
-class BundleEntryRequest:
+class FhirBundleEntryRequest:
     __slots__ = ["url", "method", "ifModifiedSince", "ifNoneMatch"]
 
     # noinspection PyPep8Naming
@@ -28,8 +28,8 @@ class BundleEntryRequest:
         return result
 
     @staticmethod
-    def from_dict(d: Dict[str, Any]) -> "BundleEntryRequest":
-        return BundleEntryRequest(
+    def from_dict(d: Dict[str, Any]) -> "FhirBundleEntryRequest":
+        return FhirBundleEntryRequest(
             url=d["url"],
             method=d["method"],
             ifModifiedSince=(

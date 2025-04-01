@@ -3,8 +3,9 @@ from typing import List, Any
 
 import pytest
 
-from helix_fhir_client_sdk.fhir.bundle import Bundle
-from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle import FhirBundle
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -47,12 +48,12 @@ class TestFhirBundleAppender:
         return mock_response
 
     @pytest.fixture
-    def sample_bundle(self) -> Bundle:
+    def sample_bundle(self) -> FhirBundle:
         """Fixture to create a sample Bundle."""
-        return Bundle(type_="collection", total=0, entry=[])
+        return FhirBundle(type_="collection", total=0, entry=FhirBundleEntryList())
 
     def test_append_responses(
-        self, sample_fhir_get_response: FhirGetResponse, sample_bundle: Bundle
+        self, sample_fhir_get_response: FhirGetResponse, sample_bundle: FhirBundle
     ) -> None:
         """Test appending responses to a bundle."""
         responses = [sample_fhir_get_response]
@@ -116,28 +117,30 @@ class TestFhirBundleAppender:
 
     def test_remove_duplicate_resources(self) -> None:
         """Test removing duplicate resources from a bundle."""
-        bundle = Bundle(
+        bundle = FhirBundle(
             type_="collection",
-            entry=[
-                BundleEntry(
-                    resource={"resourceType": "Patient", "id": "123"},
-                    request=None,
-                    response=None,
-                    storage_mode=CompressedDictStorageMode(),
-                ),
-                BundleEntry(
-                    resource={"resourceType": "Patient", "id": "123"},
-                    request=None,
-                    response=None,
-                    storage_mode=CompressedDictStorageMode(),
-                ),
-                BundleEntry(
-                    resource={"resourceType": "Observation", "id": "456"},
-                    request=None,
-                    response=None,
-                    storage_mode=CompressedDictStorageMode(),
-                ),
-            ],
+            entry=FhirBundleEntryList(
+                [
+                    FhirBundleEntry(
+                        resource={"resourceType": "Patient", "id": "123"},
+                        request=None,
+                        response=None,
+                        storage_mode=CompressedDictStorageMode(),
+                    ),
+                    FhirBundleEntry(
+                        resource={"resourceType": "Patient", "id": "123"},
+                        request=None,
+                        response=None,
+                        storage_mode=CompressedDictStorageMode(),
+                    ),
+                    FhirBundleEntry(
+                        resource={"resourceType": "Observation", "id": "456"},
+                        request=None,
+                        response=None,
+                        storage_mode=CompressedDictStorageMode(),
+                    ),
+                ]
+            ),
         )
 
         updated_bundle = FhirBundleAppender.remove_duplicate_resources(bundle=bundle)
@@ -153,28 +156,30 @@ class TestFhirBundleAppender:
 
     def test_sort_resources(self) -> None:
         """Test sorting resources in a bundle."""
-        bundle = Bundle(
+        bundle = FhirBundle(
             type_="collection",
-            entry=[
-                BundleEntry(
-                    resource={"resourceType": "Patient", "id": "456"},
-                    request=None,
-                    response=None,
-                    storage_mode=CompressedDictStorageMode(),
-                ),
-                BundleEntry(
-                    resource={"resourceType": "Patient", "id": "123"},
-                    request=None,
-                    response=None,
-                    storage_mode=CompressedDictStorageMode(),
-                ),
-                BundleEntry(
-                    resource={"resourceType": "Observation", "id": "789"},
-                    request=None,
-                    response=None,
-                    storage_mode=CompressedDictStorageMode(),
-                ),
-            ],
+            entry=FhirBundleEntryList(
+                [
+                    FhirBundleEntry(
+                        resource={"resourceType": "Patient", "id": "456"},
+                        request=None,
+                        response=None,
+                        storage_mode=CompressedDictStorageMode(),
+                    ),
+                    FhirBundleEntry(
+                        resource={"resourceType": "Patient", "id": "123"},
+                        request=None,
+                        response=None,
+                        storage_mode=CompressedDictStorageMode(),
+                    ),
+                    FhirBundleEntry(
+                        resource={"resourceType": "Observation", "id": "789"},
+                        request=None,
+                        response=None,
+                        storage_mode=CompressedDictStorageMode(),
+                    ),
+                ]
+            ),
         )
 
         sorted_bundle = FhirBundleAppender.sort_resources(bundle=bundle)
@@ -194,32 +199,42 @@ class TestFhirBundleAppender:
 
     def test_sort_resources_with_custom_sort(self) -> None:
         """Test sorting resources with a custom sort function."""
-        bundle: Bundle = Bundle(
+        bundle: FhirBundle = FhirBundle(
             type_="collection",
-            entry=[
-                BundleEntry(
-                    resource={
-                        "resourceType": "Patient",
-                        "id": "456",
-                        "name": "Charlie",
-                    },
-                    request=None,
-                    response=None,
-                    storage_mode=CompressedDictStorageMode(),
-                ),
-                BundleEntry(
-                    resource={"resourceType": "Patient", "id": "123", "name": "Alice"},
-                    request=None,
-                    response=None,
-                    storage_mode=CompressedDictStorageMode(),
-                ),
-                BundleEntry(
-                    resource={"resourceType": "Patient", "id": "789", "name": "Bob"},
-                    request=None,
-                    response=None,
-                    storage_mode=CompressedDictStorageMode(),
-                ),
-            ],
+            entry=FhirBundleEntryList(
+                [
+                    FhirBundleEntry(
+                        resource={
+                            "resourceType": "Patient",
+                            "id": "456",
+                            "name": "Charlie",
+                        },
+                        request=None,
+                        response=None,
+                        storage_mode=CompressedDictStorageMode(),
+                    ),
+                    FhirBundleEntry(
+                        resource={
+                            "resourceType": "Patient",
+                            "id": "123",
+                            "name": "Alice",
+                        },
+                        request=None,
+                        response=None,
+                        storage_mode=CompressedDictStorageMode(),
+                    ),
+                    FhirBundleEntry(
+                        resource={
+                            "resourceType": "Patient",
+                            "id": "789",
+                            "name": "Bob",
+                        },
+                        request=None,
+                        response=None,
+                        storage_mode=CompressedDictStorageMode(),
+                    ),
+                ]
+            ),
         )
 
         assert bundle.entry is not None
@@ -238,14 +253,14 @@ class TestFhirBundleAppender:
                 context_manager.__enter__()
 
         try:
-            sorted_bundle: Bundle = FhirBundleAppender.sort_resources(
+            sorted_bundle: FhirBundle = FhirBundleAppender.sort_resources(
                 bundle=bundle,
                 fn_sort=lambda e: e.resource.get("name", "") if e.resource else "",
             )
 
             assert sorted_bundle.entry is not None
             # noinspection PyTypeChecker
-            bundle_entries: List[BundleEntry] = sorted_bundle.entry
+            bundle_entries: FhirBundleEntryList = sorted_bundle.entry
 
             sorted_names: List[str] = [
                 entry.resource["name"]

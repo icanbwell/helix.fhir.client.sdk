@@ -13,10 +13,12 @@ from typing import (
     Set,
 )
 
-from helix_fhir_client_sdk.fhir.bundle import Bundle
-from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
-from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
-from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.fhir.fhir_bundle import FhirBundle
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_response import (
+    FhirBundleEntryResponse,
+)
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
@@ -85,7 +87,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             storage_mode=storage_mode,
         )
         bundle_entries: FhirBundleEntryList
-        bundle: Bundle
+        bundle: FhirBundle
         bundle_entries, bundle = self._parse_bundle_entries(
             responses=response_text,
             url=url,
@@ -109,7 +111,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             storage_mode=self.storage_mode,
         )
         self._bundle_entries: FhirBundleEntryList = bundle_entries
-        self._bundle_metadata: Bundle = bundle
+        self._bundle_metadata: FhirBundle = bundle
 
     @override
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
@@ -167,7 +169,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         last_modified: Optional[datetime],
         etag: Optional[str],
         storage_mode: CompressedDictStorageMode,
-    ) -> Tuple[FhirBundleEntryList, Bundle]:
+    ) -> Tuple[FhirBundleEntryList, FhirBundle]:
         """
         Gets the Bundle entries from the response
 
@@ -175,7 +177,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         :return: list of bundle entries and a bundle with metadata but without any entries
         """
         if not responses:
-            return FhirBundleEntryList(), Bundle(
+            return FhirBundleEntryList(), FhirBundle(
                 id_=None,
                 timestamp=None,
                 type_="collection",
@@ -190,7 +192,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             timestamp: Optional[str] = cast(
                 Optional[str], child_response_resources.get("timestamp")
             )
-            bundle: Bundle = Bundle(
+            bundle: FhirBundle = FhirBundle(
                 id_=child_response_resources.get("id"),
                 timestamp=timestamp,
                 type_=child_response_resources.get("type")
@@ -199,8 +201,8 @@ class FhirGetBundleResponse(FhirGetResponse):
             )
 
             # use these if the bundle entry does not have them
-            request: BundleEntryRequest = BundleEntryRequest(url=url)
-            response: BundleEntryResponse = BundleEntryResponse(
+            request: FhirBundleEntryRequest = FhirBundleEntryRequest(url=url)
+            response: FhirBundleEntryResponse = FhirBundleEntryResponse(
                 status=str(status),
                 lastModified=last_modified,
                 etag=etag,
@@ -213,10 +215,10 @@ class FhirGetBundleResponse(FhirGetResponse):
                 bundle_entries: List[Dict[str, Any]] = child_response_resources["entry"]
                 for entry in bundle_entries:
                     result.append(
-                        BundleEntry(
+                        FhirBundleEntry(
                             resource=entry["resource"],
                             request=(
-                                BundleEntryRequest.from_dict(
+                                FhirBundleEntryRequest.from_dict(
                                     cast(Dict[str, Any], entry.get("request"))
                                 )
                                 if entry.get("request")
@@ -224,7 +226,7 @@ class FhirGetBundleResponse(FhirGetResponse):
                                 else request
                             ),
                             response=(
-                                BundleEntryResponse.from_dict(
+                                FhirBundleEntryResponse.from_dict(
                                     cast(Dict[str, Any], entry.get("response"))
                                 )
                                 if entry.get("response")
@@ -238,7 +240,7 @@ class FhirGetBundleResponse(FhirGetResponse):
                 return result, bundle
             else:
                 result.append(
-                    BundleEntry(
+                    FhirBundleEntry(
                         resource=child_response_resources,
                         request=request,
                         response=response,
@@ -250,10 +252,10 @@ class FhirGetBundleResponse(FhirGetResponse):
         except Exception as e:
             raise Exception(f"Could not get bundle entries from: {responses}") from e
 
-    def create_bundle(self) -> Bundle:
+    def create_bundle(self) -> FhirBundle:
         bundle_entries: FhirBundleEntryList = self.get_bundle_entries()
-        return Bundle(
-            entry=list(bundle_entries),
+        return FhirBundle(
+            entry=bundle_entries,
             total=len(bundle_entries),
             id_=self._bundle_metadata.id_,
             timestamp=self._bundle_metadata.timestamp,
@@ -266,7 +268,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         removes duplicate resources from the response i.e., resources with same resourceType and id
 
         """
-        bundle: Bundle = self.create_bundle()
+        bundle: FhirBundle = self.create_bundle()
         try:
             # remove duplicates from the list if they have the same resourceType and id
             resource_type_plus_id_seen: Set[str] = set()
@@ -318,11 +320,9 @@ class FhirGetBundleResponse(FhirGetResponse):
             return other_response
 
         # convert the resources from the other response into a bundle
-        bundle: Bundle = Bundle(
+        bundle: FhirBundle = FhirBundle(
             # create a new bundle with the entries from the other response
-            entry=list(
-                other_response.get_bundle_entries()
-            ),  # this will be a list of resources from the other response
+            entry=other_response.get_bundle_entries(),  # this will be a list of resources from the other response
             type_="collection",  # default to collection if type is not provided
         )
 
@@ -354,12 +354,12 @@ class FhirGetBundleResponse(FhirGetResponse):
 
         :return: response text
         """
-        bundle: Bundle = self.create_bundle()
+        bundle: FhirBundle = self.create_bundle()
         return bundle.to_json()
 
     @override
     def sort_resources(self) -> "FhirGetBundleResponse":
-        bundle: Bundle = self.create_bundle()
+        bundle: FhirBundle = self.create_bundle()
         bundle = FhirBundleAppender.sort_resources(bundle=bundle)
         self._bundle_entries = (
             FhirBundleEntryList(bundle.entry) if bundle.entry else FhirBundleEntryList()
@@ -371,24 +371,24 @@ class FhirGetBundleResponse(FhirGetResponse):
         self,
     ) -> AsyncGenerator[FhirResource | FhirResourceMap, None]:
         while self._bundle_entries:
-            entry: BundleEntry = self._bundle_entries.popleft()
+            entry: FhirBundleEntry = self._bundle_entries.popleft()
             if entry.resource:
                 yield entry.resource
 
     @override
     def consume_resource(self) -> Generator[FhirResource | FhirResourceMap, None, None]:
         while self._bundle_entries:
-            entry: BundleEntry = self._bundle_entries.popleft()
+            entry: FhirBundleEntry = self._bundle_entries.popleft()
             if entry.resource:
                 yield entry.resource
 
     @override
-    async def consume_bundle_entry_async(self) -> AsyncGenerator[BundleEntry, None]:
+    async def consume_bundle_entry_async(self) -> AsyncGenerator[FhirBundleEntry, None]:
         while self._bundle_entries:
             yield self._bundle_entries.popleft()
 
     @override
-    def consume_bundle_entry(self) -> Generator[BundleEntry, None, None]:
+    def consume_bundle_entry(self) -> Generator[FhirBundleEntry, None, None]:
         while self._bundle_entries:
             yield self._bundle_entries.popleft()
 

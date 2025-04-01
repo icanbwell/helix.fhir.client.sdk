@@ -1,9 +1,9 @@
 from typing import Deque, Optional, AsyncGenerator, List
 
-from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
 
 
-class FhirBundleEntryList(Deque[BundleEntry]):
+class FhirBundleEntryList(Deque[FhirBundleEntry]):
     __slots__: List[str] = []
 
     async def consume_resource_async(

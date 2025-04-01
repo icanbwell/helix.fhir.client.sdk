@@ -1,5 +1,5 @@
 import pytest
-from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
@@ -15,21 +15,21 @@ class TestFhirBundleEntryList:
         """
         # Arrange
         entries = [
-            BundleEntry(
+            FhirBundleEntry(
                 resource={"id": "1"},
                 request=None,
                 response=None,
                 fullUrl=None,
                 storage_mode=CompressedDictStorageMode(),
             ),
-            BundleEntry(
+            FhirBundleEntry(
                 resource={"id": "2"},
                 request=None,
                 response=None,
                 fullUrl=None,
                 storage_mode=CompressedDictStorageMode(),
             ),
-            BundleEntry(
+            FhirBundleEntry(
                 resource={"id": "3"},
                 request=None,
                 response=None,
@@ -58,35 +58,35 @@ class TestFhirBundleEntryList:
         """
         # Arrange
         entries = [
-            BundleEntry(
+            FhirBundleEntry(
                 resource={"id": "1"},
                 request=None,
                 response=None,
                 fullUrl=None,
                 storage_mode=CompressedDictStorageMode(),
             ),
-            BundleEntry(
+            FhirBundleEntry(
                 resource={"id": "2"},
                 request=None,
                 response=None,
                 fullUrl=None,
                 storage_mode=CompressedDictStorageMode(),
             ),
-            BundleEntry(
+            FhirBundleEntry(
                 resource={"id": "3"},
                 request=None,
                 response=None,
                 fullUrl=None,
                 storage_mode=CompressedDictStorageMode(),
             ),
-            BundleEntry(
+            FhirBundleEntry(
                 resource={"id": "4"},
                 request=None,
                 response=None,
                 fullUrl=None,
                 storage_mode=CompressedDictStorageMode(),
             ),
-            BundleEntry(
+            FhirBundleEntry(
                 resource={"id": "5"},
                 request=None,
                 response=None,
@@ -114,7 +114,7 @@ class TestFhirBundleEntryList:
         """
         # Arrange
         entries = [
-            BundleEntry(
+            FhirBundleEntry(
                 resource={"id": "1"},
                 request=None,
                 response=None,
@@ -151,14 +151,14 @@ class TestFhirBundleEntryList:
         """
         # Arrange
         entries = [
-            BundleEntry(
+            FhirBundleEntry(
                 resource={"id": "1"},
                 request=None,
                 response=None,
                 fullUrl=None,
                 storage_mode=CompressedDictStorageMode(),
             ),
-            BundleEntry(
+            FhirBundleEntry(
                 resource={"id": "2"},
                 request=None,
                 response=None,
@@ -173,7 +173,7 @@ class TestFhirBundleEntryList:
         # Assert
         assert len(bundle_list) == 2
         bundle_list.append(
-            BundleEntry(
+            FhirBundleEntry(
                 resource={"id": "3"},
                 request=None,
                 response=None,

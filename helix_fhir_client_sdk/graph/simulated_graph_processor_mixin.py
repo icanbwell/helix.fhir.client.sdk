@@ -12,8 +12,8 @@ from typing import (
 )
 
 from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
-from helix_fhir_client_sdk.fhir.bundle import Bundle
-from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle import FhirBundle
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,
@@ -413,7 +413,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         logger: Optional[FhirLogger],
         cache: RequestCache,
         scope_parser: FhirScopeParser,
-        parent_link_map: List[Tuple[List[GraphDefinitionLink], List[BundleEntry]]],
+        parent_link_map: List[Tuple[List[GraphDefinitionLink], List[FhirBundleEntry]]],
         request_size: int,
         id_search_unsupported_resources: List[str],
     ) -> AsyncGenerator[FhirGetResponse, None]:
@@ -429,7 +429,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param scope_parser: scope parser to use
         :return: list of FhirGetResponse objects
         """
-        children: List[BundleEntry] = []
+        children: List[FhirBundleEntry] = []
         child_response: FhirGetResponse
         target_type: Optional[str] = target.type_
         assert target_type
@@ -676,12 +676,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         non_cached_id_list: List[str] = []
         # get any cached resources
-        cached_bundle_entries: List[BundleEntry] = []
+        cached_bundle_entries: FhirBundleEntryList = FhirBundleEntryList()
         cached_response: Optional[FhirGetResponse] = None
         cache_hits: int = 0
         if id_list:
             for resource_id in id_list:
-                cached_bundle_entry: Optional[BundleEntry] = cache.get(
+                cached_bundle_entry: Optional[FhirBundleEntry] = cache.get(
                     resource_type=resource_type, resource_id=resource_id
                 )
                 if cached_bundle_entry:
@@ -693,7 +693,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         if cached_bundle_entries and len(cached_bundle_entries) > 0:
             if logger:
                 logger.debug(f"Returning resource {resource_type} from cache")
-            cached_bundle: Bundle = Bundle(
+            cached_bundle: FhirBundle = FhirBundle(
                 entry=cached_bundle_entries, type_="collection"
             )
             cached_response = FhirGetResponseFactory.create(
@@ -774,7 +774,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Cache the fetched entries
         if all_result:
-            non_cached_bundle_entry: BundleEntry
+            non_cached_bundle_entry: FhirBundleEntry
             for non_cached_bundle_entry in all_result.get_bundle_entries():
                 if non_cached_bundle_entry.resource:
                     non_cached_resource: FhirResource = non_cached_bundle_entry.resource

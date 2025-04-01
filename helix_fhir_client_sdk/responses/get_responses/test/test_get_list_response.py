@@ -4,8 +4,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from helix_fhir_client_sdk.fhir.bundle_entry import (
-    BundleEntry,
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import (
+    FhirBundleEntry,
 )
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
@@ -205,8 +205,8 @@ class TestFhirGetListResponse:
         )
         bundle_entries = response.get_bundle_entries()
         assert len(bundle_entries) == 2
-        assert isinstance(bundle_entries[0], BundleEntry)
-        assert isinstance(bundle_entries[1], BundleEntry)
+        assert isinstance(bundle_entries[0], FhirBundleEntry)
+        assert isinstance(bundle_entries[1], FhirBundleEntry)
         assert bundle_entries[0].resource is not None
         assert bundle_entries[0].resource["resourceType"] == "Patient"
 
@@ -321,8 +321,8 @@ class TestFhirGetListResponse:
         async for entry in response.consume_bundle_entry_async():
             bundle_entries.append(entry)
         assert len(bundle_entries) == 2
-        assert isinstance(bundle_entries[0], BundleEntry)
-        assert isinstance(bundle_entries[1], BundleEntry)
+        assert isinstance(bundle_entries[0], FhirBundleEntry)
+        assert isinstance(bundle_entries[1], FhirBundleEntry)
         assert bundle_entries[0].resource is not None
         assert bundle_entries[1].resource is not None
         assert bundle_entries[0].resource["resourceType"] == "Patient"
@@ -354,8 +354,8 @@ class TestFhirGetListResponse:
         for entry in response.consume_bundle_entry():
             bundle_entries.append(entry)
         assert len(bundle_entries) == 2
-        assert isinstance(bundle_entries[0], BundleEntry)
-        assert isinstance(bundle_entries[1], BundleEntry)
+        assert isinstance(bundle_entries[0], FhirBundleEntry)
+        assert isinstance(bundle_entries[1], FhirBundleEntry)
         assert bundle_entries[0].resource is not None
         assert bundle_entries[1].resource is not None
         assert bundle_entries[0].resource["resourceType"] == "Patient"

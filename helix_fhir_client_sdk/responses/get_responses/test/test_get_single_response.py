@@ -4,8 +4,8 @@ from unittest.mock import Mock, AsyncMock
 
 import pytest
 
-from helix_fhir_client_sdk.fhir.bundle_entry import (
-    BundleEntry,
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import (
+    FhirBundleEntry,
 )
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -130,7 +130,7 @@ class TestFhirGetSingleResponse:
         bundle_entry = response._create_bundle_entry(
             resource=response._resource,
         )
-        assert isinstance(bundle_entry, BundleEntry)
+        assert isinstance(bundle_entry, FhirBundleEntry)
         assert bundle_entry.resource is not None
         assert bundle_entry.resource["resourceType"] == "Patient"
         assert bundle_entry.resource["id"] == "123"
@@ -156,7 +156,7 @@ class TestFhirGetSingleResponse:
         )
         bundle_entries = response.get_bundle_entries()
         assert len(bundle_entries) == 1
-        assert isinstance(bundle_entries[0], BundleEntry)
+        assert isinstance(bundle_entries[0], FhirBundleEntry)
         assert bundle_entries[0].resource is not None
         assert bundle_entries[0].resource["resourceType"] == "Patient"
 
@@ -317,7 +317,7 @@ class TestFhirGetSingleResponse:
         async for entry in response.consume_bundle_entry_async():
             bundle_entries.append(entry)
         assert len(bundle_entries) == 1
-        assert isinstance(bundle_entries[0], BundleEntry)
+        assert isinstance(bundle_entries[0], FhirBundleEntry)
         assert bundle_entries[0].resource is not None
         assert bundle_entries[0].resource["resourceType"] == "Patient"
         assert response.get_resource_count() == 0
@@ -346,7 +346,7 @@ class TestFhirGetSingleResponse:
         for entry in response.consume_bundle_entry():
             bundle_entries.append(entry)
         assert len(bundle_entries) == 1
-        assert isinstance(bundle_entries[0], BundleEntry)
+        assert isinstance(bundle_entries[0], FhirBundleEntry)
         assert bundle_entries[0].resource is not None
         assert bundle_entries[0].resource["resourceType"] == "Patient"
         assert response.get_resource_count() == 0
@@ -378,7 +378,7 @@ class TestFhirGetSingleResponse:
         mock_other_response.get_bundle_entries_generator = AsyncMock(
             return_value=iter(
                 [
-                    BundleEntry(
+                    FhirBundleEntry(
                         resource=sample_single_resource,
                         fullUrl="https://example.com/Patient/123",
                         request=None,
@@ -390,7 +390,7 @@ class TestFhirGetSingleResponse:
         )
         mock_other_response.get_bundle_entries = Mock(
             return_value=[
-                BundleEntry(
+                FhirBundleEntry(
                     resource=sample_single_resource,
                     fullUrl="https://example.com/Patient/123",
                     request=None,

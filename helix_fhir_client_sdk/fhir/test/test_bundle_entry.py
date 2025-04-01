@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
 
-from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
-from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
-from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_response import (
+    FhirBundleEntryResponse,
+)
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
@@ -11,7 +13,7 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
 class TestBundleEntry:
     def test_init_minimal(self) -> None:
         """Test initialization with minimal parameters."""
-        entry = BundleEntry(
+        entry = FhirBundleEntry(
             resource={"resourceType": "Patient"},
             request=None,
             response=None,
@@ -27,10 +29,10 @@ class TestBundleEntry:
     def test_init_full(self) -> None:
         """Test initialization with all parameters."""
         resource = {"resourceType": "Patient", "id": "123"}
-        request = BundleEntryRequest(url="https://example.com")
-        response = BundleEntryResponse(status="200", etag=None, lastModified=None)
+        request = FhirBundleEntryRequest(url="https://example.com")
+        response = FhirBundleEntryResponse(status="200", etag=None, lastModified=None)
 
-        entry = BundleEntry(
+        entry = FhirBundleEntry(
             resource=resource,
             request=request,
             response=response,
@@ -46,7 +48,7 @@ class TestBundleEntry:
 
     def test_to_dict_minimal(self) -> None:
         """Test converting to dictionary with minimal parameters."""
-        entry = BundleEntry(
+        entry = FhirBundleEntry(
             resource={"resourceType": "Patient"},
             request=None,
             response=None,
@@ -58,10 +60,10 @@ class TestBundleEntry:
     def test_to_dict_full(self) -> None:
         """Test converting to dictionary with all parameters."""
         resource = {"resourceType": "Patient", "id": "123"}
-        request = BundleEntryRequest(url="https://example.com")
-        response = BundleEntryResponse(status="200", etag=None, lastModified=None)
+        request = FhirBundleEntryRequest(url="https://example.com")
+        response = FhirBundleEntryResponse(status="200", etag=None, lastModified=None)
 
-        entry = BundleEntry(
+        entry = FhirBundleEntry(
             resource=resource,
             request=request,
             response=response,
@@ -79,7 +81,9 @@ class TestBundleEntry:
     def test_from_dict_minimal(self) -> None:
         """Test creating from dictionary with minimal parameters."""
         data = {"resource": {"resourceType": "Patient"}}
-        entry = BundleEntry.from_dict(data, storage_mode=CompressedDictStorageMode())
+        entry = FhirBundleEntry.from_dict(
+            data, storage_mode=CompressedDictStorageMode()
+        )
 
         assert entry.resource is not None
         with entry.resource.transaction():
@@ -101,7 +105,9 @@ class TestBundleEntry:
                 "etag": 'W/"abc"',
             },
         }
-        entry = BundleEntry.from_dict(data, storage_mode=CompressedDictStorageMode())
+        entry = FhirBundleEntry.from_dict(
+            data, storage_mode=CompressedDictStorageMode()
+        )
         assert entry.resource is not None
         with entry.resource.transaction():
             assert entry.fullUrl == "https://example.com/Patient/123"
@@ -114,7 +120,7 @@ class TestBundleEntry:
     def test_repr(self) -> None:
         """Test string representation of BundleEntry."""
         resource = {"resourceType": "Patient", "id": "123"}
-        entry = BundleEntry(
+        entry = FhirBundleEntry(
             resource=resource,
             request=None,
             response=None,

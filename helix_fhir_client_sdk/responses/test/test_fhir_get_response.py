@@ -13,9 +13,11 @@ from typing import (
 
 import pytest
 
-from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
-from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
-from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_response import (
+    FhirBundleEntryResponse,
+)
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
@@ -100,13 +102,13 @@ class TestFhirGetResponse(FhirGetResponse):
             yield self._resources.popleft()
 
     @override
-    async def consume_bundle_entry_async(self) -> AsyncGenerator[BundleEntry, None]:
+    async def consume_bundle_entry_async(self) -> AsyncGenerator[FhirBundleEntry, None]:
         while self._resources:
             resource: FhirResource = self._resources.popleft()
             yield self._create_bundle_entry(resource=resource)
 
     @override
-    def consume_bundle_entry(self) -> Generator[BundleEntry, None, None]:
+    def consume_bundle_entry(self) -> Generator[FhirBundleEntry, None, None]:
         while self._resources:
             resource: FhirResource = self._resources.popleft()
             yield self._create_bundle_entry(resource=resource)
@@ -155,15 +157,15 @@ class TestFhirGetResponse(FhirGetResponse):
     def get_resource_count(self) -> int:
         return len(self._resources)
 
-    def _create_bundle_entry(self, *, resource: FhirResource) -> BundleEntry:
+    def _create_bundle_entry(self, *, resource: FhirResource) -> FhirBundleEntry:
         # use these if the bundle entry does not have them
-        request: BundleEntryRequest = BundleEntryRequest(url=self.url)
-        response: BundleEntryResponse = BundleEntryResponse(
+        request: FhirBundleEntryRequest = FhirBundleEntryRequest(url=self.url)
+        response: FhirBundleEntryResponse = FhirBundleEntryResponse(
             status=str(self.status),
             lastModified=self.lastModified,
             etag=self.etag,
         )
-        entry: BundleEntry = BundleEntry(
+        entry: FhirBundleEntry = FhirBundleEntry(
             resource=resource,
             request=request,
             response=response,

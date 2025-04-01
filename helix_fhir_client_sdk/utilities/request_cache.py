@@ -1,7 +1,7 @@
 from types import TracebackType
 from typing import Dict, Optional, Type
 
-from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
 
 
 class RequestCache:
@@ -26,7 +26,7 @@ class RequestCache:
         This method is called when the RequestCache is entered into a context manager. It returns the RequestCache
         instance.
         """
-        self._cache: Dict[str, BundleEntry] = {}
+        self._cache: Dict[str, FhirBundleEntry] = {}
         return self
 
     def __exit__(
@@ -45,7 +45,7 @@ class RequestCache:
         else:
             return True
 
-    def get(self, *, resource_type: str, resource_id: str) -> Optional[BundleEntry]:
+    def get(self, *, resource_type: str, resource_id: str) -> Optional[FhirBundleEntry]:
         """
         This method returns the cached data for a given URL, or None if the URL is not in the cache.
 
@@ -62,7 +62,7 @@ class RequestCache:
         return self._cache.get(key)
 
     def add(
-        self, *, resource_type: str, resource_id: str, bundle_entry: BundleEntry
+        self, *, resource_type: str, resource_id: str, bundle_entry: FhirBundleEntry
     ) -> None:
         """
         This method adds the given data to the cache.

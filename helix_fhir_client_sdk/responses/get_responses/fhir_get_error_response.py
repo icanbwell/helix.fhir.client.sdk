@@ -10,10 +10,12 @@ from typing import (
     Generator,
 )
 
-from helix_fhir_client_sdk.fhir.bundle import Bundle
-from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
-from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
-from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.fhir.fhir_bundle import FhirBundle
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_response import (
+    FhirBundleEntryResponse,
+)
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
@@ -150,11 +152,11 @@ class FhirGetErrorResponse(FhirGetResponse):
             else []
         )
 
-    def _create_bundle_entry(self, *, resource: FhirResource) -> BundleEntry:
-        return BundleEntry(
+    def _create_bundle_entry(self, *, resource: FhirResource) -> FhirBundleEntry:
+        return FhirBundleEntry(
             resource=resource,  # This will be the OperationOutcome or the resource itself
-            request=BundleEntryRequest(url=self.url),
-            response=BundleEntryResponse(
+            request=FhirBundleEntryRequest(url=self.url),
+            response=FhirBundleEntryResponse(
                 status=str(self.status),
                 lastModified=self.lastModified,
                 etag=self.etag,
@@ -227,7 +229,7 @@ class FhirGetErrorResponse(FhirGetResponse):
             )
             assert isinstance(child_response_resources, dict)
             response_json: Dict[str, Any] | None = child_response_resources
-            return Bundle.add_diagnostics_to_operation_outcomes(
+            return FhirBundle.add_diagnostics_to_operation_outcomes(
                 resource=FhirResource(
                     initial_dict=response_json, storage_mode=storage_mode
                 ),
@@ -276,14 +278,14 @@ class FhirGetErrorResponse(FhirGetResponse):
             yield resource
 
     @override
-    async def consume_bundle_entry_async(self) -> AsyncGenerator[BundleEntry, None]:
+    async def consume_bundle_entry_async(self) -> AsyncGenerator[FhirBundleEntry, None]:
         if self._resource:
             resource = self._resource
             self._resource = None
             yield self._create_bundle_entry(resource=resource)
 
     @override
-    def consume_bundle_entry(self) -> Generator[BundleEntry, None, None]:
+    def consume_bundle_entry(self) -> Generator[FhirBundleEntry, None, None]:
         if self._resource:
             resource = self._resource
             self._resource = None

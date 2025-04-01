@@ -1,7 +1,8 @@
 import json
 
-from helix_fhir_client_sdk.fhir.bundle import Bundle
-from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle import FhirBundle
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
@@ -11,7 +12,7 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
 class TestBundle:
     def test_init_minimal(self) -> None:
         """Test initialization with minimal parameters."""
-        bundle = Bundle(type_="searchset")
+        bundle = FhirBundle(type_="searchset")
         assert bundle.type_ == "searchset"
         assert bundle.entry is None
         assert bundle.total is None
@@ -20,21 +21,23 @@ class TestBundle:
 
     def test_init_full(self) -> None:
         """Test initialization with all parameters."""
-        entries = [
-            BundleEntry(
-                resource={"resourceType": "Patient"},
-                request=None,
-                response=None,
-                storage_mode=CompressedDictStorageMode(),
-            ),
-            BundleEntry(
-                resource={"resourceType": "Observation"},
-                request=None,
-                response=None,
-                storage_mode=CompressedDictStorageMode(),
-            ),
-        ]
-        bundle = Bundle(
+        entries = FhirBundleEntryList(
+            [
+                FhirBundleEntry(
+                    resource={"resourceType": "Patient"},
+                    request=None,
+                    response=None,
+                    storage_mode=CompressedDictStorageMode(),
+                ),
+                FhirBundleEntry(
+                    resource={"resourceType": "Observation"},
+                    request=None,
+                    response=None,
+                    storage_mode=CompressedDictStorageMode(),
+                ),
+            ]
+        )
+        bundle = FhirBundle(
             type_="searchset",
             entry=entries,
             total=2,
@@ -50,27 +53,29 @@ class TestBundle:
 
     def test_to_dict_minimal(self) -> None:
         """Test converting to dictionary with minimal parameters."""
-        bundle = Bundle(type_="searchset")
+        bundle = FhirBundle(type_="searchset")
         result = bundle.to_dict()
         assert result == {"type": "searchset", "resourceType": "Bundle"}
 
     def test_to_dict_full(self) -> None:
         """Test converting to dictionary with all parameters."""
-        entries = [
-            BundleEntry(
-                resource={"resourceType": "Patient"},
-                request=None,
-                response=None,
-                storage_mode=CompressedDictStorageMode(),
-            ),
-            BundleEntry(
-                resource={"resourceType": "Observation"},
-                request=None,
-                response=None,
-                storage_mode=CompressedDictStorageMode(),
-            ),
-        ]
-        bundle = Bundle(
+        entries = FhirBundleEntryList(
+            [
+                FhirBundleEntry(
+                    resource={"resourceType": "Patient"},
+                    request=None,
+                    response=None,
+                    storage_mode=CompressedDictStorageMode(),
+                ),
+                FhirBundleEntry(
+                    resource={"resourceType": "Observation"},
+                    request=None,
+                    response=None,
+                    storage_mode=CompressedDictStorageMode(),
+                ),
+            ]
+        )
+        bundle = FhirBundle(
             type_="searchset",
             entry=entries,
             total=2,
@@ -92,21 +97,23 @@ class TestBundle:
 
     def test_to_json(self) -> None:
         """Test converting Bundle to JSON."""
-        entries = [
-            BundleEntry(
-                resource={"resourceType": "Patient"},
-                request=None,
-                response=None,
-                storage_mode=CompressedDictStorageMode(),
-            ),
-            BundleEntry(
-                resource={"resourceType": "Observation"},
-                request=None,
-                response=None,
-                storage_mode=CompressedDictStorageMode(),
-            ),
-        ]
-        bundle = Bundle(
+        entries = FhirBundleEntryList(
+            [
+                FhirBundleEntry(
+                    resource={"resourceType": "Patient"},
+                    request=None,
+                    response=None,
+                    storage_mode=CompressedDictStorageMode(),
+                ),
+                FhirBundleEntry(
+                    resource={"resourceType": "Observation"},
+                    request=None,
+                    response=None,
+                    storage_mode=CompressedDictStorageMode(),
+                ),
+            ]
+        )
+        bundle = FhirBundle(
             type_="searchset",
             entry=entries,
             total=2,
@@ -129,7 +136,7 @@ class TestBundle:
         )
         diagnostics_coding = [{"code": "test-code"}]
 
-        updated_resource = Bundle.add_diagnostics_to_operation_outcomes(
+        updated_resource = FhirBundle.add_diagnostics_to_operation_outcomes(
             resource=resource, diagnostics_coding=diagnostics_coding
         )
 

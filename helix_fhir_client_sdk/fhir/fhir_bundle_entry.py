@@ -1,8 +1,10 @@
 import json
 from typing import Any, Dict, Optional
 
-from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
-from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_response import (
+    FhirBundleEntryResponse,
+)
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
     CompressedDict,
@@ -13,7 +15,7 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
-class BundleEntry:
+class FhirBundleEntry:
     __slots__ = ["_resource", "request", "response", "fullUrl", "storage_mode"]
 
     # noinspection PyPep8Naming
@@ -22,8 +24,8 @@ class BundleEntry:
         *,
         fullUrl: Optional[str] = None,
         resource: Dict[str, Any] | FhirResource | None,
-        request: Optional[BundleEntryRequest],
-        response: Optional[BundleEntryResponse],
+        request: Optional[FhirBundleEntryRequest],
+        response: Optional[FhirBundleEntryResponse],
         storage_mode: CompressedDictStorageMode,
     ) -> None:
         """
@@ -44,8 +46,8 @@ class BundleEntry:
                 else None
             )
         )
-        self.request: Optional[BundleEntryRequest] = request
-        self.response: Optional[BundleEntryResponse] = response
+        self.request: Optional[FhirBundleEntryRequest] = request
+        self.response: Optional[FhirBundleEntryResponse] = response
         self.fullUrl: Optional[str] = fullUrl
         self.storage_mode: CompressedDictStorageMode = storage_mode
 
@@ -93,8 +95,8 @@ class BundleEntry:
     @staticmethod
     def from_dict(
         d: Dict[str, Any], storage_mode: CompressedDictStorageMode
-    ) -> "BundleEntry":
-        return BundleEntry(
+    ) -> "FhirBundleEntry":
+        return FhirBundleEntry(
             fullUrl=d["fullUrl"] if "fullUrl" in d else None,
             resource=(
                 FhirResource(initial_dict=d["resource"], storage_mode=storage_mode)
@@ -102,10 +104,12 @@ class BundleEntry:
                 else None
             ),
             request=(
-                BundleEntryRequest.from_dict(d["request"]) if "request" in d else None
+                FhirBundleEntryRequest.from_dict(d["request"])
+                if "request" in d
+                else None
             ),
             response=(
-                BundleEntryResponse.from_dict(d["response"])
+                FhirBundleEntryResponse.from_dict(d["response"])
                 if "response" in d
                 else None
             ),

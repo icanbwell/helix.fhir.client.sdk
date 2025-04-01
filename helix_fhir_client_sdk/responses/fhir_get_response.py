@@ -14,8 +14,8 @@ from typing import (
     Generator,
 )
 
-from helix_fhir_client_sdk.fhir.bundle_entry import (
-    BundleEntry,
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import (
+    FhirBundleEntry,
 )
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
@@ -224,7 +224,7 @@ class FhirGetResponse:
         yield None  # type: ignore[misc]
 
     @abstractmethod
-    async def consume_bundle_entry_async(self) -> AsyncGenerator[BundleEntry, None]:
+    async def consume_bundle_entry_async(self) -> AsyncGenerator[FhirBundleEntry, None]:
         """
         Gets the resources from the response as a generator AND removes them from the response
 
@@ -235,7 +235,7 @@ class FhirGetResponse:
         yield None  # type: ignore[misc]
 
     @abstractmethod
-    def consume_bundle_entry(self) -> Generator[BundleEntry, None, None]:
+    def consume_bundle_entry(self) -> Generator[FhirBundleEntry, None, None]:
         """
         Gets the resources from the response as a generator AND removes them from the response
 

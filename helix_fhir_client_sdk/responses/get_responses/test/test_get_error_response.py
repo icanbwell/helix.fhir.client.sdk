@@ -4,8 +4,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from helix_fhir_client_sdk.fhir.bundle_entry import (
-    BundleEntry,
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import (
+    FhirBundleEntry,
 )
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -104,7 +104,7 @@ class TestFhirGetErrorResponse:
 
         entries = response.get_bundle_entries()
         assert len(entries) == 1
-        assert isinstance(entries[0], BundleEntry)
+        assert isinstance(entries[0], FhirBundleEntry)
         assert entries[0].resource is not None
         assert entries[0].resource["resourceType"] == "OperationOutcome"
 
@@ -230,7 +230,7 @@ class TestFhirGetErrorResponse:
             entries.append(entry)
 
         assert len(entries) == 1
-        assert isinstance(entries[0], BundleEntry)
+        assert isinstance(entries[0], FhirBundleEntry)
         assert entries[0].resource is not None
         assert entries[0].resource["resourceType"] == "OperationOutcome"
         assert response.get_resource_count() == 0
@@ -253,7 +253,7 @@ class TestFhirGetErrorResponse:
             entries.append(entry)
 
         assert len(entries) == 1
-        assert isinstance(entries[0], BundleEntry)
+        assert isinstance(entries[0], FhirBundleEntry)
         assert entries[0].resource is not None
         assert entries[0].resource["resourceType"] == "OperationOutcome"
         assert response.get_resource_count() == 0

@@ -11,8 +11,8 @@ from typing import (
     Generator,
 )
 
-from helix_fhir_client_sdk.fhir.bundle_entry import (
-    BundleEntry,
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import (
+    FhirBundleEntry,
 )
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
@@ -246,7 +246,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         self._resource_map = FhirResourceMap()
 
     @override
-    async def consume_bundle_entry_async(self) -> AsyncGenerator[BundleEntry, None]:
+    async def consume_bundle_entry_async(self) -> AsyncGenerator[FhirBundleEntry, None]:
         raise NotImplementedError(
             "get_bundle_entries_generator is not implemented for FhirGetListByResourceTypeResponse."
         )
@@ -254,7 +254,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         yield None
 
     @override
-    def consume_bundle_entry(self) -> Generator[BundleEntry, None, None]:
+    def consume_bundle_entry(self) -> Generator[FhirBundleEntry, None, None]:
         raise NotImplementedError(
             "get_bundle_entries_generator is not implemented for FhirGetListByResourceTypeResponse."
         )

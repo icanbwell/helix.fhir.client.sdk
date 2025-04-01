@@ -10,9 +10,11 @@ from typing import (
     Generator,
 )
 
-from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
-from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
-from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_response import (
+    FhirBundleEntryResponse,
+)
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
@@ -127,15 +129,15 @@ class FhirGetSingleResponse(FhirGetResponse):
             FhirResourceList([self._resource]) if self._resource else FhirResourceList()
         )
 
-    def _create_bundle_entry(self, *, resource: FhirResource) -> BundleEntry:
+    def _create_bundle_entry(self, *, resource: FhirResource) -> FhirBundleEntry:
         # use these if the bundle entry does not have them
-        request: BundleEntryRequest = BundleEntryRequest(url=self.url)
-        response: BundleEntryResponse = BundleEntryResponse(
+        request: FhirBundleEntryRequest = FhirBundleEntryRequest(url=self.url)
+        response: FhirBundleEntryResponse = FhirBundleEntryResponse(
             status=str(self.status),
             lastModified=self.lastModified,
             etag=self.etag,
         )
-        bundle_entry = BundleEntry(
+        bundle_entry = FhirBundleEntry(
             resource=resource,
             request=request,
             response=response,
@@ -229,14 +231,14 @@ class FhirGetSingleResponse(FhirGetResponse):
             yield resource
 
     @override
-    async def consume_bundle_entry_async(self) -> AsyncGenerator[BundleEntry, None]:
+    async def consume_bundle_entry_async(self) -> AsyncGenerator[FhirBundleEntry, None]:
         if self._resource:
             resource = self._resource
             self._resource = None
             yield self._create_bundle_entry(resource=resource)
 
     @override
-    def consume_bundle_entry(self) -> Generator[BundleEntry, None, None]:
+    def consume_bundle_entry(self) -> Generator[FhirBundleEntry, None, None]:
         if self._resource:
             resource = self._resource
             self._resource = None

@@ -5,9 +5,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
-from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
-from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_response import (
+    FhirBundleEntryResponse,
+)
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
@@ -188,10 +190,10 @@ class TestFhirGetBundleResponse:
         mock_response.storage_mode = CompressedDictStorageMode()
 
         mock_response.get_bundle_entries.return_value = [
-            BundleEntry(
+            FhirBundleEntry(
                 resource={"resourceType": "Patient", "id": "123"},
-                request=BundleEntryRequest(url="https://example.com"),
-                response=BundleEntryResponse(
+                request=FhirBundleEntryRequest(url="https://example.com"),
+                response=FhirBundleEntryResponse(
                     status="200", etag="test-etag", lastModified=datetime.now(UTC)
                 ),
                 storage_mode=CompressedDictStorageMode(),
@@ -408,8 +410,8 @@ class TestFhirGetBundleResponse:
             bundle_entries.append(entry)
 
         assert len(bundle_entries) == 2
-        assert isinstance(bundle_entries[0], BundleEntry)
-        assert isinstance(bundle_entries[1], BundleEntry)
+        assert isinstance(bundle_entries[0], FhirBundleEntry)
+        assert isinstance(bundle_entries[1], FhirBundleEntry)
         assert bundle_entries[0].resource is not None
         assert bundle_entries[1].resource is not None
         assert bundle_entries[0].resource["resourceType"] == "Patient"
@@ -444,8 +446,8 @@ class TestFhirGetBundleResponse:
             bundle_entries.append(entry)
 
         assert len(bundle_entries) == 2
-        assert isinstance(bundle_entries[0], BundleEntry)
-        assert isinstance(bundle_entries[1], BundleEntry)
+        assert isinstance(bundle_entries[0], FhirBundleEntry)
+        assert isinstance(bundle_entries[1], FhirBundleEntry)
         assert bundle_entries[0].resource is not None
         assert bundle_entries[1].resource is not None
         assert bundle_entries[0].resource["resourceType"] == "Patient"

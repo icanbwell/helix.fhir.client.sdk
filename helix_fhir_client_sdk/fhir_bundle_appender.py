@@ -2,10 +2,12 @@ import json
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Callable
 
-from helix_fhir_client_sdk.fhir.bundle import Bundle
-from helix_fhir_client_sdk.fhir.bundle_entry import BundleEntry
-from helix_fhir_client_sdk.fhir.bundle_entry_request import BundleEntryRequest
-from helix_fhir_client_sdk.fhir.bundle_entry_response import BundleEntryResponse
+from helix_fhir_client_sdk.fhir.fhir_bundle import FhirBundle
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
+from helix_fhir_client_sdk.fhir.fhir_bundle_entry_response import (
+    FhirBundleEntryResponse,
+)
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
@@ -26,9 +28,9 @@ class FhirBundleAppender:
     def append_responses(
         *,
         responses: List[FhirGetResponse],
-        bundle: Bundle,
+        bundle: FhirBundle,
         storage_mode: CompressedDictStorageMode,
-    ) -> Bundle:
+    ) -> FhirBundle:
         """
         Appends responses to the bundle.  If there was an error then it appends OperationOutcome resources to the bundle
 
@@ -48,7 +50,7 @@ class FhirBundleAppender:
             )
             bundle_entries.extend(bundle_entries_for_response)
 
-        bundle.entry = list(bundle_entries)
+        bundle.entry = bundle_entries
         return bundle
 
     @staticmethod
@@ -113,16 +115,18 @@ class FhirBundleAppender:
             )
         )
 
-        bundle_entry: BundleEntry
+        bundle_entry: FhirBundleEntry
         for bundle_entry in bundle_entries:
             if (
                 bundle_entry.resource
                 and bundle_entry.resource.resource_type == "OperationOutcome"
             ):
                 # This is an OperationOutcome resource so we need to add the diagnostics to it
-                bundle_entry.resource = Bundle.add_diagnostics_to_operation_outcomes(
-                    resource=bundle_entry.resource,
-                    diagnostics_coding=diagnostics_coding,
+                bundle_entry.resource = (
+                    FhirBundle.add_diagnostics_to_operation_outcomes(
+                        resource=bundle_entry.resource,
+                        diagnostics_coding=diagnostics_coding,
+                    )
                 )
 
         # now add a bundle entry for errors
@@ -141,9 +145,9 @@ class FhirBundleAppender:
                 )
             )
             bundle_entries.append(
-                BundleEntry(
-                    request=BundleEntryRequest(url=url),
-                    response=BundleEntryResponse(
+                FhirBundleEntry(
+                    request=FhirBundleEntryRequest(url=url),
+                    response=FhirBundleEntryResponse(
                         status=str(status),
                         lastModified=last_modified,
                         etag=etag,
@@ -259,7 +263,7 @@ class FhirBundleAppender:
         return diagnostics_coding
 
     @staticmethod
-    def remove_duplicate_resources(*, bundle: Bundle) -> Bundle:
+    def remove_duplicate_resources(*, bundle: FhirBundle) -> FhirBundle:
         """
         Removes duplicate resources from the bundle
 
@@ -268,17 +272,21 @@ class FhirBundleAppender:
         """
         if not bundle.entry:
             return bundle
-        bundle_entries: List[BundleEntry] = bundle.entry
-        unique_bundle_entries: List[BundleEntry] = list(
+        bundle_entries: FhirBundleEntryList = bundle.entry
+        unique_bundle_entries: FhirBundleEntryList = FhirBundleEntryList(
             {
                 f'{e.resource["resourceType"]}/{e.resource["id"]}': e
                 for e in bundle_entries
                 if e.resource and e.resource.resource_type and e.resource.id
             }.values()
         )
-        null_id_bundle_entries: List[BundleEntry] = [
-            e for e in bundle_entries if not e.resource or not e.resource.resource_type
-        ]
+        null_id_bundle_entries: FhirBundleEntryList = FhirBundleEntryList(
+            [
+                e
+                for e in bundle_entries
+                if not e.resource or not e.resource.resource_type
+            ]
+        )
         unique_bundle_entries.extend(null_id_bundle_entries)
         bundle.entry = unique_bundle_entries
 
@@ -286,8 +294,8 @@ class FhirBundleAppender:
 
     @staticmethod
     def sort_resources(
-        *, bundle: Bundle, fn_sort: Callable[[BundleEntry], str] | None = None
-    ) -> Bundle:
+        *, bundle: FhirBundle, fn_sort: Callable[[FhirBundleEntry], str] | None = None
+    ) -> FhirBundle:
         """
         Sorts the resources in the bundle
 
@@ -302,9 +310,11 @@ class FhirBundleAppender:
                 if e.resource
                 else ""
             )
-        bundle.entry = sorted(
-            bundle.entry,
-            key=fn_sort,
+        bundle.entry = FhirBundleEntryList(
+            sorted(
+                bundle.entry,
+                key=fn_sort,
+            )
         )
         return bundle
 
