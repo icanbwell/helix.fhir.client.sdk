@@ -10,7 +10,6 @@ from mockserver_client.mockserver_client import (
 )
 
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
-from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.fhir_helper import FhirHelper
@@ -81,7 +80,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
 
     assert response is not None
 
-    resources: FhirResourceList | FhirResourceMap = response.get_resources()
+    resources: FhirResourceList = response.get_resources()
     assert isinstance(resources, FhirResourceList)
 
     mock_client.verify_expectations()

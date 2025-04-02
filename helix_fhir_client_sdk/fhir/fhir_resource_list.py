@@ -1,18 +1,15 @@
-import copy
-import json
-from contextlib import contextmanager
-from typing import Deque, List, Set, AsyncGenerator, Optional, Any, Dict, Iterator
+from typing import List, Set
 
+from helix_fhir_client_sdk.fhir.base_resource_list import BaseResourceList
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
-from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
-class FhirResourceList(Deque[FhirResource]):
+class FhirResourceList(BaseResourceList[FhirResource]):
     """
     Represents a list of FHIR resources.
     """
 
-    __slots__: List[str] = []
+    __slots__: List[str] = BaseResourceList.__slots__
 
     def get_resource_type_and_ids(self) -> List[str]:
         """
@@ -69,84 +66,3 @@ class FhirResourceList(Deque[FhirResource]):
             else:
                 seen.add(comparison_key)
                 i += 1
-
-    def to_json(self) -> str:
-        """
-        Convert the list of FhirResource objects to a JSON string.
-
-        :return: JSON string representation of the list.
-        """
-        return json.dumps([r.to_dict() for r in self], cls=FhirJSONEncoder)
-
-    def get_resources(self) -> "FhirResourceList":
-        """
-        Get all resources in the list.
-
-        :return: A list of FhirResource objects.
-        """
-        # this is here to keep compatibility with FhirResourceMap
-        return self
-
-    async def consume_resource_async(
-        self,
-        *,
-        batch_size: Optional[int],
-    ) -> AsyncGenerator["FhirResourceList", None]:
-        """
-        Consume resources in batches asynchronously.
-
-        :param batch_size: The size of each batch.
-        :return: An async generator yielding batches of FhirResourceList.
-        """
-        if batch_size is None:
-            while self:
-                yield FhirResourceList([self.popleft()])
-        elif batch_size <= 0:
-            raise ValueError("Batch size must be greater than 0.")
-        else:
-            while self:
-                batch = FhirResourceList()
-                for _ in range(min(batch_size, len(self))):
-                    batch.append(self.popleft())
-                yield batch
-
-    def __deepcopy__(self, memo: Dict[int, Any]) -> "FhirResourceList":
-        """
-        Create a copy of the FhirResourceList.
-
-        :return: A new FhirResourceList object with the same resources.
-        """
-        return FhirResourceList([copy.deepcopy(r) for r in self])
-
-    def __repr__(self) -> str:
-        """
-        Return a string representation of the FhirResourceList.
-
-        :return: A string representation of the FhirResourceList.
-        """
-        return f"FhirResourceList(resources: {len(self)})"
-
-    @contextmanager
-    def transaction(self) -> Iterator["FhirResourceList"]:
-        """
-
-        Opens a transaction for all resources in the list.
-
-        """
-        try:
-            self.start_transaction()
-
-            yield self
-
-        finally:
-            self.end_transaction()
-
-    def start_transaction(self) -> "FhirResourceList":
-        for resource in self:
-            resource.start_transaction()
-        return self
-
-    def end_transaction(self) -> "FhirResourceList":
-        for resource in self:
-            resource.end_transaction()
-        return self

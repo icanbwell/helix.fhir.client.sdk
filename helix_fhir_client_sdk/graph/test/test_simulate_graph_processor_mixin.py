@@ -10,7 +10,6 @@ import pytest
 from aioresponses import aioresponses, CallbackResult
 
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
-from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.function_types import RefreshTokenResult
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
@@ -245,7 +244,7 @@ async def test_graph_definition_with_single_link() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: FhirResourceList | FhirResourceMap = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient.to_dict() == {"resourceType": "Patient", "id": "1"}
@@ -330,7 +329,7 @@ async def test_graph_definition_with_nested_links() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: FhirResourceList | FhirResourceMap = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
         assert (
@@ -412,7 +411,7 @@ async def test_graph_definition_with_multiple_links() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: FhirResourceList | FhirResourceMap = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
         assert (
             len(resources) == 3
@@ -489,7 +488,7 @@ async def test_graph_definition_with_multiple_targets() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: FhirResourceList | FhirResourceMap = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
         assert (
@@ -550,7 +549,7 @@ async def test_graph_definition_with_no_links() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: FhirResourceList | FhirResourceMap = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
         assert len(resources) == 1
@@ -610,7 +609,7 @@ async def test_process_simulate_graph_async_multiple_patients() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: FhirResourceList | FhirResourceMap = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
         patient = [
@@ -695,7 +694,7 @@ async def test_graph_definition_with_multiple_links_concurrent_requests() -> Non
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: FhirResourceList | FhirResourceMap = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
         assert (
@@ -773,7 +772,7 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests() -> N
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: FhirResourceList | FhirResourceMap = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
         assert (
@@ -897,7 +896,7 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
         m.assert_any_call(url="http://example.com/fhir/Encounter?patient=1")
         m.assert_any_call(url="http://example.com/fhir/Practitioner/12345")
 
-        resources: FhirResourceList | FhirResourceMap = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
         assert (
@@ -1124,7 +1123,7 @@ async def test_graph_definition_with_single_link_401() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: FhirResourceList | FhirResourceMap = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
@@ -1314,7 +1313,7 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
         m.assert_any_call(url="http://example.com/fhir/Encounter?patient=1")
         m.assert_any_call(url="http://example.com/fhir/Practitioner/12345")
 
-        resources: FhirResourceList | FhirResourceMap = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
         assert (

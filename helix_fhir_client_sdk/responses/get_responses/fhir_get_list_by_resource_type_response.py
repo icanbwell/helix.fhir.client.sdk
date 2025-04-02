@@ -46,7 +46,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         *,
         request_id: Optional[str],
         url: str,
-        resources: FhirResourceList | FhirResourceMap,
+        resources: FhirResourceList,
         error: Optional[str],
         access_token: Optional[str],
         total_count: Optional[int],
@@ -234,7 +234,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
     @classmethod
     def _parse_into_resource_map(
-        cls, resources: FhirResourceList | FhirResourceMap
+        cls, resources: FhirResourceList
     ) -> Tuple[int, FhirResourceMap]:
         if isinstance(resources, FhirResourceMap):
             return resources.get_resource_count(), resources

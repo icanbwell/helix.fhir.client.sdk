@@ -6,7 +6,6 @@ import pytest
 from objsize import get_deep_size
 
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
-from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
@@ -191,7 +190,7 @@ async def test_async_real_fhir_server_get_graph_large(
                 response = response.append(response1)
 
         assert response is not None
-        resources: FhirResourceList | FhirResourceMap = response.get_resources()
+        resources: FhirResourceList = response.get_resources()
         assert isinstance(resources, FhirResourceList)
 
         assert response.response_headers is not None

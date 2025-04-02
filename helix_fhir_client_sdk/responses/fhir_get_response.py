@@ -388,7 +388,7 @@ class FhirGetResponse:
         """
         Gets the ids of the resources from the response
         """
-        resources: FhirResourceList | FhirResourceMap = self.get_resources()
+        resources: FhirResourceList = self.get_resources()
         try:
             return resources.get_resource_type_and_ids()
         except Exception as e:

@@ -419,7 +419,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         return dict(
             request_id=self.request_id,
             url=self.url,
-            _resources=[r.to_dict() for r in self.get_resources().get_resources()],
+            _resources=[r.to_dict() for r in self.get_resources()],
             error=self.error,
             access_token=self.access_token,
             total_count=self.total_count,

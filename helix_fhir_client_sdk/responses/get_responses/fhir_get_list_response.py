@@ -94,11 +94,11 @@ class FhirGetListResponse(FhirGetResponse):
         :param other_response: FhirGetResponse object to append to current one
         :return: self
         """
-        resources: FhirResourceList | FhirResourceMap = other_response.get_resources()
+        resources: FhirResourceList = other_response.get_resources()
         if self._resources is None:
-            self._resources = resources.get_resources()
+            self._resources = resources
         else:
-            self._resources.extend(resources.get_resources())
+            self._resources.extend(resources)
 
         return self
 
@@ -215,7 +215,7 @@ class FhirGetListResponse(FhirGetResponse):
         if isinstance(other_response, FhirGetListResponse):
             return other_response
 
-        resources: FhirResourceList | FhirResourceMap = other_response.get_resources()
+        resources: FhirResourceList = other_response.get_resources()
 
         response: FhirGetListResponse = FhirGetListResponse(
             request_id=other_response.request_id,

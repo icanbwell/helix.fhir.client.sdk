@@ -6,7 +6,6 @@ from typing import Any, List, Optional
 import pytest
 
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
-from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
@@ -76,7 +75,7 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
     print("----- end response_text -----")
 
     if use_data_streaming:
-        resources: FhirResourceList | FhirResourceMap = response.get_resources()
+        resources: FhirResourceList = response.get_resources()
         assert isinstance(resources, FhirResourceList)
 
         assert len(resources) == 1, response_text
