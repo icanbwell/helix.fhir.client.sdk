@@ -6,7 +6,6 @@ from typing import Dict, Optional, Iterator, cast, List, Any, overload, OrderedD
 
 import msgpack
 import zlib
-from typing_extensions import TypeVar
 
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_access_error import (
     CompressedDictAccessError,
@@ -16,9 +15,6 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
     CompressedDictStorageType,
 )
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
-
-
-_T = TypeVar("_T")
 
 
 class CompressedDict[K, V](MutableMapping[K, V]):
@@ -577,7 +573,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
 
     # noinspection PyMethodOverriding
     @overload
-    def pop(self, key: K, /, default: _T) -> V | _T:
+    def pop[_T](self, key: K, /, default: _T) -> V | _T:
         """
         Remove and return a value, or return default if key is not found
 
@@ -587,7 +583,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         """
         ...
 
-    def pop(self, key: K, /, default: Optional[V | _T] = None) -> V | Optional[V | _T]:
+    def pop[_T](self, key: K, /, default: V | _T | None = None) -> V | _T | None:
         """
         Remove and return a value
 
