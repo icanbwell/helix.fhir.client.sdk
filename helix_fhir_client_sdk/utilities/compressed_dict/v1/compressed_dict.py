@@ -33,6 +33,7 @@ class CompressedDict[K, V]:
         "_properties_to_cache",
         "_cached_properties",
         "_length",
+        "_transaction_depth",
     )
 
     def __init__(
@@ -67,6 +68,8 @@ class CompressedDict[K, V]:
 
         self._length: int = 0
 
+        self._transaction_depth: int = 0
+
         # Populate initial dictionary if provided
         if initial_dict:
             self.replace(value=initial_dict)
@@ -87,16 +90,26 @@ class CompressedDict[K, V]:
             CompressedDictAccessError: If methods are called outside the context
         """
         try:
-            self.ensure_working_dict()
+            # Increment transaction depth
+            self._transaction_depth += 1
+
+            # Ensure working dictionary is ready on first entry
+            if self._transaction_depth == 1:
+                self.ensure_working_dict()
 
             # Yield the working dictionary
             yield self
 
         finally:
-            self._update_serialized_dict(current_dict=self._working_dict)
+            # Decrement transaction depth
+            self._transaction_depth -= 1
 
-            # Clear the working dictionary
-            self._working_dict = None
+            # Only update serialized dict when outermost transaction completes
+            if self._transaction_depth == 0:
+                self._update_serialized_dict(current_dict=self._working_dict)
+
+                # Clear the working dictionary
+                self._working_dict = None
 
     def ensure_working_dict(self) -> None:
         """

@@ -1,6 +1,6 @@
 import copy
 import json
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, List
 
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
     CompressedDict,
@@ -62,7 +62,7 @@ class FhirResource(CompressedDict[str, Any]):
     def __deepcopy__(self, memo: Dict[int, Any]) -> "FhirResource":
         """Create a copy of the resource."""
         return FhirResource(
-            initial_dict=self.to_dict(),
+            initial_dict=super().to_dict(),
             storage_mode=self._storage_mode,
         )
 
@@ -77,3 +77,45 @@ class FhirResource(CompressedDict[str, Any]):
         :return: A new BundleEntry object with the same attributes.
         """
         return copy.deepcopy(self)
+
+    def to_dict(self, *, remove_nulls: bool = True) -> Dict[str, Any]:
+        """
+        Converts the FhirResource object to a dictionary.
+
+        :param remove_nulls: If True, removes None values from the dictionary.
+        :return: A dictionary representation of the FhirResource object.
+        """
+        result: Dict[str, Any] = copy.deepcopy(super().to_dict())
+        if remove_nulls:
+            result = FhirResource.remove_none_values_from_dict(result)
+        return result
+
+    @staticmethod
+    def remove_none_values_from_dict_or_list(
+        item: Dict[str, Any],
+    ) -> Dict[str, Any] | List[Dict[str, Any]]:
+        if isinstance(item, list):
+            return [FhirResource.remove_none_values_from_dict(i) for i in item]
+        if not isinstance(item, dict):
+            return item
+        return {
+            k: FhirResource.remove_none_values_from_dict(v)
+            for k, v in item.items()
+            if v is not None
+        }
+
+    @staticmethod
+    def remove_none_values_from_dict(item: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(item, dict):
+            return item
+        return {
+            k: FhirResource.remove_none_values_from_dict_or_list(v)
+            for k, v in item.items()
+            if v is not None
+        }
+
+    def remove_nulls(self) -> None:
+        """
+        Removes None values from the resource dictionary.
+        """
+        self.replace(value=self.to_dict(remove_nulls=True))
