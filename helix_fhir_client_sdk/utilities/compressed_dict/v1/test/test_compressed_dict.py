@@ -31,10 +31,12 @@ class TestCompressedDict:
             storage_mode=CompressedDictStorageMode(storage_type="raw"),
             properties_to_cache=[],
         )
-        assert len(cd) == 3
-        assert cd["a"] == 1
-        assert cd["b"] == 2
-        assert cd["c"] == 3
+
+        with cd.transaction():
+            assert len(cd) == 3
+            assert cd["a"] == 1
+            assert cd["b"] == 2
+            assert cd["c"] == 3
 
     @pytest.mark.parametrize("storage_type", ["raw", "msgpack", "compressed_msgpack"])
     def test_storage_modes(self, storage_type: CompressedDictStorageType) -> None:

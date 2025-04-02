@@ -141,6 +141,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
                 if self._serialized_dict
                 else OrderedDict[K, V]()
             )
+            assert isinstance(working_dict, OrderedDict)
         return working_dict
 
     @staticmethod
@@ -157,6 +158,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         Returns:
             Serialized bytes
         """
+        assert isinstance(dictionary, OrderedDict)
         if storage_type == "compressed":
             # Serialize to JSON and compress with zlib
             json_str = json.dumps(
@@ -199,7 +201,11 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         if storage_type == "compressed":
             # Decompress and parse JSON
             decompressed = zlib.decompress(serialized_dict)
-            return cast(OrderedDict[K, V], json.loads(decompressed.decode("utf-8")))
+            decoded_text = decompressed.decode("utf-8")
+            # noinspection PyTypeChecker
+            decompressed_dict = json.loads(decoded_text, object_pairs_hook=OrderedDict)
+            assert isinstance(decompressed_dict, OrderedDict)
+            return cast(OrderedDict[K, V], decompressed_dict)
 
         # Decompress if needed
         to_unpack = (
@@ -209,13 +215,20 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         )
 
         # Deserialize
+        unpacked_dict = msgpack.unpackb(
+            to_unpack,
+            raw=False,  # Convert to strings
+            strict_map_key=False,  # Handle potential key type variations
+        )
+        unpacked_dict = (
+            unpacked_dict
+            if isinstance(unpacked_dict, OrderedDict)
+            else OrderedDict[K, V](unpacked_dict)
+        )
+        assert isinstance(unpacked_dict, OrderedDict)
         return cast(
             OrderedDict[K, V],
-            msgpack.unpackb(
-                to_unpack,
-                raw=False,  # Convert to strings
-                strict_map_key=False,  # Handle potential key type variations
-            ),
+            unpacked_dict,
         )
 
     def _get_dict(self) -> OrderedDict[K, V]:
@@ -292,7 +305,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
 
         self._length = len(current_dict)
 
-        if not self._working_dict:
+        if self._working_dict is not None:
             # If the working dictionary is None, initialize it
             self._working_dict = current_dict
 

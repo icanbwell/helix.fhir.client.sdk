@@ -87,7 +87,8 @@ class FhirResource(CompressedDict[str, Any]):
         :param remove_nulls: If True, removes None values from the dictionary.
         :return: A dictionary representation of the FhirResource object.
         """
-        result: OrderedDict[str, Any] = copy.deepcopy(super().to_dict())
+        ordered_dict = super().to_dict()
+        result: OrderedDict[str, Any] = copy.deepcopy(ordered_dict)
         if remove_nulls:
             result = cast(
                 OrderedDict[str, Any],

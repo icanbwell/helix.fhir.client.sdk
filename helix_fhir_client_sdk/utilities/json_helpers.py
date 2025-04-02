@@ -78,7 +78,7 @@ class FhirClientJsonHelpers:
                 or (isinstance(x, str) and x.strip() == "")
             )
 
-        if not isinstance(d, (OrderedDict, list)):
+        if not isinstance(d, (OrderedDict, list, Dict)):
             return d
         elif isinstance(d, list):
             return [
