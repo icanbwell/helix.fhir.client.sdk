@@ -230,7 +230,20 @@ class FhirGetErrorResponse(FhirGetResponse):
 
         :return: parsed response text or None if not applicable
         """
-        if response_text:
+        if create_operation_outcome_for_error:
+            # create an operation outcome resource
+            return FhirBundleAppender.create_operation_outcome_resource(
+                error=error,
+                url=url,
+                resource_type=resource_type,
+                id_=id_,
+                status=status,
+                access_token=access_token,
+                extra_context_to_return=extra_context_to_return,
+                request_id=request_id,
+                storage_mode=storage_mode,
+            )
+        elif response_text:
             # we don't know if the response text is FHIR resource or not
             # noinspection PyBroadException
             try:
