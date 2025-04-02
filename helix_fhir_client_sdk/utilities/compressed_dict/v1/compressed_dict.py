@@ -286,6 +286,10 @@ class CompressedDict[K, V]:
 
         self._length = len(current_dict)
 
+        if self._transaction_depth > 0:
+            # If we're in a transaction, update the working dictionary
+            self._working_dict = current_dict
+
         if self._storage_mode.storage_type == "raw":
             self._raw_dict = current_dict
         else:
