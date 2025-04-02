@@ -511,24 +511,20 @@ class CompressedDict[K, V](MutableMapping[K, V]):
 
     # noinspection PyMethodOverriding
     @overload
-    def get(self, key: K, default: _T) -> V | _T:
+    def get[_T](self, key: K, /, default: V | _T) -> V | _T:
         """
-        Get a value, or return default if key is not found
+        Get a value with a default
 
-        :param key: Key to retrieve
-        :param default: Default value to return if key is not found
-        :return: Value or default
+        Args:
+            key: Key to retrieve
+            default: Default value if key is not found
+
+        Returns:
+            Value associated with the key or default
         """
         ...
 
-    def get(self, key: K, default: Optional[V | _T] = None) -> Optional[V | _T]:
-        """
-        Get a value from the dictionary
-
-        :param key: Key to retrieve
-        :param default: Optional default value if key is not found
-        :return: Value or default
-        """
+    def get[_T](self, key: K, default: V | _T | None = None) -> V | _T | None:
         if key in self:
             return self[key]
         return default
