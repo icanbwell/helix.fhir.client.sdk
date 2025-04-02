@@ -92,26 +92,41 @@ class CompressedDict[K, V](MutableMapping[K, V]):
             CompressedDictAccessError: If methods are called outside the context
         """
         try:
-            # Increment transaction depth
-            self._transaction_depth += 1
-
-            # Ensure working dictionary is ready on first entry
-            if self._transaction_depth == 1:
-                self.ensure_working_dict()
+            self.start_transaction()
 
             # Yield the working dictionary
             yield self
 
         finally:
-            # Decrement transaction depth
-            self._transaction_depth -= 1
+            self.end_transaction()
 
-            # Only update serialized dict when outermost transaction completes
-            if self._transaction_depth == 0:
-                self._update_serialized_dict(current_dict=self._working_dict)
+    def start_transaction(self) -> "CompressedDict[K, V]":
+        """
+        Starts a transaction.  Use transaction() for a contextmanager for simpler usage.
+        """
+        # Increment transaction depth
+        self._transaction_depth += 1
+        # Ensure working dictionary is ready on first entry
+        if self._transaction_depth == 1:
+            self.ensure_working_dict()
 
-                # Clear the working dictionary
-                self._working_dict = None
+        return self
+
+    def end_transaction(self) -> "CompressedDict[K, V]":
+        """
+        Ends a transaction.  Use transaction() for a context_manager for simpler usage.
+
+        """
+        # Decrement transaction depth
+        self._transaction_depth -= 1
+        # Only update serialized dict when outermost transaction completes
+        if self._transaction_depth == 0:
+            self._update_serialized_dict(current_dict=self._working_dict)
+
+            # Clear the working dictionary
+            self._working_dict = None
+
+        return self
 
     def ensure_working_dict(self) -> None:
         """

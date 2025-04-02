@@ -1,6 +1,7 @@
 import copy
 import json
-from typing import Deque, List, Set, AsyncGenerator, Optional, Any, Dict
+from contextlib import contextmanager
+from typing import Deque, List, Set, AsyncGenerator, Optional, Any, Dict, Iterator
 
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
@@ -124,3 +125,28 @@ class FhirResourceList(Deque[FhirResource]):
         :return: A string representation of the FhirResourceList.
         """
         return f"FhirResourceList(resources: {len(self)})"
+
+    @contextmanager
+    def transaction(self) -> Iterator["FhirResourceList"]:
+        """
+
+        Opens a transaction for all resources in the list.
+
+        """
+        try:
+            self.start_transaction()
+
+            yield self
+
+        finally:
+            self.end_transaction()
+
+    def start_transaction(self) -> "FhirResourceList":
+        for resource in self:
+            resource.start_transaction()
+        return self
+
+    def end_transaction(self) -> "FhirResourceList":
+        for resource in self:
+            resource.end_transaction()
+        return self
