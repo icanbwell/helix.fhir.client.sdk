@@ -1,11 +1,12 @@
 import copy
 import json
-from collections.abc import KeysView, ValuesView, ItemsView
+from collections.abc import KeysView, ValuesView, ItemsView, MutableMapping
 from contextlib import contextmanager
-from typing import Dict, Optional, Iterator, cast, List, overload, Any
+from typing import Dict, Optional, Iterator, cast, List, Any, overload
 
 import msgpack
 import zlib
+from typing_extensions import TypeVar
 
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_access_error import (
     CompressedDictAccessError,
@@ -17,7 +18,10 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
 
-class CompressedDict[K, V]:
+_T = TypeVar("_T")
+
+
+class CompressedDict[K, V](MutableMapping[K, V]):
     """
     A dictionary-like class that supports flexible storage options.
 
@@ -457,25 +461,32 @@ class CompressedDict[K, V]:
     @overload
     def get(self, key: K) -> Optional[V]:
         """
-        Get a value
+        Get a value for an existing key
+
+        :param key: Key to retrieve
+        :return: Value or None if key is not found
         """
         ...
 
     @overload
-    def get(self, key: K, default: V) -> V:
+    def get(self, key: K, default: _T) -> V | _T:
         """
-        Get a value with a default
+        Get a value, or return default if key is not found
 
-        Args:
-            key: Key to retrieve
-            default: Default value if key is not found
-
-        Returns:
-            Value associated with the key or default
+        :param key: Key to retrieve
+        :param default: Default value to return if key is not found
+        :return: Value or default
         """
         ...
 
-    def get(self, key: K, default: Optional[V] = None) -> V | None:
+    def get(self, key: K, default: Optional[V | _T] = None) -> Optional[V | _T]:
+        """
+        Get a value from the dictionary
+
+        :param key: Key to retrieve
+        :param default: Optional default value if key is not found
+        :return: Value or default
+        """
         if key in self:
             return self[key]
         return default
@@ -515,21 +526,46 @@ class CompressedDict[K, V]:
         """
         return self._storage_mode
 
-    def pop(self, key: K, default: Optional[V] = None) -> V | None:
+    @overload
+    def pop(self, key: K, /) -> V:
+        """
+        Remove and return a value for an existing key
+
+        :param key: Key to remove
+        :return: Removed value
+        :raises KeyError: If key is not found
+        """
+        ...
+
+    # noinspection PyMethodOverriding
+    @overload
+    def pop(self, key: K, /, default: _T) -> V | _T:
+        """
+        Remove and return a value, or return default if key is not found
+
+        :param key: Key to remove
+        :param default: Default value to return if key is not found
+        :return: Removed value or default
+        """
+        ...
+
+    def pop(self, key: K, /, default: Optional[V | _T] = None) -> V | Optional[V | _T]:
         """
         Remove and return a value
 
-        Args:
-            key: Key to remove
-            default: Default value if key is not found
-
-        Returns:
-            Removed value or default
+        :param key: Key to remove
+        :param default: Optional default value if key is not found
+        :return: Removed value or default
+        :raises KeyError: If key is not found and no default is provided
         """
         if self._working_dict is None:
             raise CompressedDictAccessError(
-                "Dictionary modification is only allowed within an transaction() block. "
+                "Dictionary modification is only allowed within a transaction() block. "
                 "Use 'with compressed_dict.transaction() as d:' to modify the dictionary."
             )
+
+        # If no default is provided, use the standard dict.pop() behavior
+        if default is None:
+            return self._working_dict.pop(key)
 
         return self._working_dict.pop(key, default)

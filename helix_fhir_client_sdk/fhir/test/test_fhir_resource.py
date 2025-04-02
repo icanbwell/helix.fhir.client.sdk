@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Optional, cast
 
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
@@ -142,11 +142,15 @@ class TestFhirResourceRemoveNulls:
 
         with resource.transaction():
             assert "status" not in resource
-            assert "contact" not in resource.get("patient", {})
-            assert resource.get("patient", {}).get("address", {}).get("street") is None
-            assert (
-                resource.get("patient", {}).get("address", {}).get("city") == "New York"
+            patient: Dict[str, Any] = resource.get("patient", {})
+            assert "contact" not in patient
+            address = patient.get("address", {})
+            street: Optional[str] = cast(
+                Optional[str],
+                address.get("street"),
             )
+            assert street is None
+            assert address.get("city") == "New York"
 
     def test_remove_nulls_list_of_dicts(self) -> None:
         """
