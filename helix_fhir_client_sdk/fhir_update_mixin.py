@@ -17,6 +17,24 @@ from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValid
 
 
 class FhirUpdateMixin(FhirClientProtocol):
+    async def update_single_resource_async(
+        self, *, resource: FhirResource
+    ) -> FhirUpdateResponse:
+        """
+        Update a single resource. This will completely overwrite the resource. We recommend using merge()
+            instead since that does proper merging.
+
+        :param resource: resource to update
+        :return: FhirUpdateResponse object
+        """
+        if not resource.id:
+            raise ValueError("Resource ID is required for update")
+        json_data = resource.to_json()
+        response = await self.update_async(json_data=json_data, id_=resource.id)
+        if response.error:
+            raise ValueError(f"Failed to update resource: {response.error}")
+        return response
+
     async def update_resources_async(
         self, *, resources: FhirResourceList
     ) -> AsyncGenerator[FhirUpdateResponse, None]:
