@@ -97,7 +97,7 @@ async def test_handle_response_200_streaming() -> None:
             "chunk_number": 1,
             "cache_hits": None,
             "results_by_url": [],
-            "storage_type": "compressed_msgpack",
+            "storage_type": "compressed",
         }
     ]
 

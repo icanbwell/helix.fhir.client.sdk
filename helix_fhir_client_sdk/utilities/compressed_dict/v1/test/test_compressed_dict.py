@@ -173,7 +173,7 @@ class TestCompressedDict:
         )
         repr_str = repr(cd)
 
-        assert repr_str == "CompressedDict(storage_type='compressed_msgpack', keys=2)"
+        assert repr_str == "CompressedDict(storage_type='compressed', keys=2)"
 
     def test_error_handling(self) -> None:
         """Test error scenarios"""

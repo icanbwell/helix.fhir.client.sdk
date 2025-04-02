@@ -492,7 +492,6 @@
         ]
       }
     ],
-    "token": null,
     "url": "http://mock-server:1080/test_fhir_client_bundle_separated"
   },
   {
@@ -808,7 +807,6 @@
         ]
       }
     ],
-    "token": null,
     "url": "http://mock-server:1080/test_fhir_client_bundle_separated"
   }
 ]

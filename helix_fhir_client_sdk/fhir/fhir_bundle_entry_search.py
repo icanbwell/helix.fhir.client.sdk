@@ -26,10 +26,13 @@ class FhirBundleEntrySearch:
 
         :return: A dictionary representation of the FhirBundleEntrySearch instance.
         """
-        return {
-            "mode": self.mode,
-            "score": self.score,
-        }
+        result: Dict[str, Any] = {}
+        if self.mode is not None:
+            result["mode"] = self.mode
+        if self.score is not None:
+            result["score"] = self.score
+
+        return result
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "FhirBundleEntrySearch":

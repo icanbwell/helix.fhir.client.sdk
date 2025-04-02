@@ -124,7 +124,7 @@ async def test_handle_response_200_streaming_separate_bundle() -> None:
         "chunk_number": 1,
         "cache_hits": None,
         "results_by_url": [],
-        "storage_type": "compressed_msgpack",
+        "storage_type": "compressed",
     }
 
     assert result[0].to_dict() == expected_result

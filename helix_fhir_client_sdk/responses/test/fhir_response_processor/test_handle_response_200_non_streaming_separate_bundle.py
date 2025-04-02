@@ -121,7 +121,7 @@ async def test_handle_response_200_non_streaming_separate_bundle() -> None:
         "status": 200,
         "total_count": 3,
         "url": "http://example.com",
-        "storage_type": "compressed_msgpack",
+        "storage_type": "compressed",
     }
 
     assert result[0].to_dict() == expected_result

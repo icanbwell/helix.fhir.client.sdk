@@ -32,11 +32,14 @@ class FhirIdentifier:
 
         :return: A dictionary representation of the FhirIdentifier object.
         """
-        return {
-            "use": self.use,
-            "system": self.system,
-            "value": self.value,
-        }
+        result: Dict[str, Any] = {}
+        if self.use is not None:
+            result["use"] = self.use
+        if self.system is not None:
+            result["system"] = self.system
+        if self.value is not None:
+            result["value"] = self.value
+        return result
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "FhirIdentifier":

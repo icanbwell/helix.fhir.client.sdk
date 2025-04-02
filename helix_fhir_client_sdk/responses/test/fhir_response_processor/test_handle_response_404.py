@@ -64,7 +64,7 @@ async def test_handle_response_404() -> None:
             "cache_hits": None,
             "results_by_url": [],
             "_resource": None,
-            "storage_type": "compressed_msgpack",
+            "storage_type": "compressed",
         }
     ]
 
