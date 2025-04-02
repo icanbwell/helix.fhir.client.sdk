@@ -288,19 +288,21 @@ class CompressedDict[K, V]:
 
         if self._transaction_depth > 0:
             # If we're in a transaction, update the working dictionary
+            # The serialized dictionary will be updated after the transaction
             self._working_dict = current_dict
-
-        if self._storage_mode.storage_type == "raw":
-            self._raw_dict = current_dict
         else:
-            self._serialized_dict = (
-                self._serialize_dict(
-                    dictionary=current_dict,
-                    storage_type=self._storage_mode.storage_type,
+            # update the serialized dictionary
+            if self._storage_mode.storage_type == "raw":
+                self._raw_dict = current_dict
+            else:
+                self._serialized_dict = (
+                    self._serialize_dict(
+                        dictionary=current_dict,
+                        storage_type=self._storage_mode.storage_type,
+                    )
+                    if current_dict
+                    else None
                 )
-                if current_dict
-                else None
-            )
 
     def __delitem__(self, key: K) -> None:
         """
