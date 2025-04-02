@@ -4,6 +4,9 @@ from typing import Any, cast
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
     CompressedDict,
 )
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_access_error import (
+    CompressedDictAccessError,
+)
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
     CompressedDictStorageType,
@@ -200,3 +203,156 @@ class TestCompressedDict:
         assert len(cd) == 1000
         with cd.transaction():
             assert cd["key_500"] == "value_500"
+
+
+def test_transaction_basic_raw_storage() -> None:
+    """
+    Test basic transaction functionality with raw storage mode
+    """
+    storage_mode = CompressedDictStorageMode(storage_type="raw")
+    initial_dict = {"key1": "value1", "key2": "value2"}
+
+    compressed_dict = CompressedDict(
+        initial_dict=initial_dict, storage_mode=storage_mode, properties_to_cache=None
+    )
+
+    # Verify initial state
+    assert compressed_dict._transaction_depth == 0
+
+    # Use transaction context
+    with compressed_dict.transaction() as d:
+        assert compressed_dict._transaction_depth == 1
+        assert d._working_dict is not None
+        assert d._working_dict == initial_dict
+
+        # Modify the dictionary
+        d["key3"] = "value3"
+
+    # After transaction
+    assert compressed_dict._transaction_depth == 0
+    assert compressed_dict.to_dict() == {
+        "key1": "value1",
+        "key2": "value2",
+        "key3": "value3",
+    }
+
+
+def test_transaction_nested_context() -> None:
+    """
+    Test nested transaction contexts
+    """
+    storage_mode = CompressedDictStorageMode(storage_type="msgpack")
+    initial_dict = {"key1": "value1"}
+
+    compressed_dict = CompressedDict(
+        initial_dict=initial_dict, storage_mode=storage_mode, properties_to_cache=None
+    )
+
+    with compressed_dict.transaction():
+        assert compressed_dict._transaction_depth == 1
+
+        with compressed_dict.transaction():
+            assert compressed_dict._transaction_depth == 2
+            compressed_dict["key2"] = "value2"
+
+        assert compressed_dict._transaction_depth == 1
+
+    assert compressed_dict._transaction_depth == 0
+    assert compressed_dict.to_dict() == {"key1": "value1", "key2": "value2"}
+
+
+def test_transaction_access_error() -> None:
+    """
+    Test that accessing or modifying dictionary outside transaction raises an error
+    """
+    storage_mode = CompressedDictStorageMode(storage_type="compressed_msgpack")
+    compressed_dict = CompressedDict(
+        initial_dict={"key1": "value1"},
+        storage_mode=storage_mode,
+        properties_to_cache=None,
+    )
+
+    # Test getdict outside transaction
+    with pytest.raises(CompressedDictAccessError):
+        compressed_dict._get_dict()
+
+    # Test __getitem__ outside transaction
+    with pytest.raises(CompressedDictAccessError):
+        _ = compressed_dict["key1"]
+
+    # Test __setitem__ outside transaction
+    with pytest.raises(CompressedDictAccessError):
+        compressed_dict["key2"] = "value2"
+
+
+def test_transaction_different_storage_modes() -> None:
+    """
+    Test transaction with different storage modes
+    """
+    storage_modes = [
+        CompressedDictStorageMode(storage_type="raw"),
+        CompressedDictStorageMode(storage_type="msgpack"),
+        CompressedDictStorageMode(storage_type="compressed_msgpack"),
+    ]
+
+    for storage_mode in storage_modes:
+        initial_dict = {"key1": "value1"}
+
+        compressed_dict = CompressedDict(
+            initial_dict=initial_dict,
+            storage_mode=storage_mode,
+            properties_to_cache=None,
+        )
+
+        with compressed_dict.transaction() as d:
+            d["key2"] = "value2"
+
+        assert compressed_dict.to_dict() == {"key1": "value1", "key2": "value2"}
+
+
+def test_transaction_with_properties_to_cache() -> None:
+    """
+    Test transaction with properties to cache
+    """
+    storage_mode = CompressedDictStorageMode(storage_type="raw")
+    initial_dict = {"key1": "value1", "important_prop": "cached_value"}
+
+    compressed_dict = CompressedDict(
+        initial_dict=initial_dict,
+        storage_mode=storage_mode,
+        properties_to_cache=["important_prop"],
+    )
+
+    with compressed_dict.transaction() as d:
+        d["key2"] = "value2"
+
+    assert compressed_dict.to_dict() == {
+        "key1": "value1",
+        "important_prop": "cached_value",
+        "key2": "value2",
+    }
+    assert compressed_dict._cached_properties == {"important_prop": "cached_value"}
+
+
+def test_transaction_error_handling() -> None:
+    """
+    Test error handling during transaction
+    """
+    storage_mode = CompressedDictStorageMode(storage_type="compressed")
+    compressed_dict = CompressedDict(
+        initial_dict={"key1": "value1"},
+        storage_mode=storage_mode,
+        properties_to_cache=None,
+    )
+
+    try:
+        with compressed_dict.transaction():
+            compressed_dict["key2"] = "value2"
+            raise ValueError("Simulated error")
+    except ValueError:
+        # Ensure transaction depth is reset even after an error
+        assert compressed_dict._transaction_depth == 0
+
+        # Verify the dictionary state remains unchanged
+        with compressed_dict.transaction() as d:
+            assert d.to_dict() == {"key1": "value1", "key2": "value2"}
