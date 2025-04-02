@@ -603,3 +603,14 @@ class CompressedDict[K, V](MutableMapping[K, V]):
             return self._working_dict.pop(key)
 
         return self._working_dict.pop(key, default)
+
+    def get_plain_dict(self) -> Dict[K, V]:
+        """
+        Get the plain dictionary representation
+
+        Returns:
+            Plain dictionary
+        """
+        return cast(
+            Dict[K, V], json.loads(json.dumps(self.to_dict(), cls=FhirJSONEncoder))
+        )
