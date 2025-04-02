@@ -1,6 +1,6 @@
 import copy
 import json
-from typing import Any, Optional, Dict, List
+from typing import Any, Optional, Dict, List, cast
 
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
     CompressedDict,
@@ -9,6 +9,7 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
     CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
+from helix_fhir_client_sdk.utilities.json_helpers import FhirClientJsonHelpers
 
 
 class FhirResource(CompressedDict[str, Any]):
@@ -88,36 +89,10 @@ class FhirResource(CompressedDict[str, Any]):
         """
         result: Dict[str, Any] = copy.deepcopy(super().to_dict())
         if remove_nulls:
-            result = FhirResource.remove_none_values_from_dict(result)
+            result = cast(
+                Dict[str, Any], FhirClientJsonHelpers.remove_empty_elements(result)
+            )
         return result
-
-    @staticmethod
-    def remove_none_values_from_dict_or_list(
-        item: Dict[str, Any] | List[Dict[str, Any]],
-    ) -> Dict[str, Any] | List[Dict[str, Any]]:
-        if isinstance(item, list):
-            return [
-                c
-                for c in [FhirResource.remove_none_values_from_dict(i) for i in item]
-                if c is not None
-            ]
-        if not isinstance(item, dict):
-            return item
-        return {
-            k: FhirResource.remove_none_values_from_dict_or_list(v)
-            for k, v in item.items()
-            if v is not None
-        }
-
-    @staticmethod
-    def remove_none_values_from_dict(item: Dict[str, Any]) -> Dict[str, Any]:
-        if not isinstance(item, dict):
-            return item
-        return {
-            k: FhirResource.remove_none_values_from_dict_or_list(v)
-            for k, v in item.items()
-            if v is not None
-        }
 
     def remove_nulls(self) -> None:
         """
