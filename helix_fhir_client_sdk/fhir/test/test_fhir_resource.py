@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
@@ -102,3 +102,85 @@ class TestFhirResource:
         assert parsed_json == initial_data
         assert "resourceType" in parsed_json
         assert "id" in parsed_json
+
+    def test_remove_none_values_from_dict_single_level(self) -> None:
+        # Test removing None values from a simple dictionary
+        input_dict = {"name": "John", "age": 30, "email": None, "phone": None}
+        expected_output = {"name": "John", "age": 30}
+
+        result = FhirResource.remove_none_values_from_dict(input_dict)
+        assert result == expected_output
+
+    def test_remove_none_values_from_dict_nested(self) -> None:
+        # Test removing None values from a nested dictionary
+        input_dict = {
+            "patient": {
+                "name": "Jane",
+                "contact": None,
+                "address": {"street": "123 Main St", "city": None},
+            },
+            "test_results": None,
+        }
+        expected_output = {
+            "patient": {"name": "Jane", "address": {"street": "123 Main St"}}
+        }
+
+        result = FhirResource.remove_none_values_from_dict(input_dict)
+        assert result == expected_output
+
+    def test_remove_none_values_from_dict_or_list_with_list(self) -> None:
+        # Test removing None values from a list of dictionaries
+        input_list: List[Dict[str, Any]] = [
+            {"name": "Alice", "age": 25},
+            {"name": "Bob", "age": None},
+            {"name": None, "city": "New York"},
+        ]
+        expected_output = [
+            {"name": "Alice", "age": 25},
+            {"name": "Bob"},
+            {"city": "New York"},
+        ]
+
+        result = FhirResource.remove_none_values_from_dict_or_list(input_list)
+        assert result == expected_output
+
+    def test_remove_none_values_from_dict_or_list_with_nested_complex_structure(
+        self,
+    ) -> None:
+        # Test with a more complex nested structure
+        input_dict = {
+            "users": [
+                {
+                    "id": 1,
+                    "name": "John",
+                    "details": {"email": None, "phone": "123-456-7890"},
+                    "links": [
+                        {"url": "http://example.com", "active": None},
+                        {"url": None, "active": True},
+                        None,
+                    ],
+                },
+                {"id": 2, "name": None, "details": None},
+            ],
+            "metadata": None,
+        }
+
+        expected_output = {
+            "users": [
+                {
+                    "id": 1,
+                    "name": "John",
+                    "details": {"phone": "123-456-7890"},
+                    "links": [
+                        {"url": "http://example.com"},
+                        {"active": True},
+                    ],
+                },
+                {
+                    "id": 2,
+                },
+            ],
+        }
+
+        result = FhirResource.remove_none_values_from_dict_or_list(input_dict)
+        assert result == expected_output

@@ -93,14 +93,18 @@ class FhirResource(CompressedDict[str, Any]):
 
     @staticmethod
     def remove_none_values_from_dict_or_list(
-        item: Dict[str, Any],
+        item: Dict[str, Any] | List[Dict[str, Any]],
     ) -> Dict[str, Any] | List[Dict[str, Any]]:
         if isinstance(item, list):
-            return [FhirResource.remove_none_values_from_dict(i) for i in item]
+            return [
+                c
+                for c in [FhirResource.remove_none_values_from_dict(i) for i in item]
+                if c is not None
+            ]
         if not isinstance(item, dict):
             return item
         return {
-            k: FhirResource.remove_none_values_from_dict(v)
+            k: FhirResource.remove_none_values_from_dict_or_list(v)
             for k, v in item.items()
             if v is not None
         }
