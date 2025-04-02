@@ -91,7 +91,7 @@ class FhirResource(CompressedDict[str, Any]):
         if remove_nulls:
             result = cast(
                 OrderedDict[str, Any],
-                FhirClientJsonHelpers.remove_empty_elements(result),
+                FhirClientJsonHelpers.remove_empty_elements_from_ordered_dict(result),
             )
         return result
 
