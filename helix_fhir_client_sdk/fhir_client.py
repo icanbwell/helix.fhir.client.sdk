@@ -594,13 +594,16 @@ class FhirClient(
 
         :return: response
         """
-        instance_variables_text = convert_dict_to_str(
-            FhirClientLogger.get_variables_to_log(vars(self))
-        )
         if self._logger:
+            instance_variables_text = convert_dict_to_str(
+                FhirClientLogger.get_variables_to_log(vars(self))
+            )
             # self._logger.info(f"LOGLEVEL: {self._log_level}")
             self._logger.info(f"parameters: {instance_variables_text}")
         else:
+            instance_variables_text = convert_dict_to_str(
+                FhirClientLogger.get_variables_to_log(vars(self))
+            )
             self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
             self._internal_logger.info(f"parameters: {instance_variables_text}")
         ids: Optional[List[str]] = None
