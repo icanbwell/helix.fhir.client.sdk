@@ -25,16 +25,20 @@ class FhirClientJsonHelpers:
         d: List[Dict[str, Any]] | Dict[str, Any],
     ) -> List[Dict[str, Any]] | Dict[str, Any]:
         """
-        recursively remove empty lists, empty dicts, or None elements from a dictionary
+        Recursively remove empty lists, empty dicts, or None elements from a dictionary
         or a list of dictionaries
-
-
         :param d: dictionary or list of dictionaries
         :return: dictionary or list of dictionaries
         """
 
         def empty(x: Any) -> bool:
-            return x is None or x == {} or x == []
+            # Check if the input is None, an empty list, an empty dict, or an empty string
+            return (
+                x is None
+                or x == []
+                or x == {}
+                or (isinstance(x, str) and x.strip() == "")
+            )
 
         if not isinstance(d, (dict, list)):
             return d
