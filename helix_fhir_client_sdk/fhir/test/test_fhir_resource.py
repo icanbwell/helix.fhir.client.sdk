@@ -102,3 +102,124 @@ class TestFhirResource:
         assert parsed_json == initial_data
         assert "resourceType" in parsed_json
         assert "id" in parsed_json
+
+
+class TestFhirResourceRemoveNulls:
+    def test_remove_nulls_simple_dict(self) -> None:
+        """
+        Test removing None values from a simple dictionary
+        """
+        initial_dict: Dict[str, Any] = {
+            "name": "John Doe",
+            "age": None,
+            "active": True,
+            "email": None,
+        }
+        resource = FhirResource(initial_dict=initial_dict)
+        resource.remove_nulls()
+
+        with resource.transaction():
+            # Check that None values are removed
+            assert "age" not in resource
+            assert "email" not in resource
+            assert resource.get("name") == "John Doe"
+            assert resource.get("active") is True
+
+    def test_remove_nulls_nested_dict(self) -> None:
+        """
+        Test removing None values from a nested dictionary
+        """
+        initial_dict: Dict[str, Any] = {
+            "patient": {
+                "name": "Jane Smith",
+                "contact": None,
+                "address": {"street": None, "city": "New York"},
+            },
+            "status": None,
+        }
+        resource = FhirResource(initial_dict=initial_dict)
+        resource.remove_nulls()
+
+        with resource.transaction():
+            assert "status" not in resource
+            assert "contact" not in resource.get("patient", {})
+            assert resource.get("patient", {}).get("address", {}).get("street") is None
+            assert (
+                resource.get("patient", {}).get("address", {}).get("city") == "New York"
+            )
+
+    def test_remove_nulls_list_of_dicts(self) -> None:
+        """
+        Test removing None values from a list of dictionaries
+        """
+        initial_dict: Dict[str, Any] = {
+            "patients": [
+                {"name": "Alice", "age": None},
+                {"name": "Bob", "age": 30},
+                {"name": None, "active": False},
+            ]
+        }
+        resource = FhirResource(initial_dict=initial_dict)
+        resource.remove_nulls()
+
+        with resource.transaction():
+            assert len(resource.get("patients", [])) == 3
+            assert resource.get("patients", [])[0].get("name") == "Alice"
+            assert resource.get("patients", [])[1].get("name") == "Bob"
+            assert resource.get("patients", [])[1].get("age") == 30
+
+    def test_remove_nulls_empty_dict(self) -> None:
+        """
+        Test removing None values from an empty dictionary
+        """
+        resource = FhirResource(initial_dict={})
+        resource.remove_nulls()
+
+        assert len(resource) == 0
+
+    def test_remove_nulls_no_changes(self) -> None:
+        """
+        Test removing None values when no None values exist
+        """
+        initial_dict: Dict[str, Any] = {
+            "name": "Test User",
+            "active": True,
+            "score": 100,
+        }
+        resource = FhirResource(initial_dict=initial_dict)
+        original_dict = resource.copy()
+        resource.remove_nulls()
+
+        assert resource == original_dict
+
+    def test_remove_nulls_with_custom_storage_mode(self) -> None:
+        """
+        Test removing None values with a custom storage mode
+        """
+        initial_dict: Dict[str, Any] = {
+            "name": "Custom Mode User",
+            "email": None,
+            "active": True,
+        }
+        resource = FhirResource(
+            initial_dict=initial_dict, storage_mode=CompressedDictStorageMode.default()
+        )
+        resource.remove_nulls()
+
+        with resource.transaction():
+            assert "email" not in resource
+            assert resource.get("name") == "Custom Mode User"
+            assert resource.get("active") is True
+
+    def test_remove_nulls_preserves_false_and_zero_values(self) -> None:
+        """
+        Test that False and 0 values are not removed
+        """
+        initial_dict: Dict[str, Any] = {"active": False, "score": 0, "name": None}
+        resource = FhirResource(initial_dict=initial_dict)
+        resource.remove_nulls()
+
+        with resource.transaction():
+            assert resource.get("active") is False
+            assert resource.get("score") == 0
+            assert "name" not in resource
