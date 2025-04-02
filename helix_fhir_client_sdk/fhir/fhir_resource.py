@@ -51,12 +51,6 @@ class FhirResource(CompressedDict[str, Any]):
             else None
         )
 
-    def __eq__(self, other: object) -> bool:
-        """Check equality based on resource type and ID."""
-        if not isinstance(other, FhirResource):
-            return False
-        return self.resource_type == other.resource_type and self.id == other.id
-
     def to_json(self) -> str:
         """Convert the resource to a JSON string."""
         return json.dumps(obj=self, cls=FhirJSONEncoder)
