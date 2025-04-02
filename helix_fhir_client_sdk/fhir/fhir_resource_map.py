@@ -1,5 +1,15 @@
 import json
-from typing import Any, Optional, Dict, Deque, AsyncGenerator, Generator, List, Tuple
+from typing import (
+    Any,
+    Optional,
+    Dict,
+    Deque,
+    AsyncGenerator,
+    Generator,
+    List,
+    Tuple,
+    OrderedDict,
+)
 
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 
@@ -26,14 +36,14 @@ class FhirResourceMap:
         """
         self._resource_map: Dict[str, FhirResourceList] = initial_dict or {}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> OrderedDict[str, Any]:
         """
         Convert the FhirResourceMap to a dictionary representation.
 
         """
-        result: Dict[str, Any] = {}
+        result: OrderedDict[str, Any] = OrderedDict[str, Any]()
         for key, value in self._resource_map.items():
-            result[key] = [resource.to_dict() for resource in value]
+            result[key] = [resource.to_dict(remove_nulls=True) for resource in value]
         return result
 
     def get(self, *, resource_type: str) -> Optional[FhirResourceList]:

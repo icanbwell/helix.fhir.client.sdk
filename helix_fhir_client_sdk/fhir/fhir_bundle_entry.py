@@ -1,6 +1,6 @@
 import copy
 import json
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, OrderedDict
 
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_search import FhirBundleEntrySearch
 from helix_fhir_client_sdk.fhir.fhir_link import FhirLink
@@ -99,8 +99,8 @@ class FhirBundleEntry:
         else:
             self._resource = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
+    def to_dict(self) -> OrderedDict[str, Any]:
+        result: OrderedDict[str, Any] = OrderedDict[str, Any]()
         if self.fullUrl is not None:
             result["fullUrl"] = self.fullUrl
         if self.resource is not None:
@@ -117,7 +117,9 @@ class FhirBundleEntry:
 
     @classmethod
     def from_dict(
-        cls, d: Dict[str, Any], storage_mode: CompressedDictStorageMode
+        cls,
+        d: OrderedDict[str, Any] | Dict[str, Any],
+        storage_mode: CompressedDictStorageMode,
     ) -> "FhirBundleEntry":
         return cls(
             fullUrl=d["fullUrl"] if "fullUrl" in d else None,

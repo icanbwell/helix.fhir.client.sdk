@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict
+from typing import Any, Dict, OrderedDict
 
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 
@@ -21,13 +21,13 @@ class FhirLink:
         self.url: str = url
         self.relation: str = relation
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> OrderedDict[str, Any]:
         """
         Converts the FhirLink instance to a dictionary.
 
         :return: A dictionary representation of the link.
         """
-        return {"url": self.url, "relation": self.relation}
+        return OrderedDict[str, Any]({"url": self.url, "relation": self.relation})
 
     def to_json(self) -> str:
         """
@@ -41,7 +41,7 @@ class FhirLink:
         return f"FhirLink(url={self.url}, relation={self.relation})"
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "FhirLink":
+    def from_dict(cls, data: Dict[str, Any] | OrderedDict[str, Any]) -> "FhirLink":
         """
         Populates the FhirLink instance from a dictionary.
 

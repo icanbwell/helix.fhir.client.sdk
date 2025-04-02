@@ -1,6 +1,6 @@
 import copy
 import json
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast, OrderedDict
 
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
@@ -51,11 +51,13 @@ class FhirBundle:
         self.type_: str = type_
         self.link: Optional[List[FhirLink]] = link
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> OrderedDict[str, Any]:
         entries: List[Dict[str, Any]] | None = (
             [entry.to_dict() for entry in self.entry] if self.entry else None
         )
-        result: Dict[str, Any] = {"type": self.type_, "resourceType": "Bundle"}
+        result: OrderedDict[str, Any] = OrderedDict[str, Any](
+            {"type": self.type_, "resourceType": "Bundle"}
+        )
 
         if self.id_ is not None:
             result["id"] = self.id_
@@ -73,7 +75,9 @@ class FhirBundle:
 
     @classmethod
     def from_dict(
-        cls, data: Dict[str, Any], storage_mode: CompressedDictStorageMode
+        cls,
+        data: OrderedDict[str, Any] | Dict[str, Any],
+        storage_mode: CompressedDictStorageMode,
     ) -> "FhirBundle":
         """
         Creates a FhirBundle object from a dictionary.

@@ -1,6 +1,6 @@
 import copy
 import json
-from typing import Any, Optional, Dict, List, cast
+from typing import Any, Optional, Dict, List, cast, OrderedDict
 
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
     CompressedDict,
@@ -21,7 +21,7 @@ class FhirResource(CompressedDict[str, Any]):
 
     def __init__(
         self,
-        initial_dict: Optional[Dict[str, Any]] = None,
+        initial_dict: Dict[str, Any] | OrderedDict[str, Any] | None = None,
         *,
         storage_mode: CompressedDictStorageMode = CompressedDictStorageMode.default(),
         properties_to_cache: Optional[List[str]] = None,
@@ -80,17 +80,18 @@ class FhirResource(CompressedDict[str, Any]):
         """
         return copy.deepcopy(self)
 
-    def to_dict(self, *, remove_nulls: bool = True) -> Dict[str, Any]:
+    def to_dict(self, *, remove_nulls: bool = True) -> OrderedDict[str, Any]:
         """
         Converts the FhirResource object to a dictionary.
 
         :param remove_nulls: If True, removes None values from the dictionary.
         :return: A dictionary representation of the FhirResource object.
         """
-        result: Dict[str, Any] = copy.deepcopy(super().to_dict())
+        result: OrderedDict[str, Any] = copy.deepcopy(super().to_dict())
         if remove_nulls:
             result = cast(
-                Dict[str, Any], FhirClientJsonHelpers.remove_empty_elements(result)
+                OrderedDict[str, Any],
+                FhirClientJsonHelpers.remove_empty_elements(result),
             )
         return result
 

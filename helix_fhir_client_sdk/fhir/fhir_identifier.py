@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, OrderedDict
 
 
 class FhirIdentifier:
@@ -26,13 +26,13 @@ class FhirIdentifier:
         self.system: Optional[str] = system
         self.value: Optional[str] = value
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> OrderedDict[str, Any]:
         """
         Convert the FhirIdentifier object to a dictionary.
 
         :return: A dictionary representation of the FhirIdentifier object.
         """
-        result: Dict[str, Any] = {}
+        result: OrderedDict[str, Any] = OrderedDict[str, Any]()
         if self.use is not None:
             result["use"] = self.use
         if self.system is not None:
@@ -42,7 +42,9 @@ class FhirIdentifier:
         return result
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "FhirIdentifier":
+    def from_dict(
+        cls, data: Dict[str, Any] | OrderedDict[str, Any]
+    ) -> "FhirIdentifier":
         """
         Create a FhirIdentifier object from a dictionary.
 

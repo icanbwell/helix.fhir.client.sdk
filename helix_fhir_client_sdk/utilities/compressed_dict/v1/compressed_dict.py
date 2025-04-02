@@ -43,7 +43,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
     def __init__(
         self,
         *,
-        initial_dict: Optional[Dict[K, V]] = None,
+        initial_dict: Dict[K, V] | OrderedDict[K, V] | None = None,
         storage_mode: CompressedDictStorageMode,
         properties_to_cache: List[K] | None,
     ) -> None:
@@ -60,10 +60,10 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         self._storage_mode: CompressedDictStorageMode = storage_mode
 
         # Working copy of the dictionary during context
-        self._working_dict: Optional[Dict[K, V]] = None
+        self._working_dict: Optional[OrderedDict[K, V]] = None
 
         # Private storage options
-        self._raw_dict: Dict[K, V] = {}
+        self._raw_dict: OrderedDict[K, V] = OrderedDict[K, V]()
         self._serialized_dict: Optional[bytes] = None
 
         self._properties_to_cache: List[K] | None = properties_to_cache
@@ -76,11 +76,13 @@ class CompressedDict[K, V](MutableMapping[K, V]):
 
         # Populate initial dictionary if provided
         if initial_dict:
-            self.replace(value=initial_dict)
-
-        if storage_mode.storage_type == "raw":
-            # Store the initial dictionary directly
-            self._working_dict = initial_dict
+            # Ensure we use an OrderedDict to maintain original order
+            initial_dict_ordered = (
+                initial_dict
+                if isinstance(initial_dict, OrderedDict)
+                else OrderedDict[K, V](initial_dict)
+            )
+            self.replace(value=initial_dict_ordered)
 
     @contextmanager
     def transaction(self) -> Iterator["CompressedDict[K, V]"]:
@@ -123,8 +125,8 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         if not self._working_dict:
             self._working_dict = self.create_working_dict()
 
-    def create_working_dict(self) -> Dict[K, V]:
-        working_dict: Dict[K, V]
+    def create_working_dict(self) -> OrderedDict[K, V]:
+        working_dict: OrderedDict[K, V]
         # Deserialize the dictionary before entering the context
         if self._storage_mode.storage_type == "raw":
             # For raw mode, create a deep copy of the existing dictionary
@@ -137,13 +139,13 @@ class CompressedDict[K, V](MutableMapping[K, V]):
                     storage_type=self._storage_mode.storage_type,
                 )
                 if self._serialized_dict
-                else {}
+                else OrderedDict[K, V]()
             )
         return working_dict
 
     @staticmethod
     def _serialize_dict(
-        *, dictionary: Dict[K, V], storage_type: CompressedDictStorageType
+        *, dictionary: OrderedDict[K, V], storage_type: CompressedDictStorageType
     ) -> bytes:
         """
         Serialize entire dictionary using MessagePack
@@ -182,7 +184,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         *,
         serialized_dict: bytes,
         storage_type: CompressedDictStorageType,
-    ) -> Dict[K, V]:
+    ) -> OrderedDict[K, V]:
         """
         Deserialize entire dictionary from MessagePack
 
@@ -197,7 +199,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         if storage_type == "compressed":
             # Decompress and parse JSON
             decompressed = zlib.decompress(serialized_dict)
-            return cast(Dict[K, V], json.loads(decompressed.decode("utf-8")))
+            return cast(OrderedDict[K, V], json.loads(decompressed.decode("utf-8")))
 
         # Decompress if needed
         to_unpack = (
@@ -208,7 +210,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
 
         # Deserialize
         return cast(
-            Dict[K, V],
+            OrderedDict[K, V],
             msgpack.unpackb(
                 to_unpack,
                 raw=False,  # Convert to strings
@@ -216,7 +218,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
             ),
         )
 
-    def _get_dict(self) -> Dict[K, V]:
+    def _get_dict(self) -> OrderedDict[K, V]:
         """
         Get the dictionary, deserializing if necessary
 
@@ -275,12 +277,12 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         # Update the working dictionary
         self._working_dict[key] = value
 
-    def _update_serialized_dict(self, current_dict: Dict[K, V] | None) -> None:
+    def _update_serialized_dict(self, current_dict: OrderedDict[K, V] | None) -> None:
         if current_dict is None:
             self._cached_properties.clear()
             self._length = 0
             self._serialized_dict = None
-            self._raw_dict = {}
+            self._raw_dict = OrderedDict[K, V]()
             return
 
         if self._properties_to_cache:
@@ -390,7 +392,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         """
         return self._get_dict().items()
 
-    def to_dict(self) -> Dict[K, V]:
+    def to_dict(self) -> OrderedDict[K, V]:
         """
         Convert to a standard dictionary
 
@@ -422,7 +424,9 @@ class CompressedDict[K, V](MutableMapping[K, V]):
             + ")"
         )
 
-    def replace(self, *, value: Dict[K, V]) -> "CompressedDict[K, V]":
+    def replace(
+        self, *, value: Dict[K, V] | OrderedDict[K, V]
+    ) -> "CompressedDict[K, V]":
         """
         Replace the current dictionary with a new one
 
@@ -436,7 +440,10 @@ class CompressedDict[K, V](MutableMapping[K, V]):
             self.clear()
             return self
 
-        self._update_serialized_dict(current_dict=value)
+        new_dict: OrderedDict[K, V] = (
+            value if isinstance(value, OrderedDict) else OrderedDict[K, V](value)
+        )
+        self._update_serialized_dict(current_dict=new_dict)
         return self
 
     def clear(self) -> None:
@@ -467,7 +474,11 @@ class CompressedDict[K, V](MutableMapping[K, V]):
             other_dict = other.to_dict()
         else:
             # If other is a plain dict, use it directly
-            other_dict = other
+            if isinstance(other, OrderedDict):
+                # If other is an OrderedDict, use it directly
+                other_dict = other
+            else:
+                other_dict = OrderedDict[K, V](other)
 
         # Compare keys and values
         # Check that all keys in both dictionaries match exactly
@@ -521,7 +532,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         """
         # Create a new instance with the same storage mode
         new_instance = CompressedDict(
-            initial_dict=self.to_dict(),
+            initial_dict=copy.deepcopy(self.to_dict()),
             storage_mode=self._storage_mode,
             properties_to_cache=self._properties_to_cache,
         )

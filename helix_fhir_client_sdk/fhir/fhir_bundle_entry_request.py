@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, OrderedDict
 
 
 class FhirBundleEntryRequest:
@@ -25,8 +25,10 @@ class FhirBundleEntryRequest:
         self.ifNoneMatch: Optional[str] = ifNoneMatch
         self.ifNoneExist: Optional[str] = ifNoneExist
 
-    def to_dict(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {"url": self.url, "method": self.method}
+    def to_dict(self) -> OrderedDict[str, Any]:
+        result: OrderedDict[str, Any] = OrderedDict[str, Any](
+            {"url": self.url, "method": self.method}
+        )
         if self.ifModifiedSince is not None:
             result["ifModifiedSince"] = self.ifModifiedSince.isoformat()
         if self.ifNoneMatch is not None:
@@ -36,7 +38,9 @@ class FhirBundleEntryRequest:
         return result
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "FhirBundleEntryRequest":
+    def from_dict(
+        cls, d: Dict[str, Any] | OrderedDict[str, Any]
+    ) -> "FhirBundleEntryRequest":
         return cls(
             url=d["url"],
             method=d["method"],

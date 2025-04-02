@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, OrderedDict
 
 
 class FhirBundleEntryResponse:
@@ -25,8 +25,8 @@ class FhirBundleEntryResponse:
         self.etag: Optional[str] = etag
         self.location: Optional[str] = location
 
-    def to_dict(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {"status": self.status}
+    def to_dict(self) -> OrderedDict[str, Any]:
+        result: OrderedDict[str, Any] = OrderedDict[str, Any]({"status": self.status})
         if self.lastModified is not None:
             result["lastModified"] = self.lastModified.isoformat()
         if self.etag is not None:
@@ -36,7 +36,9 @@ class FhirBundleEntryResponse:
         return result
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "FhirBundleEntryResponse":
+    def from_dict(
+        cls, d: Dict[str, Any] | OrderedDict[str, Any]
+    ) -> "FhirBundleEntryResponse":
         return cls(
             status=d["status"],
             lastModified=(
