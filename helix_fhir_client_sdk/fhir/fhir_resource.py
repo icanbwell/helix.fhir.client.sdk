@@ -1,6 +1,6 @@
 import copy
 import json
-from typing import Any, Optional, Dict, List, cast, OrderedDict
+from typing import Any, Optional, Dict, List, cast, OrderedDict, override
 
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
     CompressedDict,
@@ -74,6 +74,7 @@ class FhirResource(CompressedDict[str, Any]):
         """
         return copy.deepcopy(self)
 
+    @override
     def to_dict(self, *, remove_nulls: bool = True) -> OrderedDict[str, Any]:
         """
         Converts the FhirResource object to a dictionary.

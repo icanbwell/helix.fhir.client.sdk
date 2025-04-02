@@ -401,7 +401,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         """
         return self._get_dict().items()
 
-    def to_dict(self) -> OrderedDict[K, V]:
+    def to_dict(self, *, remove_nulls: bool = True) -> OrderedDict[K, V]:
         """
         Convert to a standard dictionary
 
@@ -604,7 +604,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
 
         return self._working_dict.pop(key, default)
 
-    def get_plain_dict(self) -> Dict[K, V]:
+    def to_plain_dict(self) -> Dict[K, V]:
         """
         Get the plain dictionary representation
 
