@@ -2,7 +2,7 @@ import copy
 import json
 from collections.abc import KeysView, ValuesView, ItemsView, MutableMapping
 from contextlib import contextmanager
-from typing import Dict, Optional, Iterator, cast, List, Any, overload
+from typing import Dict, Optional, Iterator, cast, List, Any, overload, OrderedDict
 
 import msgpack
 import zlib
@@ -290,12 +290,13 @@ class CompressedDict[K, V](MutableMapping[K, V]):
 
         self._length = len(current_dict)
 
-        if self._transaction_depth > 0:
-            # If we're in a transaction, update the working dictionary
-            # The serialized dictionary will be updated after the transaction
+        if not self._working_dict:
+            # If the working dictionary is None, initialize it
             self._working_dict = current_dict
-        else:
-            # update the serialized dictionary
+
+        if self._transaction_depth == 0:
+            # If we're in a transaction,
+            # The serialized dictionary will be updated after the transaction
             if self._storage_mode.storage_type == "raw":
                 self._raw_dict = current_dict
             else:
@@ -449,14 +450,30 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         Check equality with another dictionary
 
         Args:
-            other: Dictionary to compare with
+            other: Dictionary to compare with (CompressedDict or plain dict)
 
         Returns:
-            Whether the dictionaries are equal
+            Whether the dictionaries are equal in keys and values
         """
+        # If other is not a dictionary-like object, return False
+        if not isinstance(other, (CompressedDict, dict, OrderedDict)):
+            return False
+
+        # Get the dictionary representation of self
+        self_dict = self.to_dict()
+
+        # If other is a CompressedDict, use its _get_dict() method
         if isinstance(other, CompressedDict):
-            return self._get_dict() == other._get_dict()
-        return self._get_dict() == other
+            other_dict = other.to_dict()
+        else:
+            # If other is a plain dict, use it directly
+            other_dict = other
+
+        # Compare keys and values
+        # Check that all keys in both dictionaries match exactly
+        return set(self_dict.keys()) == set(other_dict.keys()) and all(
+            self_dict[key] == other_dict[key] for key in self_dict
+        )
 
     @overload
     def get(self, key: K) -> Optional[V]:
@@ -468,6 +485,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         """
         ...
 
+    # noinspection PyMethodOverriding
     @overload
     def get(self, key: K, default: _T) -> V | _T:
         """
