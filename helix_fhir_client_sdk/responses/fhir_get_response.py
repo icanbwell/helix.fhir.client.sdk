@@ -322,7 +322,7 @@ class FhirGetResponse:
             }
 
     def __repr__(self) -> str:
-        instance_variables_text = str(vars(self))
+        instance_variables_text = json.dumps(self.to_dict())
         return f"FhirGetResponse: {instance_variables_text}"
 
     # noinspection PyPep8Naming
