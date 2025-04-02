@@ -23,11 +23,12 @@ class FhirResource(CompressedDict[str, Any]):
         initial_dict: Optional[Dict[str, Any]] = None,
         *,
         storage_mode: CompressedDictStorageMode = CompressedDictStorageMode.default(),
+        properties_to_cache: Optional[List[str]] = None,
     ) -> None:
         super().__init__(
             initial_dict=initial_dict,
             storage_mode=storage_mode,
-            properties_to_cache=["resourceType", "id"],
+            properties_to_cache=properties_to_cache or ["resourceType", "id"],
         )
 
     @property
