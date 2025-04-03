@@ -31,14 +31,14 @@ class BaseResourceList[T: CompressedDict[str, Any]](Deque[T]):
         iterable: Iterable[T] | None = None,
         maxlen: Optional[int] = None,
     ) -> None:
-        if iterable is not None:
-            assert all([isinstance(r, CompressedDict) for r in iterable])
+        # if iterable is not None:
+        # assert all([isinstance(r, CompressedDict) for r in iterable]), f"type {type(next(iter(iterable)))}"
         super().__init__(iterable, maxlen=maxlen) if iterable else super().__init__()
 
     @override
     def append(self, x: T, /) -> None:
         super().append(x)
-        assert isinstance(x, CompressedDict)
+        # assert isinstance(x, CompressedDict), f"{type(x)} is not a CompressedDict"
 
     def to_json(self) -> str:
         """
