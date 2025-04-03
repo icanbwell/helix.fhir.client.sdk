@@ -28,17 +28,17 @@ class BaseResourceList[T: CompressedDict[str, Any]](Deque[T]):
 
     def __init__(
         self,
-        resources: Iterable[T] | None = None,
+        iterable: Iterable[T] | None = None,
         maxlen: Optional[int] = None,
     ) -> None:
-        if resources is not None:
-            assert all([isinstance(r, CompressedDict) for r in resources])
-        super().__init__(resources, maxlen=maxlen) if resources else super().__init__()
+        if iterable is not None:
+            assert all([isinstance(r, CompressedDict) for r in iterable])
+        super().__init__(iterable, maxlen=maxlen) if iterable else super().__init__()
 
     @override
-    def append(self, resource: T, /) -> None:
-        super().append(resource)
-        assert isinstance(resource, CompressedDict)
+    def append(self, x: T, /) -> None:
+        super().append(x)
+        assert isinstance(x, CompressedDict)
 
     def to_json(self) -> str:
         """

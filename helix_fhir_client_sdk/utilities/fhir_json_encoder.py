@@ -17,8 +17,6 @@ class FhirJSONEncoder(json.JSONEncoder):
         if isinstance(o, bytes):
             return o.decode("utf-8")
         if isinstance(o, (datetime, date)):
-            return o.isoformat().replace("+00:00", ".000Z")
-        if isinstance(o, (datetime, date)):
             return o.isoformat()
         if hasattr(o, "to_dict"):
             return o.to_dict()
