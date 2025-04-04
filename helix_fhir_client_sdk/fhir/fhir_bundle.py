@@ -136,15 +136,9 @@ class FhirBundle:
                 issues = resource.get("issue")
                 if issues:
                     for issue in issues:
-                        details: Dict[str, Any] = issue.get("details")
-                        if details is None:
-                            issue["details"] = {}
-                            details = issue["details"]
-                        coding: Optional[List[Dict[str, Any]]] = details.get("coding")
-                        if coding is None:
-                            details["coding"] = []
-                            coding = details["coding"]
-                        assert coding is not None
+                        coding: List[Dict[str, Any]] = issue.setdefault(
+                            "details", {}
+                        ).setdefault("coding", [])
                         coding.extend(diagnostics_coding)
         return resource
 

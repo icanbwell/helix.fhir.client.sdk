@@ -11,7 +11,6 @@ from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderExc
 from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
     FhirValidationException,
 )
-from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
@@ -31,7 +30,7 @@ from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValid
 
 
 class FhirMergeMixin(FhirClientProtocol):
-    async def merge_resources_async(
+    async def merge_bundle_entries_or_resources_async(
         self,
         *,
         id_: Optional[str] = None,
@@ -39,24 +38,6 @@ class FhirMergeMixin(FhirClientProtocol):
         batch_size: Optional[int] = None,
     ) -> AsyncGenerator[FhirMergeResponse, None]:
         async for resources_in_batch in resources.consume_resource_async(
-            batch_size=batch_size
-        ):
-            json_data_list: List[str] = [
-                resource.to_json() for resource in resources_in_batch
-            ]
-            async for response in self.merge_async(
-                id_=id_, json_data_list=json_data_list, batch_size=batch_size
-            ):
-                yield response
-
-    async def merge_bundle_entries_async(
-        self,
-        *,
-        id_: Optional[str] = None,
-        bundle_entries: FhirBundleEntryList,
-        batch_size: Optional[int] = None,
-    ) -> AsyncGenerator[FhirMergeResponse, None]:
-        async for resources_in_batch in bundle_entries.consume_resource_async(
             batch_size=batch_size
         ):
             json_data_list: List[str] = [
