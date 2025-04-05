@@ -1,4 +1,4 @@
-from typing import List, Set
+from typing import List, Set, Optional, AsyncGenerator, cast, Generator
 
 from helix_fhir_client_sdk.fhir.base_resource_list import BaseResourceList
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
@@ -66,3 +66,19 @@ class FhirResourceList(BaseResourceList[FhirResource]):
             else:
                 seen.add(comparison_key)
                 i += 1
+
+    async def consume_resource_batch_async(
+        self,
+        *,
+        batch_size: Optional[int],
+    ) -> AsyncGenerator["FhirResourceList", None]:
+        async for r in super().consume_resource_batch_async(batch_size=batch_size):
+            yield cast(FhirResourceList, r)
+
+    def consume_resource_batch(
+        self,
+        *,
+        batch_size: Optional[int],
+    ) -> Generator["FhirResourceList", None, None]:
+        for r in super().consume_resource_batch(batch_size=batch_size):
+            yield cast(FhirResourceList, r)

@@ -11,6 +11,7 @@ from typing import (
     Iterator,
     override,
     Iterable,
+    Generator,
 )
 
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
@@ -57,11 +58,34 @@ class BaseResourceList[T: CompressedDict[str, Any]](Deque[T]):
         # this is here to keep compatibility with FhirResourceMap
         return self
 
-    async def consume_resource_async(
+    async def consume_resource_batch_async(
         self,
         *,
         batch_size: Optional[int],
     ) -> AsyncGenerator["BaseResourceList[T]", None]:
+        """
+        Consume resources in batches asynchronously.
+
+        :param batch_size: The size of each batch.
+        :return: An async generator yielding batches of FhirResourceList.
+        """
+        if batch_size is None:
+            while self:
+                yield BaseResourceList[T]([self.popleft()])
+        elif batch_size <= 0:
+            raise ValueError("Batch size must be greater than 0.")
+        else:
+            while self:
+                batch = BaseResourceList[T]()
+                for _ in range(min(batch_size, len(self))):
+                    batch.append(self.popleft())
+                yield batch
+
+    def consume_resource_batch(
+        self,
+        *,
+        batch_size: Optional[int],
+    ) -> Generator["BaseResourceList[T]", None]:
         """
         Consume resources in batches asynchronously.
 

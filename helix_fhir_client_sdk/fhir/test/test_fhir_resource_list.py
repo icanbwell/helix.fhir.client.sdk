@@ -114,7 +114,7 @@ class TestFhirResourceList:
         resource_list = FhirResourceList(mock_resources)
 
         # Consume resources asynchronously with default (None) batch size
-        async for batch in resource_list.consume_resource_async(batch_size=None):
+        async for batch in resource_list.consume_resource_batch_async(batch_size=None):
             assert len(batch) == 1
 
         # Ensure all resources are consumed
@@ -133,7 +133,7 @@ class TestFhirResourceList:
 
         # Consume resources asynchronously with batch size of 2
         batches = []
-        async for batch in resource_list.consume_resource_async(batch_size=2):
+        async for batch in resource_list.consume_resource_batch_async(batch_size=2):
             batches.append(batch)
 
         # Check batches
@@ -151,7 +151,7 @@ class TestFhirResourceList:
         with pytest.raises(ValueError, match="Batch size must be greater than 0."):
 
             async def test() -> None:
-                async for _ in resource_list.consume_resource_async(batch_size=0):
+                async for _ in resource_list.consume_resource_batch_async(batch_size=0):
                     pass
 
             # Run the async function
