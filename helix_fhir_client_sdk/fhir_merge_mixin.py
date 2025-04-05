@@ -168,12 +168,13 @@ class FhirMergeMixin(FhirClientProtocol):
                                     try:
                                         responses.extend(
                                             FhirMergeResponseEntry.from_json(
-                                                response_text
+                                                response_text,
+                                                storage_mode=self._storage_mode,
                                             )
                                         )
                                     except ValueError as e:
-                                        responses.append(
-                                            FhirMergeResponseEntry.from_dict(
+                                        errors.append(
+                                            FhirMergeResponseEntryError.from_dict(
                                                 {
                                                     "issue": [
                                                         {
@@ -224,7 +225,8 @@ class FhirMergeMixin(FhirClientProtocol):
                                                         "diagnostics": response_text,
                                                     }
                                                 ]
-                                            }
+                                            },
+                                            storage_mode=self._storage_mode,
                                         )
                                     ],
                                     error=(response_text if response_text else None),

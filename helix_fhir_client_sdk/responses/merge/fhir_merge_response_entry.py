@@ -3,6 +3,9 @@ import json
 from typing import Optional, Any, Dict, List
 
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
+from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 
 
 @dataclasses.dataclass(slots=True)
@@ -39,7 +42,9 @@ class FhirMergeResponseEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "FhirMergeResponseEntry":
+    def from_dict(
+        cls, data: Dict[str, Any], *, storage_mode: CompressedDictStorageMode
+    ) -> "FhirMergeResponseEntry":
         return FhirMergeResponseEntry(
             created=data.get("created"),
             updated=data.get("updated"),
@@ -54,19 +59,24 @@ class FhirMergeResponseEntry:
             error=data.get("error"),
             token=data.get("token"),
             resource=(
-                FhirResource(data.get("resource")) if data.get("resource") else None
+                FhirResource(data.get("resource"), storage_mode=storage_mode)
+                if data.get("resource")
+                else None
             ),
             status=data.get("status"),
         )
 
     @classmethod
-    def from_issue_text(cls, issue_text: str) -> "FhirMergeResponseEntry":
-        return FhirMergeResponseEntry.from_dict({"issue": issue_text})
-
-    @classmethod
-    def from_json(cls, data: str) -> "List[FhirMergeResponseEntry]":
+    def from_json(
+        cls, data: str, *, storage_mode: CompressedDictStorageMode
+    ) -> "List[FhirMergeResponseEntry]":
         loaded_data: Dict[str, Any] | List[Dict[str, Any]] = json.loads(data)
         if isinstance(loaded_data, list):
-            return [FhirMergeResponseEntry.from_dict(d) for d in loaded_data]
+            return [
+                FhirMergeResponseEntry.from_dict(d, storage_mode=storage_mode)
+                for d in loaded_data
+            ]
         else:
-            return [FhirMergeResponseEntry.from_dict(loaded_data)]
+            return [
+                FhirMergeResponseEntry.from_dict(loaded_data, storage_mode=storage_mode)
+            ]
