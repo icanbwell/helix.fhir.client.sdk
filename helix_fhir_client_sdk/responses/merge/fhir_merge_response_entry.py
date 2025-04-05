@@ -70,6 +70,8 @@ class FhirMergeResponseEntry:
     def from_json(
         cls, data: str, *, storage_mode: CompressedDictStorageMode
     ) -> "List[FhirMergeResponseEntry]":
+        if not data:
+            return []
         loaded_data: Dict[str, Any] | List[Dict[str, Any]] = json.loads(data)
         if isinstance(loaded_data, list):
             return [
