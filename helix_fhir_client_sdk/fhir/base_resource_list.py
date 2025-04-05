@@ -85,7 +85,7 @@ class BaseResourceList[T: CompressedDict[str, Any]](Deque[T]):
         self,
         *,
         batch_size: Optional[int],
-    ) -> Generator["BaseResourceList[T]", None]:
+    ) -> Generator["BaseResourceList[T]", None, None]:
         """
         Consume resources in batches asynchronously.
 

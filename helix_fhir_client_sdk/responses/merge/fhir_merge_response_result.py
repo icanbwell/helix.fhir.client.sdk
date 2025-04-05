@@ -20,7 +20,6 @@ class FhirMergeResponseResult:
         "error",
         "access_token",
         "status",
-        "data",
         "successful",
         "response_text",
     ]

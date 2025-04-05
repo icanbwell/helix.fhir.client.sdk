@@ -16,7 +16,7 @@ class FhirMergeResponseEntry:
     source_assigning_authority: Optional[str] = None
     resource_version: Optional[str] = None
     message: Optional[str] = None
-    issue: Optional[str | Any] = None
+    issue: Optional[List[Dict[str, Any]]] = None
     error: Optional[str] = None
     token: Optional[str] = None
     resource: Optional[FhirResource] = None
@@ -44,9 +44,9 @@ class FhirMergeResponseEntry:
             created=data.get("created"),
             updated=data.get("updated"),
             deleted=data.get("deleted"),
-            id_=data.get("id_"),
+            id_=data.get("id"),
             uuid=data.get("uuid"),
-            resource_type=data.get("resource_type"),
+            resource_type=data.get("resourceType"),
             source_assigning_authority=data.get("source_assigning_authority"),
             resource_version=data.get("resource_version"),
             message=data.get("message"),
