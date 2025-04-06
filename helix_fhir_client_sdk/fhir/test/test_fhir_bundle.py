@@ -14,7 +14,7 @@ class TestBundle:
         """Test initialization with minimal parameters."""
         bundle = FhirBundle(type_="searchset")
         assert bundle.type_ == "searchset"
-        assert bundle.entry is None
+        assert len(bundle.entry) == 0
         assert bundle.total is None
         assert bundle.id_ is None
         assert bundle.timestamp is None
@@ -198,7 +198,7 @@ class TestFhirBundleCopy:
         assert copied_bundle.timestamp is None
         assert copied_bundle.type_ == "batch"
         assert copied_bundle.total is None
-        assert copied_bundle.entry is None
+        assert len(copied_bundle.entry) == 0
 
     def test_copy_modifying_original_does_not_affect_copy(self) -> None:
         """
