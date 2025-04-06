@@ -236,3 +236,8 @@ class FhirBundle:
     def id(self, value: Optional[str]) -> None:
         """Set the ID of the Bundle."""
         self.id_ = value
+
+    @property
+    def resource_type(self) -> str:
+        """Get the resource type of the Bundle."""
+        return "Bundle"

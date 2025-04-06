@@ -66,3 +66,7 @@ class BaseFhirMergeResourceResponseEntry:
     @property
     @abstractmethod
     def errored(self) -> bool: ...
+
+    @property
+    @abstractmethod
+    def id(self) -> Optional[str]: ...

@@ -105,3 +105,9 @@ class FhirMergeResourceResponseEntry(BaseFhirMergeResourceResponseEntry):
     @override
     def errored(self) -> bool:
         return False
+
+    @property
+    @override
+    def id(self) -> Optional[str]:
+        """Get the ID of the Bundle."""
+        return self.id_
