@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from typing import Dict, Any, Optional, List
 
+from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
@@ -37,6 +38,12 @@ class BaseFhirMergeResourceResponseEntry:
         """Abstract property for error"""
         ...
 
+    @error.setter
+    @abstractmethod
+    def error(self, value: str) -> None:
+        """Abstract property for error"""
+        ...
+
     @property
     @abstractmethod
     def status(self) -> Optional[int]:
@@ -63,6 +70,20 @@ class BaseFhirMergeResourceResponseEntry:
     @abstractmethod
     def resourceType(self) -> Optional[str]: ...
 
+    # noinspection PyPep8Naming
+    @resourceType.setter
+    @abstractmethod
+    def resourceType(self, value: str) -> None: ...
+
+    @property
+    @abstractmethod
+    def resource(self) -> Optional[FhirResource]: ...
+
+    # noinspection PyPep8Naming
+    @resource.setter
+    @abstractmethod
+    def resource(self, value: FhirResource) -> None: ...
+
     @property
     @abstractmethod
     def errored(self) -> bool: ...
@@ -70,3 +91,7 @@ class BaseFhirMergeResourceResponseEntry:
     @property
     @abstractmethod
     def id(self) -> Optional[str]: ...
+
+    @property
+    @abstractmethod
+    def token(self) -> Optional[str]: ...

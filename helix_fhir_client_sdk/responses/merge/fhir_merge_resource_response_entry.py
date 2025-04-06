@@ -14,20 +14,20 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
 
 @dataclasses.dataclass(slots=True)
 class FhirMergeResourceResponseEntry(BaseFhirMergeResourceResponseEntry):
+    resource_type: Optional[str]
+    token: Optional[str]
+    resource: Optional[FhirResource]
+    status: Optional[int] = 200
     created: Optional[bool] = None
     updated: Optional[bool] = None
     deleted: Optional[bool] = None
     id_: Optional[str] = None
     uuid: Optional[str] = None
-    resource_type: Optional[str] = None
     source_assigning_authority: Optional[str] = None
     resource_version: Optional[str] = None
     message: Optional[str] = None
     issue: Optional[List[Dict[str, Any]]] = None
     error: Optional[str] = None
-    token: Optional[str] = None
-    resource: Optional[FhirResource] = None
-    status: Optional[int] = 200
 
     @override
     def to_dict(self) -> Dict[str, Any]:
@@ -97,6 +97,10 @@ class FhirMergeResourceResponseEntry(BaseFhirMergeResourceResponseEntry):
     @override
     def resourceType(self) -> Optional[str]:
         return self.resource_type
+
+    @resourceType.setter
+    def resourceType(self, value: str) -> None:
+        self.resource_type = value
 
     def get_resource(self) -> FhirResource | None:
         return self.resource

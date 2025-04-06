@@ -2,6 +2,7 @@ import dataclasses
 import json
 from typing import Optional, Any, Dict, List, override
 
+from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.responses.merge.base_fhir_merge_resource_response_entry import (
     BaseFhirMergeResourceResponseEntry,
 )
@@ -14,10 +15,11 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
 class FhirMergeResponseEntryError(BaseFhirMergeResourceResponseEntry):
     status: Optional[int]
     issue: Optional[List[Dict[str, Any]]]
+    error: Optional[str]
+    token: Optional[str]
+    resource_type: Optional[str]
     id_: Optional[str] = None
     uuid: Optional[str] = None
-    resource_type: Optional[str] = None
-    error: Optional[str] = None
 
     @override
     def to_dict(self) -> Dict[str, Any]:
@@ -40,6 +42,7 @@ class FhirMergeResponseEntryError(BaseFhirMergeResourceResponseEntry):
             issue=data.get("issue"),
             error=data.get("error"),
             status=data.get("status"),
+            token=data.get("token"),
         )
 
     @classmethod
@@ -67,6 +70,10 @@ class FhirMergeResponseEntryError(BaseFhirMergeResourceResponseEntry):
     def resourceType(self) -> Optional[str]:
         return self.resource_type
 
+    @resourceType.setter
+    def resourceType(self, value: str) -> None:
+        self.resource_type = value
+
     @property
     def errored(self) -> bool:
         return True
@@ -76,3 +83,16 @@ class FhirMergeResponseEntryError(BaseFhirMergeResourceResponseEntry):
     def id(self) -> Optional[str]:
         """Get the ID of the Bundle."""
         return self.id_
+
+    @property
+    @override
+    def resource(self) -> Optional[FhirResource]:
+        raise NotImplementedError(
+            "This method is not implemented for FhirMergeResponseEntryError."
+        )
+
+    @resource.setter
+    def resource(self, value: FhirResource) -> None:
+        raise NotImplementedError(
+            "This method is not implemented for FhirMergeResponseEntryError."
+        )

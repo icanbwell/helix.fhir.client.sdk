@@ -392,15 +392,17 @@ class FhirMergeMixin(FhirClientProtocol):
                         resource_type=resource.resource_type,
                         issue=e.issue,
                         status=400,
+                        token=access_token,
+                        error="Validation error",
                     )
                 )
         else:
+            access_token_result1: GetAccessTokenResult = (
+                await self.get_access_token_async()
+            )
+            access_token1: Optional[str] = access_token_result1.access_token
             for resource in resources_to_validate:
                 try:
-                    access_token_result1: GetAccessTokenResult = (
-                        await self.get_access_token_async()
-                    )
-                    access_token1: Optional[str] = access_token_result1.access_token
                     with resource.transaction():
                         await AsyncFhirValidator.validate_fhir_resource(
                             fn_get_session=lambda: self.create_http_session(),
@@ -419,6 +421,8 @@ class FhirMergeMixin(FhirClientProtocol):
                             resource_type=resource.resource_type,
                             issue=e.issue,
                             status=400,
+                            token=access_token1,
+                            error="Validation error",
                         )
                     )
         return resource_json_list_clean, errors
