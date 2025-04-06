@@ -54,7 +54,7 @@ class FhirBundle:
         :param total: The total number of entries in the Bundle.
         :param link: The links associated with the Bundle.
         """
-        self.entry: Optional[FhirBundleEntryList] = entry
+        self.entry: FhirBundleEntryList = entry or FhirBundleEntryList()
         self.total: Optional[int] = total
         self.id_: Optional[str] = id_
         self.identifier: Optional[FhirIdentifier] = identifier
@@ -79,7 +79,7 @@ class FhirBundle:
             result["timestamp"] = self.timestamp
         if self.total is not None:
             result["total"] = self.total
-        if entries:
+        if entries and len(entries) > 0:
             result["entry"] = entries
         if self.link:
             result["link"] = [link.to_dict() for link in self.link]
@@ -126,7 +126,7 @@ class FhirBundle:
                     ]
                 )
                 if "entry" in data
-                else None
+                else FhirBundleEntryList()
             ),
             link=[FhirLink.from_dict(link) for link in data.get("link", [])],
             meta=data.get("meta"),

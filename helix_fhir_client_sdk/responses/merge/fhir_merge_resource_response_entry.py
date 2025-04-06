@@ -115,3 +115,9 @@ class FhirMergeResourceResponseEntry(BaseFhirMergeResourceResponseEntry):
     def id(self) -> Optional[str]:
         """Get the ID of the Bundle."""
         return self.id_
+
+    @id.setter
+    @override
+    def id(self, value: str) -> None:
+        """Set the ID of the Bundle."""
+        self.id_ = value

@@ -84,6 +84,11 @@ class FhirMergeResponseEntryError(BaseFhirMergeResourceResponseEntry):
         """Get the ID of the Bundle."""
         return self.id_
 
+    @id.setter
+    def id(self, value: str) -> None:
+        """Set the ID of the Bundle."""
+        self.id_ = value
+
     @property
     @override
     def resource(self) -> Optional[FhirResource]:
@@ -96,3 +101,13 @@ class FhirMergeResponseEntryError(BaseFhirMergeResourceResponseEntry):
         raise NotImplementedError(
             "This method is not implemented for FhirMergeResponseEntryError."
         )
+
+    @property
+    @override
+    def created(self) -> Optional[bool]:
+        return False
+
+    @property
+    @override
+    def updated(self) -> Optional[bool]:
+        return False

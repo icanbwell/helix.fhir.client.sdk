@@ -92,6 +92,22 @@ class BaseFhirMergeResourceResponseEntry:
     @abstractmethod
     def id(self) -> Optional[str]: ...
 
+    @id.setter
+    @abstractmethod
+    def id(self, value: str) -> None: ...
+
     @property
     @abstractmethod
     def token(self) -> Optional[str]: ...
+
+    @token.setter
+    @abstractmethod
+    def token(self, value: str) -> None: ...
+
+    @property
+    @abstractmethod
+    def created(self) -> Optional[bool]: ...
+
+    @property
+    @abstractmethod
+    def updated(self) -> Optional[bool]: ...
