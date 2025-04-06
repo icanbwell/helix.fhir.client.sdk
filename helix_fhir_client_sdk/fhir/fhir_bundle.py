@@ -6,6 +6,7 @@ from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.fhir.fhir_identifier import FhirIdentifier
 from helix_fhir_client_sdk.fhir.fhir_link import FhirLink
+from helix_fhir_client_sdk.fhir.fhir_meta import FhirMeta
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
@@ -18,7 +19,16 @@ class FhirBundle:
     FhirBundle represents a FHIR Bundle resource.
     """
 
-    __slots__ = ["entry", "total", "id_", "identifier", "timestamp", "type_", "link"]
+    __slots__ = [
+        "entry",
+        "total",
+        "id_",
+        "identifier",
+        "timestamp",
+        "type_",
+        "link",
+        "meta",
+    ]
 
     def __init__(
         self,
@@ -30,6 +40,7 @@ class FhirBundle:
         entry: Optional[FhirBundleEntryList] = None,
         total: Optional[int] = None,
         link: Optional[List[FhirLink]] = None,
+        meta: Optional[FhirMeta] = None,
     ) -> None:
         """
         Initializes a FhirBundle object.
@@ -50,6 +61,7 @@ class FhirBundle:
         self.timestamp: Optional[str] = timestamp
         self.type_: str = type_
         self.link: Optional[List[FhirLink]] = link
+        self.meta: Optional[FhirMeta] = meta
 
     def to_dict(self) -> OrderedDict[str, Any]:
         entries: List[Dict[str, Any]] | None = (
@@ -71,6 +83,8 @@ class FhirBundle:
             result["entry"] = entries
         if self.link:
             result["link"] = [link.to_dict() for link in self.link]
+        if self.meta:
+            result["meta"] = self.meta
         return result
 
     @classmethod
@@ -115,6 +129,7 @@ class FhirBundle:
                 else None
             ),
             link=[FhirLink.from_dict(link) for link in data.get("link", [])],
+            meta=data.get("meta"),
         )
         return bundle
 
@@ -211,3 +226,13 @@ class FhirBundle:
                     resources_by_type[resource_type] = 0
                 resources_by_type[resource_type] += 1
         return resources_by_type
+
+    @property
+    def id(self) -> Optional[str]:
+        """Get the ID of the Bundle."""
+        return self.id_
+
+    @id.setter
+    def id(self, value: Optional[str]) -> None:
+        """Set the ID of the Bundle."""
+        self.id_ = value

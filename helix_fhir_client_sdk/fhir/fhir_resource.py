@@ -2,6 +2,7 @@ import copy
 import json
 from typing import Any, Optional, Dict, List, cast, OrderedDict, override
 
+from helix_fhir_client_sdk.fhir.fhir_meta import FhirMeta
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict import (
     CompressedDict,
 )
@@ -23,9 +24,13 @@ class FhirResource(CompressedDict[str, Any]):
         self,
         initial_dict: Dict[str, Any] | OrderedDict[str, Any] | None = None,
         *,
+        meta: Optional[FhirMeta] = None,
         storage_mode: CompressedDictStorageMode = CompressedDictStorageMode.default(),
         properties_to_cache: Optional[List[str]] = None,
     ) -> None:
+        if meta is not None:
+            initial_dict = initial_dict or {}
+            initial_dict["meta"] = meta.to_dict()
         super().__init__(
             initial_dict=initial_dict,
             storage_mode=storage_mode,
@@ -36,11 +41,6 @@ class FhirResource(CompressedDict[str, Any]):
     def resource_type(self) -> Optional[str]:
         """Get the resource type from the resource dictionary."""
         return self.get("resourceType")
-
-    @property
-    def id(self) -> Optional[str]:
-        """Get the ID from the resource dictionary."""
-        return self.get("id")
 
     @property
     def resource_type_and_id(self) -> Optional[str]:
@@ -91,8 +91,55 @@ class FhirResource(CompressedDict[str, Any]):
             )
         return result
 
+    @classmethod
+    def from_dict(
+        cls,
+        d: Dict[str, Any],
+        *,
+        storage_mode: CompressedDictStorageMode = CompressedDictStorageMode.default(),
+    ) -> "FhirResource":
+        """
+        Creates a FhirResource object from a dictionary.
+
+        :param d: The dictionary to convert.
+        :param storage_mode: The storage mode for the CompressedDict.
+        :return: A FhirResource object.
+        """
+        return cls(
+            initial_dict=d,
+            storage_mode=storage_mode,
+        )
+
     def remove_nulls(self) -> None:
         """
         Removes None values from the resource dictionary.
         """
         self.replace(value=self.to_dict(remove_nulls=True))
+
+    @property
+    def meta(self) -> Optional[FhirMeta]:
+        """
+        Get the meta information from the resource dictionary.
+        """
+        return (
+            FhirMeta.from_dict(cast(Dict[str, Any], self.get("meta")))
+            if self.get("meta")
+            else None
+        )
+
+    @meta.setter
+    def meta(self, value: Optional[FhirMeta]) -> None:
+        """
+        Set the meta information in the resource dictionary.
+        """
+        self["meta"] = value.to_dict() if value else None
+
+    @property
+    def id(self) -> Optional[str]:
+        """Get the ID from the resource dictionary."""
+        return self.get("id")
+
+    @id.setter
+    def id(self, value: Optional[str]) -> None:
+        """Set the ID of the Bundle."""
+        self["id"] = value

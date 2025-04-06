@@ -38,7 +38,7 @@ class FhirBundleEntry:
         self,
         *,
         fullUrl: Optional[str] = None,
-        resource: Dict[str, Any] | FhirResource | None,
+        resource: Dict[str, Any] | FhirResource | OrderedDict[str, Any] | None,
         request: Optional[FhirBundleEntryRequest] = None,
         response: Optional[FhirBundleEntryResponse] = None,
         link: Optional[List[FhirLink]] = None,
