@@ -3,19 +3,19 @@ from typing import Dict, Any
 
 import pytest
 
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
+from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_error_response import (
+from helix_fhir_client_sdk.responses.get.fhir_get_error_response import (
     FhirGetErrorResponse,
 )
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_list_response import (
+from helix_fhir_client_sdk.responses.get.fhir_get_list_response import (
     FhirGetListResponse,
 )
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_response_factory import (
+from helix_fhir_client_sdk.responses.get.fhir_get_response_factory import (
     FhirGetResponseFactory,
 )
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_single_response import (
+from helix_fhir_client_sdk.responses.get.fhir_get_single_response import (
     FhirGetSingleResponse,
 )
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (

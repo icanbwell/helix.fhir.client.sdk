@@ -599,11 +599,11 @@ class FhirClient(
         )
         if self._logger:
             # self._logger.info(f"LOGLEVEL: {self._log_level}")
-            self._logger.info(f"parameters: {instance_variables_text}")
+            self._logger.debug(f"parameters: {instance_variables_text}")
         else:
 
-            self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
-            self._internal_logger.info(f"parameters: {instance_variables_text}")
+            self._internal_logger.debug(f"LOGLEVEL (InternalLogger): {self._log_level}")
+            self._internal_logger.debug(f"parameters: {instance_variables_text}")
         ids: Optional[List[str]] = None
         if self._id:
             ids = self._id if isinstance(self._id, list) else [self._id]

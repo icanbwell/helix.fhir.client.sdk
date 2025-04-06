@@ -1,15 +1,19 @@
 import dataclasses
 import json
-from typing import Optional, Any, Dict, List
+from typing import Optional, Any, Dict, List, override
 
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
+
+from helix_fhir_client_sdk.responses.merge.base_fhir_merge_resource_response_entry import (
+    BaseFhirMergeResourceResponseEntry,
+)
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 
 
 @dataclasses.dataclass(slots=True)
-class FhirMergeResponseEntry:
+class FhirMergeResourceResponseEntry(BaseFhirMergeResourceResponseEntry):
     created: Optional[bool] = None
     updated: Optional[bool] = None
     deleted: Optional[bool] = None
@@ -25,6 +29,7 @@ class FhirMergeResponseEntry:
     resource: Optional[FhirResource] = None
     status: Optional[int] = 200
 
+    @override
     def to_dict(self) -> Dict[str, Any]:
         return {
             "created": self.created,
@@ -42,10 +47,11 @@ class FhirMergeResponseEntry:
         }
 
     @classmethod
+    @override
     def from_dict(
         cls, data: Dict[str, Any], *, storage_mode: CompressedDictStorageMode
-    ) -> "FhirMergeResponseEntry":
-        return FhirMergeResponseEntry(
+    ) -> "FhirMergeResourceResponseEntry":
+        return FhirMergeResourceResponseEntry(
             created=data.get("created"),
             updated=data.get("updated"),
             deleted=data.get("deleted"),
@@ -67,18 +73,35 @@ class FhirMergeResponseEntry:
         )
 
     @classmethod
+    @override
     def from_json(
         cls, data: str, *, storage_mode: CompressedDictStorageMode
-    ) -> "List[FhirMergeResponseEntry]":
+    ) -> List[BaseFhirMergeResourceResponseEntry]:
         if not data:
             return []
         loaded_data: Dict[str, Any] | List[Dict[str, Any]] = json.loads(data)
         if isinstance(loaded_data, list):
             return [
-                FhirMergeResponseEntry.from_dict(d, storage_mode=storage_mode)
+                FhirMergeResourceResponseEntry.from_dict(d, storage_mode=storage_mode)
                 for d in loaded_data
             ]
         else:
             return [
-                FhirMergeResponseEntry.from_dict(loaded_data, storage_mode=storage_mode)
+                FhirMergeResourceResponseEntry.from_dict(
+                    loaded_data, storage_mode=storage_mode
+                )
             ]
+
+    # noinspection PyPep8Naming
+    @property
+    @override
+    def resourceType(self) -> Optional[str]:
+        return self.resource_type
+
+    def get_resource(self) -> FhirResource | None:
+        return self.resource
+
+    @property
+    @override
+    def errored(self) -> bool:
+        return False

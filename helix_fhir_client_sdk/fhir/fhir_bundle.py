@@ -191,3 +191,23 @@ class FhirBundle:
             properties.append(f"link={len(self.link)}")
 
         return f"FhirBundle({', '.join(properties)})"
+
+    def get_count_by_resource_type(self) -> Dict[str, int]:
+        """
+        Gets the count of resources by resource type.
+
+        :return: The count of resources by resource type
+        """
+        resources_by_type: Dict[str, int] = dict()
+        if self.entry is None:
+            return resources_by_type
+
+        entry: FhirBundleEntry
+        for entry in [e for e in self.entry if e is not None]:
+            if entry.resource is not None:
+                resource = entry.resource
+                resource_type: str = resource.resource_type or "unknown"
+                if resource_type not in resources_by_type:
+                    resources_by_type[resource_type] = 0
+                resources_by_type[resource_type] += 1
+        return resources_by_type

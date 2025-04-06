@@ -7,7 +7,7 @@ import pytest
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_list_by_resource_type_response import (
+from helix_fhir_client_sdk.responses.get.fhir_get_list_by_resource_type_response import (
     FhirGetListByResourceTypeResponse,
 )
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource

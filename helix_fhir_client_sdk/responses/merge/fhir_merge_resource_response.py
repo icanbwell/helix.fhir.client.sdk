@@ -1,14 +1,13 @@
-from typing import Optional, Dict, Any, AsyncGenerator, Sequence
+from collections import deque
+from typing import Optional, Dict, Any, AsyncGenerator, Deque
 
-from helix_fhir_client_sdk.responses.merge.fhir_merge_response_entry import (
-    FhirMergeResponseEntry,
+
+from helix_fhir_client_sdk.responses.merge.base_fhir_merge_resource_response_entry import (
+    BaseFhirMergeResourceResponseEntry,
 )
-from helix_fhir_client_sdk.responses.merge.fhir_merge_response_entry_issue import (
-    FhirMergeResponseEntryError,
-)
 
 
-class FhirMergeResponseResult:
+class FhirMergeResourceResponse:
     """
     FHIR Merge Response class for encapsulating the response from FHIR server when merging resources
     """
@@ -29,7 +28,7 @@ class FhirMergeResponseResult:
         *,
         request_id: Optional[str],
         url: str,
-        responses: Sequence[FhirMergeResponseEntry | FhirMergeResponseEntryError],
+        responses: Deque[BaseFhirMergeResourceResponseEntry],
         error: Optional[str],
         access_token: Optional[str],
         status: int,
@@ -45,37 +44,35 @@ class FhirMergeResponseResult:
         """
         self.request_id: Optional[str] = request_id
         self.url: str = url
-        self.responses: Sequence[
-            FhirMergeResponseEntry | FhirMergeResponseEntryError
-        ] = responses
+        self.responses: Deque[BaseFhirMergeResourceResponseEntry] = responses
         self.error: Optional[str] = error
         self.access_token: Optional[str] = access_token
         self.status: int = status
         self.successful: bool = status != 200
         self.response_text: Optional[str] = response_text
 
-    def append(self, other: Optional["FhirMergeResponseResult"]) -> None:
+    def append(self, other: Optional["FhirMergeResourceResponse"]) -> None:
         """
         Appends another FhirMergeResponse to this one
 
         :param other: FhirMergeResponse to append
         """
         if other:
-            self.responses = list(self.responses) + list(other.responses)
+            self.responses = deque(list(self.responses) + list(other.responses))
             self.error = (self.error or "") + (other.error or "")
             self.successful = self.successful and other.successful
 
     @classmethod
     async def from_async_generator(
-        cls, generator: AsyncGenerator["FhirMergeResponseResult", None]
-    ) -> Optional["FhirMergeResponseResult"]:
+        cls, generator: AsyncGenerator["FhirMergeResourceResponse", None]
+    ) -> Optional["FhirMergeResourceResponse"]:
         """
         Reads a generator of FhirGetResponse and returns a single FhirGetResponse by appending all the FhirGetResponse
 
         :param generator: generator of FhirGetResponse items
         :return: FhirGetResponse
         """
-        result: FhirMergeResponseResult | None = None
+        result: FhirMergeResourceResponse | None = None
         async for value in generator:
             if not result:
                 result = value

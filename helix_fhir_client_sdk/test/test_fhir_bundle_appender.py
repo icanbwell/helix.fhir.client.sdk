@@ -9,7 +9,7 @@ from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryLis
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
+from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource

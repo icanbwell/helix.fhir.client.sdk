@@ -8,8 +8,8 @@ from aioresponses import aioresponses
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_client import FhirClient
-from helix_fhir_client_sdk.responses.merge.fhir_merge_response_result import (
-    FhirMergeResponseResult,
+from helix_fhir_client_sdk.responses.merge.fhir_merge_resource_response import (
+    FhirMergeResourceResponse,
 )
 
 
@@ -26,7 +26,7 @@ async def test_merge_resources_async_success() -> None:
         fhir_merge_mixin._resource = "Patient"
         fhir_merge_mixin._validation_server_url = "http://validation-server.com"
 
-        responses: List[FhirMergeResponseResult] = [
+        responses: List[FhirMergeResourceResponse] = [
             response
             async for response in fhir_merge_mixin.merge_resources_async(
                 resources_to_merge=FhirResourceList(
@@ -55,7 +55,7 @@ async def test_merge_resources_async_validation_error() -> None:
             payload={"issue": [{"severity": "error", "code": "invalid"}]},
         )
 
-        responses: List[FhirMergeResponseResult] = [
+        responses: List[FhirMergeResourceResponse] = [
             response
             async for response in fhir_merge_mixin.merge_resources_async(
                 resources_to_merge=FhirResourceList(
@@ -88,7 +88,7 @@ async def test_merge_async_http_error() -> None:
             payload={"issue": [{"severity": "error", "code": "exception"}]},
         )
 
-        responses: List[FhirMergeResponseResult] = [
+        responses: List[FhirMergeResourceResponse] = [
             response
             async for response in fhir_merge_mixin.merge_resources_async(
                 resources_to_merge=FhirResourceList(

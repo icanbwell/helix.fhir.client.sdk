@@ -1,17 +1,17 @@
 import json
 from typing import Optional, Dict, Any, Union, List
 
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
+from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_error_response import (
+from helix_fhir_client_sdk.responses.get.fhir_get_error_response import (
     FhirGetErrorResponse,
 )
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_list_response import (
+from helix_fhir_client_sdk.responses.get.fhir_get_list_response import (
     FhirGetListResponse,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_single_response import (
+from helix_fhir_client_sdk.responses.get.fhir_get_single_response import (
     FhirGetSingleResponse,
 )
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (

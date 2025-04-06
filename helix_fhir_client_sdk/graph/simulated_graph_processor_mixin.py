@@ -25,19 +25,19 @@ from helix_fhir_client_sdk.graph.graph_target_parameters import GraphTargetParam
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_bundle_response import (
+from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_error_response import (
+from helix_fhir_client_sdk.responses.get.fhir_get_error_response import (
     FhirGetErrorResponse,
 )
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_list_by_resource_type_response import (
+from helix_fhir_client_sdk.responses.get.fhir_get_list_by_resource_type_response import (
     FhirGetListByResourceTypeResponse,
 )
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_list_response import (
+from helix_fhir_client_sdk.responses.get.fhir_get_list_response import (
     FhirGetListResponse,
 )
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_response_factory import (
+from helix_fhir_client_sdk.responses.get.fhir_get_response_factory import (
     FhirGetResponseFactory,
 )
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource

@@ -17,10 +17,10 @@ from helix_fhir_client_sdk.responses.bundle_expander import (
     BundleExpanderResult,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_error_response import (
+from helix_fhir_client_sdk.responses.get.fhir_get_error_response import (
     FhirGetErrorResponse,
 )
-from helix_fhir_client_sdk.responses.get_responses.fhir_get_response_factory import (
+from helix_fhir_client_sdk.responses.get.fhir_get_response_factory import (
     FhirGetResponseFactory,
 )
 from helix_fhir_client_sdk.responses.resource_separator import (

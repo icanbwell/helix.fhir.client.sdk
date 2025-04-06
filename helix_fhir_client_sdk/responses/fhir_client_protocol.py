@@ -16,6 +16,7 @@ from typing import (
 from aiohttp import ClientSession
 from requests.adapters import BaseAdapter
 
+from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
 from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.function_types import (
@@ -25,6 +26,9 @@ from helix_fhir_client_sdk.function_types import (
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.responses.merge.fhir_merge_resource_response import (
+    FhirMergeResourceResponse,
+)
 from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
 )
@@ -202,3 +206,13 @@ class FhirClientProtocol(Protocol):
     def throw_exception_on_error(
         self, throw_exception_on_error: bool
     ) -> "FhirClientProtocol": ...
+
+    async def merge_resources_async(
+        self,
+        *,
+        id_: Optional[str] = None,
+        resources_to_merge: FhirResourceList,
+        batch_size: Optional[int] = None,
+    ) -> AsyncGenerator[FhirMergeResourceResponse, None]:
+        # this is just here to tell Python this returns a generator
+        yield None  # type: ignore[misc]

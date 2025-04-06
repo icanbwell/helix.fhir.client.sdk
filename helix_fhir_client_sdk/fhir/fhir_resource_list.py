@@ -1,4 +1,4 @@
-from typing import List, Set, Optional, AsyncGenerator, cast, Generator
+from typing import List, Set, Optional, AsyncGenerator, cast, Generator, Dict
 
 from helix_fhir_client_sdk.fhir.base_resource_list import BaseResourceList
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
@@ -82,3 +82,21 @@ class FhirResourceList(BaseResourceList[FhirResource]):
     ) -> Generator["FhirResourceList", None, None]:
         for r in super().consume_resource_batch(batch_size=batch_size):
             yield cast(FhirResourceList, r)
+
+    def get_count_by_resource_type(self) -> Dict[str, int]:
+        """
+        Gets the count of resources by resource type.
+
+        :return: The count of resources by resource type
+        """
+        resources_by_type: Dict[str, int] = dict()
+        if len(self) == 0:
+            return resources_by_type
+
+        entry: FhirResource
+        for resource in [r for r in self if r is not None]:
+            resource_type: str = resource.resource_type or "unknown"
+            if resource_type not in resources_by_type:
+                resources_by_type[resource_type] = 0
+            resources_by_type[resource_type] += 1
+        return resources_by_type
