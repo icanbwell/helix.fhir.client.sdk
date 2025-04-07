@@ -25,7 +25,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
     """
 
     # use slots to reduce memory usage
-    __slots__ = (
+    __slots__ = [
         "_storage_mode",
         "_working_dict",
         "_raw_dict",
@@ -34,7 +34,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         "_cached_properties",
         "_length",
         "_transaction_depth",
-    )
+    ]
 
     def __init__(
         self,
