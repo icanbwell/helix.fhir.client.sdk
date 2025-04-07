@@ -28,11 +28,13 @@ class FhirResource(CompressedDict[str, Any]):
         storage_mode: CompressedDictStorageMode = CompressedDictStorageMode.default(),
         properties_to_cache: Optional[List[str]] = None,
     ) -> None:
-        self.meta: Optional[FhirMeta] = meta
+        if meta is not None:
+            initial_dict = initial_dict or {}
+            initial_dict["meta"] = meta.dict()
         super().__init__(
             initial_dict=initial_dict,
             storage_mode=storage_mode,
-            properties_to_cache=properties_to_cache or ["resourceType", "id"],
+            properties_to_cache=properties_to_cache or ["resourceType", "id", "meta"],
         )
 
     @classmethod
@@ -79,7 +81,6 @@ class FhirResource(CompressedDict[str, Any]):
         return FhirResource(
             initial_dict=super().dict(),
             storage_mode=self._storage_mode,
-            meta=self.meta,
         )
 
     def __repr__(self) -> str:
@@ -103,8 +104,6 @@ class FhirResource(CompressedDict[str, Any]):
         :return: A dictionary representation of the FhirResource object.
         """
         ordered_dict = super().dict()
-        if self.meta is not None:
-            ordered_dict["meta"] = self.meta.dict()
         result: OrderedDict[str, Any] = copy.deepcopy(ordered_dict)
         if remove_nulls:
             result = cast(
@@ -127,12 +126,7 @@ class FhirResource(CompressedDict[str, Any]):
         :param storage_mode: The storage mode for the CompressedDict.
         :return: A FhirResource object.
         """
-        meta: FhirMeta | None = (
-            FhirMeta.from_dict(cast(Dict[str, Any], d["meta"])) if d["meta"] else None
-        )
-        if "meta" in d:
-            del d["meta"]
-        return cls(initial_dict=d, storage_mode=storage_mode, meta=meta)
+        return cls(initial_dict=d, storage_mode=storage_mode)
 
     def remove_nulls(self) -> None:
         """
@@ -149,3 +143,17 @@ class FhirResource(CompressedDict[str, Any]):
     def id(self, value: Optional[str]) -> None:
         """Set the ID of the Bundle."""
         self["id"] = value
+
+    @property
+    def meta(self) -> FhirMeta:
+        """Get the meta information from the resource dictionary."""
+        return (
+            FhirMeta.from_dict(cast(Dict[str, Any], self.get("meta")))
+            if self.get("meta")
+            else FhirMeta()
+        )
+
+    @meta.setter
+    def meta(self, value: FhirMeta) -> None:
+        """Set the meta information of the resource."""
+        self["meta"] = value.dict() if value else None

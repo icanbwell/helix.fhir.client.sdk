@@ -12,10 +12,10 @@ class FhirMeta:
     last_updated: str | None = None
     source: str | None = None
     profile: list[str] | None = None
-    security: list[str] | None = None
+    security: list[Dict[str, Any]] | None = None
     tag: list[str] | None = None
 
-    def dict(self) -> dict[str, str | list[str] | None]:
+    def dict(self) -> Dict[str, Any]:
         return {
             "versionId": self.version_id,
             "lastUpdated": self.last_updated,
