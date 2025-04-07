@@ -42,8 +42,8 @@ class FhirBundleEntryRequest:
         cls, d: Dict[str, Any] | OrderedDict[str, Any]
     ) -> "FhirBundleEntryRequest":
         return cls(
-            url=d["url"],
-            method=d["method"],
+            url=d.get("url", ""),
+            method=d.get("method", "GET"),
             ifModifiedSince=(
                 datetime.fromisoformat(d["ifModifiedSince"])
                 if "ifModifiedSince" in d

@@ -278,3 +278,13 @@ class FhirBundle:
     def resource_type(self) -> str:
         """Get the resource type of the Bundle."""
         return "Bundle"
+
+    def to_plain_dict(self) -> Dict[str, Any]:
+        """
+        Converts the Bundle to a plain dictionary.
+
+        :return: Plain dictionary representation of the Bundle
+        """
+        return cast(
+            Dict[str, Any], json.loads(json.dumps(self.dict(), cls=FhirJSONEncoder))
+        )

@@ -111,3 +111,12 @@ class BaseFhirMergeResourceResponseEntry:
     @property
     @abstractmethod
     def updated(self) -> Optional[bool]: ...
+
+    def get_resource(self) -> Optional[FhirResource]:
+        """
+        Get the resource from the entry.
+        Added for backwards compatibility.
+
+        :return: The FHIR resource.
+        """
+        return self.resource
