@@ -2,7 +2,6 @@ import dataclasses
 import json
 from typing import Optional, Any, Dict, List, override
 
-from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.responses.merge.base_fhir_merge_resource_response_entry import (
     BaseFhirMergeResourceResponseEntry,
 )
@@ -11,7 +10,7 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
 )
 
 
-@dataclasses.dataclass(slots=True)
+@dataclasses.dataclass(kw_only=True, slots=True)
 class FhirMergeResponseEntryError(BaseFhirMergeResourceResponseEntry):
     status: Optional[int]
     issue: Optional[List[Dict[str, Any]]]
@@ -64,50 +63,3 @@ class FhirMergeResponseEntryError(BaseFhirMergeResourceResponseEntry):
                     loaded_data, storage_mode=storage_mode
                 )
             ]
-
-    # noinspection PyPep8Naming
-    @property
-    def resourceType(self) -> Optional[str]:
-        return self.resource_type
-
-    @resourceType.setter
-    def resourceType(self, value: str) -> None:
-        self.resource_type = value
-
-    @property
-    def errored(self) -> bool:
-        return True
-
-    @property
-    @override
-    def id(self) -> Optional[str]:
-        """Get the ID of the Bundle."""
-        return self.id_
-
-    @id.setter
-    def id(self, value: str) -> None:
-        """Set the ID of the Bundle."""
-        self.id_ = value
-
-    @property
-    @override
-    def resource(self) -> Optional[FhirResource]:
-        raise NotImplementedError(
-            "This method is not implemented for FhirMergeResponseEntryError."
-        )
-
-    @resource.setter
-    def resource(self, value: FhirResource) -> None:
-        raise NotImplementedError(
-            "This method is not implemented for FhirMergeResponseEntryError."
-        )
-
-    @property
-    @override
-    def created(self) -> Optional[bool]:
-        return False
-
-    @property
-    @override
-    def updated(self) -> Optional[bool]:
-        return False

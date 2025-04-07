@@ -1,116 +1,104 @@
-from abc import abstractmethod
+import dataclasses
+from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
-
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 
 
-class BaseFhirMergeResourceResponseEntry:
-    @property
-    @abstractmethod
-    def id_(self) -> Optional[str]:
-        """Abstract property for id_"""
-        ...
+@dataclasses.dataclass(kw_only=True, slots=True)
+class BaseFhirMergeResourceResponseEntry(ABC):
+    # Option 1: Fields with init=False and default=None
+    id_: Optional[str] = dataclasses.field(
+        init=False,
+        default=None,
+        metadata={"description": "Unique identifier for the entry"},
+    )
 
-    @property
-    @abstractmethod
-    def uuid(self) -> Optional[str]:
-        """Abstract property for uuid"""
-        ...
+    uuid: Optional[str] = dataclasses.field(
+        init=False,
+        default=None,
+        metadata={"description": "Universally unique identifier"},
+    )
 
-    @property
-    @abstractmethod
-    def resource_type(self) -> Optional[str]:
-        """Abstract property for resource_type"""
-        ...
+    resource_type: Optional[str] = dataclasses.field(
+        init=False, default=None, metadata={"description": "Type of the FHIR resource"}
+    )
 
-    @property
-    @abstractmethod
-    def issue(self) -> Optional[List[Dict[str, Any]]]:
-        """Abstract property for issue"""
-        ...
+    issue: Optional[List[Dict[str, Any]]] = dataclasses.field(
+        init=False,
+        default=None,
+        metadata={"description": "List of issues associated with the entry"},
+    )
 
-    @property
-    @abstractmethod
-    def error(self) -> Optional[str]:
-        """Abstract property for error"""
-        ...
+    error: Optional[str] = dataclasses.field(
+        init=False,
+        default=None,
+        metadata={"description": "Error message for the entry"},
+    )
 
-    @error.setter
-    @abstractmethod
-    def error(self, value: str) -> None:
-        """Abstract property for error"""
-        ...
+    status: Optional[int] = dataclasses.field(
+        init=False, default=None, metadata={"description": "Status code for the entry"}
+    )
 
-    @property
-    @abstractmethod
-    def status(self) -> Optional[int]:
-        """Abstract property for status"""
-        ...
+    # Additional fields from the original implementation
+    resourceType: Optional[str] = dataclasses.field(
+        init=False,
+        default=None,
+        metadata={"description": "Resource type (alternative naming)"},
+    )
 
+    resource: Optional[FhirResource] = dataclasses.field(
+        init=False, default=None, metadata={"description": "The actual FHIR resource"}
+    )
+
+    errored: bool = dataclasses.field(
+        init=False,
+        default=False,
+        metadata={"description": "Flag indicating if the entry has an error"},
+    )
+
+    id: Optional[str] = dataclasses.field(
+        init=False, default=None, metadata={"description": "Alternative identifier"}
+    )
+
+    token: Optional[str] = dataclasses.field(
+        init=False,
+        default=None,
+        metadata={"description": "Authentication or access token"},
+    )
+
+    created: Optional[bool] = dataclasses.field(
+        init=False,
+        default=None,
+        metadata={"description": "Flag indicating if the resource was created"},
+    )
+
+    updated: Optional[bool] = dataclasses.field(
+        init=False,
+        default=None,
+        metadata={"description": "Flag indicating if the resource was updated"},
+    )
+
+    # Abstract methods remain the same
     @abstractmethod
-    def to_dict(self) -> Dict[str, Any]: ...
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the entry to a dictionary representation."""
 
     @classmethod
     @abstractmethod
     def from_dict(
         cls, data: Dict[str, Any], *, storage_mode: CompressedDictStorageMode
-    ) -> "BaseFhirMergeResourceResponseEntry": ...
+    ) -> "BaseFhirMergeResourceResponseEntry":
+        """Create an instance from a dictionary."""
 
     @classmethod
     @abstractmethod
     def from_json(
         cls, data: str, *, storage_mode: CompressedDictStorageMode
-    ) -> "List[BaseFhirMergeResourceResponseEntry]": ...
-
-    # noinspection PyPep8Naming
-    @property
-    @abstractmethod
-    def resourceType(self) -> Optional[str]: ...
-
-    # noinspection PyPep8Naming
-    @resourceType.setter
-    @abstractmethod
-    def resourceType(self, value: str) -> None: ...
-
-    @property
-    @abstractmethod
-    def resource(self) -> Optional[FhirResource]: ...
-
-    # noinspection PyPep8Naming
-    @resource.setter
-    @abstractmethod
-    def resource(self, value: FhirResource) -> None: ...
-
-    @property
-    @abstractmethod
-    def errored(self) -> bool: ...
-
-    @property
-    @abstractmethod
-    def id(self) -> Optional[str]: ...
-
-    @id.setter
-    @abstractmethod
-    def id(self, value: str) -> None: ...
-
-    @property
-    @abstractmethod
-    def token(self) -> Optional[str]: ...
-
-    @token.setter
-    @abstractmethod
-    def token(self, value: str) -> None: ...
-
-    @property
-    @abstractmethod
-    def created(self) -> Optional[bool]: ...
-
-    @property
-    @abstractmethod
-    def updated(self) -> Optional[bool]: ...
+    ) -> "List[BaseFhirMergeResourceResponseEntry]":
+        """Create instances from a JSON string."""
 
     def get_resource(self) -> Optional[FhirResource]:
         """

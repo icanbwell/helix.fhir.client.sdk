@@ -12,7 +12,7 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
 )
 
 
-@dataclasses.dataclass(slots=True)
+@dataclasses.dataclass(kw_only=True, slots=True)
 class FhirMergeResourceResponseEntry(BaseFhirMergeResourceResponseEntry):
     resource_type: Optional[str]
     token: Optional[str]
@@ -91,33 +91,3 @@ class FhirMergeResourceResponseEntry(BaseFhirMergeResourceResponseEntry):
                     loaded_data, storage_mode=storage_mode
                 )
             ]
-
-    # noinspection PyPep8Naming
-    @property
-    @override
-    def resourceType(self) -> Optional[str]:
-        return self.resource_type
-
-    @resourceType.setter
-    def resourceType(self, value: str) -> None:
-        self.resource_type = value
-
-    def get_resource(self) -> FhirResource | None:
-        return self.resource
-
-    @property
-    @override
-    def errored(self) -> bool:
-        return False
-
-    @property
-    @override
-    def id(self) -> Optional[str]:
-        """Get the ID of the Bundle."""
-        return self.id_
-
-    @id.setter
-    @override
-    def id(self, value: str) -> None:
-        """Set the ID of the Bundle."""
-        self.id_ = value
