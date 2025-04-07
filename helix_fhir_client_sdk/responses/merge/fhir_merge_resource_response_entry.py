@@ -91,3 +91,6 @@ class FhirMergeResourceResponseEntry(BaseFhirMergeResourceResponseEntry):
                     loaded_data, storage_mode=storage_mode
                 )
             ]
+
+    def __repr__(self) -> str:
+        return f"FhirMergeResourceResponseEntry({self.resource_type}/{self.id_})"

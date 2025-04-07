@@ -63,3 +63,6 @@ class FhirMergeResponseEntryError(BaseFhirMergeResourceResponseEntry):
                     loaded_data, storage_mode=storage_mode
                 )
             ]
+
+    def _repr__(self) -> str:
+        return f"FhirMergeResponseEntryError({self.resource_type}/{self.id_}: {self.error})"
