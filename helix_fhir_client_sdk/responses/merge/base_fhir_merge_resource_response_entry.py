@@ -22,10 +22,6 @@ class BaseFhirMergeResourceResponseEntry(ABC):
         metadata={"description": "Universally unique identifier"},
     )
 
-    resource_type: Optional[str] = dataclasses.field(
-        init=False, default=None, metadata={"description": "Type of the FHIR resource"}
-    )
-
     issue: Optional[List[Dict[str, Any]]] = dataclasses.field(
         init=False,
         default=None,
@@ -43,7 +39,7 @@ class BaseFhirMergeResourceResponseEntry(ABC):
     )
 
     # Additional fields from the original implementation
-    resourceType: Optional[str] = dataclasses.field(
+    resource_type: Optional[str] = dataclasses.field(
         init=False,
         default=None,
         metadata={"description": "Resource type (alternative naming)"},
@@ -57,10 +53,6 @@ class BaseFhirMergeResourceResponseEntry(ABC):
         init=False,
         default=False,
         metadata={"description": "Flag indicating if the entry has an error"},
-    )
-
-    id: Optional[str] = dataclasses.field(
-        init=False, default=None, metadata={"description": "Alternative identifier"}
     )
 
     token: Optional[str] = dataclasses.field(
@@ -108,3 +100,25 @@ class BaseFhirMergeResourceResponseEntry(ABC):
         :return: The FHIR resource.
         """
         return self.resource
+
+    # noinspection PyPep8Naming
+    @property
+    def resourceType(self) -> Optional[str]:
+        """Get the resource type from the entry."""
+        return self.resource_type
+
+    # noinspection PyPep8Naming
+    @resourceType.setter
+    def resourceType(self, value: Optional[str]) -> None:
+        """Set the resource type for the entry."""
+        self.resource_type = value
+
+    @property
+    def id(self) -> Optional[str]:
+        """Get the ID from the entry."""
+        return self.id_
+
+    @id.setter
+    def id(self, value: Optional[str]) -> None:
+        """Set the ID for the entry."""
+        self.id_ = value
