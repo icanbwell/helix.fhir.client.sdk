@@ -1,4 +1,3 @@
-import json
 from typing import (
     Optional,
     Dict,
@@ -26,7 +25,6 @@ from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
 from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
-from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -225,7 +223,7 @@ class FhirGetSingleResponse(FhirGetResponse):
 
         :return: response text
         """
-        return json.dumps(self._resource, cls=FhirJSONEncoder)
+        return self._resource.json() if self._resource else ""
 
     @override
     def sort_resources(self) -> "FhirGetSingleResponse":

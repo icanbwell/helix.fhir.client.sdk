@@ -124,7 +124,7 @@ class MockSimulatedGraphProcessorMixin:
         )
 
 
-@pytest.mark.ignore("not working yet")
+@pytest.mark.skip("not working yet")
 class TestGetResourcesByParametersAsync:
     @pytest.fixture
     def mock_processor(self) -> MockSimulatedGraphProcessorMixin:
@@ -138,7 +138,6 @@ class TestGetResourcesByParametersAsync:
         mock_parser.scope_allows.return_value = True  # type: ignore[attr-defined]
         return mock_parser
 
-    @pytest.mark.asyncio
     async def test_cache_hit_single_resource(
         self,
         mock_processor: MockSimulatedGraphProcessorMixin,
@@ -174,7 +173,6 @@ class TestGetResourcesByParametersAsync:
         assert resource
         assert resource.get("id") == "cached-id"
 
-    @pytest.mark.asyncio
     async def test_mixed_cache_and_fetch(
         self,
         mock_processor: MockSimulatedGraphProcessorMixin,
@@ -209,7 +207,6 @@ class TestGetResourcesByParametersAsync:
         assert cache_hits == 1
         assert len(result.get_bundle_entries()) == 2  # Cached + fetched resource
 
-    @pytest.mark.asyncio
     async def test_no_cache_hit(
         self,
         mock_processor: MockSimulatedGraphProcessorMixin,
@@ -231,7 +228,6 @@ class TestGetResourcesByParametersAsync:
         assert cache_hits == 0
         assert len(result.get_bundle_entries()) == 1
 
-    @pytest.mark.asyncio
     async def test_scope_restriction(
         self, mock_processor: MockSimulatedGraphProcessorMixin
     ) -> None:
@@ -256,7 +252,6 @@ class TestGetResourcesByParametersAsync:
         # noinspection PyUnresolvedReferences
         mock_scope_parser.scope_allows.assert_called_once_with(resource_type="Patient")  # type: ignore[attr-defined]
 
-    @pytest.mark.asyncio
     async def test_empty_id_list(
         self,
         mock_processor: MockSimulatedGraphProcessorMixin,
@@ -278,7 +273,6 @@ class TestGetResourcesByParametersAsync:
         assert cache_hits == 0
         assert len(result.get_bundle_entries()) == 1
 
-    @pytest.mark.asyncio
     async def test_caching_fetched_resources(
         self,
         mock_processor: MockSimulatedGraphProcessorMixin,

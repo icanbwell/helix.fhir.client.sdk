@@ -83,12 +83,12 @@ class TestFhirResourceList:
             Mock(
                 resource_type="Patient",
                 id="123",
-                to_dict=lambda: {"id": "123", "resourceType": "Patient"},
+                dict=lambda: {"id": "123", "resourceType": "Patient"},
             ),
             Mock(
                 resource_type="Observation",
                 id="456",
-                to_dict=lambda: {"id": "456", "resourceType": "Observation"},
+                dict=lambda: {"id": "456", "resourceType": "Observation"},
             ),
         ]
 

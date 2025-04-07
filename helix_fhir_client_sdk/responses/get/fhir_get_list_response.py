@@ -245,7 +245,7 @@ class FhirGetListResponse(FhirGetResponse):
         :return: response text
         """
         return (
-            json.dumps([r for r in self._resources], cls=FhirJSONEncoder)
+            json.dumps([r.dict() for r in self._resources], cls=FhirJSONEncoder)
             if self._resources
             else "[]"
         )
