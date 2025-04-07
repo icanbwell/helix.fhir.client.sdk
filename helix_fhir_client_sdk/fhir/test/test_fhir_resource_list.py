@@ -95,7 +95,7 @@ class TestFhirResourceList:
         resource_list = FhirResourceList(mock_resources)
 
         # Convert to JSON
-        json_str = resource_list.to_json()
+        json_str = resource_list.json()
 
         # Parse and check the JSON
         parsed_json = json.loads(json_str)

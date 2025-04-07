@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Any
+from typing import Any, Dict
 
 
 @dataclasses.dataclass(slots=True)
@@ -15,7 +15,7 @@ class FhirMeta:
     security: list[str] | None = None
     tag: list[str] | None = None
 
-    def to_dict(self) -> dict[str, str | list[str] | None]:
+    def dict(self) -> dict[str, str | list[str] | None]:
         return {
             "versionId": self.version_id,
             "lastUpdated": self.last_updated,
@@ -26,7 +26,7 @@ class FhirMeta:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "FhirMeta":
+    def from_dict(cls, data: Dict[str, Any]) -> "FhirMeta":
         return cls(
             version_id=data.get("versionId"),
             last_updated=data.get("lastUpdated"),

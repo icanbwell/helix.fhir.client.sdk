@@ -54,7 +54,7 @@ class TestBundle:
     def test_to_dict_minimal(self) -> None:
         """Test converting to dictionary with minimal parameters."""
         bundle = FhirBundle(type_="searchset")
-        result = bundle.to_dict()
+        result = bundle.dict()
         assert result == {"type": "searchset", "resourceType": "Bundle"}
 
     def test_to_dict_full(self) -> None:
@@ -82,7 +82,7 @@ class TestBundle:
             id_="test-bundle",
             timestamp="2023-12-01T12:00:00Z",
         )
-        result = bundle.to_dict()
+        result = bundle.dict()
         assert result == {
             "type": "searchset",
             "resourceType": "Bundle",
@@ -120,7 +120,7 @@ class TestBundle:
             id_="test-bundle",
             timestamp="2023-12-01T12:00:00Z",
         )
-        json_str = bundle.to_json()
+        json_str = bundle.json()
         parsed_json = json.loads(json_str)
         assert parsed_json["type"] == "searchset"
         assert parsed_json["resourceType"] == "Bundle"
@@ -181,7 +181,7 @@ class TestFhirBundleCopy:
         assert copied_bundle.entry is not None
         assert original_bundle.entry is not None
         assert len(copied_bundle.entry) == len(original_bundle.entry)
-        assert copied_bundle.entry[0].to_dict() == original_bundle.entry[0].to_dict()
+        assert copied_bundle.entry[0].dict() == original_bundle.entry[0].dict()
 
     def test_copy_empty_bundle(self) -> None:
         """

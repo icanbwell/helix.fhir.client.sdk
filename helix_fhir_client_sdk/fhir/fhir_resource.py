@@ -30,12 +30,22 @@ class FhirResource(CompressedDict[str, Any]):
     ) -> None:
         if meta is not None:
             initial_dict = initial_dict or {}
-            initial_dict["meta"] = meta.to_dict()
+            initial_dict["meta"] = meta.dict()
         super().__init__(
             initial_dict=initial_dict,
             storage_mode=storage_mode,
             properties_to_cache=properties_to_cache or ["resourceType", "id"],
         )
+
+    @classmethod
+    def construct(cls, **kwargs: Any) -> "FhirResource":
+        """
+        Constructs a FhirResource object from keyword arguments.
+
+        :param kwargs: Keyword arguments to initialize the resource.
+        :return: A FhirResource object.
+        """
+        return cls(initial_dict=kwargs)
 
     @property
     def resource_type(self) -> Optional[str]:
@@ -51,9 +61,9 @@ class FhirResource(CompressedDict[str, Any]):
             else None
         )
 
-    def to_json(self) -> str:
+    def json(self) -> str:
         """Convert the resource to a JSON string."""
-        return json.dumps(obj=self.to_dict(), cls=FhirJSONEncoder)
+        return json.dumps(obj=self.dict(), cls=FhirJSONEncoder)
 
     @classmethod
     def from_json(cls, json_str: str) -> "FhirResource":
@@ -69,7 +79,7 @@ class FhirResource(CompressedDict[str, Any]):
     def __deepcopy__(self, memo: Dict[int, Any]) -> "FhirResource":
         """Create a copy of the resource."""
         return FhirResource(
-            initial_dict=super().to_dict(),
+            initial_dict=super().dict(),
             storage_mode=self._storage_mode,
         )
 
@@ -86,14 +96,14 @@ class FhirResource(CompressedDict[str, Any]):
         return copy.deepcopy(self)
 
     @override
-    def to_dict(self, *, remove_nulls: bool = True) -> OrderedDict[str, Any]:
+    def dict(self, *, remove_nulls: bool = True) -> OrderedDict[str, Any]:
         """
         Converts the FhirResource object to a dictionary.
 
         :param remove_nulls: If True, removes None values from the dictionary.
         :return: A dictionary representation of the FhirResource object.
         """
-        ordered_dict = super().to_dict()
+        ordered_dict = super().dict()
         result: OrderedDict[str, Any] = copy.deepcopy(ordered_dict)
         if remove_nulls:
             result = cast(
@@ -125,7 +135,7 @@ class FhirResource(CompressedDict[str, Any]):
         """
         Removes None values from the resource dictionary.
         """
-        self.replace(value=self.to_dict(remove_nulls=True))
+        self.replace(value=self.dict(remove_nulls=True))
 
     @property
     def meta(self) -> Optional[FhirMeta]:
@@ -143,7 +153,7 @@ class FhirResource(CompressedDict[str, Any]):
         """
         Set the meta information in the resource dictionary.
         """
-        self["meta"] = value.to_dict() if value else None
+        self["meta"] = value.dict() if value else None
 
     @property
     def id(self) -> Optional[str]:

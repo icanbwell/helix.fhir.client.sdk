@@ -36,14 +36,14 @@ class FhirResourceMap:
         """
         self._resource_map: Dict[str, FhirResourceList] = initial_dict or {}
 
-    def to_dict(self) -> OrderedDict[str, Any]:
+    def dict(self) -> OrderedDict[str, Any]:
         """
         Convert the FhirResourceMap to a dictionary representation.
 
         """
         result: OrderedDict[str, Any] = OrderedDict[str, Any]()
         for key, value in self._resource_map.items():
-            result[key] = [resource.to_dict(remove_nulls=True) for resource in value]
+            result[key] = [resource.dict(remove_nulls=True) for resource in value]
         return result
 
     def get(self, *, resource_type: str) -> Optional[FhirResourceList]:
@@ -160,13 +160,13 @@ class FhirResourceMap:
                 combined_resources.extend(resources)
         return combined_resources
 
-    def to_json(self) -> str:
+    def json(self) -> str:
         """
         Convert the list of FhirResource objects to a JSON string.
 
         :return: JSON string representation of the list.
         """
-        return json.dumps(self.to_dict())
+        return json.dumps(self.dict())
 
     def get_count_of_resource_types(self) -> int:
         """

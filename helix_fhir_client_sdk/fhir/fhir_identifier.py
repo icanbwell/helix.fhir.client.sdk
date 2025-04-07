@@ -26,7 +26,7 @@ class FhirIdentifier:
         self.system: Optional[str] = system
         self.value: Optional[str] = value
 
-    def to_dict(self) -> OrderedDict[str, Any]:
+    def dict(self) -> OrderedDict[str, Any]:
         """
         Convert the FhirIdentifier object to a dictionary.
 
@@ -57,12 +57,12 @@ class FhirIdentifier:
             value=data.get("value"),
         )
 
-    def to_json(self) -> str:
+    def json(self) -> str:
         """
         Convert the FhirIdentifier object to a JSON string.
         :return: A JSON string representation of the FhirIdentifier object.
         """
-        return json.dumps(self.to_dict())
+        return json.dumps(self.dict())
 
     def __repr__(self) -> str:
         """

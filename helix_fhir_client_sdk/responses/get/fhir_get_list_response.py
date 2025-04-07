@@ -220,7 +220,7 @@ class FhirGetListResponse(FhirGetResponse):
         response: FhirGetListResponse = FhirGetListResponse(
             request_id=other_response.request_id,
             url=other_response.url,
-            response_text=resources.to_json(),
+            response_text=resources.json(),
             error=other_response.error,
             access_token=other_response.access_token,
             total_count=other_response.total_count,
@@ -293,7 +293,7 @@ class FhirGetListResponse(FhirGetResponse):
             request_id=self.request_id,
             url=self.url,
             _resources=(
-                [r.to_dict() for r in self._resources] if self._resources else None
+                [r.dict() for r in self._resources] if self._resources else None
             ),
             error=self.error,
             access_token=self.access_token,

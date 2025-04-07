@@ -204,7 +204,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         :return: response text
         """
         return (
-            json.dumps(self._resource.to_dict(), cls=FhirJSONEncoder)
+            json.dumps(self._resource.dict(), cls=FhirJSONEncoder)
             if self._resource
             else ""
         )
@@ -331,7 +331,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         return dict(
             request_id=self.request_id,
             url=self.url,
-            _resource=self._resource.to_dict() if self._resource else None,
+            _resource=self._resource.dict() if self._resource else None,
             error=self.error,
             access_token=self.access_token,
             total_count=self.total_count,

@@ -96,7 +96,7 @@ class TestFhirResource:
             initial_dict=initial_data, storage_mode=CompressedDictStorageMode()
         )
 
-        json_str = resource.to_json()
+        json_str = resource.json()
         parsed_json = json.loads(json_str)
 
         assert parsed_json == initial_data

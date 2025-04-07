@@ -41,13 +41,13 @@ class BaseResourceList[T: CompressedDict[str, Any]](Deque[T]):
         super().append(x)
         # assert isinstance(x, CompressedDict), f"{type(x)} is not a CompressedDict"
 
-    def to_json(self) -> str:
+    def json(self) -> str:
         """
         Convert the list of FhirResource objects to a JSON string.
 
         :return: JSON string representation of the list.
         """
-        return json.dumps([r.to_dict() for r in self], cls=FhirJSONEncoder)
+        return json.dumps([r.dict() for r in self], cls=FhirJSONEncoder)
 
     def get_resources(self) -> "BaseResourceList[T]":
         """

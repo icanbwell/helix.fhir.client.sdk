@@ -184,4 +184,4 @@ class TestFhirBundleEntryList:
         assert len(bundle_list) == 3
         resource = bundle_list.popleft().resource
         assert resource is not None
-        assert resource.to_dict() == {"id": "1"}
+        assert resource.dict() == {"id": "1"}

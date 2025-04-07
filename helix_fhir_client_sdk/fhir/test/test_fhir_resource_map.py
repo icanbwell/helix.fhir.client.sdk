@@ -51,7 +51,7 @@ class TestFhirResourceMap:
             )
         }
         resource_map = FhirResourceMap(initial_dict=initial_dict)
-        result = resource_map.to_dict()
+        result = resource_map.dict()
         assert result == {"Patient": [patient_resource]}
 
     def test_get_existing_resource_type(self) -> None:
@@ -274,7 +274,7 @@ class TestFhirResourceMap:
         }
         resource_map = FhirResourceMap(initial_dict=initial_dict)
 
-        json_str = resource_map.to_json()
+        json_str = resource_map.json()
         parsed_json = json.loads(json_str)
         assert parsed_json == {"Patient": [{"id": "123", "resourceType": "Patient"}]}
 

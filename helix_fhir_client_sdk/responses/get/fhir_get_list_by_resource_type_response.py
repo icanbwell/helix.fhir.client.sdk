@@ -230,7 +230,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
         :return: response text
         """
-        return json.dumps(self._resource_map.to_dict(), cls=FhirJSONEncoder)
+        return json.dumps(self._resource_map.dict(), cls=FhirJSONEncoder)
 
     @classmethod
     def _parse_into_resource_map(

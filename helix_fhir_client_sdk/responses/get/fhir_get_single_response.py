@@ -270,7 +270,7 @@ class FhirGetSingleResponse(FhirGetResponse):
         """
         return dict(
             request_id=self.request_id,
-            _resource=self._resource.to_dict() if self._resource else None,
+            _resource=self._resource.dict() if self._resource else None,
             url=self.url,
             error=self.error,
             access_token=self.access_token,

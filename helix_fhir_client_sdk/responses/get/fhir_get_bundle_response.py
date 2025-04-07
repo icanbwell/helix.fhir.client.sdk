@@ -346,7 +346,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         response: FhirGetBundleResponse = FhirGetBundleResponse(
             request_id=other_response.request_id,
             url=other_response.url,
-            response_text=bundle.to_json(),
+            response_text=bundle.json(),
             error=other_response.error,
             access_token=other_response.access_token,
             total_count=other_response.total_count,
@@ -372,7 +372,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         :return: response text
         """
         bundle: FhirBundle = self.create_bundle()
-        return bundle.to_json()
+        return bundle.json()
 
     @override
     def sort_resources(self) -> "FhirGetBundleResponse":
@@ -419,7 +419,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         return dict(
             request_id=self.request_id,
             url=self.url,
-            _resources=[r.to_dict() for r in self.get_resources()],
+            _resources=[r.dict() for r in self.get_resources()],
             error=self.error,
             access_token=self.access_token,
             total_count=self.total_count,

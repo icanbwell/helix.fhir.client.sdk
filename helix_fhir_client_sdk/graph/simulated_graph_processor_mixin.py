@@ -442,9 +442,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             for parent_bundle_entry in parent_bundle_entries:
                 parent_resource = parent_bundle_entry.resource
                 references: Union[List[Dict[str, Any]], Dict[str, Any], str, None] = (
-                    DictionaryParser.get_nested_property(
-                        parent_resource.to_dict(), path
-                    )
+                    DictionaryParser.get_nested_property(parent_resource.dict(), path)
                     if parent_resource
                     else None
                 )
@@ -705,7 +703,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 ),
                 id_=None,
                 resource_type=resource_type,
-                response_text=cached_bundle.to_json(),
+                response_text=cached_bundle.json(),
                 response_headers=None,
                 status=200,
                 access_token=self._access_token,

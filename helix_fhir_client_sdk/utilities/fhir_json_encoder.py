@@ -19,6 +19,6 @@ class FhirJSONEncoder(json.JSONEncoder):
         if isinstance(o, (datetime, date)):
             return o.isoformat()
         if hasattr(o, "to_dict"):
-            return o.to_dict()
+            return o.dict()
 
         return super().default(o)

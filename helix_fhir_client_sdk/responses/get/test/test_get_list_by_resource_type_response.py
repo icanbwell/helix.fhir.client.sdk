@@ -82,7 +82,7 @@ class TestFhirGetListByResourceTypeResponse:
 
     def test_parse_resources(self, sample_resources: FhirResourceList) -> None:
         """Test parsing resources from JSON string."""
-        resources_json = json.dumps([r.to_dict() for r in sample_resources])
+        resources_json = json.dumps([r.dict() for r in sample_resources])
         parsed_resources = FhirGetListByResourceTypeResponse._parse_resources(
             responses=resources_json
         )
@@ -280,7 +280,7 @@ class TestFhirGetListByResourceTypeResponse:
         assert isinstance(consumed_resources[0], FhirResourceMap)
 
         # Check the structure of the resource map
-        resource_dict = consumed_resources[0].to_dict()
+        resource_dict = consumed_resources[0].dict()
         assert "Patient" in resource_dict
         assert "Observation" in resource_dict
         assert len(resource_dict["Patient"]) == 2
@@ -316,7 +316,7 @@ class TestFhirGetListByResourceTypeResponse:
         assert isinstance(consumed_resources[0], FhirResourceMap)
 
         # Check the structure of the resource map
-        resource_dict = consumed_resources[0].to_dict()
+        resource_dict = consumed_resources[0].dict()
         assert "Patient" in resource_dict
         assert "Observation" in resource_dict
         assert len(resource_dict["Patient"]) == 2

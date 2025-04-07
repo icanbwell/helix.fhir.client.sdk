@@ -53,6 +53,7 @@ class FhirBundle:
         :param entry: The entries in the Bundle.
         :param total: The total number of entries in the Bundle.
         :param link: The links associated with the Bundle.
+        :param meta: The metadata associated with the Bundle.
         """
         self.entry: FhirBundleEntryList = entry or FhirBundleEntryList()
         self.total: Optional[int] = total
@@ -63,9 +64,9 @@ class FhirBundle:
         self.link: Optional[List[FhirLink]] = link
         self.meta: Optional[FhirMeta] = meta
 
-    def to_dict(self) -> OrderedDict[str, Any]:
+    def dict(self) -> OrderedDict[str, Any]:
         entries: List[Dict[str, Any]] | None = (
-            [entry.to_dict() for entry in self.entry] if self.entry else None
+            [entry.dict() for entry in self.entry] if self.entry else None
         )
         result: OrderedDict[str, Any] = OrderedDict[str, Any](
             {"type": self.type_, "resourceType": "Bundle"}
@@ -74,7 +75,7 @@ class FhirBundle:
         if self.id_ is not None:
             result["id"] = self.id_
         if self.identifier is not None:
-            result["identifier"] = self.identifier.to_dict()
+            result["identifier"] = self.identifier.dict()
         if self.timestamp is not None:
             result["timestamp"] = self.timestamp
         if self.total is not None:
@@ -82,10 +83,46 @@ class FhirBundle:
         if entries and len(entries) > 0:
             result["entry"] = entries
         if self.link:
-            result["link"] = [link.to_dict() for link in self.link]
+            result["link"] = [link.dict() for link in self.link]
         if self.meta:
             result["meta"] = self.meta
         return result
+
+    @classmethod
+    def construct(
+        cls,
+        *,
+        id_: Optional[str] = None,
+        identifier: Optional[FhirIdentifier] = None,
+        timestamp: Optional[str] = None,
+        type_: str,
+        entry: Optional[FhirBundleEntryList] = None,
+        total: Optional[int] = None,
+        link: Optional[List[FhirLink]] = None,
+        meta: Optional[FhirMeta] = None,
+    ) -> "FhirBundle":
+        """
+        Constructs a FhirBundle object from keyword arguments.
+
+        :param id_: The ID of the Bundle.
+        :param identifier: The identifier of the Bundle.
+        :param timestamp: The timestamp of the Bundle.
+        :param type_: The type of the Bundle (e.g., "searchset").
+        :param entry: The entries in the Bundle.
+        :param total: The total number of entries in the Bundle.
+        :param link: The links associated with the Bundle.
+        :param meta: The metadata associated with the Bundle.
+        """
+        return cls(
+            id_=id_,
+            identifier=identifier,
+            timestamp=timestamp,
+            type_=type_,
+            entry=entry,
+            total=total,
+            link=link,
+            meta=meta,
+        )
 
     @classmethod
     def from_dict(
@@ -157,13 +194,13 @@ class FhirBundle:
                         coding.extend(diagnostics_coding)
         return resource
 
-    def to_json(self) -> str:
+    def json(self) -> str:
         """
         Converts the Bundle to a JSON string.
 
         :return: JSON string representation of the Bundle
         """
-        bundle_dict = self.to_dict()
+        bundle_dict = self.dict()
         return json.dumps(bundle_dict, cls=FhirJSONEncoder)
 
     def copy(self) -> "FhirBundle":

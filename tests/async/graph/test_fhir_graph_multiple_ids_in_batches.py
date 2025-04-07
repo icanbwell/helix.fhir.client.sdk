@@ -123,10 +123,10 @@ async def test_fhir_graph_multiple_ids_in_batches_async() -> None:
     assert responses[0].get_response_text()
     resources = responses[0].get_resources()
     assert isinstance(resources, FhirResourceList)
-    assert [r.to_dict() for r in resources] == [{"id": "1", "resourceType": "Patient"}]
+    assert [r.dict() for r in resources] == [{"id": "1", "resourceType": "Patient"}]
     resources = responses[1].get_resources()
     assert isinstance(resources, FhirResourceList)
-    assert [r.to_dict() for r in resources] == [
+    assert [r.dict() for r in resources] == [
         {
             "contained": [{"id": "1", "resourceType": "Location"}],
             "id": "2",

@@ -20,7 +20,7 @@ class FhirBundleEntrySearch:
         self.mode: Optional[str] = mode
         self.score: Optional[float] = score
 
-    def to_dict(self) -> OrderedDict[str, Any]:
+    def dict(self) -> OrderedDict[str, Any]:
         """
         Converts the FhirBundleEntrySearch instance to a dictionary.
 
@@ -55,7 +55,7 @@ class FhirBundleEntrySearch:
 
         :return: A JSON string representation of the FhirBundleEntrySearch instance.
         """
-        return json.dumps(self.to_dict(), cls=FhirJSONEncoder)
+        return json.dumps(self.dict(), cls=FhirJSONEncoder)
 
     def __repr__(self) -> str:
         """

@@ -416,7 +416,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         """
         return self._get_dict().items()
 
-    def to_dict(self, *, remove_nulls: bool = True) -> OrderedDict[K, V]:
+    def dict(self, *, remove_nulls: bool = True) -> OrderedDict[K, V]:
         """
         Convert to a standard dictionary
 
@@ -491,11 +491,11 @@ class CompressedDict[K, V](MutableMapping[K, V]):
             return False
 
         # Get the dictionary representation of self
-        self_dict = self.to_dict()
+        self_dict = self.dict()
 
         # If other is a CompressedDict, use its _get_dict() method
         if isinstance(other, CompressedDict):
-            other_dict = other.to_dict()
+            other_dict = other.dict()
         else:
             # If other is a plain dict, use it directly
             if isinstance(other, OrderedDict):
@@ -552,7 +552,7 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         """
         # Create a new instance with the same storage mode
         new_instance = CompressedDict(
-            initial_dict=copy.deepcopy(self.to_dict()),
+            initial_dict=copy.deepcopy(self.dict()),
             storage_mode=self._storage_mode,
             properties_to_cache=self._properties_to_cache,
         )
@@ -627,5 +627,5 @@ class CompressedDict[K, V](MutableMapping[K, V]):
             Plain dictionary
         """
         return cast(
-            Dict[K, V], json.loads(json.dumps(self.to_dict(), cls=FhirJSONEncoder))
+            Dict[K, V], json.loads(json.dumps(self.dict(), cls=FhirJSONEncoder))
         )

@@ -120,9 +120,9 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                     resource_uri: furl = full_uri.copy()
                     # if there is only item in the list then send it instead of having it in a list
                     json_payload: str = (
-                        resource_batch[0].to_json()
+                        resource_batch[0].json()
                         if len(resource_batch) == 1
-                        else resource_batch[0].to_json()
+                        else resource_batch[0].json()
                     )
                     # json_payload_bytes: str = json_payload
                     obj_id: str = (
@@ -273,7 +273,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
             if self._logger:
                 self._logger.error(
                     Exception(
-                        f"Assertion: FHIR send failed: {str(e)} for resource: {resources_to_merge.to_json()}. "
+                        f"Assertion: FHIR send failed: {str(e)} for resource: {resources_to_merge.json()}. "
                         + f"variables={convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))}"
                     )
                 )
@@ -305,7 +305,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
 
                     await AsyncFhirValidator.validate_fhir_resource(
                         fn_get_session=lambda: self.create_http_session(),
-                        json_data=resource.to_json(),
+                        json_data=resource.json(),
                         resource_name=cast(Optional[str], resource.get("resourceType"))
                         or self._resource
                         or "",
@@ -334,7 +334,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                     with resource.transaction():
                         await AsyncFhirValidator.validate_fhir_resource(
                             fn_get_session=lambda: self.create_http_session(),
-                            json_data=resource.to_json(),
+                            json_data=resource.json(),
                             resource_name=resource.get("resourceType")
                             or self._resource
                             or "",

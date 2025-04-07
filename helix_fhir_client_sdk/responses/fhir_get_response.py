@@ -393,7 +393,7 @@ class FhirGetResponse:
             return resources.get_resource_type_and_ids()
         except Exception as e:
             raise Exception(
-                f"Could not get resourceType and id from resources: {resources.to_json()}"
+                f"Could not get resourceType and id from resources: {resources.json()}"
             ) from e
 
     @classmethod

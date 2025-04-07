@@ -21,7 +21,7 @@ class FhirLink:
         self.url: str = url
         self.relation: str = relation
 
-    def to_dict(self) -> OrderedDict[str, Any]:
+    def dict(self) -> OrderedDict[str, Any]:
         """
         Converts the FhirLink instance to a dictionary.
 
@@ -29,13 +29,13 @@ class FhirLink:
         """
         return OrderedDict[str, Any]({"url": self.url, "relation": self.relation})
 
-    def to_json(self) -> str:
+    def json(self) -> str:
         """
         Converts the FhirLink instance to a JSON string.
 
         :return: A JSON string representation of the link.
         """
-        return json.dumps(self.to_dict(), cls=FhirJSONEncoder)
+        return json.dumps(self.dict(), cls=FhirJSONEncoder)
 
     def __repr__(self) -> str:
         return f"FhirLink(url={self.url}, relation={self.relation})"

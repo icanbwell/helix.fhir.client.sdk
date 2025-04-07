@@ -247,9 +247,9 @@ async def test_graph_definition_with_single_link() -> None:
         resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient.to_dict() == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
-        assert observation.to_dict() == {"resourceType": "Observation", "id": "1"}
+        assert observation.dict() == {"resourceType": "Observation", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -336,11 +336,11 @@ async def test_graph_definition_with_nested_links() -> None:
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient.to_dict() == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
-        assert observation.to_dict() == {"resourceType": "Observation", "id": "1"}
+        assert observation.dict() == {"resourceType": "Observation", "id": "1"}
         condition = [r for r in resources if r["resourceType"] == "DiagnosticReport"][0]
-        assert condition.to_dict() == {"resourceType": "DiagnosticReport", "id": "1"}
+        assert condition.dict() == {"resourceType": "DiagnosticReport", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -417,11 +417,11 @@ async def test_graph_definition_with_multiple_links() -> None:
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient.to_dict() == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
-        assert observation.to_dict() == {"resourceType": "Observation", "id": "1"}
+        assert observation.dict() == {"resourceType": "Observation", "id": "1"}
         condition = [r for r in resources if r["resourceType"] == "Condition"][0]
-        assert condition.to_dict() == {"resourceType": "Condition", "id": "1"}
+        assert condition.dict() == {"resourceType": "Condition", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -495,11 +495,11 @@ async def test_graph_definition_with_multiple_targets() -> None:
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient.to_dict() == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
-        assert observation.to_dict() == {"resourceType": "Observation", "id": "1"}
+        assert observation.dict() == {"resourceType": "Observation", "id": "1"}
         condition = [r for r in resources if r["resourceType"] == "Condition"][0]
-        assert condition.to_dict() == {"resourceType": "Condition", "id": "1"}
+        assert condition.dict() == {"resourceType": "Condition", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -553,7 +553,7 @@ async def test_graph_definition_with_no_links() -> None:
         assert isinstance(resources, FhirResourceList)
 
         assert len(resources) == 1
-        assert resources[0].to_dict() == {"resourceType": "Patient", "id": "1"}
+        assert resources[0].dict() == {"resourceType": "Patient", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -615,15 +615,15 @@ async def test_process_simulate_graph_async_multiple_patients() -> None:
         patient = [
             r for r in resources if r["resourceType"] == "Patient" and r["id"] == "1"
         ][0]
-        assert patient.to_dict() == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         patient = [
             r for r in resources if r["resourceType"] == "Patient" and r["id"] == "2"
         ][0]
-        assert patient.to_dict() == {"resourceType": "Patient", "id": "2"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "2"}
         patient = [
             r for r in resources if r["resourceType"] == "Patient" and r["id"] == "3"
         ][0]
-        assert patient.to_dict() == {"resourceType": "Patient", "id": "3"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "3"}
 
 
 @pytest.mark.asyncio
@@ -701,11 +701,11 @@ async def test_graph_definition_with_multiple_links_concurrent_requests() -> Non
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient.to_dict() == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
-        assert observation.to_dict() == {"resourceType": "Observation", "id": "1"}
+        assert observation.dict() == {"resourceType": "Observation", "id": "1"}
         condition = [r for r in resources if r["resourceType"] == "Condition"][0]
-        assert condition.to_dict() == {"resourceType": "Condition", "id": "1"}
+        assert condition.dict() == {"resourceType": "Condition", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -779,11 +779,11 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests() -> N
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient.to_dict() == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
-        assert observation.to_dict() == {"resourceType": "Observation", "id": "1"}
+        assert observation.dict() == {"resourceType": "Observation", "id": "1"}
         condition = [r for r in resources if r["resourceType"] == "Condition"][0]
-        assert condition.to_dict() == {"resourceType": "Condition", "id": "1"}
+        assert condition.dict() == {"resourceType": "Condition", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -903,11 +903,11 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
             len(resources) == 4
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient.to_dict() == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         encounter = [
             r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "8"
         ][0]
-        assert encounter.to_dict() == {
+        assert encounter.dict() == {
             "resourceType": "Encounter",
             "id": "8",
             "participant": [{"individual": {"reference": "Practitioner/12345"}}],
@@ -915,13 +915,13 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
         encounter = [
             r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "10"
         ][0]
-        assert encounter.to_dict() == {
+        assert encounter.dict() == {
             "resourceType": "Encounter",
             "id": "10",
             "participant": [{"individual": {"reference": "Practitioner/12345"}}],
         }
         condition = [r for r in resources if r["resourceType"] == "Practitioner"][0]
-        assert condition.to_dict() == {"resourceType": "Practitioner", "id": "12345"}
+        assert condition.dict() == {"resourceType": "Practitioner", "id": "12345"}
 
 
 @pytest.mark.asyncio
@@ -1127,9 +1127,9 @@ async def test_graph_definition_with_single_link_401() -> None:
         assert isinstance(resources, FhirResourceList)
 
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient.to_dict() == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
-        assert observation.to_dict() == {"resourceType": "Observation", "id": "1"}
+        assert observation.dict() == {"resourceType": "Observation", "id": "1"}
 
         assert response[0].access_token == "new_access_token"
         assert response[0].results_by_url is not None
@@ -1320,11 +1320,11 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
             len(resources) == 4
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient.to_dict() == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         encounter = [
             r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "8"
         ][0]
-        assert encounter.to_dict() == {
+        assert encounter.dict() == {
             "resourceType": "Encounter",
             "id": "8",
             "participant": [{"individual": {"reference": "Practitioner/12345"}}],
@@ -1332,13 +1332,13 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
         encounter = [
             r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "10"
         ][0]
-        assert encounter.to_dict() == {
+        assert encounter.dict() == {
             "resourceType": "Encounter",
             "id": "10",
             "participant": [{"individual": {"reference": "Practitioner/12345"}}],
         }
         condition = [r for r in resources if r["resourceType"] == "Practitioner"][0]
-        assert condition.to_dict() == {"resourceType": "Practitioner", "id": "12345"}
+        assert condition.dict() == {"resourceType": "Practitioner", "id": "12345"}
 
         assert response[0].access_token == "new_access_token"
         assert response[0].results_by_url is not None

@@ -70,6 +70,40 @@ class FhirBundleEntry:
         self.search: Optional[FhirBundleEntrySearch] = search
         self.storage_mode: CompressedDictStorageMode = storage_mode
 
+    # noinspection PyPep8Naming
+    @classmethod
+    def construct(
+        cls,
+        *,
+        fullUrl: Optional[str] = None,
+        resource: Dict[str, Any] | FhirResource | OrderedDict[str, Any] | None,
+        request: Optional[FhirBundleEntryRequest] = None,
+        response: Optional[FhirBundleEntryResponse] = None,
+        link: Optional[List[FhirLink]] = None,
+        search: Optional[FhirBundleEntrySearch] = None,
+        storage_mode: CompressedDictStorageMode = CompressedDictStorageMode.default(),
+    ) -> "FhirBundleEntry":
+        """
+        Constructs a BundleEntry object with the given parameters.
+
+        :param fullUrl: The full URL of the entry.
+        :param resource: The FHIR resource associated with the entry.
+        :param request: The request information associated with the entry.
+        :param response: The response information associated with the entry.
+        :param link: The links associated with the entry.
+        :param search: The search information associated with the entry.
+        :param storage_mode: The storage mode for the resource.
+        """
+        return cls(
+            fullUrl=fullUrl,
+            resource=resource,
+            request=request,
+            response=response,
+            link=link,
+            search=search,
+            storage_mode=storage_mode,
+        )
+
     @property
     def resource(self) -> Optional[FhirResource]:
         """
@@ -99,20 +133,20 @@ class FhirBundleEntry:
         else:
             self._resource = None
 
-    def to_dict(self) -> OrderedDict[str, Any]:
+    def dict(self) -> OrderedDict[str, Any]:
         result: OrderedDict[str, Any] = OrderedDict[str, Any]()
         if self.fullUrl is not None:
             result["fullUrl"] = self.fullUrl
         if self.resource is not None:
-            result["resource"] = self.resource.to_dict()
+            result["resource"] = self.resource.dict()
         if self.request is not None:
-            result["request"] = self.request.to_dict()
+            result["request"] = self.request.dict()
         if self.response is not None:
-            result["response"] = self.response.to_dict()
+            result["response"] = self.response.dict()
         if self.link is not None:
-            result["link"] = [link.to_dict() for link in self.link]
+            result["link"] = [link.dict() for link in self.link]
         if self.search is not None:
-            result["search"] = self.search.to_dict()
+            result["search"] = self.search.dict()
         return result
 
     @classmethod
@@ -149,13 +183,13 @@ class FhirBundleEntry:
             storage_mode=storage_mode,
         )
 
-    def to_json(self) -> str:
+    def json(self) -> str:
         """
         Converts the BundleEntry object to a JSON string.
 
         :return: A JSON string representation of the BundleEntry.
         """
-        return json.dumps(obj=self.to_dict(), cls=FhirJSONEncoder)
+        return json.dumps(obj=self.dict(), cls=FhirJSONEncoder)
 
     def __deepcopy__(self, memo: Dict[int, Any]) -> "FhirBundleEntry":
         """

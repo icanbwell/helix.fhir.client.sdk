@@ -29,7 +29,7 @@ class TestBundleEntryRequest:
     def test_to_dict_minimal(self) -> None:
         """Test converting to dictionary with minimal parameters."""
         request = FhirBundleEntryRequest(url="https://example.com")
-        result = request.to_dict()
+        result = request.dict()
         assert result == {"url": "https://example.com", "method": "GET"}
 
     def test_to_dict_full(self) -> None:
@@ -41,7 +41,7 @@ class TestBundleEntryRequest:
             ifModifiedSince=now,
             ifNoneMatch='W/"abc"',
         )
-        result = request.to_dict()
+        result = request.dict()
         assert result == {
             "url": "https://example.com",
             "method": "POST",

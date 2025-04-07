@@ -25,7 +25,7 @@ class FhirBundleEntryRequest:
         self.ifNoneMatch: Optional[str] = ifNoneMatch
         self.ifNoneExist: Optional[str] = ifNoneExist
 
-    def to_dict(self) -> OrderedDict[str, Any]:
+    def dict(self) -> OrderedDict[str, Any]:
         result: OrderedDict[str, Any] = OrderedDict[str, Any](
             {"url": self.url, "method": self.method}
         )

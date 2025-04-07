@@ -21,7 +21,7 @@ class TestBundleEntry:
         )
         assert entry.resource is not None
         with entry.resource.transaction():
-            assert entry.resource.to_dict() == {"resourceType": "Patient"}
+            assert entry.resource.dict() == {"resourceType": "Patient"}
             assert entry.request is None
             assert entry.response is None
             assert entry.fullUrl is None
@@ -41,7 +41,7 @@ class TestBundleEntry:
         )
         assert entry.resource is not None
         with entry.resource.transaction():
-            assert entry.resource.to_dict() == resource
+            assert entry.resource.dict() == resource
             assert entry.request == request
             assert entry.response == response
             assert entry.fullUrl == "https://example.com/Patient/123"
@@ -54,7 +54,7 @@ class TestBundleEntry:
             response=None,
             storage_mode=CompressedDictStorageMode(),
         )
-        result = entry.to_dict()
+        result = entry.dict()
         assert result == {"resource": {"resourceType": "Patient"}}
 
     def test_to_dict_full(self) -> None:
@@ -70,12 +70,12 @@ class TestBundleEntry:
             fullUrl="https://example.com/Patient/123",
             storage_mode=CompressedDictStorageMode(),
         )
-        result = entry.to_dict()
+        result = entry.dict()
         assert result == {
             "fullUrl": "https://example.com/Patient/123",
             "resource": resource,
-            "request": request.to_dict(),
-            "response": response.to_dict(),
+            "request": request.dict(),
+            "response": response.dict(),
         }
 
     def test_from_dict_minimal(self) -> None:
@@ -87,7 +87,7 @@ class TestBundleEntry:
 
         assert entry.resource is not None
         with entry.resource.transaction():
-            assert entry.resource.to_dict() == {"resourceType": "Patient"}
+            assert entry.resource.dict() == {"resourceType": "Patient"}
             assert entry.request is None
             assert entry.response is None
             assert entry.fullUrl is None
@@ -111,7 +111,7 @@ class TestBundleEntry:
         assert entry.resource is not None
         with entry.resource.transaction():
             assert entry.fullUrl == "https://example.com/Patient/123"
-            assert entry.resource.to_dict() == {"resourceType": "Patient", "id": "123"}
+            assert entry.resource.dict() == {"resourceType": "Patient", "id": "123"}
             assert entry.request is not None
             assert entry.request.url == "https://example.com"
             assert entry.response is not None

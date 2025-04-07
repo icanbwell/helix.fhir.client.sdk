@@ -31,7 +31,7 @@ class TestBundleEntryResponse:
     def test_to_dict_minimal(self) -> None:
         """Test converting to dictionary with minimal parameters."""
         response = FhirBundleEntryResponse(status="200", etag=None, lastModified=None)
-        result = response.to_dict()
+        result = response.dict()
         assert result == {"status": "200"}
 
     def test_to_dict_full(self) -> None:
@@ -40,7 +40,7 @@ class TestBundleEntryResponse:
         response = FhirBundleEntryResponse(
             status="201", etag='W/"def"', lastModified=now
         )
-        result = response.to_dict()
+        result = response.dict()
         assert result == {
             "status": "201",
             "lastModified": now.isoformat(),

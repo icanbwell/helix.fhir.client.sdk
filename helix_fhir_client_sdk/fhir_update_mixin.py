@@ -29,7 +29,7 @@ class FhirUpdateMixin(FhirClientProtocol):
         """
         if not resource.id:
             raise ValueError("Resource ID is required for update")
-        json_data = resource.to_json()
+        json_data = resource.json()
         response = await self.update_async(json_data=json_data, id_=resource.id)
         if response.error:
             raise ValueError(f"Failed to update resource: {response.error}")
@@ -49,7 +49,7 @@ class FhirUpdateMixin(FhirClientProtocol):
         for resource in resources:
             if not resource.id:
                 raise ValueError("Resource ID is required for update")
-            json_data = resource.to_json()
+            json_data = resource.json()
             response = await self.update_async(json_data=json_data, id_=resource.id)
             if response.error:
                 raise ValueError(f"Failed to update resource: {response.error}")
