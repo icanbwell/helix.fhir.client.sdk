@@ -13,7 +13,13 @@ class FhirJSONEncoder(json.JSONEncoder):
         if isinstance(o, Enum):
             return o.value
         if isinstance(o, Decimal):
-            return str(o)
+            # Custom Decimal conversion
+            if o == o.to_integral_value():
+                # If Decimal is a whole number, return as int
+                return int(o)
+            else:
+                # If Decimal has a non-zero decimal part, return as float
+                return float(o)
         if isinstance(o, bytes):
             return o.decode("utf-8")
         if isinstance(o, (datetime, date)):
