@@ -1,6 +1,8 @@
 import asyncio
+import logging
 from asyncio import Task
 from dataclasses import dataclass
+from logging import Logger
 from typing import (
     AsyncGenerator,
     Protocol,
@@ -11,6 +13,9 @@ from typing import (
     Any,
     runtime_checkable,
 )
+
+
+logger: Logger = logging.getLogger("AsyncParallelProcessor")
 
 
 @dataclass
@@ -166,13 +171,21 @@ class AsyncParallelProcessor:
                 # Process completed tasks
                 for task in done:
                     try:
-                        yield await task
+                        result = await task
+                        yield result
+                        # Explicitly delete the task reference
+                        del task
                     except Exception as e:
                         # Handle or re-raise error
-                        # logger.error(f"Error processing row: {e}")
+                        logger.error(f"Error processing row: {e}")
                         raise
+                # Clear references to processed tasks
+                done.clear()
 
         finally:
             # Cancel any pending tasks if something goes wrong
             for task in pending:
                 task.cancel()
+
+            # ait for cancelled tasks to complete
+            await asyncio.gather(*pending, return_exceptions=True)
