@@ -85,7 +85,7 @@ class FhirBundle:
         if self.link:
             result["link"] = [link.dict() for link in self.link]
         if self.meta:
-            result["meta"] = self.meta
+            result["meta"] = self.meta.dict()
         return result
 
     @classmethod
