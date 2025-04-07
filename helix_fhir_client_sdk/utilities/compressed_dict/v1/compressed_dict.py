@@ -301,6 +301,10 @@ class CompressedDict[K, V](MutableMapping[K, V]):
         # Update the working dictionary
         self._working_dict[key] = value
 
+        if self._properties_to_cache and key in self._properties_to_cache:
+            # Update the cached properties if the key is in the list
+            self._cached_properties[key] = value
+
     def _update_serialized_dict(self, current_dict: OrderedDict[K, V] | None) -> None:
         if current_dict is None:
             self._cached_properties.clear()

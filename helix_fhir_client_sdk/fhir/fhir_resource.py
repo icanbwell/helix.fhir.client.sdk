@@ -145,15 +145,19 @@ class FhirResource(CompressedDict[str, Any]):
         self["id"] = value
 
     @property
-    def meta(self) -> FhirMeta:
+    def meta(self) -> FhirMeta | None:
         """Get the meta information from the resource dictionary."""
         return (
             FhirMeta.from_dict(cast(Dict[str, Any], self.get("meta")))
-            if self.get("meta")
-            else FhirMeta()
+            if "meta" in self
+            else None
         )
 
     @meta.setter
-    def meta(self, value: FhirMeta) -> None:
+    def meta(self, value: FhirMeta | None) -> None:
         """Set the meta information of the resource."""
-        self["meta"] = value.dict() if value else None
+        if value is None:
+            self.pop("meta", None)
+        else:
+            assert isinstance(value, FhirMeta)
+            self["meta"] = value.dict()
