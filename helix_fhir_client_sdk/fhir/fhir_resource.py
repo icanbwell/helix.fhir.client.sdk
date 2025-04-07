@@ -18,7 +18,7 @@ class FhirResource(CompressedDict[str, Any]):
     FhirResource is a class that represents a FHIR resource.
     """
 
-    __slots__ = CompressedDict.__slots__ + ["meta"]
+    __slots__ = CompressedDict.__slots__
 
     def __init__(
         self,
