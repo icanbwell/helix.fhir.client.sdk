@@ -115,7 +115,7 @@ class TestFhirResourceList:
 
         # Consume resources asynchronously with default (None) batch size
         async for batch in resource_list.consume_resource_batch_async(batch_size=None):
-            assert len(batch) == 1
+            assert len(batch) == 2
 
         # Ensure all resources are consumed
         assert len(resource_list) == 0
