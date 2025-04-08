@@ -13,10 +13,11 @@ from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
 )
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 
 # Necessary imports from the SDK
-from helix_fhir_client_sdk.utilities.request_cache import RequestCache
+from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 
 
 class MockSimulatedGraphProcessorMixin:
@@ -151,10 +152,11 @@ class TestGetResourcesByParametersAsync:
             {"id": "cached-id", "resourceType": "Patient"}
         )
         mock_bundle_entry: FhirBundleEntry = FhirBundleEntry(resource=mock_resource)
-        cache.add(
+        await cache.add_async(
             resource_type="Patient",
             resource_id="cached-id",
             bundle_entry=mock_bundle_entry,
+            status=200,
         )
 
         result, cache_hits = await mock_processor._get_resources_by_parameters_async(
@@ -188,10 +190,11 @@ class TestGetResourcesByParametersAsync:
         mock_cached_bundle_entry: FhirBundleEntry = FhirBundleEntry(
             resource=mock_cached_resource
         )
-        cache.add(
+        await cache.add_async(
             resource_type="Patient",
             resource_id="cached-id",
             bundle_entry=mock_cached_bundle_entry,
+            status=200,
         )
 
         result, cache_hits = await mock_processor._get_resources_by_parameters_async(
@@ -292,9 +295,11 @@ class TestGetResourcesByParametersAsync:
         )
 
         # Check that the fetched resource was added to the cache
-        cached_entry: Optional[FhirBundleEntry] = cache.get(
+        cache_entry: Optional[RequestCacheEntry] = await cache.get_async(
             resource_type="Patient", resource_id="test-id"
         )
+        assert cache_entry is not None
+        cached_entry: Optional[FhirBundleEntry] = cache_entry.bundle_entry
         assert cached_entry is not None
         resource = cached_entry.resource
         assert resource is not None

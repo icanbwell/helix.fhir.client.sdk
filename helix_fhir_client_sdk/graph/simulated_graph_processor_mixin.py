@@ -46,8 +46,9 @@ from helix_fhir_client_sdk.utilities.async_parallel_processor.v1.async_parallel_
     AsyncParallelProcessor,
     ParallelFunctionContext,
 )
+from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
-from helix_fhir_client_sdk.utilities.request_cache import RequestCache
+from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 
 
 class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
@@ -118,7 +119,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             id_ = id_.split(",")
         id_search_unsupported_resources: List[str] = []
         cache: RequestCache
-        with RequestCache() as cache:
+        async with RequestCache() as cache:
             # first load the start resource
             start: str = graph_definition.start
             parent_response: FhirGetResponse
@@ -679,16 +680,24 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         cache_hits: int = 0
         if id_list:
             for resource_id in id_list:
-                cached_bundle_entry: Optional[FhirBundleEntry] = cache.get(
+                cache_entry: Optional[RequestCacheEntry] = await cache.get_async(
                     resource_type=resource_type, resource_id=resource_id
                 )
-                if cached_bundle_entry:
-                    cached_bundle_entries.append(cached_bundle_entry)
+                if cache_entry:
+                    # if there is an entry then it means we tried to get it in the past
+                    # so don't get it again whether we were successful or not
+                    cached_bundle_entry: Optional[FhirBundleEntry] = (
+                        cache_entry.bundle_entry if cache_entry else None
+                    )
+                    if cached_bundle_entry:
+                        cached_bundle_entries.append(cached_bundle_entry)
                     cache_hits += 1
                 else:
                     non_cached_id_list.append(resource_id)
 
         if cached_bundle_entries and len(cached_bundle_entries) > 0:
+            # create a bundle from the cached entries
+            # then we will add the non-cached entries to it
             if logger:
                 logger.debug(f"Returning resource {resource_type} from cache")
             cached_bundle: FhirBundle = FhirBundle(
@@ -726,6 +735,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             or len(non_cached_id_list) == 1
             or not id_
         ):
+            # call the server to get the resources
             result1: FhirGetResponse
             result: Optional[FhirGetResponse]
             async for result1 in self._get_with_session_async(
@@ -770,6 +780,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 additional_parameters=parameters,
             )
 
+        # This list tracks the non-cached ids that were found
+        found_non_cached_id_list: List[str] = []
         # Cache the fetched entries
         if all_result:
             non_cached_bundle_entry: FhirBundleEntry
@@ -780,15 +792,27 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         "id"
                     )
                     if non_cached_resource_id:
-                        cache.add(
+                        await cache.add_async(
                             resource_type=resource_type,
                             resource_id=non_cached_resource_id,
                             bundle_entry=non_cached_bundle_entry,
+                            status=200,
                         )
+                        non_cached_id_list.append(non_cached_resource_id)
             if cached_response:
                 all_result = all_result.append(cached_response)
         elif cached_response:
             all_result = cached_response
+
+        # now add all the non-cached ids that were NOT found to the cache too so we don't look for them again
+        for non_cached_id in non_cached_id_list:
+            if non_cached_id not in found_non_cached_id_list:
+                await cache.add_async(
+                    resource_type=resource_type,
+                    resource_id=non_cached_id,
+                    bundle_entry=None,
+                    status=404,
+                )
 
         assert all_result
         bundle_response: FhirGetBundleResponse = cast(

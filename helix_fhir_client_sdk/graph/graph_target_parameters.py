@@ -4,7 +4,7 @@ from typing import Optional
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
-from helix_fhir_client_sdk.utilities.request_cache import RequestCache
+from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 
 
 @dataclass(slots=True)
