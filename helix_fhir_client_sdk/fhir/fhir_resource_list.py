@@ -1,4 +1,14 @@
-from typing import List, Set, Optional, AsyncGenerator, cast, Generator, Dict
+from typing import (
+    List,
+    Set,
+    Optional,
+    AsyncGenerator,
+    cast,
+    Generator,
+    Dict,
+    override,
+    Iterable,
+)
 
 from helix_fhir_client_sdk.fhir.base_resource_list import BaseResourceList
 from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
@@ -100,3 +110,34 @@ class FhirResourceList(BaseResourceList[FhirResource]):
                 resources_by_type[resource_type] = 0
             resources_by_type[resource_type] += 1
         return resources_by_type
+
+    @override
+    def append(self, x: FhirResource, /) -> None:
+        """
+        Append an entry to the FhirBundleEntryList.
+
+        :param x: The entry to append.
+        """
+        if not isinstance(x, FhirResource):
+            raise TypeError("Only FhirBundleEntry instances can be appended.")
+
+        # check that we don't have a duplicate entry
+        key: Optional[str] = x.resource_type_and_id
+        if key is None:
+            super().append(x)
+        else:
+            for entry in self:
+                if entry.resource_type_and_id == key:
+                    # we have a duplicate entry
+                    return
+            super().append(x)
+
+    @override
+    def extend(self, iterable: Iterable[FhirResource], /) -> None:
+        """
+        Extend the FhirBundleEntryList with entries from an iterable.
+
+        :param iterable: The iterable containing entries to extend.
+        """
+        for entry in iterable:
+            self.append(entry)

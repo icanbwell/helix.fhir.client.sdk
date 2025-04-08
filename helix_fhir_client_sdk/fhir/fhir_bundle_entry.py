@@ -227,3 +227,8 @@ class FhirBundleEntry:
         :return: A new BundleEntry object with the same attributes.
         """
         return copy.deepcopy(self)
+
+    @property
+    def resource_type_and_id(self) -> Optional[str]:
+        """Get the key from the resource."""
+        return f"{self.resource.resource_type_and_id}" if self.resource else None

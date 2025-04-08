@@ -1,5 +1,5 @@
 import copy
-from typing import Deque, Optional, AsyncGenerator, List, Any, Dict
+from typing import Deque, Optional, AsyncGenerator, List, Any, Dict, override, Iterable
 
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
 
@@ -49,3 +49,34 @@ class FhirBundleEntryList(Deque[FhirBundleEntry]):
         :return: A string representation of the FhirBundleEntryList.
         """
         return f"FhirBundleEntryList(entries: {len(self)})"
+
+    @override
+    def append(self, x: FhirBundleEntry, /) -> None:
+        """
+        Append an entry to the FhirBundleEntryList.
+
+        :param x: The entry to append.
+        """
+        if not isinstance(x, FhirBundleEntry):
+            raise TypeError("Only FhirBundleEntry instances can be appended.")
+
+        # check that we don't have a duplicate entry
+        key: Optional[str] = x.resource_type_and_id
+        if key is None:
+            super().append(x)
+        else:
+            for entry in self:
+                if entry.resource_type_and_id == key:
+                    # we have a duplicate entry
+                    return
+            super().append(x)
+
+    @override
+    def extend(self, iterable: Iterable[FhirBundleEntry], /) -> None:
+        """
+        Extend the FhirBundleEntryList with entries from an iterable.
+
+        :param iterable: The iterable containing entries to extend.
+        """
+        for entry in iterable:
+            self.append(entry)
