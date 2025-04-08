@@ -50,7 +50,9 @@ class FhirSenderException(Exception):
             "variables": variables,
             "elapsed_time": elapsed_time,
             "response_text": response_text,
-            "json_data": json_data,
+            "json_data": (
+                "[FILTERED]" if self.data else ""
+            ),  # Hide and protect sensitive JSON data
             "exception": "".join(
                 traceback.TracebackException.from_exception(exception).format()
             ),
