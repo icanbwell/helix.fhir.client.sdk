@@ -512,9 +512,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     reference_id = reference["reference"]
                     reference_parts = reference_id.split("/")
                     if (
-                            target_type in reference_parts
-                            and reference_parts[-1]
-                            and reference_parts[-1] not in child_ids
+                        target_type in reference_parts
+                        and reference_parts[-1]
+                        and reference_parts[-1] not in child_ids
                     ):
                         child_ids.append(reference_parts[-1])
                     if request_size and len(child_ids) == request_size:
