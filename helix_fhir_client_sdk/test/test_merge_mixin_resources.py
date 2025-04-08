@@ -29,7 +29,7 @@ async def test_merge_resources_async_success() -> None:
         responses: List[FhirMergeResourceResponse] = [
             response
             async for response in fhir_merge_mixin.merge_resources_async(
-                id_="foo",
+                id_="1",
                 resources_to_merge=FhirResourceList(
                     [FhirResource(json.loads(o)) for o in json_data_list]
                 ),
@@ -60,7 +60,7 @@ async def test_merge_resources_async_validation_error() -> None:
         responses: List[FhirMergeResourceResponse] = [
             response
             async for response in fhir_merge_mixin.merge_resources_async(
-                id_="foo",
+                id_="1",
                 resources_to_merge=FhirResourceList(
                     [FhirResource(json.loads(o)) for o in json_data_list]
                 ),
@@ -95,7 +95,7 @@ async def test_merge_async_http_error() -> None:
         responses: List[FhirMergeResourceResponse] = [
             response
             async for response in fhir_merge_mixin.merge_resources_async(
-                id_="foo",
+                id_="1",
                 resources_to_merge=FhirResourceList(
                     [FhirResource(json.loads(o)) for o in json_data_list]
                 ),
