@@ -48,7 +48,7 @@ class FhirMergeResourceResponse:
         self.error: Optional[str] = error
         self.access_token: Optional[str] = access_token
         self.status: int = status
-        self.successful: bool = status != 200
+        self.successful: bool = status == 200
         self.response_text: Optional[str] = response_text
 
     def append(self, other: Optional["FhirMergeResourceResponse"]) -> None:
