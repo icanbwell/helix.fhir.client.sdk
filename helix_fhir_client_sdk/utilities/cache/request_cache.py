@@ -79,7 +79,7 @@ class RequestCache:
         resource_id: str,
         bundle_entry: FhirBundleEntry | None,
         status: int,
-    ) -> None:
+    ) -> bool:
         """
         This method adds the given data to the cache.
 
@@ -98,7 +98,11 @@ class RequestCache:
         )
 
         async with self._lock:
-            self._cache[key] = cache_entry
+            if key not in self._cache:
+                self._cache[key] = cache_entry
+                return True
+            else:
+                return False
 
     async def clear_async(self) -> None:
         """
