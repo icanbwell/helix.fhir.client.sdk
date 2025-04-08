@@ -2,6 +2,7 @@ import json
 from typing import Optional, Dict, Any, OrderedDict
 
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
+from helix_fhir_client_sdk.utilities.json_helpers import FhirClientJsonHelpers
 
 
 class FhirBundleEntrySearch:
@@ -32,7 +33,7 @@ class FhirBundleEntrySearch:
         if self.score is not None:
             result["score"] = self.score
 
-        return result
+        return FhirClientJsonHelpers.remove_empty_elements_from_ordered_dict(result)
 
     @classmethod
     def from_dict(

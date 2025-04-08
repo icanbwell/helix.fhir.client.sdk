@@ -1,6 +1,8 @@
 import json
 from typing import Optional, Dict, Any, OrderedDict
 
+from helix_fhir_client_sdk.utilities.json_helpers import FhirClientJsonHelpers
+
 
 class FhirIdentifier:
     """
@@ -39,7 +41,7 @@ class FhirIdentifier:
             result["system"] = self.system
         if self.value is not None:
             result["value"] = self.value
-        return result
+        return FhirClientJsonHelpers.remove_empty_elements_from_ordered_dict(result)
 
     @classmethod
     def from_dict(

@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Any, Dict, Optional, OrderedDict
 
+from helix_fhir_client_sdk.utilities.json_helpers import FhirClientJsonHelpers
+
 
 class FhirBundleEntryRequest:
     """
@@ -35,7 +37,7 @@ class FhirBundleEntryRequest:
             result["ifNoneMatch"] = self.ifNoneMatch
         if self.ifNoneExist is not None:
             result["ifNoneExist"] = self.ifNoneExist
-        return result
+        return FhirClientJsonHelpers.remove_empty_elements_from_ordered_dict(result)
 
     @classmethod
     def from_dict(

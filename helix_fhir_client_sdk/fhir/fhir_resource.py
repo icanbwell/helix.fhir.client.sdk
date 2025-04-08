@@ -106,10 +106,10 @@ class FhirResource(CompressedDict[str, Any]):
         ordered_dict = super().dict()
         result: OrderedDict[str, Any] = copy.deepcopy(ordered_dict)
         if remove_nulls:
-            result = cast(
-                OrderedDict[str, Any],
-                FhirClientJsonHelpers.remove_empty_elements_from_ordered_dict(result),
+            result = FhirClientJsonHelpers.remove_empty_elements_from_ordered_dict(
+                result
             )
+
         return result
 
     @classmethod

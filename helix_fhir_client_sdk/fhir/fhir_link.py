@@ -2,6 +2,7 @@ import json
 from typing import Any, Dict, OrderedDict
 
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
+from helix_fhir_client_sdk.utilities.json_helpers import FhirClientJsonHelpers
 
 
 class FhirLink:
@@ -27,7 +28,8 @@ class FhirLink:
 
         :return: A dictionary representation of the link.
         """
-        return OrderedDict[str, Any]({"url": self.url, "relation": self.relation})
+        result = OrderedDict[str, Any]({"url": self.url, "relation": self.relation})
+        return FhirClientJsonHelpers.remove_empty_elements_from_ordered_dict(result)
 
     def json(self) -> str:
         """

@@ -16,6 +16,7 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
     CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
+from helix_fhir_client_sdk.utilities.json_helpers import FhirClientJsonHelpers
 
 
 class FhirBundleEntry:
@@ -147,7 +148,7 @@ class FhirBundleEntry:
             result["link"] = [link.dict() for link in self.link]
         if self.search is not None:
             result["search"] = self.search.dict()
-        return result
+        return FhirClientJsonHelpers.remove_empty_elements_from_ordered_dict(result)
 
     @classmethod
     def from_dict(

@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, cast, Union, Optional, OrderedDict
+from typing import Any, Dict, List, cast, Union, Optional, OrderedDict, overload
 from datetime import datetime, date
 
 import orjson
@@ -57,6 +57,18 @@ class FhirClientJsonHelpers:
             }
 
     @staticmethod
+    @overload
+    def remove_empty_elements_from_ordered_dict(
+        d: List[OrderedDict[str, Any]],
+    ) -> List[OrderedDict[str, Any]]: ...
+
+    @staticmethod
+    @overload
+    def remove_empty_elements_from_ordered_dict(
+        d: OrderedDict[str, Any],
+    ) -> OrderedDict[str, Any]: ...
+
+    @staticmethod
     def remove_empty_elements_from_ordered_dict(
         d: List[OrderedDict[str, Any]] | OrderedDict[str, Any],
     ) -> List[OrderedDict[str, Any]] | OrderedDict[str, Any]:
@@ -80,7 +92,7 @@ class FhirClientJsonHelpers:
             return d
         elif isinstance(d, list):
             return [
-                cast(OrderedDict[str, Any], v)
+                v
                 for v in (
                     FhirClientJsonHelpers.remove_empty_elements_from_ordered_dict(v)
                     for v in d
