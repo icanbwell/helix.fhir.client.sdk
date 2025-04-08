@@ -21,7 +21,7 @@ class FhirBundleEntryRequest:
         ifModifiedSince: Optional[datetime] = None,
         ifNoneExist: Optional[str] = None,
     ) -> None:
-        self.url: str = url
+        self.url: str = url or "https://example.com"
         self.method: str = method or "GET"
         self.ifModifiedSince: Optional[datetime] = ifModifiedSince
         self.ifNoneMatch: Optional[str] = ifNoneMatch
@@ -44,7 +44,7 @@ class FhirBundleEntryRequest:
         cls, d: Dict[str, Any] | OrderedDict[str, Any]
     ) -> "FhirBundleEntryRequest":
         return cls(
-            url=d.get("url", ""),
+            url=d.get("url", "https://example.com"),
             method=d.get("method", "GET"),
             ifModifiedSince=(
                 datetime.fromisoformat(d["ifModifiedSince"])

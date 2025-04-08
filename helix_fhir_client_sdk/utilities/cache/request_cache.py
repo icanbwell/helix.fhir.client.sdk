@@ -1,7 +1,6 @@
 import asyncio
-import weakref
 from types import TracebackType
-from typing import Optional, Type
+from typing import Optional, Type, Dict
 
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
 from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
@@ -24,9 +23,7 @@ class RequestCache:
     def __init__(self) -> None:
         self.cache_hits: int = 0
         self.cache_misses: int = 0
-        self._cache: weakref.WeakValueDictionary[str, RequestCacheEntry] = (
-            weakref.WeakValueDictionary()
-        )
+        self._cache: Dict[str, RequestCacheEntry] = {}
         self._lock: asyncio.Lock = asyncio.Lock()
 
     async def __aenter__(self) -> "RequestCache":

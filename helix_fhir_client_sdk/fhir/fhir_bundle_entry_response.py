@@ -20,7 +20,7 @@ class FhirBundleEntryResponse:
         lastModified: Optional[datetime] = None,
         location: Optional[str] = None,
     ) -> None:
-        self.status: str = status
+        self.status: str = status or "200"
         if isinstance(status, int):
             self.status = str(status)
         self.lastModified: Optional[datetime] = lastModified
@@ -42,7 +42,7 @@ class FhirBundleEntryResponse:
         cls, d: Dict[str, Any] | OrderedDict[str, Any]
     ) -> "FhirBundleEntryResponse":
         return cls(
-            status=d["status"],
+            status=d["status"] if "status" in d else "200",
             lastModified=(
                 datetime.fromisoformat(d["lastModified"])
                 if "lastModified" in d
