@@ -112,7 +112,9 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
             # If we found some resources
             if len(resource_json_list_clean) > 0:
                 resource_batch: FhirResourceList
-                for resource_batch in resource_json_list_clean.consume_resource_batch(
+                async for (
+                    resource_batch
+                ) in resource_json_list_clean.consume_resource_batch_async(
                     batch_size=batch_size
                 ):
                     responses: List[BaseFhirMergeResourceResponseEntry] = []
@@ -122,7 +124,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                     json_payload: str = (
                         resource_batch[0].json()
                         if len(resource_batch) == 1
-                        else resource_batch[0].json()
+                        else resource_batch.json()
                     )
                     # json_payload_bytes: str = json_payload
                     obj_id: str = (

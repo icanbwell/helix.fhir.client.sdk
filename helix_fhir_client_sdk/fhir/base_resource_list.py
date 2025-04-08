@@ -69,9 +69,12 @@ class BaseResourceList[T: CompressedDict[str, Any]](Deque[T]):
         :param batch_size: The size of each batch.
         :return: An async generator yielding batches of FhirResourceList.
         """
+        batch: BaseResourceList[T]
         if batch_size is None:
+            batch = BaseResourceList[T]()
             while self:
-                yield BaseResourceList[T]([self.popleft()])
+                batch.append(self.popleft())
+            yield batch
         elif batch_size <= 0:
             raise ValueError("Batch size must be greater than 0.")
         else:
@@ -92,9 +95,12 @@ class BaseResourceList[T: CompressedDict[str, Any]](Deque[T]):
         :param batch_size: The size of each batch.
         :return: An async generator yielding batches of FhirResourceList.
         """
+        batch: BaseResourceList[T]
         if batch_size is None:
+            batch = BaseResourceList[T]()
             while self:
-                yield BaseResourceList[T]([self.popleft()])
+                batch.append(self.popleft())
+            yield batch
         elif batch_size <= 0:
             raise ValueError("Batch size must be greater than 0.")
         else:
