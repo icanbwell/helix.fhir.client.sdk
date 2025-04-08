@@ -326,7 +326,9 @@ class FhirGetBundleResponse(FhirGetResponse):
 
     @classmethod
     @override
-    def from_response(cls, other_response: "FhirGetResponse") -> "FhirGetResponse":
+    def from_response(
+        cls, other_response: "FhirGetResponse"
+    ) -> "FhirGetBundleResponse":
         """
         Creates a new FhirGetBundleResponse from another FhirGetResponse
 
