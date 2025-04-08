@@ -51,6 +51,16 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 
 
 class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
+    """
+    A mixin class for advanced FHIR graph query processing.
+
+    This class provides sophisticated methods for:
+    - Simulating graph-based resource queries
+    - Parallel processing of FHIR resources
+    - Caching and optimizing resource retrieval
+    - Handling complex graph traversal scenarios
+    """
+
     # noinspection PyPep8Naming,PyUnusedLocal
     async def process_simulate_graph_async(
         self,
@@ -74,52 +84,74 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         sort_resources: Optional[bool],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
-        Simulates the $graph query on the FHIR server
+        Asynchronously simulate a FHIR $graph query with advanced processing capabilities.
 
+        This method is the core of graph-based resource traversal, supporting:
+        - Parallel resource retrieval
+        - Caching mechanisms
+        - Scope-based filtering
+        - Flexible resource bundling
 
-        :param separate_bundle_resources:
-        :param id_: single id or list of ids (ids can be comma separated too)
-        :param graph_json: definition of a graph to execute
-        :param contained: whether we should return the related resources as top level list or nest them inside their
-                            parent resources in a contained property
-        :param restrict_to_scope: Optional scope to restrict to
-        :param restrict_to_resources: Optional list of resources to restrict to
-        :param restrict_to_capability_statement: Optional capability statement to restrict to
-        :param retrieve_and_restrict_to_capability_statement: Optional capability statement to retrieve and restrict to
-        :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
-        :param eTag: Optional ETag to use for If-None-Match header
-        :param logger: Optional logger to use
-        :param url: Optional url to use
-        :param expand_fhir_bundle: Optional flag to expand the FHIR bundle
-        :param auth_scopes: Optional list of scopes to use
-        :param request_size: No. of resources to request in one FHIR request
-        :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially
-        :param sort_resources: Optional flag to sort resources
-        :return: FhirGetResponse
+        Key Processing Steps:
+        1. Validate and parse graph definition
+        2. Parse authentication scopes
+        3. Retrieve start resources
+        4. Process graph links and targets in parallel
+        5. Handle caching and resource filtering
+
+        Args:
+            id_: Resource identifier(s) to query
+            graph_json: Graph definition as a dictionary
+            contained: Whether to nest related resources or return as top-level
+            separate_bundle_resources: Flag to separate bundle resources
+            restrict_to_scope: Optional scope restriction
+            restrict_to_resources: Optional resource type restrictions
+            request_size: Number of resources to fetch in a single request
+            max_concurrent_tasks: Maximum parallel processing tasks
+            sort_resources: Flag to sort retrieved resources
+            auth_scopes: List of authentication scopes for resource access
+            url: Optional URL for the FHIR server
+            expand_fhir_bundle: Flag to expand FHIR bundle
+            ifModifiedSince: Optional timestamp for conditional requests
+            eTag: Optional ETag for conditional requests
+            logger: Optional logger for debugging
+            retrieve_and_restrict_to_capability_statement: Flag to retrieve and restrict to capability statement
+            restrict_to_capability_statement: Optional capability statement restriction
+            contained: Flag to include contained resources
+
+        Yields:
+            FhirGetResponse objects representing retrieved resources
         """
-        assert graph_json
+        # Validate graph definition input
+        assert graph_json, "Graph JSON must be provided"
         graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
         assert isinstance(graph_definition, GraphDefinition)
-        assert graph_definition.start
+        assert graph_definition.start, "Graph definition must have a start resource"
 
-        # parse the scopes
+        # Parse authentication scopes for resource access control
         scope_parser: FhirScopeParser = FhirScopeParser(scopes=auth_scopes)
 
-        # we handle separate resources differently below
+        # Ensure bundle resources are not separated by default
         self.separate_bundle_resources(False)
 
+        # Log initial query parameters for debugging
         if logger:
             logger.info(
-                f"FhirClient.simulate_graph_async() id_=${id_}, contained={contained}, "
-                + f"separate_bundle_resources={separate_bundle_resources}"
+                f"FhirClient.simulate_graph_async() "
+                f"id_={id_}, "
+                f"contained={contained}, "
+                f"separate_bundle_resources={separate_bundle_resources}"
             )
 
+        # Normalize input to a list of IDs, handling comma-separated strings
         if not isinstance(id_, list):
             id_ = id_.split(",")
+
+        # Track resources that don't support ID-based search
         id_search_unsupported_resources: List[str] = []
         cache: RequestCache
         async with RequestCache() as cache:
-            # first load the start resource
+            # Retrieve start resources based on graph definition
             start: str = graph_definition.start
             parent_response: FhirGetResponse
             cache_hits: int
@@ -131,10 +163,21 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 logger=logger,
                 id_search_unsupported_resources=id_search_unsupported_resources,
             )
+
+            # If no parent resources found, yield empty response and exit
             if parent_response.get_resource_count() == 0:
                 yield parent_response
                 return  # no resources to process
 
+            # Log parent resource retrieval details
+            if logger:
+                logger.info(
+                    f"FhirClient.simulate_graph_async() "
+                    f"got parent resources: {parent_response.get_resource_count()} "
+                    f"cached:{cache_hits}"
+                )
+
+            # Prepare parent bundle entries for further processing
             parent_bundle_entries: FhirBundleEntryList = (
                 parent_response.get_bundle_entries()
             )
@@ -150,12 +193,18 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             parent_link_map: List[
                 Tuple[List[GraphDefinitionLink], FhirBundleEntryList]
             ] = []
+
+            # Add initial graph links if defined
             if graph_definition.link and parent_bundle_entries:
                 parent_link_map.append((graph_definition.link, parent_bundle_entries))
+
+            # Process graph links in parallel
             while len(parent_link_map):
                 new_parent_link_map: List[
                     Tuple[List[GraphDefinitionLink], FhirBundleEntryList]
                 ] = []
+
+                # Parallel processing of links for each parent bundle
                 for link, parent_bundle_entries in parent_link_map:
                     link_responses: List[FhirGetResponse]
                     async for link_responses in AsyncParallelProcessor(
@@ -177,19 +226,22 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         id_search_unsupported_resources=id_search_unsupported_resources,
                     ):
                         child_responses.extend(link_responses)
+
+                # Update parent link map for next iteration
                 parent_link_map = new_parent_link_map
 
+            # Combine and process responses
             parent_response = cast(
                 FhirGetBundleResponse, parent_response.extend(child_responses)
             )
-
             parent_response = parent_response.remove_duplicates()
 
+            # Optional resource sorting
             if sort_resources:
                 parent_response = parent_response.sort_resources()
 
+            # Prepare final response based on bundling preferences
             full_response: FhirGetResponse
-            # token, url, service_slug
             if separate_bundle_resources:
                 full_response = FhirGetListByResourceTypeResponse.from_response(
                     other_response=parent_response
@@ -201,11 +253,19 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             else:
                 full_response = parent_response
 
-            full_response.url = url or parent_response.url  # set url to top level url
+            # Set response URL
+            full_response.url = url or parent_response.url
+
+            # Log cache performance
             if logger:
                 logger.info(
-                    f"Request Cache for: id_=${id_},  start={graph_definition.start}, hits: {cache.cache_hits}, misses: {cache.cache_misses}"
+                    f"Request Cache for: id_={id_}, "
+                    f"start={graph_definition.start}, "
+                    f"hits: {cache.cache_hits}, "
+                    f"misses: {cache.cache_misses}"
                 )
+
+            # Yield the final response
             yield full_response
 
     # noinspection PyUnusedLocal
@@ -217,16 +277,39 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         additional_parameters: Optional[Dict[str, Any]],
     ) -> List[FhirGetResponse]:
         """
-        This function is called by AsyncParallelProcessor to process a link in parallel.
-        It has to match the function definition of ParallelFunction
+        Parallel processing function for graph definition links.
 
+        This method is designed to be used with AsyncParallelProcessor to process
+        graph links concurrently, improving performance for complex FHIR resource
+        graph traversals.
 
+        Key Responsibilities:
+        - Process individual graph links in parallel
+        - Track and log processing details
+        - Handle resource retrieval for each link
+        - Manage parallel processing context
+
+        Args:
+            context: Parallel processing context information
+            row: Current GraphDefinitionLink being processed
+            parameters: Parameters for link processing
+            additional_parameters: Extra parameters for extended processing
+
+        Returns:
+            List of FhirGetResponse objects retrieved during link processing
         """
+        # Record the start time for performance tracking
         start_time: datetime = datetime.now()
+
+        # Determine the target resource type(s) for logging and tracking
         target_resource_type: Optional[str] = (
             ", ".join([target.type_ for target in row.target]) if row.target else None
         )
-        assert parameters
+
+        # Validate input parameters
+        assert parameters, "Processing parameters must be provided"
+
+        # Log debug information about the current link processing
         if parameters.logger:
             parameters.logger.debug(
                 f"Processing link"
@@ -239,7 +322,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 + f" | parallel_processor: {context.name}"
                 + f" | start_time: {start_time}"
             )
+
+        # Initialize result list to store retrieved responses
         result: List[FhirGetResponse] = []
+
+        # Process the link asynchronously and collect responses
         link_result: FhirGetResponse
         async for link_result in self._process_link_async(
             link=row,
@@ -247,14 +334,17 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             logger=parameters.logger,
             cache=parameters.cache,
             scope_parser=parameters.scope_parser,
+            # Handle parent link map from additional parameters
             parent_link_map=(
                 additional_parameters["parent_link_map"]
                 if additional_parameters
                 else []
             ),
+            # Determine request size, default to 1 if not specified
             request_size=(
                 additional_parameters["request_size"] if additional_parameters else 1
             ),
+            # Track unsupported resources for ID-based search
             id_search_unsupported_resources=(
                 additional_parameters["id_search_unsupported_resources"]
                 if additional_parameters
@@ -262,8 +352,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             ),
             max_concurrent_tasks=parameters.max_concurrent_tasks,
         ):
+            # Collect each link result
             result.append(link_result)
+
+        # Record end time for performance tracking
         end_time: datetime = datetime.now()
+
+        # Log detailed processing information
         if parameters.logger:
             parameters.logger.debug(
                 f"Finished Processing link"
@@ -278,6 +373,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 + f" | duration: {end_time - start_time}"
                 + f" | resource_count: {len(result)}"
             )
+
+        # Return the list of retrieved responses
         return result
 
     async def _process_link_async(
@@ -294,26 +391,49 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         max_concurrent_tasks: Optional[int],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
-        Process a GraphDefinition link object
+        Process a GraphDefinition link object with advanced traversal capabilities.
 
+        This method is a core component of the graph-based resource retrieval process,
+        responsible for:
+        - Identifying and processing link targets
+        - Parallel processing of targets
+        - Managing complex resource graph traversals
 
-        :param link: link to process
-        :param parent_bundle_entries: list of parent bundle entry
-        :param logger: logger to use
-        :param cache: cache to use
-        :param scope_parser: scope parser to use
-        :param max_concurrent_tasks: number of concurrent tasks. If 1 then the tasks are processed sequentially
-        :return: list of FhirGetResponse objects
+        Key Processing Steps:
+        1. Extract targets from the link
+        2. Use AsyncParallelProcessor to process targets concurrently
+        3. Yield retrieved responses
+        4. Manage parent link mapping for further traversal
+
+        Args:
+            link: GraphDefinitionLink to process
+            parent_bundle_entries: List of parent bundle entries
+            logger: Optional logger for debugging
+            cache: Request cache for optimizing resource retrieval
+            scope_parser: Scope-based access control parser
+            parent_link_map: Mapping for tracking parent links in graph traversal
+            request_size: Number of resources to retrieve in a single request
+            id_search_unsupported_resources: List of resources with limited ID search
+            max_concurrent_tasks: Maximum number of concurrent processing tasks
+
+        Yields:
+            FhirGetResponse objects for each processed target
         """
-        assert link
+        # Validate input link
+        assert link, "GraphDefinitionLink must be provided"
+
+        # Extract targets from the link
         targets: List[GraphDefinitionTarget] = link.target
         target_responses: List[FhirGetResponse]
         async for target_responses in AsyncParallelProcessor(
             name="process_target_async",
             max_concurrent_tasks=max_concurrent_tasks,
         ).process_rows_in_parallel(
+            # Rows to process (targets from the link)
             rows=targets,
+            # Parallel processing function for targets
             process_row_fn=self.process_target_async_parallel_function,
+            # Parameters for target processing
             parameters=GraphTargetParameters(
                 path=link.path,
                 parent_bundle_entries=parent_bundle_entries,
@@ -322,10 +442,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 scope_parser=scope_parser,
                 max_concurrent_tasks=max_concurrent_tasks,
             ),
+            # Additional parameters for extended processing
             parent_link_map=parent_link_map,
             request_size=request_size,
             id_search_unsupported_resources=id_search_unsupported_resources,
         ):
+            # Yield each target response individually
             for target_response in target_responses:
                 yield target_response
 
@@ -338,34 +460,71 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         additional_parameters: Optional[Dict[str, Any]],
     ) -> List[FhirGetResponse]:
         """
-        This function is called by AsyncParallelProcessor to process a link in parallel.
-        It has to match the function definition of ParallelFunction
+        Parallel processing function for individual graph definition targets.
+
+        This method is designed to:
+        - Process a single target in the context of parallel processing
+        - Retrieve resources for a specific target
+        - Manage performance tracking and logging
+        - Handle complex resource graph traversals
+
+        Key Responsibilities:
+        - Execute target-specific resource retrieval
+        - Track processing performance
+        - Log detailed processing information
+        - Manage parallel processing context
+
+        Args:
+            context: Parallel processing context information
+            row: Current GraphDefinitionTarget being processed
+            parameters: Parameters for target processing
+            additional_parameters: Extra parameters for extended processing
+
+        Returns:
+            List of FhirGetResponse objects retrieved for the target
         """
-        assert parameters
+        # Validate input parameters
+        assert parameters, "Processing parameters must be provided"
+
+        # Initialize result list to store retrieved responses
         result: List[FhirGetResponse] = []
+
+        # Process the target asynchronously and collect responses
         target_result: FhirGetResponse
         async for target_result in self._process_target_async(
+            # Target to process
             target=row,
+            # Path from the parent link
             path=parameters.path,
+            # Parent bundle entries for context
             parent_bundle_entries=parameters.parent_bundle_entries,
+            # Logging support
             logger=parameters.logger,
+            # Caching mechanism
             cache=parameters.cache,
+            # Scope-based access control
             scope_parser=parameters.scope_parser,
+            # Parent link map for further graph traversal
             parent_link_map=(
                 additional_parameters["parent_link_map"]
                 if additional_parameters
                 else []
             ),
+            # Request size configuration
             request_size=(
                 additional_parameters["request_size"] if additional_parameters else 1
             ),
+            # Track resources with limited ID search capabilities
             id_search_unsupported_resources=(
                 additional_parameters["id_search_unsupported_resources"]
                 if additional_parameters
                 else []
             ),
         ):
+            # Collect each target result
             result.append(target_result)
+
+        # Return the list of retrieved responses
         return result
 
     async def _process_child_group(
@@ -382,26 +541,69 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         logger: Optional[FhirLogger],
         id_search_unsupported_resources: List[str],
     ) -> FhirGetResponse:
+        """
+        Retrieve a group of child resources with advanced retrieval and logging capabilities.
+
+        This method is a core component of graph-based resource traversal, responsible for:
+        - Fetching child resources based on parent context
+        - Implementing caching and scope-based retrieval
+        - Providing detailed logging and performance tracking
+
+        Key Processing Steps:
+        1. Retrieve resources using provided parameters
+        2. Apply caching mechanism
+        3. Log detailed retrieval information
+        4. Handle various resource retrieval scenarios
+
+        Args:
+            id_: Optional resource identifier(s)
+            resource_type: Type of resources to retrieve
+            parent_ids: List of parent resource identifiers
+            parent_resource_type: Type of parent resources
+            parameters: Optional additional search parameters
+            path: Optional path for resource retrieval
+            cache: Request cache for optimizing resource retrieval
+            scope_parser: Scope-based access control parser
+            logger: Optional logger for debugging
+            id_search_unsupported_resources: List of resources with limited ID search
+
+        Returns:
+            FhirGetResponse containing retrieved child resources
+        """
+        # Retrieve resources using async method with parameters
         (
-            child_response,
-            cache_hits,
+            child_response,  # Retrieved child resources
+            cache_hits,  # Number of cache hits during retrieval
         ) = await self._get_resources_by_parameters_async(
+            # Resource type to retrieve
             resource_type=resource_type,
+            # Resource identifiers
             id_=id_,
+            # Additional search parameters
             parameters=parameters,
+            # Caching mechanism
             cache=cache,
+            # Scope-based access control
             scope_parser=scope_parser,
+            # Optional logger
             logger=logger,
+            # Track resources with limited ID search
             id_search_unsupported_resources=id_search_unsupported_resources,
         )
+
+        # Log detailed retrieval information if logger is available
         if logger:
             logger.info(
+                # Construct a detailed log message with retrieval context
                 f"Received child resources"
                 + f" from parent {parent_resource_type}/{parent_ids}"
                 + f" path:[{path}]. id_:{id_}. resource_type:{resource_type}"
-                + f", count:{len(child_response.get_resource_type_and_ids())}, cached:{cache_hits}"
+                + f", count:{len(child_response.get_resource_type_and_ids())}"
+                + f", cached:{cache_hits}"
                 + f", {','.join(child_response.get_resource_type_and_ids())}"
             )
+
+        # Return the retrieved child resources
         return child_response
 
     async def _process_target_async(

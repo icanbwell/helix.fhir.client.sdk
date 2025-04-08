@@ -22,7 +22,7 @@ class FhirBundleEntryRequest:
         ifNoneExist: Optional[str] = None,
     ) -> None:
         self.url: str = url
-        self.method: str = method
+        self.method: str = method or "GET"
         self.ifModifiedSince: Optional[datetime] = ifModifiedSince
         self.ifNoneMatch: Optional[str] = ifNoneMatch
         self.ifNoneExist: Optional[str] = ifNoneExist
