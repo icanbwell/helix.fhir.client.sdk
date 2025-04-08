@@ -465,12 +465,19 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             reference_id = r
                         if reference_id:
                             reference_parts = reference_id.split("/")
-                            if (
-                                target_type in reference_parts
-                                and reference_parts[-1]
-                                and reference_parts[-1] not in child_ids
-                            ):
-                                child_ids.append(reference_parts[-1])
+                            if target_type in reference_parts:
+                                if (
+                                    reference_parts[-1]
+                                    and reference_parts[-1] not in child_ids
+                                ):
+                                    child_ids.append(reference_parts[-1])
+                                # If we receive a reference like "example.com/Procedure/1234/"
+                                elif (
+                                    len(reference_parts) > 2
+                                    and reference_parts[-2]
+                                    and reference_parts[-2] not in child_ids
+                                ):
+                                    child_ids.append(reference_parts[-2])
                         if request_size and len(child_ids) == request_size:
                             child_response = await self._process_child_group(
                                 resource_type=target_type,
@@ -511,12 +518,15 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     parent_resource_type = parent_resource.get("resourceType", "")
                     reference_id = reference["reference"]
                     reference_parts = reference_id.split("/")
-                    if (
-                        target_type in reference_parts
-                        and reference_parts[-1]
-                        and reference_parts[-1] not in child_ids
-                    ):
+                    if reference_parts[-1] and reference_parts[-1] not in child_ids:
                         child_ids.append(reference_parts[-1])
+                    # If we receive a reference like "example.com/Procedure/1234/"
+                    elif (
+                        len(reference_parts) > 2
+                        and reference_parts[-2]
+                        and reference_parts[-2] not in child_ids
+                    ):
+                        child_ids.append(reference_parts[-2])
                     if request_size and len(child_ids) == request_size:
                         child_response = await self._process_child_group(
                             resource_type=target_type,
