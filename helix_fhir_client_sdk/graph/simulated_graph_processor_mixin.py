@@ -825,7 +825,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     error=None,
                     results_by_url=[],
                 ),
-                0,
+                cache_hits,
             )
 
         assert all_result
