@@ -231,4 +231,4 @@ class FhirBundleEntry:
     @property
     def resource_type_and_id(self) -> Optional[str]:
         """Get the key from the resource."""
-        return f"{self.resource.resource_type_and_id}" if self.resource else None
+        return self.resource.resource_type_and_id if self.resource else None

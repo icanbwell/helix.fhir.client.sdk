@@ -73,7 +73,7 @@ class TestFhirGetBundleResponse:
         assert response._bundle_metadata.id_ == "test-bundle-id"
         assert response._bundle_metadata.type_ == "searchset"
 
-    def test_append(self, sample_bundle_response: Dict[str, Any]) -> None:
+    def test_append_unique(self, sample_bundle_response: Dict[str, Any]) -> None:
         """Test appending another response."""
         results_by_url: List[RetryableAioHttpUrlResult] = []
 
@@ -113,7 +113,7 @@ class TestFhirGetBundleResponse:
 
         first_response.append(second_response)
 
-        assert len(first_response.get_bundle_entries()) == 4
+        assert len(first_response.get_bundle_entries()) == 2
 
     def test_get_resources(self, sample_bundle_response: Dict[str, Any]) -> None:
         """Test getting resources from the response."""
