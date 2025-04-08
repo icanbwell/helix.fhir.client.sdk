@@ -1,7 +1,7 @@
 import asyncio
 import weakref
 from types import TracebackType
-from typing import Dict, Optional, Type
+from typing import Optional, Type
 
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
 from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
@@ -9,7 +9,7 @@ from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCac
 
 class RequestCache:
     """
-    This is a class that caches requests to the FHIR server using weak references.
+    This is a class that caches requests to the FHIR server using a weak value dictionary.
     It is used to avoid multiple requests to the FHIR server when doing a large number
     of requests for the same resource.
     """
@@ -24,7 +24,9 @@ class RequestCache:
     def __init__(self) -> None:
         self.cache_hits: int = 0
         self.cache_misses: int = 0
-        self._cache: Dict[str, weakref.ReferenceType[RequestCacheEntry]] = {}
+        self._cache: weakref.WeakValueDictionary[str, RequestCacheEntry] = (
+            weakref.WeakValueDictionary()
+        )
         self._lock: asyncio.Lock = asyncio.Lock()
 
     async def __aenter__(self) -> "RequestCache":
@@ -68,17 +70,11 @@ class RequestCache:
         key: str = f"{resource_type}/{resource_id}"
 
         async with self._lock:
-            # Check if the key exists and the weak reference is still valid
-            if key in self._cache:
-                cached_ref = self._cache[key]
-                cached_entry = cached_ref()  # Dereference the weak reference
+            cached_entry = self._cache.get(key)
 
-                if cached_entry is not None:
-                    self.cache_hits += 1
-                    return cached_entry
-                else:
-                    # If the referenced object has been garbage collected, remove the key
-                    del self._cache[key]
+            if cached_entry is not None:
+                self.cache_hits += 1
+                return cached_entry
 
             self.cache_misses += 1
             return None
@@ -102,33 +98,23 @@ class RequestCache:
         """
         key: str = f"{resource_type}/{resource_id}"
 
-        cache_entry = RequestCacheEntry(
-            id_=resource_id,
-            resource_type=resource_type,
-            status=status,
-            bundle_entry=bundle_entry,
-        )
-
         async with self._lock:
-            # Check if the key exists and has a valid reference
-            existing = self._cache.get(key)
-            if existing is not None:
-                # Check if the existing weak reference is still valid
-                if existing() is not None:
-                    return False
-                else:
-                    # Remove the key with the garbage-collected reference
-                    del self._cache[key]
+            # Check if the key already exists
+            if key in self._cache:
+                return False
 
-            # Create a weak reference to the cache entry
-            weak_ref = weakref.ref(cache_entry)
+            # Create the cache entry
+            cache_entry = RequestCacheEntry(
+                id_=resource_id,
+                resource_type=resource_type,
+                status=status,
+                bundle_entry=bundle_entry,
+            )
 
-            # Verify the weak reference is valid
-            if weak_ref() is not None:
-                self._cache[key] = weak_ref
-                return True
+            # Add to the weak value dictionary
+            self._cache[key] = cache_entry
 
-            return False
+            return True
 
     async def clear_async(self) -> None:
         """
