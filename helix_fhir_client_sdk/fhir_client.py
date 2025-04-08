@@ -30,6 +30,7 @@ from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.fhir_auth_mixin import FhirAuthMixin
 from helix_fhir_client_sdk.fhir_delete_mixin import FhirDeleteMixin
 from helix_fhir_client_sdk.fhir_merge_mixin import FhirMergeMixin
+from helix_fhir_client_sdk.fhir_merge_resources_mixin import FhirMergeResourcesMixin
 from helix_fhir_client_sdk.fhir_patch_mixin import FhirPatchMixin
 from helix_fhir_client_sdk.fhir_update_mixin import FhirUpdateMixin
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
@@ -60,13 +61,14 @@ from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 class FhirClient(
     SimulatedGraphProcessorMixin,
     FhirMergeMixin,
+    FhirMergeResourcesMixin,
     FhirGraphMixin,
     FhirUpdateMixin,
     FhirPatchMixin,
     FhirAuthMixin,
     FhirDeleteMixin,
     RequestQueueMixin,
-    FhirClientProtocol,
+    FhirClientProtocol,  # the protocol has to come last
 ):
     """
     Class used to call FHIR server (uses async and parallel execution to speed up)
