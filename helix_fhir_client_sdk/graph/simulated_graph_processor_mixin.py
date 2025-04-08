@@ -56,6 +56,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         request_size: Optional[int] = 1,
         max_concurrent_tasks: Optional[int],
         sort_resources: Optional[bool],
+        add_cached_bundles_to_result: bool = True,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Simulates the $graph query on the FHIR server
@@ -79,6 +80,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param request_size: No. of resources to request in one FHIR request
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially
         :param sort_resources: Optional flag to sort resources
+        :param add_cached_bundles_to_result: Optional flag to add cached bundles to result
         :return: FhirGetResponse
         """
         assert graph_json
@@ -114,6 +116,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 scope_parser=scope_parser,
                 logger=logger,
                 id_search_unsupported_resources=id_search_unsupported_resources,
+                add_cached_bundles_to_result=add_cached_bundles_to_result
             )
             if not parent_response.responses:
                 yield parent_response
@@ -161,6 +164,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         parent_link_map=new_parent_link_map,
                         request_size=request_size,
                         id_search_unsupported_resources=id_search_unsupported_resources,
+                        add_cached_bundles_to_result=add_cached_bundles_to_result
                     ):
                         child_responses.extend(link_responses)
                 parent_link_map = new_parent_link_map
@@ -264,6 +268,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 else []
             ),
             max_concurrent_tasks=parameters.max_concurrent_tasks,
+            add_cached_bundles_to_result=additional_parameters.get("add_cached_bundles_to_result", True) if additional_parameters else True
         ):
             result.append(link_result)
         end_time: datetime = datetime.now()
@@ -295,6 +300,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         request_size: int,
         id_search_unsupported_resources: List[str],
         max_concurrent_tasks: Optional[int],
+        add_cached_bundles_to_result: bool = True
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Process a GraphDefinition link object
@@ -328,6 +334,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             parent_link_map=parent_link_map,
             request_size=request_size,
             id_search_unsupported_resources=id_search_unsupported_resources,
+            add_cached_bundles_to_result=add_cached_bundles_to_result
         ):
             for target_response in target_responses:
                 yield target_response
@@ -367,6 +374,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 if additional_parameters
                 else []
             ),
+            add_cached_bundles_to_result=additional_parameters.get("add_cached_bundles_to_result",
+                                                                       True) if additional_parameters else True
         ):
             result.append(target_result)
         return result
@@ -384,6 +393,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         scope_parser: FhirScopeParser,
         logger: Optional[FhirLogger],
         id_search_unsupported_resources: List[str],
+            add_cached_bundles_to_result: bool = True
     ) -> FhirGetResponse:
         (
             child_response,
@@ -396,6 +406,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             scope_parser=scope_parser,
             logger=logger,
             id_search_unsupported_resources=id_search_unsupported_resources,
+            add_cached_bundles_to_result=add_cached_bundles_to_result
         )
         if logger:
             logger.info(
@@ -419,6 +430,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         parent_link_map: List[Tuple[List[GraphDefinitionLink], List[BundleEntry]]],
         request_size: int,
         id_search_unsupported_resources: List[str],
+        add_cached_bundles_to_result: bool = True
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Process a GraphDefinition target
@@ -430,6 +442,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param logger: logger to use
         :param cache: cache to use
         :param scope_parser: scope parser to use
+        :param add_cached_bundles_to_result: whether to add cached bundles to result
         :return: list of FhirGetResponse objects
         """
         children: List[BundleEntry] = []
@@ -482,6 +495,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 scope_parser=scope_parser,
                                 logger=logger,
                                 id_search_unsupported_resources=id_search_unsupported_resources,
+                                add_cached_bundles_to_result=add_cached_bundles_to_result
                             )
                             yield child_response
                             children.extend(child_response.get_bundle_entries())
@@ -498,6 +512,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     scope_parser=scope_parser,
                     logger=logger,
                     id_search_unsupported_resources=id_search_unsupported_resources,
+                    add_cached_bundles_to_result=add_cached_bundles_to_result
                 )
                 yield child_response
                 children.extend(child_response.get_bundle_entries())
@@ -528,6 +543,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             scope_parser=scope_parser,
                             logger=logger,
                             id_search_unsupported_resources=id_search_unsupported_resources,
+                            add_cached_bundles_to_result=add_cached_bundles_to_result
                         )
                         yield child_response
                         children.extend(child_response.get_bundle_entries())
@@ -544,6 +560,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     scope_parser=scope_parser,
                     logger=logger,
                     id_search_unsupported_resources=id_search_unsupported_resources,
+                    add_cached_bundles_to_result=add_cached_bundles_to_result
                 )
                 yield child_response
                 children.extend(child_response.get_bundle_entries())
@@ -577,6 +594,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             scope_parser=scope_parser,
                             logger=logger,
                             id_search_unsupported_resources=id_search_unsupported_resources,
+                            add_cached_bundles_to_result=add_cached_bundles_to_result
                         )
                         yield child_response
                         children.extend(child_response.get_bundle_entries())
@@ -595,6 +613,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         scope_parser=scope_parser,
                         logger=logger,
                         id_search_unsupported_resources=id_search_unsupported_resources,
+                        add_cached_bundles_to_result=add_cached_bundles_to_result
                     )
                     yield child_response
                     children.extend(child_response.get_bundle_entries())
@@ -637,6 +656,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         scope_parser: FhirScopeParser,
         logger: Optional[FhirLogger],
         id_search_unsupported_resources: List[str],
+        add_cached_bundles_to_result: bool = True
     ) -> Tuple[FhirGetResponse, int]:
         assert resource_type
 
@@ -777,10 +797,29 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             resource_id=non_cached_resource_id,
                             bundle_entry=non_cached_bundle_entry,
                         )
-            if cached_response:
+            if cached_response and add_cached_bundles_to_result:
                 all_result.append(cached_response)
-        elif cached_response:
+        elif cached_response and add_cached_bundles_to_result:
             all_result = cached_response
+        else:
+            return (
+                FhirGetResponse(
+                    request_id=None,
+                    url="",
+                    id_=None,
+                    resource_type=resource_type,
+                    responses="",
+                    response_headers=None,
+                    status=200,
+                    access_token=None,
+                    next_url=None,
+                    total_count=0,
+                    extra_context_to_return=None,
+                    error=None,
+                    results_by_url=[],
+                ),
+                0,
+            )
 
         assert all_result
         return all_result, cache_hits
