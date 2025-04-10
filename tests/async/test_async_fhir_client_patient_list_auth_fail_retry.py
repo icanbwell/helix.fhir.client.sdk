@@ -64,5 +64,5 @@ async def test_fhir_client_patient_list_auth_fail_retry_async() -> None:
     )
     response: FhirGetResponse = await fhir_client.get_async()
 
-    print(response.responses)
-    assert response.responses == response_text
+    print(response.get_response_text())
+    assert response.get_response_text() == response_text

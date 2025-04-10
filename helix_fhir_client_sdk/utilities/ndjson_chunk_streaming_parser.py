@@ -1,7 +1,7 @@
 import json
 from typing import List, Dict, Any, Optional
 
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 
 
 class NdJsonChunkStreamingParser:
@@ -9,9 +9,7 @@ class NdJsonChunkStreamingParser:
         # Initialize an empty buffer to store incomplete JSON objects
         self.buffer = ""
 
-    def add_chunk(
-        self, chunk: str, logger: Optional[FhirLogger]
-    ) -> List[Dict[str, Any]]:
+    def add_chunk(self, chunk: str, logger: Optional[Logger]) -> List[Dict[str, Any]]:
         """
         Add a new chunk of NDJSON data and return a list of complete JSON objects.
 

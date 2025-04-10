@@ -2,7 +2,7 @@ import dataclasses
 from typing import Optional
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class FhirScopeParserResult:
     """
     This class stores the result from parsing a scope per:

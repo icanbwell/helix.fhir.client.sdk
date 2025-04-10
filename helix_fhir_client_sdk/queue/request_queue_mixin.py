@@ -55,15 +55,14 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
             self._max_concurrent_requests_semaphore = Semaphore(max_concurrent_requests)
         return self
 
-    async def _get_with_session_async(  # type:ignore[override]
+    async def _get_with_session_async(
         self,
-        *,
-        page_number: Optional[int] = None,
-        ids: Optional[List[str]] = None,
-        id_above: Optional[str] = None,
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
-        additional_parameters: Optional[List[str]] = None,
-        resource_type: Optional[str] = None,
+        page_number: Optional[int],
+        ids: Optional[List[str]],
+        id_above: Optional[str],
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
+        additional_parameters: Optional[List[str]],
+        resource_type: Optional[str],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         issues a GET call with the specified session, page_number and ids
@@ -198,6 +197,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         extra_context_to_return=self._extra_context_to_return,
                         use_data_streaming=self._use_data_streaming,
                         fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+                        storage_mode=self._storage_mode,
+                        create_operation_outcome_for_error=self._create_operation_outcome_for_error,
                     ):
                         next_url = r.next_url
                         yield r

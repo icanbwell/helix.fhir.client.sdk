@@ -18,6 +18,8 @@ aiohttp = "*"
 async_timeout = ">=4.0.3"
 # python-dateutil is needed for parsing dates
 python-dateutil = "*"
+# compressedfhir is needed for compressing and decompressing FHIR resources
+compressedfhir = ">=1.0.0"
 
 [dev-packages]
 packaging = "*"  # packaging is needed for version parsing
@@ -57,6 +59,12 @@ httpx=">=0.23.3"
 aioresponses=">=0.7.6"
 # deepdiff is a Python library for comparing objects
 deepdiff = { version = ">=8.0.1" }
+# msgpack-types provides type hints for msgpack
+msgpack-types = { version = ">=0.5.0" }
+# objsize is needed for getting the size of objects in bytes
+objsize = ">=0.7.1"
+# types-orjson is needed for type hints for orjson
+types-orjson = ">=3.6.2"
 
 # These dependencies are required for pipenv-setup.  They conflict with ones above, so we install these
 # only when running pipenv-setup

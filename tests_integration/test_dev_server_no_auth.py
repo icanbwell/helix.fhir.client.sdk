@@ -10,4 +10,4 @@ def test_dev_server_no_auth() -> None:
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(url).resource("Patient")
     response: FhirGetResponse = fhir_client.get()
-    print(response.responses)
+    print(response.get_response_text())

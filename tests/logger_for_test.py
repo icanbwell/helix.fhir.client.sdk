@@ -1,13 +1,11 @@
 import logging
 from logging import Logger
-from typing import Any
-
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from typing import Any, Mapping
 
 
-class LoggerForTest(FhirLogger):
-    def __init__(self) -> None:
-        self.logger: Logger = Logger("FhirLogger")
+class LoggerForTest(Logger):
+    def __init__(self, name: str = "Logger") -> None:
+        super().__init__(name)
         handler = logging.StreamHandler()
         handler.setFormatter(
             logging.Formatter(
@@ -15,23 +13,47 @@ class LoggerForTest(FhirLogger):
                 datefmt="%Y-%m-%d %H:%M:%S",
             )
         )
-        self.logger.addHandler(handler)
-        self.logger.setLevel(logging.DEBUG)
+        super().addHandler(handler)
+        super().setLevel(logging.DEBUG)
 
-    def info(self, param: Any) -> None:
+    def info(
+        self,
+        msg: object,
+        *args: object,
+        exc_info: Any = None,
+        stack_info: bool = False,
+        stacklevel: int = 1,
+        extra: Mapping[str, object] | None = None,
+    ) -> None:
         """
         Handle messages at INFO level
         """
-        self.logger.info(param)
+        super().info(msg)
 
-    def error(self, param: Any) -> None:
+    def error(
+        self,
+        msg: object,
+        *args: object,
+        exc_info: Any = None,
+        stack_info: bool = False,
+        stacklevel: int = 1,
+        extra: Mapping[str, object] | None = None,
+    ) -> None:
         """
         Handle messages at error level
         """
-        self.logger.error(param)
+        super().error(msg)
 
-    def debug(self, param: Any) -> None:
+    def debug(
+        self,
+        msg: object,
+        *args: object,
+        exc_info: Any = None,
+        stack_info: bool = False,
+        stacklevel: int = 1,
+        extra: Mapping[str, object] | None = None,
+    ) -> None:
         """
         Handle messages at debug level
         """
-        self.logger.debug(param)
+        super().debug(msg)

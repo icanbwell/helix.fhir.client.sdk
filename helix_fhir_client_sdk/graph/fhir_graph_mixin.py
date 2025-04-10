@@ -29,6 +29,7 @@ class FhirGraphMixin(FhirClientProtocol):
         :param contained: whether we should return the related resources as top level list or nest them inside their
                             parent resources in a contained property
         :param id_: id of the resource to start the graph from.   Can be a list of ids
+        :type id_: str | List[str] | None
         :return: response containing all the resources received
         """
         assert graph_definition
@@ -53,7 +54,7 @@ class FhirGraphMixin(FhirClientProtocol):
         result: Optional[FhirGetResponse]
         chunk_size: int = self._page_size or 1
         for chunk in ListChunker.divide_into_chunks(id_list, chunk_size):
-            async for result1 in self._get_with_session_async(  # type: ignore[attr-defined]
+            async for result1 in self._get_with_session_async(
                 fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                 additional_parameters=self._additional_parameters,
                 id_above=None,

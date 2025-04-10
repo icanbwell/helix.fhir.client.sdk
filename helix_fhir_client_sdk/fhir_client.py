@@ -30,6 +30,7 @@ from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.fhir_auth_mixin import FhirAuthMixin
 from helix_fhir_client_sdk.fhir_delete_mixin import FhirDeleteMixin
 from helix_fhir_client_sdk.fhir_merge_mixin import FhirMergeMixin
+from helix_fhir_client_sdk.fhir_merge_resources_mixin import FhirMergeResourcesMixin
 from helix_fhir_client_sdk.fhir_patch_mixin import FhirPatchMixin
 from helix_fhir_client_sdk.fhir_update_mixin import FhirUpdateMixin
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
@@ -43,7 +44,6 @@ from helix_fhir_client_sdk.graph.fhir_graph_mixin import FhirGraphMixin
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
     SimulatedGraphProcessorMixin,
 )
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.queue.request_queue_mixin import RequestQueueMixin
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -51,19 +51,23 @@ from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
 )
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 
 
 class FhirClient(
     SimulatedGraphProcessorMixin,
     FhirMergeMixin,
+    FhirMergeResourcesMixin,
     FhirGraphMixin,
     FhirUpdateMixin,
     FhirPatchMixin,
     FhirAuthMixin,
     FhirDeleteMixin,
     RequestQueueMixin,
-    FhirClientProtocol,
+    FhirClientProtocol,  # the protocol has to come last
 ):
     """
     Class used to call FHIR server (uses async and parallel execution to speed up)
@@ -92,7 +96,7 @@ class FhirClient(
         self._last_updated_after: Optional[datetime] = None
         self._last_updated_before: Optional[datetime] = None
         self._sort_fields: Optional[List[SortField]] = None
-        self._logger: Optional[FhirLogger] = None
+        self._logger: Optional[Logger] = None
         self._adapter: Optional[BaseAdapter] = None
         self._limit: Optional[int] = None
         self._validation_server_url: Optional[str] = None
@@ -144,6 +148,10 @@ class FhirClient(
 
         self._log_all_response_urls: bool = False
         """ If True, logs all response URLs and status codes.  Can take a lot of memory for when there are many responses. """
+
+        self._storage_mode = CompressedDictStorageMode(storage_type="raw")
+
+        self._create_operation_outcome_for_error = False
 
     def action(self, action: str) -> "FhirClient":
         """
@@ -307,7 +315,7 @@ class FhirClient(
         self._retry_count = count
         return self
 
-    def logger(self, logger: FhirLogger) -> "FhirClient":
+    def logger(self, logger: Logger) -> "FhirClient":
         """
         Logger to use for logging calls to the FHIR server
 
@@ -519,6 +527,7 @@ class FhirClient(
             + f" | Content-Encoding: {content_encoding}"
         )
 
+    # noinspection PyUnusedLocal
     @staticmethod
     async def on_response_chunk_received(
         session: ClientSession,
@@ -591,10 +600,11 @@ class FhirClient(
         )
         if self._logger:
             # self._logger.info(f"LOGLEVEL: {self._log_level}")
-            self._logger.info(f"parameters: {instance_variables_text}")
+            self._logger.debug(f"parameters: {instance_variables_text}")
         else:
-            self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
-            self._internal_logger.info(f"parameters: {instance_variables_text}")
+
+            self._internal_logger.debug(f"LOGLEVEL (InternalLogger): {self._log_level}")
+            self._internal_logger.debug(f"parameters: {instance_variables_text}")
         ids: Optional[List[str]] = None
         if self._id:
             ids = self._id if isinstance(self._id, list) else [self._id]
@@ -603,10 +613,14 @@ class FhirClient(
         async for response in self._get_with_session_async(
             ids=ids,
             fn_handle_streaming_chunk=data_chunk_handler,
+            page_number=None,
+            id_above=None,
+            additional_parameters=None,
+            resource_type=None,
         ):
             if response:
                 if full_response:
-                    full_response.append(response)
+                    full_response = full_response.append(response)
                 else:
                     full_response = response
         assert full_response
@@ -641,6 +655,10 @@ class FhirClient(
         async for response in self._get_with_session_async(
             ids=ids,
             fn_handle_streaming_chunk=data_chunk_handler,
+            page_number=None,
+            id_above=None,
+            additional_parameters=None,
+            resource_type=None,
         ):
             yield response
 
@@ -875,4 +893,22 @@ class FhirClient(
         :param value: function to trace the request
         """
         self._trace_request_function = value
+        return self
+
+    def set_storage_mode(self, value: CompressedDictStorageMode) -> "FhirClient":
+        """
+        Sets the storage mode
+
+        :param value: storage mode
+        """
+        self._storage_mode = value
+        return self
+
+    def set_create_operation_outcome_for_error(self, value: bool) -> "FhirClient":
+        """
+        Sets the create_operation_outcome_for_error flag
+
+        :param value: whether to create operation outcome for error
+        """
+        self._create_operation_outcome_for_error = value
         return self
