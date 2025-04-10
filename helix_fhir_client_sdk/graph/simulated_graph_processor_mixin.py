@@ -83,6 +83,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         request_size: Optional[int] = 1,
         max_concurrent_tasks: Optional[int],
         sort_resources: Optional[bool],
+        add_cached_bundles_to_result: bool = True,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Asynchronously simulate a FHIR $graph query with advanced processing capabilities.
@@ -119,6 +120,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             retrieve_and_restrict_to_capability_statement: Flag to retrieve and restrict to capability statement
             restrict_to_capability_statement: Optional capability statement restriction
             contained: Flag to include contained resources
+            add_cached_bundles_to_result: Optional flag to add cached bundles to result
 
         Yields:
             FhirGetResponse objects representing retrieved resources
@@ -163,6 +165,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 scope_parser=scope_parser,
                 logger=logger,
                 id_search_unsupported_resources=id_search_unsupported_resources,
+                add_cached_bundles_to_result=add_cached_bundles_to_result,
             )
 
             # If no parent resources found, yield empty response and exit
@@ -226,6 +229,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         parent_link_map=new_parent_link_map,
                         request_size=request_size,
                         id_search_unsupported_resources=id_search_unsupported_resources,
+                        add_cached_bundles_to_result=add_cached_bundles_to_result,
                     ):
                         child_responses.extend(link_responses)
 
@@ -353,6 +357,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 else []
             ),
             max_concurrent_tasks=parameters.max_concurrent_tasks,
+            add_cached_bundles_to_result=(
+                additional_parameters.get("add_cached_bundles_to_result", True)
+                if additional_parameters
+                else True
+            ),
         ):
             # Collect each link result
             result.append(link_result)
@@ -391,6 +400,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         request_size: int,
         id_search_unsupported_resources: List[str],
         max_concurrent_tasks: Optional[int],
+        add_cached_bundles_to_result: bool = True,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Process a GraphDefinition link object with advanced traversal capabilities.
@@ -448,6 +458,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             parent_link_map=parent_link_map,
             request_size=request_size,
             id_search_unsupported_resources=id_search_unsupported_resources,
+            add_cached_bundles_to_result=add_cached_bundles_to_result,
         ):
             # Yield each target response individually
             for target_response in target_responses:
@@ -522,6 +533,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 if additional_parameters
                 else []
             ),
+            add_cached_bundles_to_result=(
+                additional_parameters.get("add_cached_bundles_to_result", True)
+                if additional_parameters
+                else True
+            ),
         ):
             # Collect each target result
             result.append(target_result)
@@ -542,6 +558,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         scope_parser: FhirScopeParser,
         logger: Optional[Logger],
         id_search_unsupported_resources: List[str],
+        add_cached_bundles_to_result: bool = True,
     ) -> FhirGetResponse:
         """
         Retrieve a group of child resources with advanced retrieval and logging capabilities.
@@ -591,6 +608,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             logger=logger,
             # Track resources with limited ID search
             id_search_unsupported_resources=id_search_unsupported_resources,
+            add_cached_bundles_to_result=add_cached_bundles_to_result,
         )
 
         # Log detailed retrieval information if logger is available
@@ -620,6 +638,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         parent_link_map: List[Tuple[List[GraphDefinitionLink], List[FhirBundleEntry]]],
         request_size: int,
         id_search_unsupported_resources: List[str],
+        add_cached_bundles_to_result: bool = True,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Process a GraphDefinition target
@@ -631,6 +650,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param logger: logger to use
         :param cache: cache to use
         :param scope_parser: scope parser to use
+        :param add_cached_bundles_to_result: whether to add cached bundles to result
         :return: list of FhirGetResponse objects
         """
         children: List[FhirBundleEntry] = []
@@ -690,6 +710,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 scope_parser=scope_parser,
                                 logger=logger,
                                 id_search_unsupported_resources=id_search_unsupported_resources,
+                                add_cached_bundles_to_result=add_cached_bundles_to_result,
                             )
                             yield child_response
                             children.extend(child_response.get_bundle_entries())
@@ -706,6 +727,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     scope_parser=scope_parser,
                     logger=logger,
                     id_search_unsupported_resources=id_search_unsupported_resources,
+                    add_cached_bundles_to_result=add_cached_bundles_to_result,
                 )
                 yield child_response
                 children.extend(child_response.get_bundle_entries())
@@ -748,6 +770,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                     scope_parser=scope_parser,
                                     logger=logger,
                                     id_search_unsupported_resources=id_search_unsupported_resources,
+                                    add_cached_bundles_to_result=add_cached_bundles_to_result,
                                 )
                                 yield child_response
                                 children.extend(child_response.get_bundle_entries())
@@ -764,6 +787,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     scope_parser=scope_parser,
                     logger=logger,
                     id_search_unsupported_resources=id_search_unsupported_resources,
+                    add_cached_bundles_to_result=add_cached_bundles_to_result,
                 )
                 yield child_response
                 children.extend(child_response.get_bundle_entries())
@@ -797,6 +821,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             scope_parser=scope_parser,
                             logger=logger,
                             id_search_unsupported_resources=id_search_unsupported_resources,
+                            add_cached_bundles_to_result=add_cached_bundles_to_result,
                         )
                         yield child_response
                         children.extend(child_response.get_bundle_entries())
@@ -815,6 +840,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         scope_parser=scope_parser,
                         logger=logger,
                         id_search_unsupported_resources=id_search_unsupported_resources,
+                        add_cached_bundles_to_result=add_cached_bundles_to_result,
                     )
                     yield child_response
                     children.extend(child_response.get_bundle_entries())
@@ -946,6 +972,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         scope_parser: FhirScopeParser,
         logger: Optional[Logger],
         id_search_unsupported_resources: List[str],
+        add_cached_bundles_to_result: bool = True,
     ) -> Tuple[FhirGetResponse, int]:
         assert resource_type
 
@@ -1127,9 +1154,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 f"Inserted {resource_type}/{non_cached_resource_id} into cache (ByParam)"
                             )
                         found_non_cached_id_list.append(non_cached_resource_id)
-            if cached_response:
+            if cached_response and add_cached_bundles_to_result:
                 all_result = all_result.append(cached_response)
-        elif cached_response:
+        elif cached_response and add_cached_bundles_to_result:
             all_result = cached_response
 
         # now add all the non-cached ids that were NOT found to the cache too so we don't look for them again
@@ -1189,6 +1216,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         request_size: Optional[int] = 1,
         max_concurrent_tasks: Optional[int] = 1,
         sort_resources: Optional[bool] = False,
+        add_cached_bundles_to_result: bool = True,
     ) -> FhirGetResponse:
         """
         Simulates the $graph query on the FHIR server
@@ -1208,6 +1236,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param request_size: Optional Count of resources to request in one request
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially.
         :param sort_resources: Optional flag to sort resources
+        :param add_cached_bundles_to_result: Optional flag to add cached bundles to result
         :return: FhirGetResponse
         """
         if contained:
@@ -1235,6 +1264,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 request_size=request_size,
                 max_concurrent_tasks=max_concurrent_tasks,
                 sort_resources=sort_resources,
+                add_cached_bundles_to_result=add_cached_bundles_to_result,
             )
         )
         assert result, "No result returned from simulate_graph_async"
