@@ -8,7 +8,7 @@ from mockserver_client.mockserver_client import (
     times,
 )
 
-from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
+from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,

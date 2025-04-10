@@ -5,7 +5,7 @@ from typing import Any, List, Optional
 
 import pytest
 
-from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
+from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse

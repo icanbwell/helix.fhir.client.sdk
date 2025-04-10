@@ -63,8 +63,7 @@ setup(
         "aiohttp",
         "async-timeout>=4.0.3",
         "python-dateutil",
-        "msgpack>=1.0.0",
-        "orjson>=3.10.16",
+        "compressedfhir>=1.0.0",
     ],
     classifiers=[
         "Development Status :: 4 - Beta",

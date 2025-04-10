@@ -2,7 +2,7 @@ import asyncio
 from types import TracebackType
 from typing import Optional, Type, Dict
 
-from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
+from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
 from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
 
 

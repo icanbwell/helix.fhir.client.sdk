@@ -27,7 +27,7 @@ from helix_fhir_client_sdk.responses.resource_separator import (
     ResourceSeparator,
     ResourceSeparatorResult,
 )
-from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (

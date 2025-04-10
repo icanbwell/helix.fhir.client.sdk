@@ -10,22 +10,22 @@ from typing import (
     Generator,
 )
 
-from helix_fhir_client_sdk.fhir.fhir_bundle import FhirBundle
-from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
-from helix_fhir_client_sdk.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
-from helix_fhir_client_sdk.fhir.fhir_bundle_entry_response import (
+from compressedfhir.fhir.fhir_bundle import FhirBundle
+from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
+from compressedfhir.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
+from compressedfhir.fhir.fhir_bundle_entry_response import (
     FhirBundleEntryResponse,
 )
-from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
-from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
-from helix_fhir_client_sdk.fhir.fhir_resource_map import FhirResourceMap
+from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
+from compressedfhir.fhir.fhir_resource_list import FhirResourceList
+from compressedfhir.fhir.fhir_resource_map import FhirResourceMap
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
-from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+from compressedfhir.fhir.fhir_resource import FhirResource
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
-from helix_fhir_client_sdk.utilities.fhir_json_encoder import FhirJSONEncoder
+from compressedfhir.utilities.fhir_json_encoder import FhirJSONEncoder
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )

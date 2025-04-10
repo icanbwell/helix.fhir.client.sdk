@@ -5,17 +5,17 @@ from unittest.mock import Mock
 
 import pytest
 
-from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
-from helix_fhir_client_sdk.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
-from helix_fhir_client_sdk.fhir.fhir_bundle_entry_response import (
+from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
+from compressedfhir.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
+from compressedfhir.fhir.fhir_bundle_entry_response import (
     FhirBundleEntryResponse,
 )
-from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
+from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
-from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (

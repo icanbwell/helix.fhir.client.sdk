@@ -4,15 +4,15 @@ from unittest.mock import Mock
 
 import pytest
 
-from helix_fhir_client_sdk.fhir.fhir_bundle_entry import (
+from compressedfhir.fhir.fhir_bundle_entry import (
     FhirBundleEntry,
 )
-from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
+from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_error_response import (
     FhirGetErrorResponse,
 )
-from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 

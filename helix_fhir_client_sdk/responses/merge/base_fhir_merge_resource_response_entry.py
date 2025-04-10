@@ -1,8 +1,8 @@
 import dataclasses
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
-from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
-from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+from compressedfhir.fhir.fhir_resource import FhirResource
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 

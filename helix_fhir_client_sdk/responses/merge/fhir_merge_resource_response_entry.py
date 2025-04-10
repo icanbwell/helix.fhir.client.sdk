@@ -2,12 +2,12 @@ import dataclasses
 import json
 from typing import Optional, Any, Dict, List, override
 
-from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
+from compressedfhir.fhir.fhir_resource import FhirResource
 
 from helix_fhir_client_sdk.responses.merge.base_fhir_merge_resource_response_entry import (
     BaseFhirMergeResourceResponseEntry,
 )
-from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 

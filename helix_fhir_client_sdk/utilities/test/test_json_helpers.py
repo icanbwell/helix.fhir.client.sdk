@@ -1,6 +1,6 @@
 from typing import Dict, List, Any
 
-from helix_fhir_client_sdk.utilities.json_helpers import FhirClientJsonHelpers
+from compressedfhir.utilities.json_helpers import FhirClientJsonHelpers
 
 
 class TestFhirClientJsonHelpers:

@@ -13,10 +13,10 @@ from typing import (
 )
 
 from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
-from helix_fhir_client_sdk.fhir.fhir_bundle import FhirBundle
-from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
-from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
-from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
+from compressedfhir.fhir.fhir_bundle import FhirBundle
+from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
+from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
+from compressedfhir.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,
     GraphDefinitionLink,

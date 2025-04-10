@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
+from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from logging import Logger
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache

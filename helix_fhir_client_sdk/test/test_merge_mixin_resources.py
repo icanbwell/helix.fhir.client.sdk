@@ -5,8 +5,8 @@ from typing import List
 
 from aioresponses import aioresponses
 
-from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
-from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
+from compressedfhir.fhir.fhir_resource import FhirResource
+from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.merge.fhir_merge_resource_response import (
     FhirMergeResourceResponse,

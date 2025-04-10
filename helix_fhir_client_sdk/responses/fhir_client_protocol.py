@@ -16,8 +16,8 @@ from typing import (
 from aiohttp import ClientSession
 from requests.adapters import BaseAdapter
 
-from helix_fhir_client_sdk.fhir.fhir_bundle import FhirBundle
-from helix_fhir_client_sdk.fhir.fhir_resource_list import FhirResourceList
+from compressedfhir.fhir.fhir_bundle import FhirBundle
+from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
 from helix_fhir_client_sdk.filters.sort_field import SortField
@@ -34,7 +34,7 @@ from helix_fhir_client_sdk.responses.merge.fhir_merge_resource_response import (
 from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
 )
-from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (

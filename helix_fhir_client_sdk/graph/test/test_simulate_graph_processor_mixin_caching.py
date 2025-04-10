@@ -4,8 +4,8 @@ from unittest.mock import Mock
 # noinspection PyPackageRequirements
 import pytest
 
-from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
-from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
+from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
+from compressedfhir.fhir.fhir_resource import FhirResource
 
 # Import the actual SimulatedGraphProcessorMixin (replace with actual import path)
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (

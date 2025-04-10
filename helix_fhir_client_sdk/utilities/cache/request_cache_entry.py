@@ -1,6 +1,6 @@
 import dataclasses
 
-from helix_fhir_client_sdk.fhir.fhir_bundle_entry import FhirBundleEntry
+from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
 
 
 @dataclasses.dataclass(slots=True, weakref_slot=True)
