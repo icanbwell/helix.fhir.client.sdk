@@ -26,7 +26,7 @@ from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
     TraceRequestFunction,
 )
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.merge.fhir_merge_resource_response import (
     FhirMergeResourceResponse,
@@ -76,7 +76,7 @@ class FhirClientProtocol(Protocol):
     _client_id: Optional[str]
     _access_token: Optional[str]
     _access_token_expiry_date: Optional[datetime]
-    _logger: Optional[FhirLogger]
+    _logger: Optional[Logger]
     _internal_logger: Logger
     _adapter: Optional[BaseAdapter]
     _limit: Optional[int]

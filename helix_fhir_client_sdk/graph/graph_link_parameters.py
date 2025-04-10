@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from helix_fhir_client_sdk.fhir.fhir_bundle_entry_list import FhirBundleEntryList
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 
@@ -15,7 +15,7 @@ class GraphLinkParameters:
 
     parent_bundle_entries: FhirBundleEntryList | None
 
-    logger: Optional[FhirLogger]
+    logger: Optional[Logger]
 
     cache: RequestCache
 

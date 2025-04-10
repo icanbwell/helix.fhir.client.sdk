@@ -15,7 +15,7 @@ from helix_fhir_client_sdk.function_types import RefreshTokenResult
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
     SimulatedGraphProcessorMixin,
 )
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from tests.logger_for_test import LoggerForTest
 
@@ -103,7 +103,7 @@ async def test_process_simulate_graph_async() -> None:
     Test the process_simulate_graph_async method.
     """
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
         max_concurrent_requests=1
@@ -201,7 +201,7 @@ async def test_graph_definition_with_single_link() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -262,7 +262,7 @@ async def test_graph_definition_with_nested_links() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -352,7 +352,7 @@ async def test_graph_definition_with_multiple_links() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -433,7 +433,7 @@ async def test_graph_definition_with_multiple_targets() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -511,7 +511,7 @@ async def test_graph_definition_with_no_links() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -565,7 +565,7 @@ async def test_process_simulate_graph_async_multiple_patients() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -635,7 +635,7 @@ async def test_graph_definition_with_multiple_links_concurrent_requests() -> Non
         max_concurrent_requests=3
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -717,7 +717,7 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests() -> N
         max_concurrent_requests=3
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -795,7 +795,7 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
         max_concurrent_requests=3
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -930,7 +930,7 @@ async def test_process_simulate_graph_401_patient_only_async() -> None:
     Test the process_simulate_graph_async method.
     """
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_processor: FhirClient = get_graph_processor(max_concurrent_requests=1)
 
@@ -1057,7 +1057,7 @@ async def test_graph_definition_with_single_link_401() -> None:
 
     graph_processor.refresh_token_function(my_refresh_token_function)
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -1181,7 +1181,7 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
 
     graph_processor.refresh_token_function(my_refresh_token_function)
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",

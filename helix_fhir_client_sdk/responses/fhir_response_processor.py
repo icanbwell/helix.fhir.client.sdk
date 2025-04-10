@@ -11,7 +11,7 @@ from aiohttp.streams import AsyncStreamIterator
 from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
 )
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 from helix_fhir_client_sdk.responses.bundle_expander import (
     BundleExpander,
     BundleExpanderResult,
@@ -54,7 +54,7 @@ class FhirResponseProcessor:
         access_token: Optional[str],
         resources_json: str,
         fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
-        logger: Optional[FhirLogger],
+        logger: Optional[Logger],
         internal_logger: Optional[Logger],
         extra_context_to_return: Optional[Dict[str, Any]],
         resource: Optional[str],
@@ -155,7 +155,7 @@ class FhirResponseProcessor:
         request_id: Optional[str],
         response: RetryableAioHttpResponse,
         response_headers: List[str],
-        logger: Optional[FhirLogger],
+        logger: Optional[Logger],
         internal_logger: Optional[Logger],
         access_token: Optional[str],
         extra_context_to_return: Optional[Dict[str, Any]],
@@ -219,7 +219,7 @@ class FhirResponseProcessor:
         extra_context_to_return: Optional[Dict[str, Any]],
         resource: Optional[str],
         id_: Optional[Union[List[str], str]],
-        logger: Optional[FhirLogger],
+        logger: Optional[Logger],
         storage_mode: CompressedDictStorageMode,
         create_operation_outcome_for_error: Optional[bool],
     ) -> AsyncGenerator[FhirGetResponse, None]:
@@ -273,7 +273,7 @@ class FhirResponseProcessor:
         extra_context_to_return: Optional[Dict[str, Any]],
         resource: Optional[str],
         id_: Optional[Union[List[str], str]],
-        logger: Optional[FhirLogger],
+        logger: Optional[Logger],
         expand_fhir_bundle: bool,
         separate_bundle_resources: bool,
         url: Optional[str],
@@ -364,7 +364,7 @@ class FhirResponseProcessor:
         resources_json: str,
         next_url: Optional[str],
         total_count: int,
-        logger: Optional[FhirLogger],
+        logger: Optional[Logger],
         expand_fhir_bundle: bool,
         separate_bundle_resources: bool,
         extra_context_to_return: Optional[Dict[str, Any]],
@@ -537,7 +537,7 @@ class FhirResponseProcessor:
         extra_context_to_return: Optional[Dict[str, Any]],
         resource: Optional[str],
         id_: Optional[Union[List[str], str]],
-        logger: Optional[FhirLogger],
+        logger: Optional[Logger],
         expand_fhir_bundle: bool,
         separate_bundle_resources: bool,
         url: Optional[str],
@@ -727,7 +727,7 @@ class FhirResponseProcessor:
         client_id: Optional[str],
         auth_scopes: List[str] | None,
         uuid: UUID,
-        logger: Optional[FhirLogger],
+        logger: Optional[Logger],
         internal_logger: Optional[Logger],
         log_level: Optional[str],
     ) -> None:
@@ -766,7 +766,7 @@ class FhirResponseProcessor:
         client_id: Optional[str],
         auth_scopes: List[str] | None,
         uuid: UUID,
-        logger: Optional[FhirLogger],
+        logger: Optional[Logger],
         internal_logger: Optional[Logger],
         log_level: Optional[str],
     ) -> None:

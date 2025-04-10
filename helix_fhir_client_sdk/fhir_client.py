@@ -44,7 +44,6 @@ from helix_fhir_client_sdk.graph.fhir_graph_mixin import FhirGraphMixin
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
     SimulatedGraphProcessorMixin,
 )
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
 from helix_fhir_client_sdk.queue.request_queue_mixin import RequestQueueMixin
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -97,7 +96,7 @@ class FhirClient(
         self._last_updated_after: Optional[datetime] = None
         self._last_updated_before: Optional[datetime] = None
         self._sort_fields: Optional[List[SortField]] = None
-        self._logger: Optional[FhirLogger] = None
+        self._logger: Optional[Logger] = None
         self._adapter: Optional[BaseAdapter] = None
         self._limit: Optional[int] = None
         self._validation_server_url: Optional[str] = None
@@ -316,7 +315,7 @@ class FhirClient(
         self._retry_count = count
         return self
 
-    def logger(self, logger: FhirLogger) -> "FhirClient":
+    def logger(self, logger: Logger) -> "FhirClient":
         """
         Logger to use for logging calls to the FHIR server
 

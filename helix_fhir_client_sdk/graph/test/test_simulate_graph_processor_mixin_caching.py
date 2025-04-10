@@ -11,7 +11,7 @@ from helix_fhir_client_sdk.fhir.fhir_resource import FhirResource
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
     SimulatedGraphProcessorMixin,
 )
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
@@ -28,7 +28,7 @@ class MockSimulatedGraphProcessorMixin:
         self._create_operation_outcome_for_error: bool = False
         self._url: str = "https://test.example.com"
         self._expand_fhir_bundle: bool = False
-        self._logger: Optional[FhirLogger] = None
+        self._logger: Optional[Logger] = None
         self._auth_scopes: List[str] = ["test-scope"]
         self._additional_parameters: Optional[List[str]] = None
         self._log_level: str = "INFO"
@@ -109,7 +109,7 @@ class MockSimulatedGraphProcessorMixin:
         parameters: Optional[List[str]] = None,
         cache: Optional[RequestCache] = None,
         scope_parser: Optional[FhirScopeParser] = None,
-        logger: Optional[FhirLogger] = None,
+        logger: Optional[Logger] = None,
         id_search_unsupported_resources: Optional[List[str]] = None,
     ) -> Tuple[FhirGetResponse, int]:
         # noinspection PyProtectedMember

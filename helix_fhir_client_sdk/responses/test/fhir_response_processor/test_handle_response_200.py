@@ -8,7 +8,7 @@ from helix_fhir_client_sdk.utilities.compressed_dict.v1.compressed_dict_storage_
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 
 
 async def test_handle_response_200() -> None:
@@ -21,7 +21,7 @@ async def test_handle_response_200() -> None:
     extra_context_to_return = {"extra_key": "extra_value"}
     resource = "Patient"
     id_ = "mock_id"
-    logger = MagicMock(FhirLogger)
+    logger = MagicMock(Logger)
     expand_fhir_bundle = True
     separate_bundle_resources = False
     url = "http://example.com"

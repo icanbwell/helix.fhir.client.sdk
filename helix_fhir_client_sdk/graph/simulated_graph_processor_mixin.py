@@ -1,3 +1,4 @@
+import logging
 from abc import ABC
 from datetime import datetime
 from typing import (
@@ -23,7 +24,7 @@ from helix_fhir_client_sdk.graph.graph_definition import (
 )
 from helix_fhir_client_sdk.graph.graph_link_parameters import GraphLinkParameters
 from helix_fhir_client_sdk.graph.graph_target_parameters import GraphTargetParameters
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
@@ -75,7 +76,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         retrieve_and_restrict_to_capability_statement: Optional[bool] = None,
         ifModifiedSince: Optional[datetime] = None,
         eTag: Optional[str] = None,
-        logger: Optional[FhirLogger],
+        logger: Optional[Logger],
         url: Optional[str],
         expand_fhir_bundle: Optional[bool],
         auth_scopes: Optional[List[str]],
@@ -165,7 +166,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             )
 
             # If no parent resources found, yield empty response and exit
-            if parent_response.get_resource_count() == 0:
+            parent_response_resource_count = parent_response.get_resource_count()
+            if parent_response_resource_count == 0:
                 yield parent_response
                 return  # no resources to process
 
@@ -173,7 +175,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             if logger:
                 logger.info(
                     f"FhirClient.simulate_graph_async() "
-                    f"got parent resources: {parent_response.get_resource_count()} "
+                    f"got parent resources: {parent_response_resource_count} "
                     f"cached:{cache_hits}"
                 )
 
@@ -184,7 +186,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
             if logger:
                 logger.info(
-                    f"FhirClient.simulate_graph_async() got parent resources: {parent_response.get_resource_count()} "
+                    f"FhirClient.simulate_graph_async() got parent resources: {parent_response_resource_count} "
                     + f"cached:{cache_hits}"
                 )
 
@@ -382,7 +384,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         *,
         link: GraphDefinitionLink,
         parent_bundle_entries: Optional[FhirBundleEntryList],
-        logger: Optional[FhirLogger],
+        logger: Optional[Logger],
         cache: RequestCache,
         scope_parser: FhirScopeParser,
         parent_link_map: List[Tuple[List[GraphDefinitionLink], FhirBundleEntryList]],
@@ -538,7 +540,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         path: Optional[str],
         cache: RequestCache,
         scope_parser: FhirScopeParser,
-        logger: Optional[FhirLogger],
+        logger: Optional[Logger],
         id_search_unsupported_resources: List[str],
     ) -> FhirGetResponse:
         """
@@ -612,7 +614,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         target: GraphDefinitionTarget,
         path: Optional[str],
         parent_bundle_entries: Optional[FhirBundleEntryList],
-        logger: Optional[FhirLogger],
+        logger: Optional[Logger],
         cache: RequestCache,
         scope_parser: FhirScopeParser,
         parent_link_map: List[Tuple[List[GraphDefinitionLink], List[FhirBundleEntry]]],
@@ -826,7 +828,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         ids: List[str],
         cache: RequestCache,
         additional_parameters: Optional[List[str]],
-        logger: Optional[FhirLogger],
+        logger: Optional[Logger],
     ) -> Optional[FhirGetResponse]:
         result: Optional[FhirGetResponse] = None
         cached_bundle_entries: FhirBundleEntryList = FhirBundleEntryList()
@@ -924,7 +926,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     )
                     if cache_updated and logger:
                         logger.debug(
-                            f"Inserted 404 for {resource_type}/{single_id} into cache (1by1)"
+                            f"Inserted {result2.status} for {resource_type}/{single_id} into cache (1by1)"
                         )
 
         if cached_response:
@@ -942,7 +944,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         parameters: Optional[List[str]] = None,
         cache: RequestCache,
         scope_parser: FhirScopeParser,
-        logger: Optional[FhirLogger],
+        logger: Optional[Logger],
         id_search_unsupported_resources: List[str],
     ) -> Tuple[FhirGetResponse, int]:
         assert resource_type
@@ -1002,7 +1004,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     else:
                         if logger:
                             logger.debug(
-                                f"404 Cache entry found for {resource_type}/{resource_id} (ByParam)"
+                                f"{cache_entry.status} Cache entry found for {resource_type}/{resource_id} (ByParam)"
                             )
                     cache_hits += 1
                 else:
@@ -1011,7 +1013,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         if cached_bundle_entries and len(cached_bundle_entries) > 0:
             # create a bundle from the cached entries
             # then we will add the non-cached entries to it
-            if logger:
+            if logger and logger.isEnabledFor(logging.DEBUG):
                 for cached_bundle_entry in cached_bundle_entries:
                     if cached_bundle_entry.resource:
                         logger.debug(

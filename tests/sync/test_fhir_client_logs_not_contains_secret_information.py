@@ -1,6 +1,6 @@
 import json
 import unittest
-from typing import Any
+from typing import Any, Mapping
 
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
@@ -10,22 +10,30 @@ from mockserver_client.mockserver_client import (
 )
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 log_output = []
 
 
-class TestLoggerLogs(FhirLogger):
+class TestLoggerLogs(Logger):
     """
     Logger class to mock logger and add the logs to log_output
     """
 
-    def info(self, param: Any) -> None:
+    def info(
+        self,
+        msg: object,
+        *args: object,
+        exc_info: Any = None,
+        stack_info: bool = False,
+        stacklevel: int = 1,
+        extra: Mapping[str, object] | None = None,
+    ) -> None:
         """
         Handle messages at INFO level
         """
-        log_output.append(param)
+        log_output.append(msg)
 
 
 class TestRemoveSecretInformationFromLogs(unittest.TestCase):
@@ -38,7 +46,7 @@ class TestRemoveSecretInformationFromLogs(unittest.TestCase):
         Method to test secret information getting removed from the logs
         """
         test_name = "test_client_secrets_removed_from_logs"
-        logger = TestLoggerLogs()
+        logger = TestLoggerLogs("test_logger")
         mock_server_url = "http://mock-server:1080"
         mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
             base_url=mock_server_url
