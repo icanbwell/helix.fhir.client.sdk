@@ -8,6 +8,7 @@ from mockserver_client.mockserver_client import (
     times,
 )
 
+from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,
@@ -92,15 +93,17 @@ async def test_fhir_graph_multiple_ids_async() -> None:
     async for response in fhir_client.graph_async(
         id_=["1", "2"], graph_definition=graph_definition, contained=False
     ):
-        print(f"Response Chunk: {response.responses}")
+        print(f"Response Chunk: {response.get_response_text()}")
         responses.append(response)
 
     assert len(responses) == 1
-    print(f"Response: {responses[0].responses}")
+    print(f"Response: {responses[0].get_response_text()}")
     assert responses[
         0
-    ].responses, f"Expected {response_text} but got {responses[0].responses} from url {responses[0].url}"
-    assert responses[0].get_resources() == [
+    ].get_response_text(), f"Expected {response_text} but got {responses[0].get_response_text()} from url {responses[0].url}"
+    resources = responses[0].get_resources()
+    assert isinstance(resources, FhirResourceList)
+    assert list([r.dict() for r in resources]) == [
         {"id": "1", "resourceType": "Patient"},
         {"id": "2", "resourceType": "Patient"},
     ]

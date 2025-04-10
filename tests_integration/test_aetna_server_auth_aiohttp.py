@@ -20,6 +20,7 @@ async def test_aetna_server_auth_aiohttp() -> None:
         "Authorization": "Bearer {token}",
     }
 
+    # noinspection PyShadowingNames
     async def on_request_end(
         session: ClientSession,
         trace_config_ctx: SimpleNamespace,

@@ -1,7 +1,12 @@
+import json
 from collections.abc import AsyncGenerator
+from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
+)
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
@@ -9,7 +14,7 @@ from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 
 
 async def test_handle_response_200_streaming() -> None:
@@ -18,9 +23,9 @@ async def test_handle_response_200_streaming() -> None:
     request_id = "mock_request_id"
     chunk_size = 1024
     extra_context_to_return = {"extra_key": "extra_value"}
-    resource = "Patient"
+    resource_type = "Patient"
     id_ = "mock_id"
-    logger = MagicMock(FhirLogger)
+    logger = MagicMock(Logger)
     expand_fhir_bundle = False
     separate_bundle_resources = False
     url = "http://example.com"
@@ -31,11 +36,17 @@ async def test_handle_response_200_streaming() -> None:
     response.results_by_url = []
     response.content = MagicMock()
 
+    patient: Dict[str, Any] = {"resourceType": "Patient", "id": "1"}
+
     # Define an async iterator
     async def async_iterator(chunk_size1: int) -> AsyncGenerator[bytes, None]:
-        yield b'{"resourceType": "Patient", "id": "1"}\n'
+        patient_text: str = json.dumps(patient)
+        yield b"%s\n" % patient_text.encode("utf-8")  # Simulating a chunk of data
 
     response.content.iter_chunked = async_iterator
+    response.content.at_eof = MagicMock(
+        return_value=False
+    )  # Mocking the at_eof method to return False
 
     response.response_headers = {"mock_header": "mock_value"}
 
@@ -56,12 +67,14 @@ async def test_handle_response_200_streaming() -> None:
             total_count=0,
             chunk_size=chunk_size,
             extra_context_to_return=extra_context_to_return,
-            resource=resource,
+            resource=resource_type,
             id_=id_,
             logger=logger,
             expand_fhir_bundle=expand_fhir_bundle,
             separate_bundle_resources=separate_bundle_resources,
             url=url,
+            storage_mode=CompressedDictStorageMode(),
+            create_operation_outcome_for_error=False,
         )
     ]
 
@@ -71,21 +84,21 @@ async def test_handle_response_200_streaming() -> None:
         {
             "request_id": request_id,
             "url": full_url,
-            "responses": '{"resourceType": "Patient", "id": "1"}',
+            "_resource": patient,
             "error": None,
             "access_token": access_token,
             "total_count": 0,
             "status": 200,
             "next_url": None,
             "extra_context_to_return": extra_context_to_return,
-            "resource_type": resource,
+            "resource_type": resource_type,
             "id_": id_,
             "response_headers": ["mock_header=mock_value"],
             "chunk_number": 1,
-            "successful": True,
             "cache_hits": None,
             "results_by_url": [],
+            "storage_type": "compressed",
         }
     ]
 
-    assert result[0].__dict__ == expected_result[0]
+    assert result[0].to_dict() == expected_result[0]

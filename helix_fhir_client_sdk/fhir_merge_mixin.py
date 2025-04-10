@@ -1,6 +1,15 @@
 import json
 import time
-from typing import Optional, List, Dict, Any, Union, cast, Generator, AsyncGenerator
+from typing import (
+    Optional,
+    List,
+    Dict,
+    Any,
+    Union,
+    cast,
+    Generator,
+    AsyncGenerator,
+)
 from urllib import parse
 
 import requests
@@ -29,6 +38,70 @@ from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValid
 
 
 class FhirMergeMixin(FhirClientProtocol):
+    async def validate_content(
+        self,
+        *,
+        errors: List[Dict[str, Any]],
+        resource_json_list_incoming: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        resource_json_list_clean: List[Dict[str, Any]] = []
+        assert self._validation_server_url
+        # if there is only resource then just validate that individually
+        if len(resource_json_list_incoming) == 1:
+            resource_json: Dict[str, Any] = resource_json_list_incoming[0]
+            try:
+                access_token_result: GetAccessTokenResult = (
+                    await self.get_access_token_async()
+                )
+                access_token: Optional[str] = access_token_result.access_token
+
+                await AsyncFhirValidator.validate_fhir_resource(
+                    fn_get_session=lambda: self.create_http_session(),
+                    json_data=json.dumps(resource_json),
+                    resource_name=cast(Optional[str], resource_json.get("resourceType"))
+                    or self._resource
+                    or "",
+                    validation_server_url=self._validation_server_url,
+                    access_token=access_token,
+                )
+                resource_json_list_clean.append(resource_json)
+            except FhirValidationException as e:
+                errors.append(
+                    {
+                        "id": (
+                            resource_json.get("id") if resource_json.get("id") else None
+                        ),
+                        "resourceType": resource_json.get("resourceType"),
+                        "issue": e.issue,
+                    }
+                )
+        else:
+            for resource_json in resource_json_list_incoming:
+                try:
+                    access_token_result1: GetAccessTokenResult = (
+                        await self.get_access_token_async()
+                    )
+                    access_token1: Optional[str] = access_token_result1.access_token
+                    await AsyncFhirValidator.validate_fhir_resource(
+                        fn_get_session=lambda: self.create_http_session(),
+                        json_data=json.dumps(resource_json),
+                        resource_name=resource_json.get("resourceType")
+                        or self._resource
+                        or "",
+                        validation_server_url=self._validation_server_url,
+                        access_token=access_token1,
+                    )
+                    resource_json_list_clean.append(resource_json)
+                except FhirValidationException as e:
+                    errors.append(
+                        {
+                            "id": resource_json.get("id"),
+                            "resourceType": resource_json.get("resourceType"),
+                            "issue": e.issue,
+                        }
+                    )
+        return resource_json_list_clean
+
     async def merge_async(
         self,
         *,
@@ -245,70 +318,6 @@ class FhirMergeMixin(FhirClientProtocol):
                     )
                 )
             raise e
-
-    async def validate_content(
-        self,
-        *,
-        errors: List[Dict[str, Any]],
-        resource_json_list_incoming: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
-        resource_json_list_clean: List[Dict[str, Any]] = []
-        assert self._validation_server_url
-        # if there is only resource then just validate that individually
-        if len(resource_json_list_incoming) == 1:
-            resource_json: Dict[str, Any] = resource_json_list_incoming[0]
-            try:
-                access_token_result: GetAccessTokenResult = (
-                    await self.get_access_token_async()
-                )
-                access_token: Optional[str] = access_token_result.access_token
-
-                await AsyncFhirValidator.validate_fhir_resource(
-                    fn_get_session=lambda: self.create_http_session(),
-                    json_data=json.dumps(resource_json),
-                    resource_name=cast(Optional[str], resource_json.get("resourceType"))
-                    or self._resource
-                    or "",
-                    validation_server_url=self._validation_server_url,
-                    access_token=access_token,
-                )
-                resource_json_list_clean.append(resource_json)
-            except FhirValidationException as e:
-                errors.append(
-                    {
-                        "id": (
-                            resource_json.get("id") if resource_json.get("id") else None
-                        ),
-                        "resourceType": resource_json.get("resourceType"),
-                        "issue": e.issue,
-                    }
-                )
-        else:
-            for resource_json in resource_json_list_incoming:
-                try:
-                    access_token_result1: GetAccessTokenResult = (
-                        await self.get_access_token_async()
-                    )
-                    access_token1: Optional[str] = access_token_result1.access_token
-                    await AsyncFhirValidator.validate_fhir_resource(
-                        fn_get_session=lambda: self.create_http_session(),
-                        json_data=json.dumps(resource_json),
-                        resource_name=resource_json.get("resourceType")
-                        or self._resource
-                        or "",
-                        validation_server_url=self._validation_server_url,
-                        access_token=access_token1,
-                    )
-                    resource_json_list_clean.append(resource_json)
-                except FhirValidationException as e:
-                    errors.append(
-                        {
-                            "id": resource_json.get("id"),
-                            "resourceType": resource_json.get("resourceType"),
-                            "issue": e.issue,
-                        }
-                    )
-        return resource_json_list_clean
 
     def merge(
         self,

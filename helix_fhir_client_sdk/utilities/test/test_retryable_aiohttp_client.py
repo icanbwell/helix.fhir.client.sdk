@@ -1,5 +1,4 @@
 # test_retryable_aiohttp_client.py
-import asyncio
 from datetime import datetime
 from typing import Optional
 
@@ -8,6 +7,9 @@ from aiohttp import ClientSession
 from aioresponses import aioresponses
 
 from helix_fhir_client_sdk.function_types import RefreshTokenResult
+from helix_fhir_client_sdk.graph.test.test_simulate_graph_processor_mixin import (
+    get_payload_function,
+)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
 )
@@ -352,7 +354,13 @@ async def test_timeout_handling() -> None:
         tracer_request_func=None,
     ) as client:
         with aioresponses() as m:
-            m.get("http://test.com", status=200, body=asyncio.sleep(1))
+            m.get(
+                "http://test.com",
+                status=200,
+                callback=get_payload_function(
+                    {"resourceType": "Patient", "id": "1"}, delay=1
+                ),
+            )
 
             with pytest.raises(Exception):
                 await client.get(url="http://test.com")

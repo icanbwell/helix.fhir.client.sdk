@@ -54,7 +54,7 @@ class HandleErrorFunction(Protocol):
         ...
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class RefreshTokenResult:
     """
     Result of a token refresh
@@ -113,7 +113,7 @@ class HandleStreamingResourcesFunction(Protocol):
         ...
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class TraceRequestResult:
     """
     Result of a request trace

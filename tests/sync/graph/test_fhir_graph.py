@@ -78,4 +78,4 @@ def test_fhir_graph() -> None:
         graph_definition=graph_definition, contained=False
     )
     assert response is not None
-    assert json.loads(response.responses) == response_text
+    assert json.loads(response.get_response_text()) == response_text

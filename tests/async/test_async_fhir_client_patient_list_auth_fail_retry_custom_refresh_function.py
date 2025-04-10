@@ -69,5 +69,5 @@ async def test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_fun
         expiry_date=None,
         retry_count=0,
     )
-    print(response.responses)
-    assert response.responses == response_text
+    print(response.get_response_text())
+    assert response.get_response_text() == response_text

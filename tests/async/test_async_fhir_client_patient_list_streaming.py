@@ -9,6 +9,7 @@ from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
 )
 
+from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.fhir_helper import FhirHelper
@@ -62,23 +63,25 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
 
     responses: List[FhirGetResponse] = []
     response: Optional[FhirGetResponse] = None
-    resource_chunks: List[List[Dict[str, Any]]] = []
+    resource_chunks: List[FhirResourceList] = []
     async for response1 in fhir_client.get_streaming_async():
         resources_in_chunk = response1.get_resources()
+        assert isinstance(resources_in_chunk, FhirResourceList)
         print(
-            f"Chunk {response1.chunk_number} [{len(resources_in_chunk)}]: {response1}"
+            f"Chunk {response1.chunk_number} [{len(resources_in_chunk)}]: {response1.to_dict()}"
         )
 
         resource_chunks.append(resources_in_chunk)
         if not response:
             response = response1
         else:
-            response.append(response1)
+            response = response.append(response1)
         responses.append(response1)
 
     assert response is not None
 
-    resources: List[Dict[str, Any]] = response.get_resources()
+    resources: FhirResourceList = response.get_resources()
+    assert isinstance(resources, FhirResourceList)
 
     mock_client.verify_expectations()
 

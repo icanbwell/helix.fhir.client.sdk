@@ -36,5 +36,5 @@ async def test_fhir_client_patient_by_id_async() -> None:
     fhir_client = fhir_client.url(absolute_url).resource("Patient").id_("12355")
     response: FhirGetResponse = await fhir_client.get_async()
 
-    print(response.responses)
-    assert response.responses == response_text
+    print(response.get_response_text())
+    assert response.get_response_text() == response_text

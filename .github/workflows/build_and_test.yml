@@ -38,7 +38,7 @@ jobs:
 
       - name: tests
         run: |
-          docker compose run --rm --name helix.fhir.client.sdk -v /home/runner/work/${{ github.repository }}/reports:/reports dev pytest tests --tb=auto --junitxml=/reports/test-results.xml
+          docker compose run --rm --name helix.fhir.client.sdk -v /home/runner/work/${{ github.repository }}/reports:/reports dev pytest helix_fhir_client_sdk tests --tb=auto --junitxml=/reports/test-results.xml
           docker compose run --rm --name helix.fhir.client.sdk -v /home/runner/work/${{ github.repository }}/reports:/reports dev pytest tests_integration --tb=auto --junitxml=/reports/test-results-integration.xml
 
       - name: Upload pytest test results

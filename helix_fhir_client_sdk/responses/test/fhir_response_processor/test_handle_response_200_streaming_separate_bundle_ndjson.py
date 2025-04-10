@@ -1,8 +1,10 @@
-import json
 from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
+)
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
@@ -10,7 +12,7 @@ from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 
 
 async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
@@ -21,7 +23,7 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
     extra_context_to_return = {"extra_key": "extra_value"}
     resource = "Patient"
     id_ = "mock_id"
-    logger = MagicMock(FhirLogger)
+    logger = MagicMock(Logger)
     expand_fhir_bundle = True
     separate_bundle_resources = True
     url = "http://example.com"
@@ -37,6 +39,9 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
         yield b'{"resourceType": "Practitioner", "id": "1", "contained":[{"resourceType": "PractitionerRole", "id": "2"}]}\n{"resourceType": "Practitioner", "id": "3"}\n'
 
     response.content.iter_chunked = async_iterator
+    response.content.at_eof = MagicMock(
+        return_value=False
+    )  # Mocking the at_eof method to return False
 
     response.response_headers = {"mock_header": "mock_value"}
 
@@ -63,6 +68,8 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
             expand_fhir_bundle=expand_fhir_bundle,
             separate_bundle_resources=separate_bundle_resources,
             url=url,
+            storage_mode=CompressedDictStorageMode(),
+            create_operation_outcome_for_error=False,
         )
     ]
 
@@ -88,7 +95,7 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
         {
             "request_id": request_id,
             "url": full_url,
-            "responses": json.dumps([expected_resources[0]]),
+            "_resources": [expected_resources[0]],
             "error": None,
             "access_token": access_token,
             "total_count": 2,
@@ -99,13 +106,14 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
             "id_": id_,
             "response_headers": ["mock_header=mock_value"],
             "chunk_number": 1,
-            "successful": True,
             "cache_hits": None,
+            "results_by_url": [],
+            "storage_type": "compressed",
         },
         {
             "request_id": request_id,
             "url": full_url,
-            "responses": json.dumps([expected_resources[1]]),
+            "_resources": [expected_resources[1]],
             "error": None,
             "access_token": access_token,
             "total_count": 1,
@@ -116,9 +124,9 @@ async def test_handle_response_200_streaming_separate_bundle_ndjson() -> None:
             "id_": id_,
             "response_headers": ["mock_header=mock_value"],
             "chunk_number": 1,
-            "successful": True,
             "cache_hits": None,
             "results_by_url": [],
+            "storage_type": "compressed",
         },
     ]
 

@@ -22,7 +22,7 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
         contents = file.read()
         graph_json = json.loads(contents)
 
-    test_name = "test_fhir_simulated_graph_with_operation_outcomes_async"
+    test_name = test_fhir_simulated_graph_with_operation_outcomes_async.__name__
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
@@ -118,6 +118,8 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
 
     fhir_client.extra_context_to_return({"service_slug": "medstar"})
 
+    fhir_client = fhir_client.set_create_operation_outcome_for_error(True)
+
     auth_access_token = "my_access_token"
     if auth_access_token:
         fhir_client = fhir_client.set_access_token(auth_access_token)
@@ -132,279 +134,13 @@ async def test_fhir_simulated_graph_with_operation_outcomes_async() -> None:
         )
     )
     assert response is not None
-    print(response.responses)
+    print(response.get_response_text())
 
-    expected_json: Dict[str, Any] = {
-        "entry": [
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/Patient/1",
-                },
-                "resource": {
-                    "generalPractitioner": [{"reference": "Practitioner/5"}],
-                    "id": "1",
-                    "managingOrganization": {"reference": "Organization/6"},
-                    "resourceType": "Patient",
-                },
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/Practitioner/5",
-                },
-                "resource": {"id": "5", "resourceType": "Practitioner"},
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/Organization/6",
-                },
-                "resource": {"id": "6", "resourceType": "Organization"},
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/Coverage?patient=1",
-                },
-                "resource": {"id": "7", "resourceType": "Coverage"},
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/Observation?patient=1&category=vital-signs,social-history,laboratory",
-                },
-                "resource": {"id": "8", "resourceType": "Observation"},
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/ExplanationOfBenefit?patient=1",
-                },
-                "resource": {
-                    "issue": [
-                        {
-                            "code": "not-found",
-                            "details": {
-                                "coding": [
-                                    {
-                                        "code": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/ExplanationOfBenefit?patient=1",
-                                        "system": "https://www.icanbwell.com/url",
-                                    },
-                                    {
-                                        "code": "ExplanationOfBenefit",
-                                        "system": "https://www.icanbwell.com/resourceType",
-                                    },
-                                    {
-                                        "code": 404,
-                                        "system": "https://www.icanbwell.com/statuscode",
-                                    },
-                                    {
-                                        "code": "my_access_token",
-                                        "system": "https://www.icanbwell.com/accessToken",
-                                    },
-                                ]
-                            },
-                            "diagnostics": '{"url": '
-                            '"http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/ExplanationOfBenefit?patient=1", '
-                            '"error": "NotFound", '
-                            '"status": 404, '
-                            '"extra_context_to_return": '
-                            '{"service_slug": '
-                            '"medstar"}, "accessToken": '
-                            '"my_access_token", '
-                            '"requestId": null, '
-                            '"resourceType": '
-                            '"ExplanationOfBenefit", '
-                            '"id": null}',
-                            "severity": "error",
-                        }
-                    ],
-                    "resourceType": "OperationOutcome",
-                },
-                "response": {"status": "404"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/Observation?patient=1&category=vital-signs,social-history,laboratory",
-                },
-                "resource": {
-                    "issue": [
-                        {
-                            "code": "suppressed",
-                            "details": {
-                                "coding": [
-                                    {
-                                        "code": "59204",
-                                        "display": "The "
-                                        "authenticated "
-                                        "client's "
-                                        "search "
-                                        "request "
-                                        "applies "
-                                        "to a "
-                                        "sub-resource "
-                                        "that "
-                                        "the "
-                                        "client "
-                                        "is not "
-                                        "authorized "
-                                        "for. "
-                                        "Results "
-                                        "of "
-                                        "this "
-                                        "sub-type "
-                                        "will "
-                                        "not be "
-                                        "returned.",
-                                        "system": "urn:oid:1.2.840.114350.1.13.0.1.7.2.657369",
-                                    },
-                                    {
-                                        "code": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/Observation?patient=1&category=vital-signs,social-history,laboratory",
-                                        "system": "https://www.icanbwell.com/url",
-                                    },
-                                    {
-                                        "code": "Observation",
-                                        "system": "https://www.icanbwell.com/resourceType",
-                                    },
-                                    {
-                                        "code": 200,
-                                        "system": "https://www.icanbwell.com/statuscode",
-                                    },
-                                    {
-                                        "code": "my_access_token",
-                                        "system": "https://www.icanbwell.com/accessToken",
-                                    },
-                                ],
-                                "text": "The authenticated "
-                                "client's search "
-                                "request applies to a "
-                                "sub-resource that the "
-                                "client is not "
-                                "authorized for. "
-                                "Results of this "
-                                "sub-type will not be "
-                                "returned.",
-                            },
-                            "diagnostics": "Client not authorized for "
-                            "DocumentReference - "
-                            "Document Information. "
-                            "Search results of this "
-                            "type have not been "
-                            "included.",
-                            "severity": "warning",
-                        }
-                    ],
-                    "resourceType": "OperationOutcome",
-                },
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/MedicationRequest?patient=1",
-                },
-                "resource": {
-                    "issue": [
-                        {
-                            "code": "not-found",
-                            "details": {
-                                "coding": [
-                                    {
-                                        "code": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/MedicationRequest?patient=1",
-                                        "system": "https://www.icanbwell.com/url",
-                                    },
-                                    {
-                                        "code": "MedicationRequest",
-                                        "system": "https://www.icanbwell.com/resourceType",
-                                    },
-                                    {
-                                        "code": 404,
-                                        "system": "https://www.icanbwell.com/statuscode",
-                                    },
-                                    {
-                                        "code": "my_access_token",
-                                        "system": "https://www.icanbwell.com/accessToken",
-                                    },
-                                ]
-                            },
-                            "diagnostics": '{"url": '
-                            '"http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/MedicationRequest?patient=1", '
-                            '"error": "NotFound", '
-                            '"status": 404, '
-                            '"extra_context_to_return": '
-                            '{"service_slug": '
-                            '"medstar"}, "accessToken": '
-                            '"my_access_token", '
-                            '"requestId": null, '
-                            '"resourceType": '
-                            '"MedicationRequest", "id": '
-                            "null}",
-                            "severity": "error",
-                        }
-                    ],
-                    "resourceType": "OperationOutcome",
-                },
-                "response": {"status": "404"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/MedicationDispense?patient=1",
-                },
-                "resource": {
-                    "issue": [
-                        {
-                            "code": "not-found",
-                            "details": {
-                                "coding": [
-                                    {
-                                        "code": "http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/MedicationDispense?patient=1",
-                                        "system": "https://www.icanbwell.com/url",
-                                    },
-                                    {
-                                        "code": "MedicationDispense",
-                                        "system": "https://www.icanbwell.com/resourceType",
-                                    },
-                                    {
-                                        "code": 404,
-                                        "system": "https://www.icanbwell.com/statuscode",
-                                    },
-                                    {
-                                        "code": "my_access_token",
-                                        "system": "https://www.icanbwell.com/accessToken",
-                                    },
-                                ]
-                            },
-                            "diagnostics": '{"url": '
-                            '"http://mock-server:1080/test_fhir_simulated_graph_with_operation_outcomes_async/MedicationDispense?patient=1", '
-                            '"error": "NotFound", '
-                            '"status": 404, '
-                            '"extra_context_to_return": '
-                            '{"service_slug": '
-                            '"medstar"}, "accessToken": '
-                            '"my_access_token", '
-                            '"requestId": null, '
-                            '"resourceType": '
-                            '"MedicationDispense", '
-                            '"id": null}',
-                            "severity": "error",
-                        }
-                    ],
-                    "resourceType": "OperationOutcome",
-                },
-                "response": {"status": "404"},
-            },
-        ]
-    }
+    expected_file_path = data_dir.joinpath("expected")
+    with open(expected_file_path.joinpath(test_name + ".json")) as f:
+        expected_json = json.load(f)
 
-    bundle = json.loads(response.responses)
+    bundle = json.loads(response.get_response_text())
     # sort the entries by request url
     bundle["entry"] = sorted(
         bundle["entry"],

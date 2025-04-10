@@ -2,6 +2,21 @@ from typing import List, Optional, Dict, Any, AsyncGenerator
 
 
 class FhirMergeResponse:
+    """
+    FHIR Merge Response class for encapsulating the response from FHIR server when merging resources
+    """
+
+    __slots__ = [
+        "request_id",
+        "url",
+        "responses",
+        "error",
+        "access_token",
+        "status",
+        "data",
+        "successful",
+    ]
+
     def __init__(
         self,
         *,
@@ -60,3 +75,20 @@ class FhirMergeResponse:
 
         assert result
         return result
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Converts the FhirMergeResponse to a dictionary
+
+        :return: dictionary representation of the FhirMergeResponse
+        """
+        return {
+            "request_id": self.request_id,
+            "url": self.url,
+            "responses": self.responses,
+            "error": self.error,
+            "access_token": self.access_token,
+            "status": self.status,
+            "data": self.data,
+            "successful": self.successful,
+        }

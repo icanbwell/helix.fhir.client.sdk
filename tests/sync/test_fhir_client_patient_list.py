@@ -36,5 +36,5 @@ def test_fhir_client_patient_list() -> None:
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     response: FhirGetResponse = fhir_client.get()
 
-    print(response.responses)
-    assert response.responses == response_text
+    print(response.get_response_text())
+    assert response.get_response_text() == response_text

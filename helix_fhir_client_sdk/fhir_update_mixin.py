@@ -1,7 +1,9 @@
-from typing import Optional
+from typing import Optional, AsyncGenerator
 
 from furl import furl
 
+from compressedfhir.fhir.fhir_resource import FhirResource
+from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_update_response import FhirUpdateResponse
 from helix_fhir_client_sdk.structures.get_access_token_result import (
@@ -15,17 +17,59 @@ from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValid
 
 
 class FhirUpdateMixin(FhirClientProtocol):
-    async def update_async(self, json_data: str) -> FhirUpdateResponse:
+    async def update_single_resource_async(
+        self, *, resource: FhirResource
+    ) -> FhirUpdateResponse:
+        """
+        Update a single resource. This will completely overwrite the resource. We recommend using merge()
+            instead since that does proper merging.
+
+        :param resource: resource to update
+        :return: FhirUpdateResponse object
+        """
+        if not resource.id:
+            raise ValueError("Resource ID is required for update")
+        json_data = resource.json()
+        response = await self.update_async(json_data=json_data, id_=resource.id)
+        if response.error:
+            raise ValueError(f"Failed to update resource: {response.error}")
+        return response
+
+    async def update_resources_async(
+        self, *, resources: FhirResourceList
+    ) -> AsyncGenerator[FhirUpdateResponse, None]:
+        """
+        Update the resources. This will completely overwrite the resources. We recommend using merge()
+            instead since that does proper merging.
+
+        :param resources: list of resources to update
+        :return: generator of FhirUpdateResponses
+        """
+        resource: FhirResource
+        for resource in resources:
+            if not resource.id:
+                raise ValueError("Resource ID is required for update")
+            json_data = resource.json()
+            response = await self.update_async(json_data=json_data, id_=resource.id)
+            if response.error:
+                raise ValueError(f"Failed to update resource: {response.error}")
+            yield response
+
+    async def update_async(
+        self, *, id_: Optional[str] = None, json_data: str
+    ) -> FhirUpdateResponse:
         """
         Update the resource.  This will completely overwrite the resource.  We recommend using merge()
             instead since that does proper merging.
 
 
         :param json_data: data to update the resource with
+        :param id_: ID of the resource to update
+        :return: FhirUpdateResponse object
         """
         assert self._url, "No FHIR server url was set"
         assert json_data, "Empty string was passed"
-        if not self._id:
+        if not id_ and not self._id:
             raise ValueError("update requires the ID of FHIR object to update")
         if not isinstance(self._id, str):
             raise ValueError("update should have only one id")
@@ -33,7 +77,7 @@ class FhirUpdateMixin(FhirClientProtocol):
             raise ValueError("update requires a FHIR resource type")
         full_uri: furl = furl(self._url)
         full_uri /= self._resource
-        full_uri /= self._id
+        full_uri /= id_ or self._id
         # set up headers
         headers = {"Content-Type": "application/fhir+json"}
         headers.update(self._additional_request_headers)
@@ -96,5 +140,7 @@ class FhirUpdateMixin(FhirClientProtocol):
 
         :param json_data: data to update the resource with
         """
-        result: FhirUpdateResponse = AsyncRunner.run(self.update_async(json_data))
+        result: FhirUpdateResponse = AsyncRunner.run(
+            self.update_async(json_data=json_data)
+        )
         return result

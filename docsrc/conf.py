@@ -19,6 +19,7 @@
 # -- Project information -----------------------------------------------------
 
 project = "helix.fhir.client.sdk"
+# noinspection PyShadowingBuiltins
 copyright = "2021, Helix Team"
 author = "Helix Team"
 

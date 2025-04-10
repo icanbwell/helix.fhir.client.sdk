@@ -33,5 +33,7 @@ def test_run_in_thread_pool_and_wait() -> None:
 # Test for AsyncRunner.run when event loop is already running
 @pytest.mark.asyncio
 async def test_run_with_existing_event_loop() -> None:
-    result: str = await asyncio.to_thread(AsyncRunner.run, sample_coroutine())
+    result: str = await asyncio.to_thread(
+        AsyncRunner.run, sample_coroutine(), timeout=1.0
+    )
     assert result == "success"

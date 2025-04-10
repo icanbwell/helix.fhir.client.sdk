@@ -16,6 +16,9 @@ from typing import (
 from aiohttp import ClientSession
 from requests.adapters import BaseAdapter
 
+from compressedfhir.fhir.fhir_bundle import FhirBundle
+from compressedfhir.fhir.fhir_resource_list import FhirResourceList
+
 from helix_fhir_client_sdk.filters.base_filter import BaseFilter
 from helix_fhir_client_sdk.filters.sort_field import SortField
 from helix_fhir_client_sdk.function_types import (
@@ -23,10 +26,16 @@ from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
     TraceRequestFunction,
 )
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.responses.merge.fhir_merge_resource_response import (
+    FhirMergeResourceResponse,
+)
 from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
+)
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
@@ -39,8 +48,13 @@ from helix_fhir_client_sdk.well_known_configuration import (
 )
 
 
+# noinspection PyTypeChecker
 @runtime_checkable
 class FhirClientProtocol(Protocol):
+    """
+    FhirClientProtocol defines the interface for a FHIR client.
+    """
+
     _action: Optional[str]
     _action_payload: Optional[Dict[str, Any]]
     _resource: Optional[str]
@@ -62,7 +76,7 @@ class FhirClientProtocol(Protocol):
     _client_id: Optional[str]
     _access_token: Optional[str]
     _access_token_expiry_date: Optional[datetime]
-    _logger: Optional[FhirLogger]
+    _logger: Optional[Logger]
     _internal_logger: Logger
     _adapter: Optional[BaseAdapter]
     _limit: Optional[int]
@@ -111,6 +125,12 @@ class FhirClientProtocol(Protocol):
 
     _log_all_response_urls: bool
 
+    _storage_mode: CompressedDictStorageMode
+    """ storage mode to store the responses """
+
+    _create_operation_outcome_for_error: Optional[bool]
+    """ whether to create OperationOutcome resource for errors """
+
     async def get_access_token_async(self) -> GetAccessTokenResult: ...
 
     async def _send_fhir_request_async(
@@ -133,13 +153,15 @@ class FhirClientProtocol(Protocol):
         fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
         additional_parameters: Optional[List[str]],
         resource_type: Optional[str],
-    ) -> AsyncGenerator[FhirGetResponse, None]: ...
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        # This is here to tell Python that this is an async generator
+        yield None  # type: ignore[misc]
 
-    def separate_bundle_resources(self, separate_bundle_resources: bool):  # type: ignore[no-untyped-def]
-        ...
+    def separate_bundle_resources(
+        self, separate_bundle_resources: bool
+    ) -> "FhirClientProtocol": ...
 
-    def resource(self, resource: str):  # type: ignore[no-untyped-def]
-        ...
+    def resource(self, resource: str) -> "FhirClientProtocol": ...
 
     def set_access_token(self, value: str | None) -> "FhirClientProtocol": ...
 
@@ -186,3 +208,20 @@ class FhirClientProtocol(Protocol):
     def throw_exception_on_error(
         self, throw_exception_on_error: bool
     ) -> "FhirClientProtocol": ...
+
+    async def merge_resources_async(
+        self,
+        id_: Optional[str],
+        resources_to_merge: FhirResourceList,
+        batch_size: Optional[int],
+    ) -> AsyncGenerator[FhirMergeResourceResponse, None]:
+        # this is just here to tell Python this returns a generator
+        yield None  # type: ignore[misc]
+
+    async def merge_bundle_async(
+        self,
+        id_: Optional[str],
+        bundle: FhirBundle,
+    ) -> AsyncGenerator[FhirMergeResourceResponse, None]:
+        # this is just here to tell Python this returns a generator
+        yield None  # type: ignore[misc]

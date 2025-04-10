@@ -2,8 +2,12 @@ import dataclasses
 from typing import List, Dict, Any, Optional, AsyncGenerator
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class GetResult:
+    """
+    GetResult class for encapsulating the response from FHIR server when getting resources
+    """
+
     request_id: Optional[str]
     resources: List[Dict[str, Any]]
     response_headers: Optional[List[str]]

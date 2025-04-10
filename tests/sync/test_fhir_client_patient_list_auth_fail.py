@@ -34,5 +34,5 @@ def test_fhir_client_patient_list_auth_fail() -> None:
 
     response: FhirGetResponse = fhir_client.get()
 
-    print(response.responses)
+    print(response.get_response_text())
     assert response.status == 403

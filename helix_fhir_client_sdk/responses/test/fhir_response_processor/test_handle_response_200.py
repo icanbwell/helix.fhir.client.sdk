@@ -2,10 +2,13 @@ from unittest.mock import AsyncMock, MagicMock
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
 )
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 
 
 async def test_handle_response_200() -> None:
@@ -18,7 +21,7 @@ async def test_handle_response_200() -> None:
     extra_context_to_return = {"extra_key": "extra_value"}
     resource = "Patient"
     id_ = "mock_id"
-    logger = MagicMock(FhirLogger)
+    logger = MagicMock(Logger)
     expand_fhir_bundle = True
     separate_bundle_resources = False
     url = "http://example.com"
@@ -53,6 +56,8 @@ async def test_handle_response_200() -> None:
             expand_fhir_bundle=expand_fhir_bundle,
             separate_bundle_resources=separate_bundle_resources,
             url=url,
+            storage_mode=CompressedDictStorageMode(),
+            create_operation_outcome_for_error=False,
         )
     ]
 
@@ -60,7 +65,10 @@ async def test_handle_response_200() -> None:
         {
             "request_id": request_id,
             "url": full_url,
-            "responses": '[{"resourceType": "Patient", "id": "1"}, {"resourceType": "Patient", "id": "2"}]',
+            "_resources": [
+                {"id": "1", "resourceType": "Patient"},
+                {"id": "2", "resourceType": "Patient"},
+            ],
             "error": None,
             "access_token": access_token,
             "total_count": 2,
@@ -71,10 +79,10 @@ async def test_handle_response_200() -> None:
             "id_": id_,
             "response_headers": response_headers,
             "chunk_number": None,
-            "successful": True,
             "cache_hits": None,
             "results_by_url": [],
+            "storage_type": "compressed",
         }
     ]
 
-    assert result[0].__dict__ == expected_result[0]
+    assert result[0].to_dict() == expected_result[0]

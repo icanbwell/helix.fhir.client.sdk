@@ -13,7 +13,8 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 
 def test_fhir_client_bundle_separated() -> None:
-    test_name = "test_fhir_client_bundle_separated"
+    print()
+    test_name = test_fhir_client_bundle_separated.__name__
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
@@ -88,4 +89,6 @@ def test_fhir_client_bundle_separated() -> None:
     with open(test_path.joinpath("./practitioner_graph_sample_separated.json")) as f:
         expected_response = json.load(f)
 
-    assert json.loads(response.responses) == expected_response
+    response_text = response.get_response_text()
+    print(response_text)
+    assert json.loads(response_text) == expected_response
