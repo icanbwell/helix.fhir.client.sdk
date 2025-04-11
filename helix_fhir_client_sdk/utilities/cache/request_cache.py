@@ -1,6 +1,6 @@
 import asyncio
 from types import TracebackType
-from typing import Optional, Type, Dict
+from typing import Optional, Type, Dict, Any
 
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
 from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
@@ -18,21 +18,29 @@ class RequestCache:
         "cache_misses",
         "_cache",
         "_lock",
+        "_clear_cache_at_the_end",
     ]
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        initial_dict: Dict[str, Any] | None = None,
+        clear_cache_at_the_end: Optional[bool] = None,
+    ) -> None:
         self.cache_hits: int = 0
         self.cache_misses: int = 0
-        self._cache: Dict[str, RequestCacheEntry] = {}
+        self._cache: Dict[str, RequestCacheEntry] = initial_dict or {}
         self._lock: asyncio.Lock = asyncio.Lock()
+        self._clear_cache_at_the_end: Optional[bool] = clear_cache_at_the_end
 
     async def __aenter__(self) -> "RequestCache":
         """
         This method is called when the RequestCache is entered into a context manager.
         It returns the RequestCache instance.
         """
-        async with self._lock:
-            self._cache.clear()
+        if self._clear_cache_at_the_end:
+            async with self._lock:
+                self._cache.clear()
         return self
 
     async def __aexit__(
@@ -45,8 +53,9 @@ class RequestCache:
         This method is called when the RequestCache is exited from a context manager.
         It clears the cache.
         """
-        async with self._lock:
-            self._cache.clear()
+        if self._clear_cache_at_the_end:
+            async with self._lock:
+                self._cache.clear()
 
         if exc_type is not None:
             print(f"An exception of type {exc_type} occurred with message {exc_value}")
