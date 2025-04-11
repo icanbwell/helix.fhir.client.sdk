@@ -879,12 +879,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         cached_bundle_entries.append(cached_bundle_entry)
                         if logger:
                             logger.debug(
-                                f"200 Returning {cached_bundle_entry.resource.resource_type_and_id} from cache (1by1)"
+                                f"{cache_entry.status} Returning {cached_bundle_entry.resource.resource_type_and_id} from cache (1by1)"
                             )
                     else:
                         if logger:
                             logger.debug(
-                                f"404 Cache entry found for {resource_type}/{resource_id} (1by1)"
+                                f"{cache_entry.status} Empty Cache entry found for {resource_type}/{resource_id} (1by1)"
                             )
                     cache_hits += 1
                 else:
@@ -1028,12 +1028,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         cached_bundle_entries.append(cached_bundle_entry)
                         if logger:
                             logger.debug(
-                                f"200 Returning {resource_type}/{resource_id} from cache (ByParam)"
+                                f"{cache_entry.status} Returning {resource_type}/{resource_id} from cache (ByParam)"
                             )
                     else:
                         if logger:
                             logger.debug(
-                                f"{cache_entry.status} Cache entry found for {resource_type}/{resource_id} (ByParam)"
+                                f"{cache_entry.status} Empty Cache entry found for {resource_type}/{resource_id} (ByParam)"
                             )
                     cache_hits += 1
                 else:
