@@ -84,6 +84,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         max_concurrent_tasks: Optional[int],
         sort_resources: Optional[bool],
         add_cached_bundles_to_result: bool = True,
+        input_cache: Optional[RequestCache] = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Asynchronously simulate a FHIR $graph query with advanced processing capabilities.
@@ -121,6 +122,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             restrict_to_capability_statement: Optional capability statement restriction
             contained: Flag to include contained resources
             add_cached_bundles_to_result: Optional flag to add cached bundles to result
+            input_cache: Optional cache for resource retrieval
 
         Yields:
             FhirGetResponse objects representing retrieved resources
@@ -152,7 +154,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Track resources that don't support ID-based search
         id_search_unsupported_resources: List[str] = []
-        cache: RequestCache = RequestCache()
+        cache: RequestCache = input_cache if input_cache else RequestCache()
         async with cache:
             # Retrieve start resources based on graph definition
             start: str = graph_definition.start
@@ -1217,6 +1219,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         max_concurrent_tasks: Optional[int] = 1,
         sort_resources: Optional[bool] = False,
         add_cached_bundles_to_result: bool = True,
+        input_cache: Optional[RequestCache] = None,
     ) -> FhirGetResponse:
         """
         Simulates the $graph query on the FHIR server
@@ -1237,6 +1240,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially.
         :param sort_resources: Optional flag to sort resources
         :param add_cached_bundles_to_result: Optional flag to add cached bundles to result
+        :param input_cache: Optional cache to use for input
         :return: FhirGetResponse
         """
         if contained:
@@ -1265,6 +1269,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 max_concurrent_tasks=max_concurrent_tasks,
                 sort_resources=sort_resources,
                 add_cached_bundles_to_result=add_cached_bundles_to_result,
+                input_cache=input_cache,
             )
         )
         assert result, "No result returned from simulate_graph_async"
@@ -1287,6 +1292,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         request_size: Optional[int] = 1,
         max_concurrent_tasks: Optional[int] = 1,
         sort_resources: Optional[bool] = False,
+        input_cache: Optional[RequestCache] = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Simulates the $graph query on the FHIR server
@@ -1306,6 +1312,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param request_size: Optional Count of resources to request in one request
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially
         :param sort_resources: Optional flag to sort resources
+        :param input_cache: Optional cache to use for input
         :return: FhirGetResponse
         """
         if contained:
@@ -1332,5 +1339,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             request_size=request_size,
             max_concurrent_tasks=max_concurrent_tasks,
             sort_resources=sort_resources,
+            input_cache=input_cache,
         ):
             yield r

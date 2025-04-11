@@ -25,7 +25,7 @@ class RequestCache:
         self,
         *,
         initial_dict: Dict[str, Any] | None = None,
-        clear_cache_at_the_end: Optional[bool] = None,
+        clear_cache_at_the_end: Optional[bool] = True,
     ) -> None:
         self.cache_hits: int = 0
         self.cache_misses: int = 0
