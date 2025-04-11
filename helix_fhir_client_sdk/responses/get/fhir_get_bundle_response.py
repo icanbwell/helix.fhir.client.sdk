@@ -193,6 +193,10 @@ class FhirGetBundleResponse(FhirGetResponse):
 
         :return: list of bundle entries and a bundle with metadata but without any entries
         """
+        assert isinstance(
+            storage_mode, CompressedDictStorageMode
+        ), f"Expected CompressedDictStorageMode but got {type(storage_mode)}"
+
         if not responses:
             return FhirBundleEntryList(), FhirBundle(
                 id_=None,
