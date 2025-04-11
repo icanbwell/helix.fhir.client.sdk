@@ -1,13 +1,13 @@
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional
 
-from helix_fhir_client_sdk.fhir_bundle import BundleEntry
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
+from logging import Logger
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
-from helix_fhir_client_sdk.utilities.request_cache import RequestCache
+from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 
 
-@dataclass
+@dataclass(slots=True)
 class GraphTargetParameters:
     """
     This class contains the parameters for a graph target
@@ -16,10 +16,10 @@ class GraphTargetParameters:
     path: Optional[str]
     """ path to the target """
 
-    parent_bundle_entries: List[BundleEntry] | None
+    parent_bundle_entries: FhirBundleEntryList | None
     """ parent bundle entry """
 
-    logger: Optional[FhirLogger]
+    logger: Optional[Logger]
     """ logger """
 
     cache: RequestCache

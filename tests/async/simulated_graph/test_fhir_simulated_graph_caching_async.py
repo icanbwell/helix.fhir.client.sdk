@@ -23,7 +23,7 @@ async def test_fhir_simulated_graph_caching_async() -> None:
         contents = file.read()
         graph_json = json.loads(contents)
 
-    test_name = "test_fhir_simulated_graph_caching_async"
+    test_name = test_fhir_simulated_graph_caching_async.__name__
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
@@ -36,7 +36,7 @@ async def test_fhir_simulated_graph_caching_async() -> None:
     mock_client.clear(f"/{test_name}/*.*")
     mock_client.reset()
 
-    response_text = {
+    response_text: Dict[str, Any] = {
         "resourceType": "Patient",
         "id": "1",
         "generalPractitioner": [{"reference": "Practitioner/5"}],
@@ -91,6 +91,9 @@ async def test_fhir_simulated_graph_caching_async() -> None:
     )
 
     response_text = {
+        "resourceType": "Bundle",
+        "total": 1,
+        "type": "collection",
         "entry": [
             {
                 "resource": {
@@ -104,7 +107,7 @@ async def test_fhir_simulated_graph_caching_async() -> None:
                     ],
                 }
             }
-        ]
+        ],
     }
     mock_client.expect(
         request=mock_request(
@@ -221,128 +224,13 @@ async def test_fhir_simulated_graph_caching_async() -> None:
         )
     )
     assert response is not None
-    print(response.responses)
+    print(response.get_response_text())
 
-    expected_json = {
-        "entry": [
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Patient/1",
-                },
-                "resource": {
-                    "generalPractitioner": [{"reference": "Practitioner/5"}],
-                    "id": "1",
-                    "managingOrganization": {"reference": "Organization/6"},
-                    "resourceType": "Patient",
-                },
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Practitioner/5",
-                },
-                "resource": {"id": "5", "resourceType": "Practitioner"},
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Organization/6",
-                },
-                "resource": {"id": "6", "resourceType": "Organization"},
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Encounter?patient=1",
-                },
-                "resource": {
-                    "id": "8",
-                    "participant": [
-                        {"individual": {"reference": "Practitioner/12345"}}
-                    ],
-                    "resourceType": "Encounter",
-                },
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Encounter?patient=1",
-                },
-                "resource": {
-                    "id": "10",
-                    "participant": [
-                        {"individual": {"reference": "Practitioner/12345"}}
-                    ],
-                    "resourceType": "Encounter",
-                },
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/DocumentReference?patient=1",
-                },
-                "resource": {
-                    "id": "11",
-                    "resourceType": "DocumentReference",
-                    "content": [
-                        {"attachment": {"url": "Binary/12"}},
-                        {"attachment": {"url": "Binary/13"}},
-                        {"attachment": {"url": "Binary/14"}},
-                        {"attachment": {"url": "Binary/15"}},
-                    ],
-                },
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/12",
-                },
-                "resource": {"id": "12", "resourceType": "Binary"},
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/12",
-                },
-                "resource": {"id": "13", "resourceType": "Binary"},
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/14",
-                },
-                "resource": {"id": "14", "resourceType": "Binary"},
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/14",
-                },
-                "resource": {"id": "15", "resourceType": "Binary"},
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Practitioner/12345",
-                },
-                "resource": {"id": "12345", "resourceType": "Practitioner"},
-                "response": {"status": "200"},
-            },
-        ]
-    }
+    expected_file_path = data_dir.joinpath("expected")
+    with open(expected_file_path.joinpath(test_name + ".json")) as f:
+        expected_json = json.load(f)
 
-    bundle = json.loads(response.responses)
+    bundle = json.loads(response.get_response_text())
     bundle["entry"] = [
         e
         for e in bundle["entry"]
@@ -354,4 +242,5 @@ async def test_fhir_simulated_graph_caching_async() -> None:
 
     # sort the entries by request url
     bundle["entry"] = sorted(bundle["entry"], key=lambda x: int(x["resource"]["id"]))
+    bundle["total"] = len(bundle["entry"])
     assert bundle == expected_json

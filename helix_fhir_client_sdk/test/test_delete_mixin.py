@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from typing import Optional, List
 
 import aiohttp
@@ -8,6 +9,7 @@ from furl import furl
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.fhir_delete_mixin import FhirDeleteMixin
+from helix_fhir_client_sdk.function_types import RefreshTokenResult
 from helix_fhir_client_sdk.responses.fhir_delete_response import FhirDeleteResponse
 
 
@@ -28,13 +30,19 @@ class TestFhirDeleteMixin:
         mixin._internal_logger = logging.getLogger("FhirClient")
 
         # Mocking async methods directly
-        async def mock_get_access_token_async() -> str:
-            return "fake_token"
+        # noinspection PyUnusedLocal
+        async def mock_refresh_token_function(
+            url: Optional[str],
+            status_code: Optional[int],
+            current_token: Optional[str],
+            expiry_date: Optional[datetime],
+            retry_count: Optional[int],
+        ) -> RefreshTokenResult:
+            return RefreshTokenResult(
+                access_token=None, expiry_date=None, abort_request=False
+            )
 
-        async def mock_refresh_token_function() -> str | None:
-            return None
-
-        mixin.get_access_token_async = mock_get_access_token_async  # type: ignore[method-assign]
+        mixin._access_token = "fake_token"
         mixin._refresh_token_function = mock_refresh_token_function
 
         return mixin

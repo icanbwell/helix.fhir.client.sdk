@@ -1,10 +1,19 @@
 import asyncio
 from asyncio import Task
 from dataclasses import dataclass
-from typing import AsyncGenerator, Protocol, List, Optional, Set, Dict, Any
+from typing import (
+    AsyncGenerator,
+    Protocol,
+    List,
+    Optional,
+    Set,
+    Dict,
+    Any,
+    runtime_checkable,
+)
 
 
-@dataclass
+@dataclass(slots=True)
 class ParallelFunctionContext:
     """
     This class contains the parameters for a parallel function
@@ -23,6 +32,7 @@ class ParallelFunctionContext:
     total_task_count: int
 
 
+@runtime_checkable
 class ParallelFunction[TInput, TOutput, TParameters](Protocol):
     async def __call__(
         self,
@@ -157,7 +167,7 @@ class AsyncParallelProcessor:
                 for task in done:
                     try:
                         yield await task
-                    except Exception as e:
+                    except Exception:
                         # Handle or re-raise error
                         # logger.error(f"Error processing row: {e}")
                         raise

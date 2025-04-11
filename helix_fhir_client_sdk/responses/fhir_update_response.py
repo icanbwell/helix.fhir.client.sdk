@@ -1,7 +1,21 @@
-from typing import Optional, AsyncGenerator
+from typing import Optional, AsyncGenerator, Dict, Any
 
 
 class FhirUpdateResponse:
+    """
+    FHIR Update Response class for encapsulating the response from FHIR server when updating resources
+    """
+
+    __slots__ = [
+        "request_id",
+        "url",
+        "responses",
+        "error",
+        "access_token",
+        "status",
+        "resource_type",
+    ]
+
     def __init__(
         self,
         *,
@@ -57,3 +71,19 @@ class FhirUpdateResponse:
             else:
                 result.append(value)
         return result
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Converts the FhirUpdateResponse to a dictionary
+
+        :return: dictionary representation of the FhirUpdateResponse
+        """
+        return {
+            "request_id": self.request_id,
+            "url": self.url,
+            "responses": self.responses,
+            "error": self.error,
+            "access_token": self.access_token,
+            "status": self.status,
+            "resource_type": self.resource_type,
+        }

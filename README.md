@@ -1,5 +1,3 @@
-from typing_extensions import Optionalfrom helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponsefrom build.lib.helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponsefrom helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-
 # helix.fhir.client.sdk
 
 <p align="left">
@@ -79,3 +77,6 @@ response: Optional[FhirGetResponse] = await FhirGetResponse.from_async_generator
 # Data Streaming
 For FHIR servers that support data streaming (e.g., b.well FHIR server), you can just set the `use_data_streaming` parameter to stream the data as it i received.
 The data will be streamed in AsyncGenerators as described above.
+
+# Storage Compression
+The FHIR client SDK natively stores the FHIR resources compressed in memory.  This allows use in environments where you are processing large number of FHIR resources.

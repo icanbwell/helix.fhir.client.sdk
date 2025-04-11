@@ -14,4 +14,4 @@ def test_dev_server_auth() -> None:
         client_secret="",
     ).auth_scopes(["user/*.read"])
     response: FhirGetResponse = fhir_client.get()
-    print(response.responses)
+    print(response.get_response_text())

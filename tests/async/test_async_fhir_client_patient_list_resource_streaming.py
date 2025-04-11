@@ -8,6 +8,7 @@ from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
 )
 
+from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
@@ -54,20 +55,28 @@ async def test_fhir_client_patient_list_async_resource_streaming() -> None:
     fhir_client = fhir_client.use_data_streaming(True)
     fhir_client = fhir_client.chunk_size(10)
 
-    resource_chunks: List[List[Dict[str, Any]]] = []
+    resource_chunks: List[FhirResourceList] = []
 
     response: Optional[FhirGetResponse] = None
     async for response1 in fhir_client.get_streaming_async():
-        print(f"Got response from chunk {response1.chunk_number}: {response1}")
-        resource_chunks.append(response1.get_resources())
+        print(
+            f"Got response from chunk {response1.chunk_number}: {response1.to_dict()}"
+        )
+        resources = response1.get_resources()
+        assert isinstance(resources, FhirResourceList)
+        resource_chunks.append(resources)
         if not response:
             response = response1
         else:
-            response.append(response1)
+            response = response.append(response1)
 
     assert response
     # assert response.responses == ""
 
     assert len(resource_chunks) == 2
-    assert resource_chunks[0] == [{"id": "1", "resourceType": "Patient"}]
-    assert resource_chunks[1] == [{"id": "2", "resourceType": "Patient"}]
+    assert [r.dict() for r in resource_chunks[0]] == [
+        {"id": "1", "resourceType": "Patient"}
+    ]
+    assert [r.dict() for r in resource_chunks[1]] == [
+        {"id": "2", "resourceType": "Patient"}
+    ]

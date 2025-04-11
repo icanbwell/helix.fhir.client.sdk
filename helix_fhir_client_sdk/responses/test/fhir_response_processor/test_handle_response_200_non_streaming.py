@@ -5,10 +5,13 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
 )
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 
 
 async def test_handle_response_200_non_streaming() -> None:
@@ -19,7 +22,7 @@ async def test_handle_response_200_non_streaming() -> None:
     resources_json = ""
     next_url = None
     total_count = 0
-    logger = MagicMock(FhirLogger)
+    logger = MagicMock(Logger)
     expand_fhir_bundle = True
     separate_bundle_resources = False
     extra_context_to_return = {"extra_key": "extra_value"}
@@ -30,6 +33,7 @@ async def test_handle_response_200_non_streaming() -> None:
     response = MagicMock(RetryableAioHttpResponse)
     response.ok = True
     response.status = 200
+    response.results_by_url = []
     response.get_text_async = AsyncMock(
         return_value='{"resourceType": "Bundle", "total": 2, "entry": [{"resource": {"resourceType": "Patient", "id": "1"}}, {"resource": {"resourceType": "Patient", "id": "2"}}]}'
     )
@@ -52,6 +56,8 @@ async def test_handle_response_200_non_streaming() -> None:
             resource=resource,
             id_=id_,
             url=url,
+            storage_mode=CompressedDictStorageMode(),
+            create_operation_outcome_for_error=False,
         )
     ]
 
@@ -61,7 +67,10 @@ async def test_handle_response_200_non_streaming() -> None:
         "request_id": request_id,
         "chunk_number": None,
         "url": full_url,
-        "responses": '[{"resourceType": "Patient", "id": "1"}, {"resourceType": "Patient", "id": "2"}]',
+        "_resources": [
+            {"id": "1", "resourceType": "Patient"},
+            {"id": "2", "resourceType": "Patient"},
+        ],
         "error": None,
         "access_token": access_token,
         "total_count": 2,
@@ -70,9 +79,10 @@ async def test_handle_response_200_non_streaming() -> None:
         "extra_context_to_return": extra_context_to_return,
         "resource_type": resource,
         "id_": id_,
-        "successful": True,
         "response_headers": response_headers,
         "cache_hits": None,
+        "results_by_url": [],
+        "storage_type": "compressed",
     }
 
-    assert result[0].__dict__ == expected_result
+    assert result[0].to_dict() == expected_result

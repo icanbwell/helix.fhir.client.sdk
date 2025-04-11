@@ -6,10 +6,13 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
 )
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 
 
 async def test_handle_response_200_non_streaming_separate_bundle() -> None:
@@ -20,7 +23,7 @@ async def test_handle_response_200_non_streaming_separate_bundle() -> None:
     resources_json = ""
     next_url = None
     total_count = 0
-    logger = MagicMock(FhirLogger)
+    logger = MagicMock(Logger)
     expand_fhir_bundle = True
     separate_bundle_resources = True
     extra_context_to_return = {"extra_key": "extra_value"}
@@ -46,6 +49,7 @@ async def test_handle_response_200_non_streaming_separate_bundle() -> None:
     response = MagicMock(RetryableAioHttpResponse)
     response.ok = True
     response.status = 200
+    response.results_by_url = []
     response.get_text_async = AsyncMock(return_value=json.dumps(bundle))
 
     result: List[FhirGetResponse] = [
@@ -66,6 +70,8 @@ async def test_handle_response_200_non_streaming_separate_bundle() -> None:
             resource=resource,
             id_=id_,
             url=url,
+            storage_mode=CompressedDictStorageMode(),
+            create_operation_outcome_for_error=False,
         )
     ]
 
@@ -86,21 +92,36 @@ async def test_handle_response_200_non_streaming_separate_bundle() -> None:
     ]
 
     expected_result = {
-        "request_id": request_id,
-        "chunk_number": None,
-        "url": full_url,
-        "responses": json.dumps(expected_resources),
-        "error": None,
-        "access_token": access_token,
-        "total_count": 3,
-        "status": 200,
-        "next_url": next_url,
-        "extra_context_to_return": extra_context_to_return,
-        "resource_type": resource,
-        "id_": id_,
-        "successful": True,
-        "response_headers": response_headers,
+        "_resources": [
+            {
+                "extra_key": "extra_value",
+                "practitioner": [{"id": "1", "resourceType": "Practitioner"}],
+                "practitionerrole": [{"id": "2", "resourceType": "PractitionerRole"}],
+                "token": "mock_access_token",
+                "url": "http://example.com",
+            },
+            {
+                "extra_key": "extra_value",
+                "practitioner": [{"id": "3", "resourceType": "Practitioner"}],
+                "token": "mock_access_token",
+                "url": "http://example.com",
+            },
+        ],
+        "access_token": "mock_access_token",
         "cache_hits": None,
+        "chunk_number": None,
+        "error": None,
+        "extra_context_to_return": {"extra_key": "extra_value"},
+        "id_": "mock_id",
+        "next_url": None,
+        "request_id": "mock_request_id",
+        "resource_type": "Patient",
+        "response_headers": ["mock_header"],
+        "results_by_url": [],
+        "status": 200,
+        "total_count": 3,
+        "url": "http://example.com",
+        "storage_type": "compressed",
     }
 
-    assert result[0].__dict__ == expected_result
+    assert result[0].to_dict() == expected_result

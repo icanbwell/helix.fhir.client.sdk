@@ -5,10 +5,13 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
 )
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 
 
 async def test_handle_response_404() -> None:
@@ -19,11 +22,12 @@ async def test_handle_response_404() -> None:
     extra_context_to_return = {"extra_key": "extra_value"}
     resource = "Patient"
     id_ = "mock_id"
-    logger = MagicMock(FhirLogger)
+    logger = MagicMock(Logger)
 
     response = MagicMock(RetryableAioHttpResponse)
     response.ok = False
     response.status = 404
+    response.results_by_url = []
     response.get_text_async = AsyncMock(return_value="Not Found")
 
     result: List[FhirGetResponse] = [
@@ -38,6 +42,8 @@ async def test_handle_response_404() -> None:
             resource=resource,
             id_=id_,
             logger=logger,
+            storage_mode=CompressedDictStorageMode(),
+            create_operation_outcome_for_error=False,
         )
     ]
 
@@ -46,7 +52,6 @@ async def test_handle_response_404() -> None:
             "request_id": request_id,
             "chunk_number": None,
             "url": full_url,
-            "responses": "Not Found",
             "error": "NotFound",
             "next_url": None,
             "access_token": access_token,
@@ -56,9 +61,11 @@ async def test_handle_response_404() -> None:
             "resource_type": resource,
             "id_": id_,
             "response_headers": response_headers,
-            "successful": False,
             "cache_hits": None,
+            "results_by_url": [],
+            "_resource": None,
+            "storage_type": "compressed",
         }
     ]
 
-    assert result[0].__dict__ == expected_result[0]
+    assert result[0].to_dict() == expected_result[0]

@@ -2,13 +2,15 @@ from typing import List, Any, Dict, Optional
 
 
 class GraphDefinitionTarget:
+    __slots__ = ["type_", "params", "link"]
+
     def __init__(
         self,
         *,
         type_: str,
         params: Optional[str] = None,
         link: Optional[List["GraphDefinitionLink"]] = None
-    ):
+    ) -> None:
         """
         Create a target for a link
         :param type_: Type of child resource

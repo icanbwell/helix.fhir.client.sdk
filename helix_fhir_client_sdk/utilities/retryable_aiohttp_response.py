@@ -1,5 +1,6 @@
+from datetime import datetime
 import json
-from typing import Dict, Optional, List, cast
+from typing import Dict, Optional, List, cast, Any
 
 from aiohttp import StreamReader
 
@@ -9,6 +10,24 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
 
 
 class RetryableAioHttpResponse:
+    """
+    Response object for retryable aiohttp requests
+    """
+
+    __slots__ = [
+        "ok",
+        "status",
+        "response_headers",
+        "_response_text",
+        "content",
+        "use_data_streaming",
+        "text_read",
+        "results_by_url",
+        "access_token",
+        "access_token_expiry_date",
+        "retry_count",
+    ]
+
     def __init__(
         self,
         *,
@@ -18,7 +37,10 @@ class RetryableAioHttpResponse:
         response_text: str,
         content: StreamReader | None,
         use_data_streaming: Optional[bool],
-        results_by_url: List[RetryableAioHttpUrlResult]
+        results_by_url: List[RetryableAioHttpUrlResult],
+        access_token: Optional[str],
+        access_token_expiry_date: Optional[datetime],
+        retry_count: Optional[int]
     ) -> None:
         """
         Response object for retryable aiohttp requests
@@ -49,6 +71,15 @@ class RetryableAioHttpResponse:
         self.results_by_url: List[RetryableAioHttpUrlResult] = results_by_url
         """ Count of errors by status code """
 
+        self.access_token: Optional[str] = access_token
+        """ access token """
+
+        self.access_token_expiry_date: Optional[datetime] = access_token_expiry_date
+        """ access token expiry date"""
+
+        self.retry_count: Optional[int] = retry_count
+        """ retry count """
+
     async def get_text_async(self) -> str:
         if self.content is None:
             return self._response_text
@@ -63,3 +94,23 @@ class RetryableAioHttpResponse:
     async def json(self) -> Dict[str, str] | List[Dict[str, str]]:
         text = await self.get_text_async()
         return cast(Dict[str, str] | List[Dict[str, str]], json.loads(text))
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Converts the object to a dictionary
+
+        :return: dictionary
+        """
+        return dict(
+            ok=self.ok,
+            status=self.status,
+            response_headers=self.response_headers,
+            response_text=self._response_text,
+            content=self.content,
+            use_data_streaming=self.use_data_streaming,
+            text_read=self.text_read,
+            results_by_url=[r.to_dict() for r in self.results_by_url],
+            access_token=self.access_token,
+            access_token_expiry_date=self.access_token_expiry_date,
+            retry_count=self.retry_count,
+        )

@@ -2,17 +2,20 @@ import asyncio
 import json
 import logging
 from logging import Logger
-from typing import Dict, Any, List, Optional, cast, Callable, Awaitable
+from typing import Dict, Any, Optional, cast, Callable, Awaitable
+from datetime import datetime
 
 import aiohttp
 import pytest
 from aioresponses import aioresponses, CallbackResult
 
+from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_client import FhirClient
+from helix_fhir_client_sdk.function_types import RefreshTokenResult
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
     SimulatedGraphProcessorMixin,
 )
-from helix_fhir_client_sdk.loggers.fhir_logger import FhirLogger
+from logging import Logger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from tests.logger_for_test import LoggerForTest
 
@@ -100,7 +103,7 @@ async def test_process_simulate_graph_async() -> None:
     Test the process_simulate_graph_async method.
     """
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
         max_concurrent_requests=1
@@ -198,7 +201,7 @@ async def test_graph_definition_with_single_link() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -241,11 +244,12 @@ async def test_graph_definition_with_single_link() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[Dict[str, Any]] = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
+        assert isinstance(resources, FhirResourceList)
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
-        assert observation == {"resourceType": "Observation", "id": "1"}
+        assert observation.dict() == {"resourceType": "Observation", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -258,7 +262,7 @@ async def test_graph_definition_with_nested_links() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -325,16 +329,18 @@ async def test_graph_definition_with_nested_links() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[Dict[str, Any]] = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
+        assert isinstance(resources, FhirResourceList)
+
         assert (
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
-        assert observation == {"resourceType": "Observation", "id": "1"}
+        assert observation.dict() == {"resourceType": "Observation", "id": "1"}
         condition = [r for r in resources if r["resourceType"] == "DiagnosticReport"][0]
-        assert condition == {"resourceType": "DiagnosticReport", "id": "1"}
+        assert condition.dict() == {"resourceType": "DiagnosticReport", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -346,7 +352,7 @@ async def test_graph_definition_with_multiple_links() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -405,16 +411,17 @@ async def test_graph_definition_with_multiple_links() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[Dict[str, Any]] = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
+        assert isinstance(resources, FhirResourceList)
         assert (
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
-        assert observation == {"resourceType": "Observation", "id": "1"}
+        assert observation.dict() == {"resourceType": "Observation", "id": "1"}
         condition = [r for r in resources if r["resourceType"] == "Condition"][0]
-        assert condition == {"resourceType": "Condition", "id": "1"}
+        assert condition.dict() == {"resourceType": "Condition", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -426,7 +433,7 @@ async def test_graph_definition_with_multiple_targets() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -481,16 +488,18 @@ async def test_graph_definition_with_multiple_targets() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[Dict[str, Any]] = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
+        assert isinstance(resources, FhirResourceList)
+
         assert (
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
-        assert observation == {"resourceType": "Observation", "id": "1"}
+        assert observation.dict() == {"resourceType": "Observation", "id": "1"}
         condition = [r for r in resources if r["resourceType"] == "Condition"][0]
-        assert condition == {"resourceType": "Condition", "id": "1"}
+        assert condition.dict() == {"resourceType": "Condition", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -502,7 +511,7 @@ async def test_graph_definition_with_no_links() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -540,9 +549,11 @@ async def test_graph_definition_with_no_links() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[Dict[str, Any]] = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
+        assert isinstance(resources, FhirResourceList)
+
         assert len(resources) == 1
-        assert resources[0] == {"resourceType": "Patient", "id": "1"}
+        assert resources[0].dict() == {"resourceType": "Patient", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -554,7 +565,7 @@ async def test_process_simulate_graph_async_multiple_patients() -> None:
         max_concurrent_requests=1
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -598,19 +609,21 @@ async def test_process_simulate_graph_async_multiple_patients() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[Dict[str, Any]] = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
+        assert isinstance(resources, FhirResourceList)
+
         patient = [
             r for r in resources if r["resourceType"] == "Patient" and r["id"] == "1"
         ][0]
-        assert patient == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         patient = [
             r for r in resources if r["resourceType"] == "Patient" and r["id"] == "2"
         ][0]
-        assert patient == {"resourceType": "Patient", "id": "2"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "2"}
         patient = [
             r for r in resources if r["resourceType"] == "Patient" and r["id"] == "3"
         ][0]
-        assert patient == {"resourceType": "Patient", "id": "3"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "3"}
 
 
 @pytest.mark.asyncio
@@ -622,7 +635,7 @@ async def test_graph_definition_with_multiple_links_concurrent_requests() -> Non
         max_concurrent_requests=3
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -681,16 +694,18 @@ async def test_graph_definition_with_multiple_links_concurrent_requests() -> Non
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[Dict[str, Any]] = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
+        assert isinstance(resources, FhirResourceList)
+
         assert (
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
-        assert observation == {"resourceType": "Observation", "id": "1"}
+        assert observation.dict() == {"resourceType": "Observation", "id": "1"}
         condition = [r for r in resources if r["resourceType"] == "Condition"][0]
-        assert condition == {"resourceType": "Condition", "id": "1"}
+        assert condition.dict() == {"resourceType": "Condition", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -702,7 +717,7 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests() -> N
         max_concurrent_requests=3
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -757,16 +772,18 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests() -> N
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[Dict[str, Any]] = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
+        assert isinstance(resources, FhirResourceList)
+
         assert (
             len(resources) == 3
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
-        assert observation == {"resourceType": "Observation", "id": "1"}
+        assert observation.dict() == {"resourceType": "Observation", "id": "1"}
         condition = [r for r in resources if r["resourceType"] == "Condition"][0]
-        assert condition == {"resourceType": "Condition", "id": "1"}
+        assert condition.dict() == {"resourceType": "Condition", "id": "1"}
 
 
 @pytest.mark.asyncio
@@ -778,7 +795,7 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
         max_concurrent_requests=3
     )
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -879,16 +896,18 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
         m.assert_any_call(url="http://example.com/fhir/Encounter?patient=1")
         m.assert_any_call(url="http://example.com/fhir/Practitioner/12345")
 
-        resources: List[Dict[str, Any]] = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
+        assert isinstance(resources, FhirResourceList)
+
         assert (
             len(resources) == 4
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         encounter = [
             r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "8"
         ][0]
-        assert encounter == {
+        assert encounter.dict() == {
             "resourceType": "Encounter",
             "id": "8",
             "participant": [{"individual": {"reference": "Practitioner/12345"}}],
@@ -896,13 +915,13 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
         encounter = [
             r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "10"
         ][0]
-        assert encounter == {
+        assert encounter.dict() == {
             "resourceType": "Encounter",
             "id": "10",
             "participant": [{"individual": {"reference": "Practitioner/12345"}}],
         }
         condition = [r for r in resources if r["resourceType"] == "Practitioner"][0]
-        assert condition == {"resourceType": "Practitioner", "id": "12345"}
+        assert condition.dict() == {"resourceType": "Practitioner", "id": "12345"}
 
 
 @pytest.mark.asyncio
@@ -911,7 +930,7 @@ async def test_process_simulate_graph_401_patient_only_async() -> None:
     Test the process_simulate_graph_async method.
     """
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_processor: FhirClient = get_graph_processor(max_concurrent_requests=1)
 
@@ -919,8 +938,17 @@ async def test_process_simulate_graph_401_patient_only_async() -> None:
 
     graph_processor.set_access_token("old_access_token")
 
-    async def my_refresh_token_function() -> Optional[str]:
-        return "new_access_token"
+    # noinspection PyUnusedLocal
+    async def my_refresh_token_function(
+        url: Optional[str],
+        status_code: Optional[int],
+        current_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> RefreshTokenResult:
+        return RefreshTokenResult(
+            access_token="new_access_token", expiry_date=None, abort_request=False
+        )
 
     graph_processor.refresh_token_function(my_refresh_token_function)
 
@@ -1015,12 +1043,21 @@ async def test_graph_definition_with_single_link_401() -> None:
 
     graph_processor.set_access_token("old_access_token")
 
-    async def my_refresh_token_function() -> Optional[str]:
-        return "new_access_token"
+    # noinspection PyUnusedLocal
+    async def my_refresh_token_function(
+        url: Optional[str],
+        status_code: Optional[int],
+        current_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> RefreshTokenResult:
+        return RefreshTokenResult(
+            access_token="new_access_token", expiry_date=None, abort_request=False
+        )
 
     graph_processor.refresh_token_function(my_refresh_token_function)
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -1086,11 +1123,13 @@ async def test_graph_definition_with_single_link_401() -> None:
 
         response = [r async for r in async_gen]
         assert len(response) == 1
-        resources: List[Dict[str, Any]] = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
+        assert isinstance(resources, FhirResourceList)
+
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
-        assert observation == {"resourceType": "Observation", "id": "1"}
+        assert observation.dict() == {"resourceType": "Observation", "id": "1"}
 
         assert response[0].access_token == "new_access_token"
         assert response[0].results_by_url is not None
@@ -1128,12 +1167,21 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
 
     graph_processor.set_access_token("old_access_token")
 
-    async def my_refresh_token_function() -> Optional[str]:
-        return "new_access_token"
+    # noinspection PyUnusedLocal
+    async def my_refresh_token_function(
+        url: Optional[str],
+        status_code: Optional[int],
+        current_token: Optional[str],
+        expiry_date: Optional[datetime],
+        retry_count: Optional[int],
+    ) -> RefreshTokenResult:
+        return RefreshTokenResult(
+            access_token="new_access_token", expiry_date=None, abort_request=False
+        )
 
     graph_processor.refresh_token_function(my_refresh_token_function)
 
-    logger: FhirLogger = LoggerForTest()
+    logger: Logger = LoggerForTest()
 
     graph_json: Dict[str, Any] = {
         "id": "1",
@@ -1265,16 +1313,18 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
         m.assert_any_call(url="http://example.com/fhir/Encounter?patient=1")
         m.assert_any_call(url="http://example.com/fhir/Practitioner/12345")
 
-        resources: List[Dict[str, Any]] = response[0].get_resources()
+        resources: FhirResourceList = response[0].get_resources()
+        assert isinstance(resources, FhirResourceList)
+
         assert (
             len(resources) == 4
         ), f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
-        assert patient == {"resourceType": "Patient", "id": "1"}
+        assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         encounter = [
             r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "8"
         ][0]
-        assert encounter == {
+        assert encounter.dict() == {
             "resourceType": "Encounter",
             "id": "8",
             "participant": [{"individual": {"reference": "Practitioner/12345"}}],
@@ -1282,13 +1332,13 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
         encounter = [
             r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "10"
         ][0]
-        assert encounter == {
+        assert encounter.dict() == {
             "resourceType": "Encounter",
             "id": "10",
             "participant": [{"individual": {"reference": "Practitioner/12345"}}],
         }
         condition = [r for r in resources if r["resourceType"] == "Practitioner"][0]
-        assert condition == {"resourceType": "Practitioner", "id": "12345"}
+        assert condition.dict() == {"resourceType": "Practitioner", "id": "12345"}
 
         assert response[0].access_token == "new_access_token"
         assert response[0].results_by_url is not None

@@ -23,7 +23,7 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
         contents = file.read()
         graph_json = json.loads(contents)
 
-    test_name = "test_fhir_simulated_graph_caching_scope_parser_async"
+    test_name = test_fhir_simulated_graph_caching_scope_parser_async.__name__
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
@@ -36,7 +36,7 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
     mock_client.clear(f"/{test_name}/*.*")
     mock_client.reset()
 
-    response_text = {
+    response_text: Dict[str, Any] = {
         "resourceType": "Patient",
         "id": "1",
         "generalPractitioner": [{"reference": "Practitioner/5"}],
@@ -91,6 +91,8 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
     )
 
     response_text = {
+        "resourceType": "Bundle",
+        "type": "collection",
         "entry": [
             {
                 "resource": {
@@ -110,7 +112,7 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
                     ],
                 }
             },
-        ]
+        ],
     }
     mock_client.expect(
         request=mock_request(
@@ -165,48 +167,18 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
         )
     )
     assert response is not None
-    print(response.responses)
+    print(response.get_response_text())
 
-    expected_json: Dict[str, Any] = {
-        "entry": [
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_scope_parser_async/Patient/1",
-                },
-                "resource": {
-                    "generalPractitioner": [{"reference": "Practitioner/5"}],
-                    "id": "1",
-                    "managingOrganization": {"reference": "Organization/6"},
-                    "resourceType": "Patient",
-                },
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_scope_parser_async/Practitioner/5",
-                },
-                "resource": {"id": "5", "resourceType": "Practitioner"},
-                "response": {"status": "200"},
-            },
-            {
-                "request": {
-                    "method": "GET",
-                    "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_scope_parser_async/Organization/6",
-                },
-                "resource": {"id": "6", "resourceType": "Organization"},
-                "response": {"status": "200"},
-            },
-        ]
-    }
+    expected_file_path = data_dir.joinpath("expected")
+    with open(expected_file_path.joinpath(test_name + ".json")) as f:
+        expected_json = json.load(f)
 
     bundle: Dict[str, Any]
     try:
-        bundle = json.loads(response.responses)
+        bundle = json.loads(response.get_response_text())
     except Exception as e:
         raise Exception(
-            f"Unable to parse result json: {e}: {response.responses}"
+            f"Unable to parse result json: {e}: {response.get_response_text()}"
         ) from e
 
     bundle["entry"] = [
@@ -223,4 +195,5 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
         expected_json["entry"],
         key=lambda x: x["resource"]["resourceType"] + x["resource"]["id"],
     )
+    bundle["total"] = len(bundle["entry"])
     assert bundle == expected_json

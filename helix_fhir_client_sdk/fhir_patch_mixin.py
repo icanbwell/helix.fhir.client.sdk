@@ -7,6 +7,9 @@ from furl import furl
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_update_response import FhirUpdateResponse
+from helix_fhir_client_sdk.structures.get_access_token_result import (
+    GetAccessTokenResult,
+)
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
@@ -45,7 +48,8 @@ class FhirPatchMixin(FhirClientProtocol):
         headers = {"Content-Type": "application/json-patch+json"}
         headers.update(self._additional_request_headers)
         self._internal_logger.debug(f"Request headers: {headers}")
-        access_token = await self.get_access_token_async()
+        access_token_result: GetAccessTokenResult = await self.get_access_token_async()
+        access_token: Optional[str] = access_token_result.access_token
         # set access token in request if present
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
@@ -58,7 +62,8 @@ class FhirPatchMixin(FhirClientProtocol):
             # actually make the request
             async with RetryableAioHttpClient(
                 fn_get_session=lambda: self.create_http_session(),
-                simple_refresh_token_func=lambda: self._refresh_token_function(),
+                refresh_token_func=self._refresh_token_function,
+                tracer_request_func=self._trace_request_function,
                 retries=self._retry_count,
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                 use_data_streaming=self._use_data_streaming,
@@ -66,6 +71,8 @@ class FhirPatchMixin(FhirClientProtocol):
                 compress=self._compress,
                 throw_exception_on_error=self._throw_exception_on_error,
                 log_all_url_results=self._log_all_response_urls,
+                access_token=self._access_token,
+                access_token_expiry_date=self._access_token_expiry_date,
             ) as client:
                 response: RetryableAioHttpResponse = await client.patch(
                     url=full_uri.url, json=deserialized_data, headers=headers

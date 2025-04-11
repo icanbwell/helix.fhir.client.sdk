@@ -22,6 +22,9 @@ from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
 )
+from helix_fhir_client_sdk.structures.get_access_token_result import (
+    GetAccessTokenResult,
+)
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
@@ -52,15 +55,14 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
             self._max_concurrent_requests_semaphore = Semaphore(max_concurrent_requests)
         return self
 
-    async def _get_with_session_async(  # type:ignore[override]
+    async def _get_with_session_async(
         self,
-        *,
-        page_number: Optional[int] = None,
-        ids: Optional[List[str]] = None,
-        id_above: Optional[str] = None,
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
-        additional_parameters: Optional[List[str]] = None,
-        resource_type: Optional[str] = None,
+        page_number: Optional[int],
+        ids: Optional[List[str]],
+        id_above: Optional[str],
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
+        additional_parameters: Optional[List[str]],
+        resource_type: Optional[str],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         issues a GET call with the specified session, page_number and ids
@@ -116,17 +118,23 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
 
             async with RetryableAioHttpClient(
                 fn_get_session=lambda: self.create_http_session(),
-                simple_refresh_token_func=lambda: self._refresh_token_function(),
+                refresh_token_func=self._refresh_token_function,
+                tracer_request_func=self._trace_request_function,
                 retries=self._retry_count,
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                 use_data_streaming=self._use_data_streaming,
                 compress=self._compress,
                 throw_exception_on_error=self._throw_exception_on_error,
                 log_all_url_results=self._log_all_response_urls,
+                access_token=self._access_token,
+                access_token_expiry_date=self._access_token_expiry_date,
             ) as client:
                 while next_url:
                     # set access token in request if present
-                    access_token: Optional[str] = await self.get_access_token_async()
+                    access_token_result: GetAccessTokenResult = (
+                        await self.get_access_token_async()
+                    )
+                    access_token: Optional[str] = access_token_result.access_token
                     if access_token:
                         headers["Authorization"] = f"Bearer {access_token}"
 
@@ -143,6 +151,15 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         )
                     )
                     assert isinstance(response, RetryableAioHttpResponse)
+
+                    if response.access_token:
+                        access_token = response.access_token
+                        self.set_access_token(response.access_token)
+                    if response.access_token_expiry_date:
+                        self.set_access_token_expiry_date(
+                            response.access_token_expiry_date
+                        )
+
                     last_status_code = response.status
                     response_headers: List[str] = [
                         f"{key}:{value}"
@@ -180,6 +197,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         extra_context_to_return=self._extra_context_to_return,
                         use_data_streaming=self._use_data_streaming,
                         fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+                        storage_mode=self._storage_mode,
+                        create_operation_outcome_for_error=self._create_operation_outcome_for_error,
                     ):
                         next_url = r.next_url
                         yield r
