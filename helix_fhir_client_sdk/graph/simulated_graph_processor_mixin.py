@@ -1153,7 +1153,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             resource_type=resource_type,
                             resource_id=non_cached_resource_id,
                             bundle_entry=non_cached_bundle_entry,
-                            status=200,
+                            status=(
+                                int(non_cached_bundle_entry.response.status)
+                                if non_cached_bundle_entry.response
+                                else 200
+                            ),
                             last_modified=(
                                 non_cached_bundle_entry.response.lastModified
                                 if non_cached_bundle_entry.response
