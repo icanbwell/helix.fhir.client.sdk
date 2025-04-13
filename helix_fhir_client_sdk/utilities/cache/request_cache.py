@@ -1,6 +1,7 @@
 import asyncio
+from datetime import datetime
 from types import TracebackType
-from typing import Optional, Type, Dict, Any
+from typing import Optional, Type, Dict, Any, AsyncGenerator
 
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
 from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
@@ -92,6 +93,8 @@ class RequestCache:
         resource_id: str,
         bundle_entry: Optional[FhirBundleEntry],
         status: int,
+        last_modified: Optional[datetime],
+        etag: Optional[str],
     ) -> bool:
         """
         This method adds the given data to the cache.
@@ -100,6 +103,8 @@ class RequestCache:
         :param resource_id: The resource id to add the cached data for.
         :param status: The status code of the request.
         :param bundle_entry: The cached data to add.
+        :param last_modified: The last updated date of the resource.
+        :param etag: The ETag of the resource.
         :return: True if the entry was added, False if it already exists.
         """
         key: str = f"{resource_type}/{resource_id}"
@@ -115,6 +120,8 @@ class RequestCache:
                 resource_type=resource_type,
                 status=status,
                 bundle_entry=bundle_entry,
+                last_modified=last_modified,
+                etag=etag,
             )
 
             # Add to the weak value dictionary
@@ -128,3 +135,13 @@ class RequestCache:
         """
         async with self._lock:
             self._cache.clear()
+
+    async def get_entries(self) -> AsyncGenerator[RequestCacheEntry, None]:
+        """
+        This method returns the entries in the cache.
+
+        :return: The entries in the cache.
+        """
+        async with self._lock:
+            for entry in self._cache.values():
+                yield entry

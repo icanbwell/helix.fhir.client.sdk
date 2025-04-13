@@ -1,4 +1,6 @@
 import dataclasses
+from datetime import datetime
+from typing import Optional
 
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
 
@@ -13,3 +15,5 @@ class RequestCacheEntry:
     resource_type: str
     status: int | None
     bundle_entry: FhirBundleEntry | None
+    last_modified: Optional[datetime]
+    etag: Optional[str]

@@ -1,6 +1,6 @@
 import logging
 from abc import ABC
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import (
     Dict,
     Optional,
@@ -940,6 +940,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         resource_id=single_id,
                         bundle_entry=result2.get_bundle_entries()[0],
                         status=result2.status,
+                        last_modified=result2.lastModified,
+                        etag=result2.etag,
                     )
                     if cache_updated and logger:
                         logger.debug(
@@ -951,6 +953,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         resource_id=single_id,
                         bundle_entry=None,
                         status=result2.status,
+                        last_modified=result2.lastModified,
+                        etag=result2.etag,
                     )
                     if cache_updated and logger:
                         logger.debug(
@@ -1150,6 +1154,16 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             resource_id=non_cached_resource_id,
                             bundle_entry=non_cached_bundle_entry,
                             status=200,
+                            last_modified=(
+                                non_cached_bundle_entry.response.lastModified
+                                if non_cached_bundle_entry.response
+                                else None
+                            ),
+                            etag=(
+                                non_cached_bundle_entry.response.etag
+                                if non_cached_bundle_entry.response
+                                else None
+                            ),
                         )
                         if cache_updated and logger:
                             logger.debug(
@@ -1169,6 +1183,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     resource_id=non_cached_id,
                     bundle_entry=None,
                     status=404,
+                    last_modified=datetime.now(UTC),
+                    etag=None,
                 )
                 if cache_updated and logger:
                     logger.debug(
