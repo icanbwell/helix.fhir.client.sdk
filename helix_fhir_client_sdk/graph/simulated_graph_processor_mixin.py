@@ -232,6 +232,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         request_size=request_size,
                         id_search_unsupported_resources=id_search_unsupported_resources,
                         add_cached_bundles_to_result=add_cached_bundles_to_result,
+                        ifModifiedSince=ifModifiedSince,
                     ):
                         child_responses.extend(link_responses)
 
@@ -364,6 +365,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 if additional_parameters
                 else True
             ),
+            ifModifiedSince=(
+                additional_parameters.get("ifModifiedSince", None)
+                if additional_parameters
+                else None
+            ),
         ):
             # Collect each link result
             result.append(link_result)
@@ -403,6 +409,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         id_search_unsupported_resources: List[str],
         max_concurrent_tasks: Optional[int],
         add_cached_bundles_to_result: bool = True,
+        ifModifiedSince: Optional[datetime],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Process a GraphDefinition link object with advanced traversal capabilities.
@@ -429,6 +436,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             request_size: Number of resources to retrieve in a single request
             id_search_unsupported_resources: List of resources with limited ID search
             max_concurrent_tasks: Maximum number of concurrent processing tasks
+            add_cached_bundles_to_result: Flag to add cached bundles to result
+            ifModifiedSince: Optional timestamp for conditional requests
 
         Yields:
             FhirGetResponse objects for each processed target
@@ -461,6 +470,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             request_size=request_size,
             id_search_unsupported_resources=id_search_unsupported_resources,
             add_cached_bundles_to_result=add_cached_bundles_to_result,
+            ifModifiedSince=ifModifiedSince,
         ):
             # Yield each target response individually
             for target_response in target_responses:
@@ -539,6 +549,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 additional_parameters.get("add_cached_bundles_to_result", True)
                 if additional_parameters
                 else True
+            ),
+            ifModifiedSince=(
+                additional_parameters.get("ifModifiedSince", None)
+                if additional_parameters
+                else None
             ),
         ):
             # Collect each target result
@@ -641,6 +656,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         request_size: int,
         id_search_unsupported_resources: List[str],
         add_cached_bundles_to_result: bool = True,
+        ifModifiedSince: Optional[datetime] = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Process a GraphDefinition target
@@ -653,6 +669,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param cache: cache to use
         :param scope_parser: scope parser to use
         :param add_cached_bundles_to_result: whether to add cached bundles to result
+        :param request_size: number of resources to request at once
+        :param id_search_unsupported_resources: list of resources that do not support id search
+        :param ifModifiedSince: ifModifiedSince to use
         :return: list of FhirGetResponse objects
         """
         children: List[FhirBundleEntry] = []
@@ -799,7 +818,20 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # add a stage to get that
             param_list: List[str] = target.params.split("&")
             ref_param = [p for p in param_list if p.endswith("{ref}")][0]
+            # replace any parameters with {ifModifiedSince} with the actual value
+            if ifModifiedSince:
+                param_list = [
+                    p.replace("{ifModifiedSince}", f"ge{ifModifiedSince.isoformat()}")
+                    for p in param_list
+                ]
+            else:
+                # remove any parameters with {ifModifiedSince}
+                param_list = [
+                    p for p in param_list if not p.endswith("{ifModifiedSince}")
+                ]
+            # now get all the parameters that are not {ref}
             additional_parameters = [p for p in param_list if not p.endswith("{ref}")]
+            # get the property name of the ref parameter
             property_name: str = ref_param.split("=")[0]
             if parent_bundle_entries and property_name and target_type:
                 for parent_bundle_entry in parent_bundle_entries:
