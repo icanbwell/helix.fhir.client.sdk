@@ -21,7 +21,9 @@ async def test_fhir_simulated_graph_caching_input_cache_async() -> None:
     print("")
     data_dir: Path = Path(__file__).parent.joinpath("./")
     graph_json: Dict[str, Any]
-    with open(data_dir.joinpath("graphs").joinpath("provider.json"), "r") as file:
+    with open(
+        data_dir.joinpath("graphs").joinpath("provider_if_modified_since.json"), "r"
+    ) as file:
         contents = file.read()
         graph_json = json.loads(contents)
 
