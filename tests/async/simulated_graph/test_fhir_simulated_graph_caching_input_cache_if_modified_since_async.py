@@ -242,6 +242,7 @@ async def test_fhir_simulated_graph_caching_input_cache_if_modified_since_async(
             separate_bundle_resources=False,
             request_size=2,
             input_cache=request_cache,
+            ifModifiedSince=datetime(2023, 10, 1, 0, 0, 0, tzinfo=UTC),
         )
     )
     assert response is not None

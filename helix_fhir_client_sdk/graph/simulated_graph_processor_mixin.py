@@ -821,7 +821,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # replace any parameters with {ifModifiedSince} with the actual value
             if ifModifiedSince:
                 param_list = [
-                    p.replace("{ifModifiedSince}", f"ge{ifModifiedSince.isoformat()}")
+                    p.replace("{ifModifiedSince}", ifModifiedSince.isoformat())
                     for p in param_list
                 ]
             else:
