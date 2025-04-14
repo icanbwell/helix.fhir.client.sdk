@@ -1,6 +1,6 @@
 {
   "resourceType": "Bundle",
-  "total": 11,
+  "total": 10,
   "type": "collection",
   "entry": [
     {
@@ -57,26 +57,6 @@
       },
       "resource": {
         "id": "8",
-        "participant": [
-          {
-            "individual": {
-              "reference": "Practitioner/12345"
-            }
-          }
-        ],
-        "resourceType": "Encounter"
-      },
-      "response": {
-        "status": "200"
-      }
-    },
-    {
-      "request": {
-        "method": "GET",
-        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_input_cache_async/Encounter?patient=1"
-      },
-      "resource": {
-        "id": "10",
         "participant": [
           {
             "individual": {

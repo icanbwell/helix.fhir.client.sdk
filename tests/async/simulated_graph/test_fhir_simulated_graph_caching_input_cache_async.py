@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -216,6 +217,16 @@ async def test_fhir_simulated_graph_caching_input_cache_async() -> None:
 
     request_cache = RequestCache(clear_cache_at_the_end=False)
 
+    await request_cache.add_async(
+        resource_type="Encounter",
+        resource_id="10",
+        from_input_cache=True,
+        bundle_entry=None,
+        status=200,
+        last_modified=datetime.now(UTC),
+        etag=None,
+    )
+
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     response: Optional[FhirGetResponse] = await FhirGetResponse.from_async_generator(
         fhir_client.simulate_graph_streaming_async(
@@ -231,14 +242,14 @@ async def test_fhir_simulated_graph_caching_input_cache_async() -> None:
     text = response.get_response_text()
     print(text)
 
-    print("---------- Request Cache ----------")
+    print(f"---------- Request Cache ({len(request_cache)}) ----------")
     async for entry in request_cache.get_entries_async():
         print(entry)
     print("---------- End Request Cache ----------")
 
     expected_file_path = data_dir.joinpath("expected")
     with open(expected_file_path.joinpath(test_name + ".json")) as f:
-        expected_json = json.load(f)
+        expected_json: Dict[str, Any] = json.load(f)
 
     bundle = json.loads(text)
     bundle["entry"] = [
@@ -253,5 +264,12 @@ async def test_fhir_simulated_graph_caching_input_cache_async() -> None:
     # sort the entries by request url
     bundle["entry"] = sorted(bundle["entry"], key=lambda x: int(x["resource"]["id"]))
     bundle["total"] = len(bundle["entry"])
-    print(bundle)
+    print(f"-------- Actual Bundle ({len(bundle["entry"])}) --------")
+    for entry in bundle["entry"]:
+        print(entry)
+    print("-------- End Actual Bundle --------")
+    print(f"-------- Expected Bundle ({len(expected_json["entry"])}) --------")
+    for entry in expected_json["entry"]:
+        print(entry)
+    print("-------- End Expected Bundle --------")
     assert bundle == expected_json

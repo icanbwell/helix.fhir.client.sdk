@@ -106,6 +106,7 @@ class RequestCache:
         :param bundle_entry: The cached data to add.
         :param last_modified: The last updated date of the resource.
         :param etag: The ETag of the resource.
+        :param from_input_cache: Whether the entry was added from the input cache.
         :return: True if the entry was added, False if it already exists.
         """
         key: str = f"{resource_type}/{resource_id}"
@@ -147,3 +148,19 @@ class RequestCache:
         async with self._lock:
             for entry in self._cache.values():
                 yield entry
+
+    def __len__(self) -> int:
+        """
+        This method returns the number of entries in the cache.
+
+        :return: The number of entries in the cache.
+        """
+        return len(self._cache)
+
+    def __repr__(self) -> str:
+        """
+        This method returns a string representation of the cache.
+
+        :return: A string representation of the cache.
+        """
+        return f"RequestCache(cache_size={len(self._cache)})"
