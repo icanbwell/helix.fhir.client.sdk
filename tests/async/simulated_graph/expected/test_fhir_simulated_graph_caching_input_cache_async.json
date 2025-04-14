@@ -6,7 +6,7 @@
     {
       "request": {
         "method": "GET",
-        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Patient/1"
+        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_input_cache_async/Patient/1"
       },
       "resource": {
         "generalPractitioner": [
@@ -27,7 +27,7 @@
     {
       "request": {
         "method": "GET",
-        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Practitioner/5"
+        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_input_cache_async/Practitioner/5"
       },
       "resource": {
         "id": "5",
@@ -40,7 +40,7 @@
     {
       "request": {
         "method": "GET",
-        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Organization/6"
+        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_input_cache_async/Organization/6"
       },
       "resource": {
         "id": "6",
@@ -53,7 +53,7 @@
     {
       "request": {
         "method": "GET",
-        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Encounter?patient=1"
+        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_input_cache_async/Encounter?patient=1"
       },
       "resource": {
         "id": "8",
@@ -73,7 +73,7 @@
     {
       "request": {
         "method": "GET",
-        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Encounter?patient=1"
+        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_input_cache_async/Encounter?patient=1"
       },
       "resource": {
         "id": "10",
@@ -93,7 +93,7 @@
     {
       "request": {
         "method": "GET",
-        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/DocumentReference?patient=1"
+        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_input_cache_async/DocumentReference?patient=1"
       },
       "resource": {
         "id": "11",
@@ -128,7 +128,7 @@
     {
       "request": {
         "method": "GET",
-        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/12"
+        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_input_cache_async/Binary/12"
       },
       "resource": {
         "id": "12",
@@ -141,7 +141,7 @@
     {
       "request": {
         "method": "GET",
-        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/13"
+        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_input_cache_async/Binary/13"
       },
       "resource": {
         "id": "13",
@@ -154,7 +154,7 @@
     {
       "request": {
         "method": "GET",
-        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/14"
+        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_input_cache_async/Binary/14"
       },
       "resource": {
         "id": "14",
@@ -167,7 +167,7 @@
     {
       "request": {
         "method": "GET",
-        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Binary/15"
+        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_input_cache_async/Binary/15"
       },
       "resource": {
         "id": "15",
@@ -180,7 +180,7 @@
     {
       "request": {
         "method": "GET",
-        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_async/Practitioner/12345"
+        "url": "http://mock-server:1080/test_fhir_simulated_graph_caching_input_cache_async/Practitioner/12345"
       },
       "resource": {
         "id": "12345",

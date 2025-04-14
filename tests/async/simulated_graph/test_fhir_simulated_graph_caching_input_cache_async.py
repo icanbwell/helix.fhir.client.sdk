@@ -16,7 +16,7 @@ from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from tests.logger_for_test import LoggerForTest
 
 
-async def test_fhir_simulated_graph_caching_async() -> None:
+async def test_fhir_simulated_graph_caching_input_cache_async() -> None:
     print("")
     data_dir: Path = Path(__file__).parent.joinpath("./")
     graph_json: Dict[str, Any]
@@ -24,7 +24,7 @@ async def test_fhir_simulated_graph_caching_async() -> None:
         contents = file.read()
         graph_json = json.loads(contents)
 
-    test_name = test_fhir_simulated_graph_caching_async.__name__
+    test_name = test_fhir_simulated_graph_caching_input_cache_async.__name__
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
