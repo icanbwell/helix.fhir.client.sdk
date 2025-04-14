@@ -91,6 +91,7 @@ async def test_fhir_simulated_graph_caching_input_cache_if_modified_since_async(
             querystring={
                 "patient": "1",
                 "category": "vital-signs,social-history,laboratory",
+                "date": "ge2023-10-01T00:00:00+00:00",
             },
             method="GET",
         ),
@@ -120,9 +121,7 @@ async def test_fhir_simulated_graph_caching_input_cache_if_modified_since_async(
     mock_client.expect(
         request=mock_request(
             path=f"/{relative_url}/DocumentReference",
-            querystring={
-                "patient": "1",
-            },
+            querystring={"patient": "1", "date": "ge2023-10-01T00:00:00+00:00"},
             method="GET",
         ),
         response=mock_response(body=response_text),
@@ -193,7 +192,10 @@ async def test_fhir_simulated_graph_caching_input_cache_if_modified_since_async(
     mock_client.expect(
         request=mock_request(
             path=f"/{relative_url}/Encounter",
-            querystring={"patient": "1"},
+            querystring={
+                "patient": "1",
+                "recorded-date": "ge2023-10-01T00:00:00+00:00",
+            },
             method="GET",
         ),
         response=mock_response(body=response_text),

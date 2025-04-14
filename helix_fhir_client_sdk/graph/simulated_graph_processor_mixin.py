@@ -11,6 +11,7 @@ from typing import (
     cast,
     AsyncGenerator,
 )
+from urllib.parse import quote
 
 from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
 from compressedfhir.fhir.fhir_bundle import FhirBundle
@@ -821,7 +822,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # replace any parameters with {ifModifiedSince} with the actual value
             if ifModifiedSince:
                 param_list = [
-                    p.replace("{ifModifiedSince}", ifModifiedSince.isoformat())
+                    p.replace("{ifModifiedSince}", quote(ifModifiedSince.isoformat()))
                     for p in param_list
                 ]
             else:
@@ -837,7 +838,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 for parent_bundle_entry in parent_bundle_entries:
                     parent_resource = parent_bundle_entry.resource
                     if parent_resource:
-                        parent_id = parent_resource.get("id", "")
+                        parent_id = quote(parent_resource.get("id", ""))
                         parent_resource_type = parent_resource.get("resourceType", "")
                         if parent_id and parent_id not in parent_ids:
                             parent_ids.append(parent_id)
