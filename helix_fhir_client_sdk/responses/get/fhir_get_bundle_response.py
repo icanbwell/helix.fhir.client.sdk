@@ -28,6 +28,8 @@ from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
+
+from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -327,6 +329,29 @@ class FhirGetBundleResponse(FhirGetResponse):
             return self
         except Exception as e:
             raise Exception(f"Could not get parse json from: {bundle}") from e
+
+    @override
+    async def remove_entries_in_cache_async(
+        self, *, request_cache: RequestCache
+    ) -> "FhirGetBundleResponse":
+        """
+        Removes the entries in the cache from the bundle
+
+        :param request_cache: RequestCache object to remove the entries from
+        :return: self
+        """
+        # remove all entries in the cache from the bundle
+        async for cached_entry in request_cache.get_entries():
+            for entry in self._bundle_entries:
+                if (
+                    entry.resource
+                    and entry.resource.id == cached_entry.id_
+                    and entry.resource.resource_type == cached_entry.resource_type
+                ):
+                    self._bundle_entries.remove(entry)
+                    break
+
+        return self
 
     @classmethod
     @override

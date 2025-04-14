@@ -24,6 +24,8 @@ from compressedfhir.fhir.fhir_resource_map import FhirResourceMap
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
+
+from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -381,6 +383,18 @@ class FhirGetResponse:
         """
         removes duplicate resources from the response i.e., resources with same resourceType and id
 
+        """
+        ...
+
+    @abstractmethod
+    async def remove_entries_in_cache_async(
+        self, *, request_cache: RequestCache
+    ) -> "FhirGetResponse":
+        """
+        removes entries in the cache for the given response
+
+        :param request_cache: cache to remove entries from
+        :return: FhirGetResponse
         """
         ...
 
