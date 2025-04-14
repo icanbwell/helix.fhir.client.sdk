@@ -95,6 +95,7 @@ class RequestCache:
         status: int,
         last_modified: Optional[datetime],
         etag: Optional[str],
+        from_input_cache: Optional[bool] | None,
     ) -> bool:
         """
         This method adds the given data to the cache.
@@ -122,6 +123,7 @@ class RequestCache:
                 bundle_entry=bundle_entry,
                 last_modified=last_modified,
                 etag=etag,
+                from_input_cache=from_input_cache,
             )
 
             # Add to the weak value dictionary
@@ -136,7 +138,7 @@ class RequestCache:
         async with self._lock:
             self._cache.clear()
 
-    async def get_entries(self) -> AsyncGenerator[RequestCacheEntry, None]:
+    async def get_entries_async(self) -> AsyncGenerator[RequestCacheEntry, None]:
         """
         This method returns the entries in the cache.
 

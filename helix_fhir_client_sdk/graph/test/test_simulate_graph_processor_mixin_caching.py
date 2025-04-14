@@ -49,6 +49,7 @@ async def test_cache_hit() -> None:
         status=200,
         last_modified=None,
         etag=None,
+        from_input_cache=False,
     )
 
     result, cache_hits = await processor._get_resources_by_parameters_async(
@@ -157,6 +158,7 @@ async def test_partial_cache() -> None:
         status=200,
         last_modified=None,
         etag=None,
+        from_input_cache=False,
     )
 
     # noinspection PyUnusedLocal
@@ -224,6 +226,7 @@ async def test_partial_cache_with_null_bundle_entry() -> None:
         status=200,
         last_modified=None,
         etag=None,
+        from_input_cache=False,
     )
 
     # noinspection PyUnusedLocal

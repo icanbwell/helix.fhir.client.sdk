@@ -12,6 +12,7 @@ from mockserver_client.mockserver_client import (
 from helix_fhir_client_sdk.fhir_client import FhirClient
 
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from tests.logger_for_test import LoggerForTest
 
 
@@ -213,6 +214,8 @@ async def test_fhir_simulated_graph_caching_async() -> None:
     if auth_access_token:
         fhir_client = fhir_client.set_access_token(auth_access_token)
 
+    request_cache = RequestCache(clear_cache_at_the_end=False)
+
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     response: Optional[FhirGetResponse] = await FhirGetResponse.from_async_generator(
         fhir_client.simulate_graph_streaming_async(
@@ -221,16 +224,23 @@ async def test_fhir_simulated_graph_caching_async() -> None:
             contained=False,
             separate_bundle_resources=False,
             request_size=2,
+            input_cache=request_cache,
         )
     )
     assert response is not None
-    print(response.get_response_text())
+    text = response.get_response_text()
+    print(text)
+
+    print("---------- Request Cache ----------")
+    async for entry in request_cache.get_entries_async():
+        print(entry)
+    print("---------- End Request Cache ----------")
 
     expected_file_path = data_dir.joinpath("expected")
     with open(expected_file_path.joinpath(test_name + ".json")) as f:
         expected_json = json.load(f)
 
-    bundle = json.loads(response.get_response_text())
+    bundle = json.loads(text)
     bundle["entry"] = [
         e
         for e in bundle["entry"]
@@ -243,4 +253,5 @@ async def test_fhir_simulated_graph_caching_async() -> None:
     # sort the entries by request url
     bundle["entry"] = sorted(bundle["entry"], key=lambda x: int(x["resource"]["id"]))
     bundle["total"] = len(bundle["entry"])
+    print(bundle)
     assert bundle == expected_json

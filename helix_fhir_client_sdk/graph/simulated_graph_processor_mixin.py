@@ -946,6 +946,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         status=result2.status,
                         last_modified=result2.lastModified,
                         etag=result2.etag,
+                        from_input_cache=False,
                     )
                     if cache_updated and logger:
                         logger.debug(
@@ -959,6 +960,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         status=result2.status,
                         last_modified=result2.lastModified,
                         etag=result2.etag,
+                        from_input_cache=False,
                     )
                     if cache_updated and logger:
                         logger.debug(
@@ -1176,6 +1178,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 if non_cached_bundle_entry.response
                                 else None
                             ),
+                            from_input_cache=False,
                         )
                         if cache_updated and logger:
                             logger.debug(
@@ -1197,6 +1200,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     status=404,
                     last_modified=datetime.now(UTC),
                     etag=None,
+                    from_input_cache=False,
                 )
                 if cache_updated and logger:
                     logger.debug(

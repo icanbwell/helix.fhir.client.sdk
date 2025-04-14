@@ -209,16 +209,18 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         :param request_cache: The cache to remove the entries from
         :return: self
         """
-        async for cached_entry in request_cache.get_entries():
-            for _, resource_list in self._resource_map.items():
-                for resource in resource_list:
-                    if (
-                        resource
-                        and resource.id == cached_entry.id_
-                        and resource.resource_type == cached_entry.resource_type
-                    ):
-                        resource_list.remove(resource)
-                        break
+        async for cached_entry in request_cache.get_entries_async():
+            if cached_entry.from_input_cache:
+                for _, resource_list in self._resource_map.items():
+                    for resource in resource_list:
+                        if (
+                            resource
+                            and resource.id is not None
+                            and resource.id == cached_entry.id_
+                            and resource.resource_type == cached_entry.resource_type
+                        ):
+                            resource_list.remove(resource)
+                            break
 
         # remove any empty resource lists
         for resource_type, resources in list(self._resource_map.items()):

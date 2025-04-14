@@ -224,15 +224,17 @@ class FhirGetListResponse(FhirGetResponse):
         if not self._resources:
             return self
 
-        async for cached_entry in request_cache.get_entries():
-            for resource in self._resources:
-                if (
-                    resource
-                    and resource.id == cached_entry.id_
-                    and resource.resource_type == cached_entry.resource_type
-                ):
-                    self._resources.remove(resource)
-                    break
+        async for cached_entry in request_cache.get_entries_async():
+            if cached_entry.from_input_cache:
+                for resource in self._resources:
+                    if (
+                        resource
+                        and resource.id is not None
+                        and resource.id == cached_entry.id_
+                        and resource.resource_type == cached_entry.resource_type
+                    ):
+                        self._resources.remove(resource)
+                        break
 
         return self
 

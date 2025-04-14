@@ -341,15 +341,18 @@ class FhirGetBundleResponse(FhirGetResponse):
         :return: self
         """
         # remove all entries in the cache from the bundle
-        async for cached_entry in request_cache.get_entries():
-            for entry in self._bundle_entries:
-                if (
-                    entry.resource
-                    and entry.resource.id == cached_entry.id_
-                    and entry.resource.resource_type == cached_entry.resource_type
-                ):
-                    self._bundle_entries.remove(entry)
-                    break
+        async for cached_entry in request_cache.get_entries_async():
+            if cached_entry.from_input_cache:
+                for entry in self._bundle_entries:
+                    if (
+                        entry.resource
+                        and entry.resource.id
+                        is not None  # only remove if resource has an id
+                        and entry.resource.id == cached_entry.id_
+                        and entry.resource.resource_type == cached_entry.resource_type
+                    ):
+                        self._bundle_entries.remove(entry)
+                        break
 
         return self
 

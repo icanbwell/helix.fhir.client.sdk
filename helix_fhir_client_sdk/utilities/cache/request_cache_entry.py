@@ -17,3 +17,4 @@ class RequestCacheEntry:
     bundle_entry: FhirBundleEntry | None
     last_modified: Optional[datetime]
     etag: Optional[str]
+    from_input_cache: Optional[bool] | None
