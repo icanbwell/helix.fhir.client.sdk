@@ -160,7 +160,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Track resources that don't support ID-based search
         id_search_unsupported_resources: List[str] = []
-        cache: RequestCache = input_cache if input_cache else RequestCache()
+        cache: RequestCache = input_cache if input_cache is not None else RequestCache()
         async with cache:
             # Retrieve start resources based on graph definition
             start: str = graph_definition.start
