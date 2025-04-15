@@ -1,3 +1,4 @@
+from logging import Logger
 from os import environ
 from typing import List
 
@@ -16,10 +17,11 @@ from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinitionTarget,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from tests.logger_for_test import LoggerForTest
 
 
 async def test_fhir_graph_multiple_ids_in_batches_async() -> None:
-    print("")
+    logger: Logger = LoggerForTest()
     test_name = "test_fhir_graph_multiple_ids_in_batches_async"
 
     environ["LOG_LEVEL"] = "DEBUG"
@@ -115,11 +117,11 @@ async def test_fhir_graph_multiple_ids_in_batches_async() -> None:
         graph_definition=graph_definition,
         contained=True,
     ):
-        print(f"Response Chunk: {response.get_response_text()}")
+        logger.info(f"Response Chunk: {response.get_response_text()}")
         responses.append(response)
 
     assert len(responses) == 2
-    print(f"Response: {responses[0].get_response_text()}")
+    logger.info(f"Response: {responses[0].get_response_text()}")
     assert responses[0].get_response_text()
     resources = responses[0].get_resources()
     assert isinstance(resources, FhirResourceList)

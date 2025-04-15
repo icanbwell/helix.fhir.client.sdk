@@ -1,4 +1,5 @@
 import json
+from logging import Logger
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -12,10 +13,11 @@ from mockserver_client.mockserver_client import (
 from helix_fhir_client_sdk.fhir_client import FhirClient
 
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from tests.logger_for_test import LoggerForTest
 
 
 async def test_fhir_simulated_graph_multiple_graph_async() -> None:
-    print("")
+    logger: Logger = LoggerForTest()
     data_dir: Path = Path(__file__).parent.joinpath("./")
     graph_json: Dict[str, Any]
     with open(data_dir.joinpath("graphs").joinpath("aetna.json"), "r") as file:
@@ -159,7 +161,7 @@ async def test_fhir_simulated_graph_multiple_graph_async() -> None:
         )
     )
     assert response is not None
-    print(response.get_response_text())
+    logger.info(response.get_response_text())
 
     expected_json = {
         "resourceType": "Bundle",
@@ -223,7 +225,7 @@ async def test_fhir_simulated_graph_multiple_graph_async() -> None:
         )
     )
     assert response is not None
-    print(response.get_response_text())
+    logger.info(response.get_response_text())
 
     expected_json = {
         "resourceType": "Bundle",

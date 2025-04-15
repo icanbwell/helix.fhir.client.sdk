@@ -1,3 +1,5 @@
+from logging import Logger
+
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
     mock_request,
@@ -7,9 +9,11 @@ from mockserver_client.mockserver_client import (
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from tests.logger_for_test import LoggerForTest
 
 
 def test_fhir_client_patient_list_auth_fail() -> None:
+    logger: Logger = LoggerForTest()
     test_name = "test_fhir_client_patient_list_auth_fail"
 
     mock_server_url = "http://mock-server:1080"
@@ -34,5 +38,5 @@ def test_fhir_client_patient_list_auth_fail() -> None:
 
     response: FhirGetResponse = fhir_client.get()
 
-    print(response.get_response_text())
+    logger.info(response.get_response_text())
     assert response.status == 403

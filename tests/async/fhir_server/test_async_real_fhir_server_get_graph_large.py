@@ -87,7 +87,7 @@ async def test_async_real_fhir_server_get_graph_large(
     )
 
     expected_resource_count = len(bundle["entry"])
-    print("expected_resource_count", expected_resource_count)
+    logger.info("expected_resource_count", expected_resource_count)
 
     merge_response: Optional[FhirMergeResponse] = (
         await FhirMergeResponse.from_async_generator(
@@ -95,7 +95,7 @@ async def test_async_real_fhir_server_get_graph_large(
         )
     )
     assert merge_response is not None
-    print(json.dumps(merge_response.responses))
+    logger.info(json.dumps(merge_response.responses))
     assert merge_response.status == 200, merge_response.responses
     assert (
         len(merge_response.responses) == expected_resource_count
@@ -178,7 +178,7 @@ async def test_async_real_fhir_server_get_graph_large(
         async for response1 in fhir_client.get_streaming_async():
             resources_in_chunk = response1.get_resources()
             assert isinstance(resources_in_chunk, FhirResourceList)
-            print(
+            logger.info(
                 f"Chunk Number {response1.chunk_number} Received."
                 f" Resource count=[{len(resources_in_chunk)}]: {response1.to_dict()}"
             )
@@ -202,11 +202,13 @@ async def test_async_real_fhir_server_get_graph_large(
         assert resources[0]["resourceType"] == resource_type
         assert response.chunk_number is not None
 
-        print(f"====== Response with {storage_type=} {use_data_streaming=} ======")
-        print(
+        logger.info(
+            f"====== Response with {storage_type=} {use_data_streaming=} ======"
+        )
+        logger.info(
             f"{response.get_resource_count()} resources, {SizeCalculator.locale_format_bytes(get_deep_size(response))}"
         )
-        print(f"====== End Response with {storage_type=} ======")
+        logger.info(f"====== End Response with {storage_type=} ======")
         # assert response.chunk_number >= 5
     else:
         response = await fhir_client.get_async()
@@ -220,8 +222,10 @@ async def test_async_real_fhir_server_get_graph_large(
         assert responses_[0]["id"].startswith("practitioner-")
         assert responses_[0]["resourceType"] == resource_type
 
-        print(f"====== Response with {storage_type=} {use_data_streaming=} ======")
-        print(
+        logger.info(
+            f"====== Response with {storage_type=} {use_data_streaming=} ======"
+        )
+        logger.info(
             f"{response.get_resource_count()} resources, {SizeCalculator.locale_format_bytes(get_deep_size(response))}"
         )
-        print(f"====== End Response with {storage_type=} ======")
+        logger.info(f"====== End Response with {storage_type=} ======")

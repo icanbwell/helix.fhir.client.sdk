@@ -1,4 +1,5 @@
 import json
+from logging import Logger
 from typing import Optional, Any, Dict, List
 
 from mockserver_client.mockserver_client import (
@@ -11,10 +12,11 @@ from mockserver_client.mockserver_client import (
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from tests.logger_for_test import LoggerForTest
 
 
 async def test_fhir_client_patient_list_async_resource_streaming() -> None:
-    print("")
+    logger: Logger = LoggerForTest()
     test_name = "test_fhir_client_patient_list_async"
 
     mock_server_url = "http://mock-server:1080"
@@ -59,7 +61,7 @@ async def test_fhir_client_patient_list_async_resource_streaming() -> None:
 
     response: Optional[FhirGetResponse] = None
     async for response1 in fhir_client.get_streaming_async():
-        print(
+        logger.info(
             f"Got response from chunk {response1.chunk_number}: {response1.to_dict()}"
         )
         resources = response1.get_resources()

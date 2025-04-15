@@ -1,4 +1,5 @@
 import json
+from logging import Logger
 from os import environ
 from typing import List
 
@@ -17,11 +18,12 @@ from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinitionTarget,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from tests.logger_for_test import LoggerForTest
 
 
 @pytest.mark.parametrize("use_data_streaming", [False])
 async def test_fhir_graph_async(use_data_streaming: bool) -> None:
-    print("")
+    logger: Logger = LoggerForTest()
     test_name = "test_fhir_graph_async"
 
     environ["LOG_LEVEL"] = "DEBUG"
@@ -86,9 +88,9 @@ async def test_fhir_graph_async(use_data_streaming: bool) -> None:
     async for response in fhir_client.graph_async(
         id_="1", graph_definition=graph_definition, contained=False
     ):
-        print(f"Response Chunk: {response.get_response_text()}")
+        logger.info(f"Response Chunk: {response.get_response_text()}")
         responses.append(response)
 
     assert len(responses) == 1
-    print(f"Response: {responses[0].get_response_text()}")
+    logger.info(f"Response: {responses[0].get_response_text()}")
     assert json.loads(responses[0].get_response_text()) == response_text

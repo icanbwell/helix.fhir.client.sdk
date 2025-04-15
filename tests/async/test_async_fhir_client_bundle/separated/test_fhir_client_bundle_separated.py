@@ -1,4 +1,5 @@
 import json
+from logging import Logger
 from pathlib import Path
 
 from mockserver_client.mockserver_client import (
@@ -10,10 +11,11 @@ from mockserver_client.mockserver_client import (
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from tests.logger_for_test import LoggerForTest
 
 
 async def test_fhir_client_bundle_separated_async() -> None:
-    print()
+    logger: Logger = LoggerForTest()
     test_name = test_fhir_client_bundle_separated_async.__name__
 
     mock_server_url = "http://mock-server:1080"
@@ -90,5 +92,5 @@ async def test_fhir_client_bundle_separated_async() -> None:
         expected_response = json.load(f)
 
     response_text = response.get_response_text()
-    print(response_text)
+    logger.info(response_text)
     assert json.loads(response_text) == expected_response

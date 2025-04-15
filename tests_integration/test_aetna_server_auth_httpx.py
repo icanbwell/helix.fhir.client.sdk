@@ -1,11 +1,15 @@
+from logging import Logger
 from typing import Dict
 
 import httpx
 import pytest
 
+from tests.logger_for_test import LoggerForTest
+
 
 @pytest.mark.skip("for testing")
 async def test_aetna_server_auth_httpx() -> None:
+    logger: Logger = LoggerForTest()
     # environ["AIOHTTP_NO_EXTENSIONS"] = "1"
     url = "https://vteapif1.aetna.com/fhirdemo/v1/patientaccess/Patient/1234567890123456701"
 
@@ -20,6 +24,6 @@ async def test_aetna_server_auth_httpx() -> None:
 
     async with httpx.AsyncClient() as client:
         response = await client.get(url, headers=headers)
-        print(response.headers)
-        print(response.text)
-        print(response.json())
+        logger.info(response.headers)
+        logger.info(response.text)
+        logger.info(response.json())

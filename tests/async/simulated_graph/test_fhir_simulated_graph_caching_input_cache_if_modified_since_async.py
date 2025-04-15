@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, UTC
+from logging import Logger
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -20,7 +21,7 @@ from tests.logger_for_test import LoggerForTest
 async def test_fhir_simulated_graph_caching_input_cache_if_modified_since_async() -> (
     None
 ):
-    print("")
+    logger: Logger = LoggerForTest()
     data_dir: Path = Path(__file__).parent.joinpath("./")
     graph_json: Dict[str, Any]
     with open(
@@ -249,12 +250,12 @@ async def test_fhir_simulated_graph_caching_input_cache_if_modified_since_async(
     )
     assert response is not None
     text = response.get_response_text()
-    print(text)
+    logger.info(text)
 
-    print(f"---------- Request Cache ({len(request_cache)}) ----------")
+    logger.info(f"---------- Request Cache ({len(request_cache)}) ----------")
     async for entry in request_cache.get_entries_async():
-        print(entry)
-    print("---------- End Request Cache ----------")
+        logger.info(entry)
+    logger.info("---------- End Request Cache ----------")
 
     expected_file_path = data_dir.joinpath("expected")
     with open(expected_file_path.joinpath(test_name + ".json")) as f:
@@ -273,12 +274,12 @@ async def test_fhir_simulated_graph_caching_input_cache_if_modified_since_async(
     # sort the entries by request url
     bundle["entry"] = sorted(bundle["entry"], key=lambda x: int(x["resource"]["id"]))
     bundle["total"] = len(bundle["entry"])
-    print(f"-------- Actual Bundle ({len(bundle['entry'])}) --------")
+    logger.info(f"-------- Actual Bundle ({len(bundle['entry'])}) --------")
     for entry in bundle["entry"]:
-        print(entry)
-    print("-------- End Actual Bundle --------")
-    print(f"-------- Expected Bundle ({len(expected_json['entry'])}) --------")
+        logger.info(entry)
+    logger.info("-------- End Actual Bundle --------")
+    logger.info(f"-------- Expected Bundle ({len(expected_json['entry'])}) --------")
     for entry in expected_json["entry"]:
-        print(entry)
-    print("-------- End Expected Bundle --------")
+        logger.info(entry)
+    logger.info("-------- End Expected Bundle --------")
     assert bundle == expected_json

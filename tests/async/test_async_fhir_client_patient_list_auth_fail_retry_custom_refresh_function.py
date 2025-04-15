@@ -1,4 +1,5 @@
 import json
+from logging import Logger
 
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
@@ -12,10 +13,13 @@ from helix_fhir_client_sdk.function_types import RefreshTokenResult
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from unittest.mock import AsyncMock
 
+from tests.logger_for_test import LoggerForTest
+
 
 async def test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_function() -> (
     None
 ):
+    logger: Logger = LoggerForTest()
     test_name = (
         "test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_function"
     )
@@ -69,5 +73,5 @@ async def test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_fun
         expiry_date=None,
         retry_count=0,
     )
-    print(response.get_response_text())
+    logger.info(response.get_response_text())
     assert response.get_response_text() == response_text

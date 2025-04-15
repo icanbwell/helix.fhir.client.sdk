@@ -18,31 +18,31 @@ class AsyncRunner:
         :return: T
         """
         try:
-            # print(f"Getting running loop")
+            # logger.infof"Getting running loop")
             loop = asyncio.get_running_loop()
-            # print(f"Got running loop")
+            # logger.infof"Got running loop")
         except RuntimeError:
-            # print(f"Creating new event loop")
+            # logger.info(f"Creating new event loop")
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
         try:
             if loop.is_running() and timeout is not None:
-                # print(f"Loop is running so waiting for it to end")
+                # logger.info(f"Loop is running so waiting for it to end")
                 start_time = time.time()
                 while loop.is_running():
                     current_time = time.time()
                     elapsed_time = current_time - start_time
 
                     if elapsed_time > timeout:
-                        # print(f"Timeout {timeout} reached. Exiting loop.")
+                        # logger.info(f"Timeout {timeout} reached. Exiting loop.")
                         break
 
-                    # print(f"Waiting for loop to end: {elapsed_time}")
+                    # logger.info(f"Waiting for loop to end: {elapsed_time}")
                     time.sleep(1)
-            # print(f"Running loop")
+            # logger.info(f"Running loop")
             result = loop.run_until_complete(fn)
-            # print(f"Ran loop")
+            # logger.info(f"Ran loop")
         except RuntimeError as e:
             if "This event loop is already running" in str(e):
                 try:

@@ -1,4 +1,5 @@
 import json
+from logging import Logger
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -17,7 +18,7 @@ from tests.logger_for_test import LoggerForTest
 
 
 async def test_fhir_simulated_graph_caching_async() -> None:
-    print("")
+    logger: Logger = LoggerForTest()
     data_dir: Path = Path(__file__).parent.joinpath("./")
     graph_json: Dict[str, Any]
     with open(data_dir.joinpath("graphs").joinpath("provider.json"), "r") as file:
@@ -229,12 +230,12 @@ async def test_fhir_simulated_graph_caching_async() -> None:
     )
     assert response is not None
     text = response.get_response_text()
-    print(text)
+    logger.info(text)
 
-    print("---------- Request Cache ----------")
+    logger.info("---------- Request Cache ----------")
     async for entry in request_cache.get_entries_async():
-        print(entry)
-    print("---------- End Request Cache ----------")
+        logger.info(entry)
+    logger.info("---------- End Request Cache ----------")
 
     expected_file_path = data_dir.joinpath("expected")
     with open(expected_file_path.joinpath(test_name + ".json")) as f:
@@ -253,5 +254,5 @@ async def test_fhir_simulated_graph_caching_async() -> None:
     # sort the entries by request url
     bundle["entry"] = sorted(bundle["entry"], key=lambda x: int(x["resource"]["id"]))
     bundle["total"] = len(bundle["entry"])
-    print(bundle)
+    logger.info(bundle)
     assert bundle == expected_json

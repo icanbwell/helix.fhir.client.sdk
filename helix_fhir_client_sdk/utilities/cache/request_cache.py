@@ -58,9 +58,8 @@ class RequestCache:
             async with self._lock:
                 self._cache.clear()
 
-        if exc_type is not None:
-            print(f"An exception of type {exc_type} occurred with message {exc_value}")
-            return False  # Propagate any exception that occurred
+        if exc_value is not None:
+            raise exc_value.with_traceback(traceback)
 
         return True
 

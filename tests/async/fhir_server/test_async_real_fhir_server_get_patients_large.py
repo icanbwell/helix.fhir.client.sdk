@@ -1,4 +1,5 @@
 import json
+from logging import Logger
 from os import environ
 from typing import Any, List, Optional
 
@@ -18,6 +19,7 @@ from helix_fhir_client_sdk.utilities.fhir_server_helpers import FhirServerHelper
 from helix_fhir_client_sdk.utilities.size_calculator.size_calculator import (
     SizeCalculator,
 )
+from tests.logger_for_test import LoggerForTest
 
 
 @pytest.mark.parametrize("use_data_streaming", [True, False])
@@ -26,7 +28,7 @@ async def test_async_real_fhir_server_get_patients_large(
     use_data_streaming: bool,
     storage_type: CompressedDictStorageType,
 ) -> None:
-    print()
+    logger: Logger = LoggerForTest()
     resource_type = "Patient"
     await FhirServerHelpers.clean_fhir_server_async(resource_type=resource_type)
 
@@ -53,7 +55,7 @@ async def test_async_real_fhir_server_get_patients_large(
         )
     )
     assert merge_response is not None
-    print(merge_response.responses)
+    logger.info(merge_response.responses)
     assert merge_response.status == 200, merge_response.responses
     assert len(merge_response.responses) == count, merge_response.responses
     assert merge_response.responses[0]["created"] is True, merge_response.responses
@@ -79,7 +81,7 @@ async def test_async_real_fhir_server_get_patients_large(
         async for response1 in fhir_client.get_streaming_async():
             resources_in_chunk = response1.get_resources()
             assert isinstance(resources_in_chunk, FhirResourceList)
-            print(
+            logger.info(
                 f"Chunk Received {response1.chunk_number} [{len(resources_in_chunk)}]: {response1.to_dict()}"
             )
             resource_chunks.append(resources_in_chunk)
@@ -98,16 +100,18 @@ async def test_async_real_fhir_server_get_patients_large(
         assert isinstance(resources, FhirResourceList)
 
         assert len(resources) == count
-        print("Number of chunks received:", len(responses))
+        logger.info("Number of chunks received:", len(responses))
         assert len(responses) > 1
         assert resources[0]["id"].startswith("example-")
         assert resources[0]["resourceType"] == resource_type
         assert response.chunk_number == 8
-        print(f"====== Response with {storage_type=} {use_data_streaming=} ======")
-        print(
+        logger.info(
+            f"====== Response with {storage_type=} {use_data_streaming=} ======"
+        )
+        logger.info(
             f"{response.get_resource_count()} resources, {SizeCalculator.locale_format_bytes(get_deep_size(response))}"
         )
-        print(f"====== End Response with {storage_type=} ======")
+        logger.info(f"====== End Response with {storage_type=} ======")
     else:
         response = await fhir_client.get_async()
         assert response.response_headers is not None
@@ -119,8 +123,10 @@ async def test_async_real_fhir_server_get_patients_large(
         assert len(responses_) == count
         assert responses_[0]["id"].startswith("example-")
         assert responses_[0]["resourceType"] == resource_type
-        print(f"====== Response with {storage_type=} {use_data_streaming=} ======")
-        print(
+        logger.info(
+            f"====== Response with {storage_type=} {use_data_streaming=} ======"
+        )
+        logger.info(
             f"{response.get_resource_count()} resources, {SizeCalculator.locale_format_bytes(get_deep_size(response))}"
         )
-        print(f"====== End Response with {storage_type=} ======")
+        logger.info(f"====== End Response with {storage_type=} ======")

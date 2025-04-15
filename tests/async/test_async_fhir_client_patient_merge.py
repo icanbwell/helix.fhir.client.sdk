@@ -1,4 +1,5 @@
 import json
+from logging import Logger
 from typing import Dict, List, Optional
 
 from mockserver_client.mockserver_client import (
@@ -10,9 +11,11 @@ from mockserver_client.mockserver_client import (
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
+from tests.logger_for_test import LoggerForTest
 
 
 async def test_fhir_client_patient_merge_async() -> None:
+    logger: Logger = LoggerForTest()
     test_name = "test_fhir_client_patient_merge_async"
 
     mock_server_url = "http://mock-server:1080"
@@ -52,5 +55,5 @@ async def test_fhir_client_patient_merge_async() -> None:
         )
     )
     assert response is not None
-    print(response.responses)
+    logger.info(response.responses)
     assert response.responses == response_text_1

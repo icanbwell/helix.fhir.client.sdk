@@ -1,4 +1,5 @@
 import json
+from logging import Logger
 from pathlib import Path
 
 from mockserver_client.mockserver_client import (
@@ -10,9 +11,11 @@ from mockserver_client.mockserver_client import (
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from tests.logger_for_test import LoggerForTest
 
 
 def test_fhir_client_bundle_not_expanded() -> None:
+    logger: Logger = LoggerForTest()
     test_name = "test_fhir_client_bundle_not_expanded"
 
     mock_server_url = "http://mock-server:1080"
@@ -86,8 +89,8 @@ def test_fhir_client_bundle_not_expanded() -> None:
     with open(test_path.joinpath("./practitioner_graph_sample_not_expanded.json")) as f:
         expected_response = json.load(f)
 
-    print("=== Response Text ===")
-    print(response.get_response_text())
-    print("=== Expected Response Text ===")
+    logger.info("=== Response Text ===")
+    logger.info(response.get_response_text())
+    logger.info("=== Expected Response Text ===")
 
     assert json.loads(response.get_response_text()) == expected_response

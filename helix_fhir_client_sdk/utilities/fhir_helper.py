@@ -1,4 +1,6 @@
 import copy
+import logging
+from logging import Logger
 from typing import List, Dict, Any
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
@@ -8,6 +10,8 @@ from helix_fhir_client_sdk.utilities.list_chunker import ListChunker
 class FhirHelper:
     @staticmethod
     async def create_test_patients(count: int) -> Dict[str, Any]:
+        logger: Logger = logging.getLogger("fhir-client")
+        resource_type = "Patient"
         # now create 1000 patients
         patient = {
             "resourceType": "Patient",
@@ -51,7 +55,7 @@ class FhirHelper:
             ],
         }
         # add 1000 patients
-        print(f"Adding {count} patients")
+        logger.info(f"Adding {count} patients")
         patients: List[Dict[str, Any]] = []
         for i in range(count):
             patient_new = copy.deepcopy(patient)
@@ -65,7 +69,7 @@ class FhirHelper:
             patient_new["address"][0]["postalCode"] = f"12345-{i}"  # type: ignore[index]
             patient_new["address"][0]["country"] = f"USA-{i}"  # type: ignore[index]
             patients.append(patient_new)
-        print(f"Added {count} patients")
+        logger.info(f"Added {count} patients")
         bundle = {
             "resourceType": "Bundle",
             "id": "12355",
@@ -84,11 +88,12 @@ class FhirHelper:
     async def delete_resources_by_ids_async(
         fhir_client: FhirClient, resource_type: str, id_list: List[str]
     ) -> None:
+        logger: Logger = logging.getLogger("FhirHelper.delete_resources_by_ids_async")
         count: int = len(id_list)
-        print(f"Deleting {count} {resource_type} resources: {id_list}")
+        logger.info(f"Deleting {count} {resource_type} resources: {id_list}")
         for chunk_resource_ids in ListChunker.divide_into_chunks(id_list, 100):
             fhir_client = fhir_client.resource(resource_type)
             delete_response = await fhir_client.id_(chunk_resource_ids).delete_async()
             assert delete_response.status == 204, delete_response.responses
-            print(f"Deleted {len(chunk_resource_ids)} {resource_type} resources")
-        print(f"Finished deleting {count} {resource_type} resources")
+            logger.info(f"Deleted {len(chunk_resource_ids)} {resource_type} resources")
+        logger.info(f"Finished deleting {count} {resource_type} resources")

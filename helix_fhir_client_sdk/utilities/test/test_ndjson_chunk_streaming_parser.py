@@ -1,8 +1,12 @@
+from logging import Logger
 from typing import Any, Dict, List
 
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
 )
+from tests.logger_for_test import LoggerForTest
+
+logger: Logger = LoggerForTest()
 
 
 def test_ndjson_chunk_streaming_parser_single_line() -> None:
@@ -16,17 +20,16 @@ def test_ndjson_chunk_streaming_parser_single_line() -> None:
     for chunk in data_chunks:
         chunk_number += 1
         complete_json_objects = parser.add_chunk(chunk, logger=None)
-        print(f"{chunk_number}: ", complete_json_objects)
+        logger.info(f"{chunk_number}: ", complete_json_objects)
         all_objects.extend(complete_json_objects)
         all_objects_by_chunk.append(complete_json_objects)
 
-    print("All JSON objects:", all_objects)
+    logger.info("All JSON objects:", all_objects)
     assert len(all_objects) == 1
     assert all_objects[0] == {"name": "John", "age": 30}
 
 
 def test_ndjson_chunk_streaming_parser() -> None:
-    print("")
     data_chunks = [
         '{"name": "John", "age": 30}\n{"name": "Jane", "a',
         'ge": 25}\n{"name": "Doe", "age": 40}\n{"name":',
@@ -43,11 +46,11 @@ def test_ndjson_chunk_streaming_parser() -> None:
     for chunk in data_chunks:
         chunk_number += 1
         complete_json_objects = parser.add_chunk(chunk, logger=None)
-        print(f"{chunk_number}: ", complete_json_objects)
+        logger.info(f"{chunk_number}: ", complete_json_objects)
         all_objects.extend(complete_json_objects)
         all_objects_by_chunk.append(complete_json_objects)
 
-    print("All JSON objects:", all_objects)
+    logger.info("All JSON objects:", all_objects)
     assert len(all_objects) == 4
     assert all_objects[0] == {"name": "John", "age": 30}
     assert all_objects[1] == {"name": "Jane", "age": 25}

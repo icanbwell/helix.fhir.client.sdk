@@ -1,10 +1,14 @@
+from logging import Logger
 from typing import Dict
 
 import pytest
 
+from tests.logger_for_test import LoggerForTest
+
 
 @pytest.mark.skip("for testing")
 def test_aetna_server_auth() -> None:
+    logger: Logger = LoggerForTest()
     import requests
 
     url = "https://vteapif1.aetna.com/fhirdemo/v1/patientaccess/Patient/1234567890123456701"
@@ -19,6 +23,6 @@ def test_aetna_server_auth() -> None:
 
     response = requests.request("GET", url, headers=headers, data=payload)
 
-    print(response.text)
-    print(response.json())
-    print(response.headers)
+    logger.info(response.text)
+    logger.info(response.json())
+    logger.info(response.headers)

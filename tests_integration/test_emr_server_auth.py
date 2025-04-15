@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
+from logging import Logger
 from typing import Dict
 
 import pytest
+
+from tests.logger_for_test import LoggerForTest
 
 
 @pytest.mark.skip("for testing")
@@ -29,7 +32,7 @@ def test_emr_server_auth() -> None:
 
     response = requests.request("GET", url, headers=headers, data=payload)
 
-    print()
-    print(response.text)
-    # print(response.json())
-    print(response.headers)
+    logger: Logger = LoggerForTest()
+    logger.info(response.text)
+    # logger.info(response.json())
+    logger.info(response.headers)

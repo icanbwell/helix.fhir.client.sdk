@@ -1,4 +1,5 @@
 import json
+from logging import Logger
 from os import environ
 from typing import List, Any, Dict, Optional
 
@@ -17,7 +18,7 @@ from tests.logger_for_test import LoggerForTest
 
 
 async def test_fhir_client_patient_list_async_streaming() -> None:
-    print("")
+    logger: Logger = LoggerForTest()
     test_name = "test_fhir_client_patient_list_async"
 
     environ["LOGLEVEL"] = "DEBUG"
@@ -54,7 +55,6 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
         timing=times(2),
     )
 
-    logger = LoggerForTest()
     fhir_client = FhirClient()
     fhir_client.logger(logger=logger)
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
@@ -67,7 +67,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
     async for response1 in fhir_client.get_streaming_async():
         resources_in_chunk = response1.get_resources()
         assert isinstance(resources_in_chunk, FhirResourceList)
-        print(
+        logger.info(
             f"Chunk {response1.chunk_number} [{len(resources_in_chunk)}]: {response1.to_dict()}"
         )
 
