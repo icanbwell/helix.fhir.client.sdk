@@ -146,7 +146,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 f"FhirClient.simulate_graph_async() "
                 f"id_={id_}, "
                 f"contained={contained}, "
-                f"separate_bundle_resources={separate_bundle_resources}"
+                f"separate_bundle_resources={separate_bundle_resources}, "
+                f"request_size={request_size}, "
+                f"max_concurrent_tasks={max_concurrent_tasks}, "
+                f"expand_fhir_bundle={expand_fhir_bundle}, "
+                f"ifModifiedSince={ifModifiedSince.isoformat() if ifModifiedSince else None}, "
+                f"eTag={eTag}, "
             )
 
         # Normalize input to a list of IDs, handling comma-separated strings
@@ -446,6 +451,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # Validate input link
         assert link, "GraphDefinitionLink must be provided"
 
+        if self._logger:
+            self._logger.debug(f"Processing link: {link.path} ")
+
         # Extract targets from the link
         targets: List[GraphDefinitionTarget] = link.target
         target_responses: List[FhirGetResponse]
@@ -682,6 +690,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         parent_resource_type: str = ""
         parent_ids: List[str] = []
 
+        if self._logger:
+            self._logger.debug(
+                f"Processing target: {target_type} "
+                f"from parent {parent_resource_type}/{parent_ids}"
+                f" path:[{path}]"
+                f"params: {target.params}"
+            )
+
         # forward link and iterate over list
         if path and "[x]" in path and parent_bundle_entries:
             child_ids = []
@@ -821,8 +837,18 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             ref_param = [p for p in param_list if p.endswith("{ref}")][0]
             # replace any parameters with {ifModifiedSince} with the actual value
             if ifModifiedSince:
+                if_modified_since_date: datetime = ifModifiedSince
+                # if ifModifiedSince is missing timezone then set it to utc
+                if if_modified_since_date.tzinfo is None:
+                    if_modified_since_date = ifModifiedSince.replace(tzinfo=UTC)
+                else:
+                    if_modified_since_date = ifModifiedSince.astimezone(UTC)
+                # convert to isoformat
+                if_modified_since_isoformat = quote(
+                    if_modified_since_date.date().isoformat()
+                )
                 param_list = [
-                    p.replace("{ifModifiedSince}", quote(ifModifiedSince.isoformat()))
+                    p.replace("{ifModifiedSince}", if_modified_since_isoformat)
                     for p in param_list
                 ]
             else:
