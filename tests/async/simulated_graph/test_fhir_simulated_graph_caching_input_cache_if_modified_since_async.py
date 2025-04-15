@@ -273,11 +273,11 @@ async def test_fhir_simulated_graph_caching_input_cache_if_modified_since_async(
     # sort the entries by request url
     bundle["entry"] = sorted(bundle["entry"], key=lambda x: int(x["resource"]["id"]))
     bundle["total"] = len(bundle["entry"])
-    print(f"-------- Actual Bundle ({len(bundle["entry"])}) --------")
+    print(f"-------- Actual Bundle ({len(bundle['entry'])}) --------")
     for entry in bundle["entry"]:
         print(entry)
     print("-------- End Actual Bundle --------")
-    print(f"-------- Expected Bundle ({len(expected_json["entry"])}) --------")
+    print(f"-------- Expected Bundle ({len(expected_json['entry'])}) --------")
     for entry in expected_json["entry"]:
         print(entry)
     print("-------- End Expected Bundle --------")
