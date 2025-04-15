@@ -27,6 +27,9 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
 )
 from compressedfhir.utilities.fhir_json_encoder import FhirJSONEncoder
 
+from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
+    FhirGetBundleResponse,
+)
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -111,8 +114,8 @@ class FhirGetErrorResponse(FhirGetResponse):
         :return: self
         """
         # if someone is trying to append to a single resource then we need to convert it to a bundle
-        raise NotImplementedError(
-            "FhirGetErrorResponse does not support appending other responses."
+        return FhirGetBundleResponse.from_response(other_response=self).append(
+            other_response=other_response
         )
 
     @override
@@ -124,8 +127,8 @@ class FhirGetErrorResponse(FhirGetResponse):
         :return: self
         """
         # if someone is trying to append to a single resource then we need to convert it to a bundle
-        raise NotImplementedError(
-            "FhirGetErrorResponse does not support extending with other responses."
+        return FhirGetBundleResponse.from_response(other_response=self).extend(
+            others=others
         )
 
     @override
