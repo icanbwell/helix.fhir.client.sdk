@@ -2,7 +2,7 @@
 from datetime import datetime
 
 import pytest
-from aiohttp import ClientResponseError, ClientSession
+from aiohttp import ClientConnectionError, ClientSession
 from aioresponses import aioresponses
 
 from helix_fhir_client_sdk.function_types import RefreshTokenResult
@@ -43,7 +43,7 @@ async def test_retry_on_500() -> None:
     ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=500)
-            with pytest.raises(ClientResponseError):
+            with pytest.raises(ClientConnectionError):
                 await client.get(url="http://test.com", headers=None)
 
 
@@ -348,7 +348,7 @@ async def test_timeout_handling() -> None:
                 callback=get_payload_function({"resourceType": "Patient", "id": "1"}, delay=1),
             )
 
-            with pytest.raises(ClientResponseError):
+            with pytest.raises(TimeoutError):
                 await client.get(url="http://test.com")
 
 

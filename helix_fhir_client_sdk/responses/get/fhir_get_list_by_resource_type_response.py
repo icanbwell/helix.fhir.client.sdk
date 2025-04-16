@@ -17,6 +17,7 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
 )
 from compressedfhir.utilities.fhir_json_encoder import FhirJSONEncoder
 
+from helix_fhir_client_sdk.exceptions.fhir_get_exception import FhirGetException
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
@@ -177,7 +178,20 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
             assert isinstance(child_response_resources, list)
             return child_response_resources
         except Exception as e:
-            raise Exception(f"Could not get resources from: {responses}") from e
+            raise FhirGetException(
+                exception=e,
+                message="Error parsing response: " + responses + ": " + str(e) + " - this is not a valid FHIR response",
+                request_id=None,
+                url=None,
+                json_data=responses,
+                response_text=responses,
+                response_status_code=None,
+                headers=None,
+                variables={
+                    "responses": responses,
+                    "error": str(e),
+                },
+            ) from e
 
     @override
     def remove_duplicates(self) -> FhirGetResponse:

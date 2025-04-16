@@ -2,11 +2,11 @@ import json
 from typing import Any
 
 import pytest
-from aiohttp import ClientResponseError
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 
+from helix_fhir_client_sdk.exceptions.fhir_get_exception import FhirGetException
 from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
@@ -127,7 +127,7 @@ class TestFhirGetResponseFactory:
         params = default_params.copy()
         params.update({"status": 200, "response_text": json.dumps(None)})
 
-        with pytest.raises(ClientResponseError):  # Adjust the specific exception as needed
+        with pytest.raises(FhirGetException):  # Adjust the specific exception as needed
             FhirGetResponseFactory.create(**params)
 
     def test_create_response_with_invalid_json(self, default_params: dict[str, Any]) -> None:

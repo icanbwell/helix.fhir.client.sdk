@@ -3,7 +3,6 @@ from typing import cast
 from unittest.mock import Mock
 
 import pytest
-from aiohttp import ClientResponseError
 from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from compressedfhir.fhir.fhir_resource_map import FhirResourceMap
@@ -11,6 +10,7 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
     CompressedDictStorageMode,
 )
 
+from helix_fhir_client_sdk.exceptions.fhir_get_exception import FhirGetException
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_list_by_resource_type_response import (
     FhirGetListByResourceTypeResponse,
@@ -88,7 +88,7 @@ class TestFhirGetListByResourceTypeResponse:
 
     def test_parse_resources_invalid(self) -> None:
         """Test parsing resources with invalid JSON."""
-        with pytest.raises(ClientResponseError):
+        with pytest.raises(FhirGetException):
             FhirGetListByResourceTypeResponse._parse_resources(responses="invalid json")
 
     def test_parse_into_resource_map(self, sample_resources: FhirResourceList) -> None:
