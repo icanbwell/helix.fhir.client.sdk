@@ -1,4 +1,5 @@
 import logging
+import sys
 from abc import ABC
 from datetime import datetime, UTC
 from typing import (
@@ -278,6 +279,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     f"start={graph_definition.start}, "
                     f"hits: {cache.cache_hits}, "
                     f"misses: {cache.cache_misses}"
+                    f"resource size in mb: {sys.getsizeof(full_response.get_response_text()) / 1024 / 1024}"
                 )
 
             # Yield the final response
