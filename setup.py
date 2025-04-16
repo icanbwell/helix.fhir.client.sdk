@@ -40,7 +40,7 @@ setup(
         "aiohttp",
         "async-timeout>=4.0.3",
         "python-dateutil",
-        "compressedfhir>=1.0.2",
+        "compressedfhir>=1.0.3",
     ],
     classifiers=[
         "Development Status :: 4 - Beta",
