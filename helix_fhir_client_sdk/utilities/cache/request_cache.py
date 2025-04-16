@@ -1,6 +1,7 @@
 import asyncio
+from datetime import datetime
 from types import TracebackType
-from typing import Optional, Type, Dict
+from typing import Optional, Type, Dict, Any, AsyncGenerator
 
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
 from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
@@ -18,21 +19,29 @@ class RequestCache:
         "cache_misses",
         "_cache",
         "_lock",
+        "_clear_cache_at_the_end",
     ]
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        initial_dict: Dict[str, Any] | None = None,
+        clear_cache_at_the_end: Optional[bool] = True,
+    ) -> None:
         self.cache_hits: int = 0
         self.cache_misses: int = 0
-        self._cache: Dict[str, RequestCacheEntry] = {}
+        self._cache: Dict[str, RequestCacheEntry] = initial_dict or {}
         self._lock: asyncio.Lock = asyncio.Lock()
+        self._clear_cache_at_the_end: Optional[bool] = clear_cache_at_the_end
 
     async def __aenter__(self) -> "RequestCache":
         """
         This method is called when the RequestCache is entered into a context manager.
         It returns the RequestCache instance.
         """
-        async with self._lock:
-            self._cache.clear()
+        if self._clear_cache_at_the_end:
+            async with self._lock:
+                self._cache.clear()
         return self
 
     async def __aexit__(
@@ -45,12 +54,12 @@ class RequestCache:
         This method is called when the RequestCache is exited from a context manager.
         It clears the cache.
         """
-        async with self._lock:
-            self._cache.clear()
+        if self._clear_cache_at_the_end:
+            async with self._lock:
+                self._cache.clear()
 
-        if exc_type is not None:
-            print(f"An exception of type {exc_type} occurred with message {exc_value}")
-            return False  # Propagate any exception that occurred
+        if exc_value is not None:
+            raise exc_value.with_traceback(traceback)
 
         return True
 
@@ -83,6 +92,9 @@ class RequestCache:
         resource_id: str,
         bundle_entry: Optional[FhirBundleEntry],
         status: int,
+        last_modified: Optional[datetime],
+        etag: Optional[str],
+        from_input_cache: Optional[bool] | None,
     ) -> bool:
         """
         This method adds the given data to the cache.
@@ -91,6 +103,9 @@ class RequestCache:
         :param resource_id: The resource id to add the cached data for.
         :param status: The status code of the request.
         :param bundle_entry: The cached data to add.
+        :param last_modified: The last updated date of the resource.
+        :param etag: The ETag of the resource.
+        :param from_input_cache: Whether the entry was added from the input cache.
         :return: True if the entry was added, False if it already exists.
         """
         key: str = f"{resource_type}/{resource_id}"
@@ -106,6 +121,9 @@ class RequestCache:
                 resource_type=resource_type,
                 status=status,
                 bundle_entry=bundle_entry,
+                last_modified=last_modified,
+                etag=etag,
+                from_input_cache=from_input_cache,
             )
 
             # Add to the weak value dictionary
@@ -119,3 +137,29 @@ class RequestCache:
         """
         async with self._lock:
             self._cache.clear()
+
+    async def get_entries_async(self) -> AsyncGenerator[RequestCacheEntry, None]:
+        """
+        This method returns the entries in the cache.
+
+        :return: The entries in the cache.
+        """
+        async with self._lock:
+            for entry in self._cache.values():
+                yield entry
+
+    def __len__(self) -> int:
+        """
+        This method returns the number of entries in the cache.
+
+        :return: The number of entries in the cache.
+        """
+        return len(self._cache)
+
+    def __repr__(self) -> str:
+        """
+        This method returns a string representation of the cache.
+
+        :return: A string representation of the cache.
+        """
+        return f"RequestCache(cache_size={len(self._cache)})"

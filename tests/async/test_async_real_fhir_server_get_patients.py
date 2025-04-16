@@ -1,5 +1,6 @@
 import datetime
 import json
+from logging import Logger
 from os import environ
 from typing import Any, List, Optional
 
@@ -10,11 +11,12 @@ from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
 from helix_fhir_client_sdk.utilities.fhir_server_helpers import FhirServerHelpers
+from tests.logger_for_test import LoggerForTest
 
 
 @pytest.mark.parametrize("use_data_streaming", [True, False])
 async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> None:
-    print()
+    logger: Logger = LoggerForTest()
     await FhirServerHelpers.clean_fhir_server_async(resource_type="Patient")
 
     environ["LOGLEVEL"] = "DEBUG"
@@ -47,7 +49,7 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
         )
     )
     assert merge_response is not None
-    print(merge_response.responses)
+    logger.info(merge_response.responses)
     assert merge_response.status == 200, merge_response.responses
     assert len(merge_response.responses) == 1, merge_response.responses
     assert merge_response.responses[0]["created"] is True, merge_response.responses
@@ -70,9 +72,9 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
     response_text = response.get_response_text()
 
     assert response.status == 200, response_text
-    print("----- response_text -----")
-    print(response_text)
-    print("----- end response_text -----")
+    logger.info("----- response_text -----")
+    logger.info(response_text)
+    logger.info("----- end response_text -----")
 
     if use_data_streaming:
         resources: FhirResourceList = response.get_resources()

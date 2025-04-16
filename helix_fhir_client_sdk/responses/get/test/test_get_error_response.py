@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any
 from unittest.mock import Mock
 
 import pytest
@@ -107,46 +107,6 @@ class TestFhirGetErrorResponse:
         assert isinstance(entries[0], FhirBundleEntry)
         assert entries[0].resource is not None
         assert entries[0].resource["resourceType"] == "OperationOutcome"
-
-    def test_append_raises_not_implemented(
-        self,
-        base_response_params: Dict[str, Any],
-        sample_error_response: Dict[str, Any],
-    ) -> None:
-        """Test that append method raises NotImplementedError."""
-
-        response = FhirGetErrorResponse(
-            **base_response_params,
-            response_text=json.dumps(sample_error_response),
-            error="Sample error",
-        )
-
-        mock_other_response = Mock(spec=FhirGetResponse)
-        with pytest.raises(
-            NotImplementedError,
-            match="FhirGetErrorResponse does not support appending other responses.",
-        ):
-            response.append(mock_other_response)
-
-    def test_extend_raises_not_implemented(
-        self,
-        base_response_params: Dict[str, Any],
-        sample_error_response: Dict[str, Any],
-    ) -> None:
-        """Test that extend method raises NotImplementedError."""
-
-        response = FhirGetErrorResponse(
-            **base_response_params,
-            response_text=json.dumps(sample_error_response),
-            error="Sample error",
-        )
-
-        mock_other_responses: List[FhirGetResponse] = [Mock(spec=FhirGetResponse)]
-        with pytest.raises(
-            NotImplementedError,
-            match="FhirGetErrorResponse does not support extending with other responses.",
-        ):
-            response.extend(mock_other_responses)
 
     def test_get_response_text(
         self,

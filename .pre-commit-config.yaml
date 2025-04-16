@@ -5,6 +5,19 @@ repos:
     hooks:
       - id: end-of-file-fixer
         types: [ python ]
+      - id: check-case-conflict
+        types: [ python ]
+      - id: check-docstring-first
+        types: [ python ]
+      - id: debug-statements
+        types: [ python ]
+      - id: detect-aws-credentials
+        types: [ python ]
+        args: [ '--allow-missing-credentials' ]
+      - id: detect-private-key
+        types: [ python ]
+  #      - id: name-tests-test
+  #        types: [ python ]
   - repo: local
     hooks:
       - id: autoflake
@@ -13,11 +26,11 @@ repos:
         types: [ python ]
         entry: autoflake
         require_serial: true
-        args: [ '--in-place', '--remove-all-unused-imports', '--ignore-init-module-imports']
+        args: [ '--in-place', '--remove-all-unused-imports', '--ignore-init-module-imports' ]
       - id: black
         name: black
         language: system
-        types: [python]
+        types: [ python ]
         require_serial: true
         entry: black
       - id: mypy
@@ -27,3 +40,25 @@ repos:
         entry: mypy
         require_serial: true
         args: [ --strict, --python-version=3.12, --show-error-codes, --allow-untyped-decorators ]
+      - id: bandit
+        name: bandit
+        language: system
+        types: [ python ]
+        entry: bandit
+        require_serial: true
+        args: [ '-q', '--skip', 'B101,B105,B106' ]
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.10.0
+    hooks:
+      - id: python-use-type-annotations
+      - id: python-check-blanket-noqa
+      - id: python-check-blanket-type-ignore
+      - id: python-check-mock-methods
+      - id: python-no-eval
+      - id: python-no-log-warn
+#  -   repo: https://github.com/thoughtworks/talisman
+#      rev: 'v1.34.0'
+#      hooks:
+#        - id: talisman-commit
+##          language: python
+#          pass_filenames: false

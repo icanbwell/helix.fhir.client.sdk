@@ -16,10 +16,12 @@ from unittest.mock import AsyncMock, patch
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
+from tests.logger_for_test import LoggerForTest
 
 
 async def test_fhir_client_patient_list_async_streaming() -> None:
     test_name = "test_fhir_client_patient_list_async"
+    logger = LoggerForTest()
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
@@ -50,7 +52,7 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
     fhir_client = fhir_client.use_data_streaming(True)
 
     async def on_chunk(line: bytes, chunk_number: Optional[int] = None) -> bool:
-        print(f"Got chunk {chunk_number}: {line.decode('utf-8')}")
+        logger.info(f"Got chunk {chunk_number}: {line.decode('utf-8')}")
         return True
 
     class MyRetryableAioHttpResponse(RetryableAioHttpResponse):
@@ -114,5 +116,5 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
             data_chunk_handler=on_chunk
         )
 
-    print(response.get_response_text())
+    logger.info(response.get_response_text())
     assert response.get_response_text() == response_text

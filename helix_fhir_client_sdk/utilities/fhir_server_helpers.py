@@ -1,3 +1,5 @@
+import logging
+from logging import Logger
 from os import environ
 
 
@@ -10,6 +12,7 @@ class FhirServerHelpers:
     async def clean_fhir_server_async(
         resource_type: str, owner_tag: str = "bwell"
     ) -> None:
+        logger: Logger = logging.getLogger("fhir-client")
         # clean the fhir server
         fhir_server_url: str = environ["FHIR_SERVER_URL"]
         auth_client_id = environ["FHIR_CLIENT_ID"]
@@ -31,4 +34,4 @@ class FhirServerHelpers:
             .delete_by_query_async()
         )
         assert response.status == 200, response.responses
-        print(f"Deleted {response.count} {resource_type} resources")
+        logger.info(f"Deleted {response.count} {resource_type} resources")

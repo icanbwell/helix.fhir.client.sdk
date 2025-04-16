@@ -1,6 +1,6 @@
 import logging
 from abc import ABC
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import (
     Dict,
     Optional,
@@ -11,6 +11,7 @@ from typing import (
     cast,
     AsyncGenerator,
 )
+from urllib.parse import quote
 
 from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
 from compressedfhir.fhir.fhir_bundle import FhirBundle
@@ -84,6 +85,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         max_concurrent_tasks: Optional[int],
         sort_resources: Optional[bool],
         add_cached_bundles_to_result: bool = True,
+        input_cache: Optional[RequestCache] = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Asynchronously simulate a FHIR $graph query with advanced processing capabilities.
@@ -121,6 +123,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             restrict_to_capability_statement: Optional capability statement restriction
             contained: Flag to include contained resources
             add_cached_bundles_to_result: Optional flag to add cached bundles to result
+            input_cache: Optional cache for resource retrieval
 
         Yields:
             FhirGetResponse objects representing retrieved resources
@@ -143,7 +146,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 f"FhirClient.simulate_graph_async() "
                 f"id_={id_}, "
                 f"contained={contained}, "
-                f"separate_bundle_resources={separate_bundle_resources}"
+                f"separate_bundle_resources={separate_bundle_resources}, "
+                f"request_size={request_size}, "
+                f"max_concurrent_tasks={max_concurrent_tasks}, "
+                f"expand_fhir_bundle={expand_fhir_bundle}, "
+                f"ifModifiedSince={ifModifiedSince.isoformat() if ifModifiedSince else None}, "
+                f"eTag={eTag}, "
             )
 
         # Normalize input to a list of IDs, handling comma-separated strings
@@ -152,8 +160,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Track resources that don't support ID-based search
         id_search_unsupported_resources: List[str] = []
-        cache: RequestCache
-        async with RequestCache() as cache:
+        cache: RequestCache = input_cache if input_cache is not None else RequestCache()
+        async with cache:
             # Retrieve start resources based on graph definition
             start: str = graph_definition.start
             parent_response: FhirGetResponse
@@ -230,6 +238,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         request_size=request_size,
                         id_search_unsupported_resources=id_search_unsupported_resources,
                         add_cached_bundles_to_result=add_cached_bundles_to_result,
+                        ifModifiedSince=ifModifiedSince,
                     ):
                         child_responses.extend(link_responses)
 
@@ -362,6 +371,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 if additional_parameters
                 else True
             ),
+            ifModifiedSince=(
+                additional_parameters.get("ifModifiedSince", None)
+                if additional_parameters
+                else None
+            ),
         ):
             # Collect each link result
             result.append(link_result)
@@ -401,6 +415,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         id_search_unsupported_resources: List[str],
         max_concurrent_tasks: Optional[int],
         add_cached_bundles_to_result: bool = True,
+        ifModifiedSince: Optional[datetime],
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Process a GraphDefinition link object with advanced traversal capabilities.
@@ -427,12 +442,17 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             request_size: Number of resources to retrieve in a single request
             id_search_unsupported_resources: List of resources with limited ID search
             max_concurrent_tasks: Maximum number of concurrent processing tasks
+            add_cached_bundles_to_result: Flag to add cached bundles to result
+            ifModifiedSince: Optional timestamp for conditional requests
 
         Yields:
             FhirGetResponse objects for each processed target
         """
         # Validate input link
         assert link, "GraphDefinitionLink must be provided"
+
+        if self._logger:
+            self._logger.debug(f"Processing link: {link.path} ")
 
         # Extract targets from the link
         targets: List[GraphDefinitionTarget] = link.target
@@ -459,6 +479,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             request_size=request_size,
             id_search_unsupported_resources=id_search_unsupported_resources,
             add_cached_bundles_to_result=add_cached_bundles_to_result,
+            ifModifiedSince=ifModifiedSince,
         ):
             # Yield each target response individually
             for target_response in target_responses:
@@ -537,6 +558,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 additional_parameters.get("add_cached_bundles_to_result", True)
                 if additional_parameters
                 else True
+            ),
+            ifModifiedSince=(
+                additional_parameters.get("ifModifiedSince", None)
+                if additional_parameters
+                else None
             ),
         ):
             # Collect each target result
@@ -639,6 +665,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         request_size: int,
         id_search_unsupported_resources: List[str],
         add_cached_bundles_to_result: bool = True,
+        ifModifiedSince: Optional[datetime] = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Process a GraphDefinition target
@@ -651,6 +678,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param cache: cache to use
         :param scope_parser: scope parser to use
         :param add_cached_bundles_to_result: whether to add cached bundles to result
+        :param request_size: number of resources to request at once
+        :param id_search_unsupported_resources: list of resources that do not support id search
+        :param ifModifiedSince: ifModifiedSince to use
         :return: list of FhirGetResponse objects
         """
         children: List[FhirBundleEntry] = []
@@ -659,6 +689,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         assert target_type
         parent_resource_type: str = ""
         parent_ids: List[str] = []
+
+        if self._logger:
+            self._logger.debug(
+                f"Processing target: {target_type} "
+                f"from parent {parent_resource_type}/{parent_ids}"
+                f" path:[{path}]"
+                f"params: {target.params}"
+            )
 
         # forward link and iterate over list
         if path and "[x]" in path and parent_bundle_entries:
@@ -797,13 +835,36 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # add a stage to get that
             param_list: List[str] = target.params.split("&")
             ref_param = [p for p in param_list if p.endswith("{ref}")][0]
+            # replace any parameters with {ifModifiedSince} with the actual value
+            if ifModifiedSince:
+                if_modified_since_date: datetime = ifModifiedSince
+                # if ifModifiedSince is missing timezone then set it to utc
+                if if_modified_since_date.tzinfo is None:
+                    if_modified_since_date = ifModifiedSince.replace(tzinfo=UTC)
+                else:
+                    if_modified_since_date = ifModifiedSince.astimezone(UTC)
+                # convert to isoformat
+                if_modified_since_isoformat = quote(
+                    if_modified_since_date.date().isoformat()
+                )
+                param_list = [
+                    p.replace("{ifModifiedSince}", if_modified_since_isoformat)
+                    for p in param_list
+                ]
+            else:
+                # remove any parameters with {ifModifiedSince}
+                param_list = [
+                    p for p in param_list if not p.endswith("{ifModifiedSince}")
+                ]
+            # now get all the parameters that are not {ref}
             additional_parameters = [p for p in param_list if not p.endswith("{ref}")]
+            # get the property name of the ref parameter
             property_name: str = ref_param.split("=")[0]
             if parent_bundle_entries and property_name and target_type:
                 for parent_bundle_entry in parent_bundle_entries:
                     parent_resource = parent_bundle_entry.resource
                     if parent_resource:
-                        parent_id = parent_resource.get("id", "")
+                        parent_id = quote(parent_resource.get("id", ""))
                         parent_resource_type = parent_resource.get("resourceType", "")
                         if parent_id and parent_id not in parent_ids:
                             parent_ids.append(parent_id)
@@ -877,12 +938,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         cached_bundle_entries.append(cached_bundle_entry)
                         if logger:
                             logger.debug(
-                                f"200 Returning {cached_bundle_entry.resource.resource_type_and_id} from cache (1by1)"
+                                f"{cache_entry.status} Returning {cached_bundle_entry.resource.resource_type_and_id} from cache (1by1)"
                             )
                     else:
                         if logger:
                             logger.debug(
-                                f"404 Cache entry found for {resource_type}/{resource_id} (1by1)"
+                                f"{cache_entry.status} Empty Cache entry found for {resource_type}/{resource_id} (1by1)"
                             )
                     cache_hits += 1
                 else:
@@ -928,6 +989,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             ):
                 if result2.resource_type == "OperationOutcome":
                     result2 = FhirGetErrorResponse.from_response(other_response=result2)
+
+                # remove entries that we have in the cache
+                await result2.remove_entries_in_cache_async(request_cache=cache)
+
                 if result:
                     result = result.append(result2)
                 else:
@@ -938,6 +1003,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         resource_id=single_id,
                         bundle_entry=result2.get_bundle_entries()[0],
                         status=result2.status,
+                        last_modified=result2.lastModified,
+                        etag=result2.etag,
+                        from_input_cache=False,
                     )
                     if cache_updated and logger:
                         logger.debug(
@@ -949,6 +1017,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         resource_id=single_id,
                         bundle_entry=None,
                         status=result2.status,
+                        last_modified=result2.lastModified,
+                        etag=result2.etag,
+                        from_input_cache=False,
                     )
                     if cache_updated and logger:
                         logger.debug(
@@ -1026,12 +1097,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         cached_bundle_entries.append(cached_bundle_entry)
                         if logger:
                             logger.debug(
-                                f"200 Returning {resource_type}/{resource_id} from cache (ByParam)"
+                                f"{cache_entry.status} Returning {resource_type}/{resource_id} from cache (ByParam)"
                             )
                     else:
                         if logger:
                             logger.debug(
-                                f"{cache_entry.status} Cache entry found for {resource_type}/{resource_id} (ByParam)"
+                                f"{cache_entry.status} Empty Cache entry found for {resource_type}/{resource_id} (ByParam)"
                             )
                     cache_hits += 1
                 else:
@@ -1117,6 +1188,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         result = FhirGetErrorResponse.from_response(
                             other_response=result
                         )
+                    # remove entries that we have in the cache
+                    await result.remove_entries_in_cache_async(request_cache=cache)
+
+                    # append to the response
                     if all_result:
                         all_result = all_result.append(result)
                     else:
@@ -1147,7 +1222,22 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             resource_type=resource_type,
                             resource_id=non_cached_resource_id,
                             bundle_entry=non_cached_bundle_entry,
-                            status=200,
+                            status=(
+                                int(non_cached_bundle_entry.response.status)
+                                if non_cached_bundle_entry.response
+                                else 200
+                            ),
+                            last_modified=(
+                                non_cached_bundle_entry.response.lastModified
+                                if non_cached_bundle_entry.response
+                                else None
+                            ),
+                            etag=(
+                                non_cached_bundle_entry.response.etag
+                                if non_cached_bundle_entry.response
+                                else None
+                            ),
+                            from_input_cache=False,
                         )
                         if cache_updated and logger:
                             logger.debug(
@@ -1167,6 +1257,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     resource_id=non_cached_id,
                     bundle_entry=None,
                     status=404,
+                    last_modified=datetime.now(UTC),
+                    etag=None,
+                    from_input_cache=False,
                 )
                 if cache_updated and logger:
                     logger.debug(
@@ -1217,6 +1310,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         max_concurrent_tasks: Optional[int] = 1,
         sort_resources: Optional[bool] = False,
         add_cached_bundles_to_result: bool = True,
+        input_cache: Optional[RequestCache] = None,
     ) -> FhirGetResponse:
         """
         Simulates the $graph query on the FHIR server
@@ -1237,6 +1331,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially.
         :param sort_resources: Optional flag to sort resources
         :param add_cached_bundles_to_result: Optional flag to add cached bundles to result
+        :param input_cache: Optional cache to use for input
         :return: FhirGetResponse
         """
         if contained:
@@ -1265,6 +1360,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 max_concurrent_tasks=max_concurrent_tasks,
                 sort_resources=sort_resources,
                 add_cached_bundles_to_result=add_cached_bundles_to_result,
+                input_cache=input_cache,
             )
         )
         assert result, "No result returned from simulate_graph_async"
@@ -1287,6 +1383,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         request_size: Optional[int] = 1,
         max_concurrent_tasks: Optional[int] = 1,
         sort_resources: Optional[bool] = False,
+        input_cache: Optional[RequestCache] = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Simulates the $graph query on the FHIR server
@@ -1306,6 +1403,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param request_size: Optional Count of resources to request in one request
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially
         :param sort_resources: Optional flag to sort resources
+        :param input_cache: Optional cache to use for input
         :return: FhirGetResponse
         """
         if contained:
@@ -1332,5 +1430,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             request_size=request_size,
             max_concurrent_tasks=max_concurrent_tasks,
             sort_resources=sort_resources,
+            input_cache=input_cache,
         ):
             yield r

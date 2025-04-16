@@ -1,4 +1,5 @@
 import json
+from logging import Logger
 
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
@@ -10,9 +11,11 @@ from mockserver_client.mockserver_client import (
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.filters.property_missing_filter import PropertyMissingFilter
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from tests.logger_for_test import LoggerForTest
 
 
 async def test_async_fhir_client_patient_by_identifier_missing_false() -> None:
+    logger: Logger = LoggerForTest()
     # Arrange
     test_name = "test_fhir_client_patient_by_id_async"
 
@@ -48,11 +51,12 @@ async def test_async_fhir_client_patient_by_identifier_missing_false() -> None:
     response: FhirGetResponse = await fhir_client.get_async()
 
     # Assert
-    print(response.get_response_text())
+    logger.info(response.get_response_text())
     assert response.get_response_text() == response_text
 
 
 async def test_async_fhir_client_patient_by_identifier_missing_true() -> None:
+    logger: Logger = LoggerForTest()
     # Arrange
     test_name = "test_fhir_client_patient_by_id_async"
 
@@ -88,5 +92,5 @@ async def test_async_fhir_client_patient_by_identifier_missing_true() -> None:
     response: FhirGetResponse = await fhir_client.get_async()
 
     # Assert
-    print(response.get_response_text())
+    logger.info(response.get_response_text())
     assert response.get_response_text() == response_text

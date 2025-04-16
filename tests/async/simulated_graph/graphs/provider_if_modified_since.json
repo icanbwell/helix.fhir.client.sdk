@@ -1,0 +1,264 @@
+{
+  "resourceType": "GraphDefinition",
+  "id": "o",
+  "name": "patient_access",
+  "status": "active",
+  "start": "Patient",
+  "link": [
+    {
+      "path": "generalPractitioner[x]",
+      "target": [
+        {
+          "type": "Practitioner"
+        }
+      ]
+    },
+    {
+      "path": "managingOrganization",
+      "target": [
+        {
+          "type": "Organization"
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "Encounter",
+          "params": "patient={ref}&recorded-date=ge{ifModifiedSince}",
+          "link": [
+            {
+              "path": "participant.individual[x]",
+              "target": [
+                {
+                  "type": "Practitioner"
+                }
+              ]
+            },
+            {
+              "path": "location.location[x]",
+              "target": [
+                {
+                  "type": "Location"
+                }
+              ]
+            },
+            {
+              "path": "serviceProvider",
+              "target": [
+                {
+                  "type": "Organization"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "Condition",
+          "params": "patient={ref}&recorded-date=ge{ifModifiedSince}"
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "Procedure",
+          "params": "patient={ref}&date=ge{ifModifiedSince}",
+          "link": [
+            {
+              "path": "performer.actor[x]",
+              "target": [
+                {
+                  "type": "Practitioner"
+                }
+              ]
+            },
+            {
+              "path": "encounter",
+              "target": [
+                {
+                  "type": "Encounter"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "Immunization",
+          "params": "patient={ref}&date=ge{ifModifiedSince}",
+          "link": [
+            {
+              "path": "performer.actor[x]",
+              "target": [
+                {
+                  "type": "Practitioner"
+                }
+              ]
+            },
+            {
+              "path": "encounter",
+              "target": [
+                {
+                  "type": "Encounter"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "AllergyIntolerance",
+          "params": "patient={ref}&date=ge{ifModifiedSince}"
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "MedicationRequest",
+          "params": "patient={ref}&intent=order&authoredon=ge{ifModifiedSince}",
+          "link": [
+            {
+              "path": "medicationReference",
+              "target": [
+                {
+                  "type": "Medication"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "Observation",
+          "params": "patient={ref}&category=vital-signs&date=ge{ifModifiedSince}"
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "Observation",
+          "params": "patient={ref}&category=social-history&date=ge{ifModifiedSince}"
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "Observation",
+          "params": "patient={ref}&category=laboratory&date=ge{ifModifiedSince}"
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "DiagnosticReport",
+          "params": "patient={ref}&date=ge{ifModifiedSince}",
+          "link": [
+            {
+              "path": "performer[x]",
+              "target": [
+                {
+                  "type": "Practitioner"
+                }
+              ]
+            },
+            {
+              "path": "encounter",
+              "target": [
+                {
+                  "type": "Encounter"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "ServiceRequest" ,
+          "params": "patient={ref}&authored=ge{ifModifiedSince}",
+          "link": [
+            {
+              "path": "performer[x]" ,
+              "target": [
+                {
+                  "type": "Organization"
+                }
+              ]
+            } ,
+            {
+              "path": "requester" ,
+              "target": [
+                {
+                  "type": "Practitioner"
+                }
+              ]
+            } ,
+            {
+              "path": "encounter" ,
+              "target": [
+                {
+                  "type": "Encounter"
+                }
+              ]
+            } ,
+            {
+              "path": "locationReference" ,
+              "target": [
+                {
+                  "type": "Location"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "target": [
+        {
+          "type": "DocumentReference",
+          "params": "patient={ref}&date=ge{ifModifiedSince}",
+          "link": [
+            {
+              "path": "content[x].attachment.url",
+              "target": [
+                {
+                  "type": "Binary"
+                }
+              ]
+            },
+            {
+              "path": "custodian",
+              "target": [
+                {
+                  "type": "Organization"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+

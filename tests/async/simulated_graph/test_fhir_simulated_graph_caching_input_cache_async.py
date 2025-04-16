@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, UTC
 from logging import Logger
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -17,15 +18,17 @@ from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from tests.logger_for_test import LoggerForTest
 
 
-async def test_fhir_simulated_graph_caching_async() -> None:
+async def test_fhir_simulated_graph_caching_input_cache_async() -> None:
     logger: Logger = LoggerForTest()
     data_dir: Path = Path(__file__).parent.joinpath("./")
     graph_json: Dict[str, Any]
-    with open(data_dir.joinpath("graphs").joinpath("provider.json"), "r") as file:
+    with open(
+        data_dir.joinpath("graphs").joinpath("provider_if_modified_since.json"), "r"
+    ) as file:
         contents = file.read()
         graph_json = json.loads(contents)
 
-    test_name = test_fhir_simulated_graph_caching_async.__name__
+    test_name = test_fhir_simulated_graph_caching_input_cache_async.__name__
 
     mock_server_url = "http://mock-server:1080"
     mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
@@ -217,6 +220,16 @@ async def test_fhir_simulated_graph_caching_async() -> None:
 
     request_cache = RequestCache(clear_cache_at_the_end=False)
 
+    await request_cache.add_async(
+        resource_type="Encounter",
+        resource_id="10",
+        from_input_cache=True,
+        bundle_entry=None,
+        status=200,
+        last_modified=datetime.now(UTC),
+        etag=None,
+    )
+
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     response: Optional[FhirGetResponse] = await FhirGetResponse.from_async_generator(
         fhir_client.simulate_graph_streaming_async(
@@ -232,14 +245,14 @@ async def test_fhir_simulated_graph_caching_async() -> None:
     text = response.get_response_text()
     logger.info(text)
 
-    logger.info("---------- Request Cache ----------")
+    logger.info(f"---------- Request Cache ({len(request_cache)}) ----------")
     async for entry in request_cache.get_entries_async():
         logger.info(entry)
     logger.info("---------- End Request Cache ----------")
 
     expected_file_path = data_dir.joinpath("expected")
     with open(expected_file_path.joinpath(test_name + ".json")) as f:
-        expected_json = json.load(f)
+        expected_json: Dict[str, Any] = json.load(f)
 
     bundle = json.loads(text)
     bundle["entry"] = [
@@ -254,5 +267,12 @@ async def test_fhir_simulated_graph_caching_async() -> None:
     # sort the entries by request url
     bundle["entry"] = sorted(bundle["entry"], key=lambda x: int(x["resource"]["id"]))
     bundle["total"] = len(bundle["entry"])
-    logger.info(bundle)
+    logger.info(f"-------- Actual Bundle ({len(bundle["entry"])}) --------")
+    for entry in bundle["entry"]:
+        logger.info(entry)
+    logger.info("-------- End Actual Bundle --------")
+    logger.info(f"-------- Expected Bundle ({len(expected_json["entry"])}) --------")
+    for entry in expected_json["entry"]:
+        logger.info(entry)
+    logger.info("-------- End Expected Bundle --------")
     assert bundle == expected_json

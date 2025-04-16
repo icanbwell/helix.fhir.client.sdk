@@ -1,13 +1,16 @@
 import json
+from logging import Logger
 from os import environ
 from typing import Optional
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
 from helix_fhir_client_sdk.utilities.fhir_server_helpers import FhirServerHelpers
+from tests.logger_for_test import LoggerForTest
 
 
 async def test_async_real_fhir_server_get_patients_error() -> None:
+    logger: Logger = LoggerForTest()
     await FhirServerHelpers.clean_fhir_server_async(resource_type="Patient")
 
     fhir_server_url: str = environ["FHIR_SERVER_URL"]
@@ -40,7 +43,7 @@ async def test_async_real_fhir_server_get_patients_error() -> None:
         )
     )
     assert merge_response is not None
-    print(merge_response.responses)
+    logger.info(merge_response.responses)
     assert merge_response.status == 200, merge_response.responses
     assert merge_response.request_id is not None
     assert merge_response.responses[0]["issue"] is not None, json.dumps(

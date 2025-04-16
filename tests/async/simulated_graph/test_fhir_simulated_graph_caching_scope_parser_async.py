@@ -1,4 +1,5 @@
 import json
+from logging import Logger
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -16,7 +17,7 @@ from tests.logger_for_test import LoggerForTest
 
 
 async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
-    print("")
+    logger: Logger = LoggerForTest()
     data_dir: Path = Path(__file__).parent.joinpath("./")
     graph_json: Dict[str, Any]
     with open(data_dir.joinpath("graphs").joinpath("provider.json"), "r") as file:
@@ -167,7 +168,7 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
         )
     )
     assert response is not None
-    print(response.get_response_text())
+    logger.info(response.get_response_text())
 
     expected_file_path = data_dir.joinpath("expected")
     with open(expected_file_path.joinpath(test_name + ".json")) as f:

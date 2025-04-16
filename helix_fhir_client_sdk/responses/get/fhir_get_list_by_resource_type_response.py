@@ -23,6 +23,8 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
     CompressedDictStorageMode,
 )
 from compressedfhir.utilities.fhir_json_encoder import FhirJSONEncoder
+
+from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -195,6 +197,35 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         """
         for _, resource_list in self._resource_map.items():
             resource_list.remove_duplicates()
+        return self
+
+    @override
+    async def remove_entries_in_cache_async(
+        self, *, request_cache: RequestCache
+    ) -> "FhirGetResponse":
+        """
+        Removes the entries in the cache
+
+        :param request_cache: The cache to remove the entries from
+        :return: self
+        """
+        async for cached_entry in request_cache.get_entries_async():
+            if cached_entry.from_input_cache:
+                for _, resource_list in self._resource_map.items():
+                    for resource in resource_list:
+                        if (
+                            resource
+                            and resource.id is not None
+                            and resource.id == cached_entry.id_
+                            and resource.resource_type == cached_entry.resource_type
+                        ):
+                            resource_list.remove(resource)
+                            break
+
+        # remove any empty resource lists
+        for resource_type, resources in list(self._resource_map.items()):
+            if not resources:
+                del self._resource_map[resource_type]
         return self
 
     @classmethod

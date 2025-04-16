@@ -1,11 +1,15 @@
+from logging import Logger
+
 import pytest
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from tests.logger_for_test import LoggerForTest
 
 
 @pytest.mark.skip("for testing")
 async def test_staging_server_graph() -> None:
+    logger: Logger = LoggerForTest()
     url = "https://fhir.staging.bwell.zone/4_0_0"
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(url).resource("Practitioner")
@@ -198,4 +202,4 @@ async def test_staging_server_graph() -> None:
     fhir_client = fhir_client.client_credentials(client_id="", client_secret="")
     fhir_client.set_access_token("")
     response: FhirGetResponse = await fhir_client.get_async()
-    print(response)
+    logger.info(response)

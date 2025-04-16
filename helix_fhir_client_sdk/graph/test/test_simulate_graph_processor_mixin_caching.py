@@ -1,306 +1,461 @@
-from typing import List, Optional, Tuple, Union, AsyncGenerator, cast, Any
-from unittest.mock import Mock
+import json
+from typing import Optional, List, AsyncGenerator
+from unittest.mock import MagicMock
 
-# noinspection PyPackageRequirements
 import pytest
-
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
 from compressedfhir.fhir.fhir_resource import FhirResource
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 
-# Import the actual SimulatedGraphProcessorMixin (replace with actual import path)
+from helix_fhir_client_sdk.function_types import HandleStreamingChunkFunction
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
     SimulatedGraphProcessorMixin,
 )
-from logging import Logger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
-from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
-
-# Necessary imports from the SDK
+from helix_fhir_client_sdk.responses.get.fhir_get_single_response import (
+    FhirGetSingleResponse,
+)
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 
 
-class MockSimulatedGraphProcessorMixin:
+class MockSimulatedGraphProcessor(SimulatedGraphProcessorMixin):
+    """Mock implementation of SimulatedGraphProcessorMixin for testing."""
+
     def __init__(self) -> None:
-        # Mock necessary attributes
-        self._access_token: str = "test-token"
-        self._storage_mode: str = "memory"
-        self._create_operation_outcome_for_error: bool = False
-        self._url: str = "https://test.example.com"
-        self._expand_fhir_bundle: bool = False
-        self._logger: Optional[Logger] = None
-        self._auth_scopes: List[str] = ["test-scope"]
-        self._additional_parameters: Optional[List[str]] = None
-        self._log_level: str = "INFO"
+        self._access_token = None
+        self._storage_mode: CompressedDictStorageMode = CompressedDictStorageMode.raw()
+        self._create_operation_outcome_for_error = None
+        self._logger = None
+        self._url = None
+        self._expand_fhir_bundle = False
+        self._auth_scopes = None
+        self._additional_parameters = None
 
-    async def _get_with_session_async(
-        self, **kwargs: Any
+
+@pytest.mark.asyncio
+async def test_cache_hit() -> None:
+    """Test that resources are retrieved from the cache when available."""
+    processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
+    cache = RequestCache()
+    mock_entry = FhirBundleEntry(
+        resource=FhirResource({"id": "test-id", "resourceType": "Patient"})
+    )
+    await cache.add_async(
+        resource_type="Patient",
+        resource_id="test-id",
+        bundle_entry=mock_entry,
+        status=200,
+        last_modified=None,
+        etag=None,
+        from_input_cache=False,
+    )
+
+    result, cache_hits = await processor._get_resources_by_parameters_async(
+        id_="test-id",
+        resource_type="Patient",
+        parameters=None,
+        cache=cache,
+        scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
+        logger=None,
+        id_search_unsupported_resources=[],
+    )
+
+    assert cache_hits == 1
+    assert len(result.get_bundle_entries()) == 1
+    resource = result.get_bundle_entries()[0].resource
+    assert resource is not None
+    assert resource.get("id") == "test-id"
+
+
+@pytest.mark.asyncio
+async def test_cache_miss() -> None:
+    """Test that resources are fetched from the server when not in the cache."""
+    processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
+    cache = RequestCache()
+
+    # noinspection PyUnusedLocal
+    async def mock_async_generator(
+        page_number: Optional[int],
+        ids: Optional[List[str]],
+        id_above: Optional[str],
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
+        additional_parameters: Optional[List[str]],
+        resource_type: Optional[str],
     ) -> AsyncGenerator[FhirGetResponse, None]:
-        # Create a mock resource based on input
-        resource_id: str = kwargs.get("ids", ["test-id"])[0]
-        resource_type: str = kwargs.get("resource_type", "Patient")
-
-        mock_resource: FhirResource = FhirResource(
-            {"id": resource_id, "resourceType": resource_type}
-        )
-        mock_bundle_entry: FhirBundleEntry = FhirBundleEntry(resource=mock_resource)
-
-        # Create a mock response
-        mock_response: FhirGetResponse = Mock(spec=FhirGetResponse)
-        mock_response.status = 200
-        mock_response.get_bundle_entries.return_value = [mock_bundle_entry]  # type: ignore[attr-defined]
-        mock_response.get_resource_count.return_value = 1  # type: ignore[attr-defined]
-        mock_response.resource_type = resource_type
-        mock_response.url = self._url
-
-        yield mock_response
-
-    # noinspection PyMethodMayBeStatic
-    async def _get_resources_by_id_one_by_one_async(
-        self, **kwargs: Any
-    ) -> Optional[FhirGetResponse]:
-        # Mock implementation for fallback ID retrieval
-        resource_type: str = cast(str, kwargs.get("resource_type"))
-        ids: List[str] = kwargs.get("ids", [])
-
-        mock_responses: List[FhirGetResponse] = []
-        for resource_id in ids:
-            mock_resource: FhirResource = FhirResource(
-                {"id": resource_id, "resourceType": resource_type}
-            )
-            mock_bundle_entry: FhirBundleEntry = FhirBundleEntry(resource=mock_resource)
-
-            mock_response: FhirGetResponse = Mock(spec=FhirGetResponse)
-            mock_response.status = 200
-            mock_response.get_bundle_entries.return_value = [mock_bundle_entry]  # type: ignore[attr-defined]
-            mock_response.get_resource_count.return_value = 1  # type: ignore[attr-defined]
-            mock_response.resource_type = resource_type
-
-            mock_responses.append(mock_response)
-
-        # Combine responses if multiple
-        if len(mock_responses) > 1:
-            combined_response: FhirGetResponse = mock_responses[0]
-            for resp in mock_responses[1:]:
-                # noinspection PyUnresolvedReferences
-                combined_response.get_bundle_entries.return_value.extend(  # type: ignore[attr-defined]
-                    resp.get_bundle_entries.return_value  # type: ignore[attr-defined]
-                )
-                # noinspection PyUnresolvedReferences
-                combined_response.get_resource_count.return_value += (  # type: ignore[attr-defined]
-                    resp.get_resource_count.return_value  # type: ignore[attr-defined]
-                )
-            return combined_response
-
-        return mock_responses[0] if mock_responses else None
-
-    def separate_bundle_resources(self, value: bool) -> None:
-        # Mock method for bundle resource separation
-        pass
-
-    def additional_parameters(self, params: Optional[List[str]]) -> None:
-        # Mock method for additional parameters
-        self._additional_parameters = params or []
-
-    async def _get_resources_by_parameters_async(
-        self,
-        id_: Optional[Union[List[str], str]],
-        resource_type: str,
-        parameters: Optional[List[str]] = None,
-        cache: Optional[RequestCache] = None,
-        scope_parser: Optional[FhirScopeParser] = None,
-        logger: Optional[Logger] = None,
-        id_search_unsupported_resources: Optional[List[str]] = None,
-    ) -> Tuple[FhirGetResponse, int]:
-        # noinspection PyProtectedMember
-        return await SimulatedGraphProcessorMixin._get_resources_by_parameters_async(
-            self=cast(SimulatedGraphProcessorMixin, self),
-            id_=id_,
-            resource_type=resource_type,
-            parameters=parameters,
-            cache=cache or RequestCache(),
-            scope_parser=scope_parser or Mock(spec=FhirScopeParser),
-            logger=logger,
-            id_search_unsupported_resources=id_search_unsupported_resources or [],
-        )
-
-
-@pytest.mark.skip("not working yet")
-class TestGetResourcesByParametersAsync:
-    @pytest.fixture
-    def mock_processor(self) -> MockSimulatedGraphProcessorMixin:
-        # Create a mock processor with the method we're testing
-        return MockSimulatedGraphProcessorMixin()
-
-    @pytest.fixture
-    def mock_scope_parser(self) -> FhirScopeParser:
-        """Create a mock scope parser that always allows resources."""
-        mock_parser: FhirScopeParser = Mock(spec=FhirScopeParser)
-        mock_parser.scope_allows.return_value = True  # type: ignore[attr-defined]
-        return mock_parser
-
-    async def test_cache_hit_single_resource(
-        self,
-        mock_processor: MockSimulatedGraphProcessorMixin,
-        mock_scope_parser: FhirScopeParser,
-    ) -> None:
-        """Test scenario where all requested resources are in cache."""
-        cache: RequestCache = RequestCache()
-
-        # Simulate a cached resource
-        mock_resource: FhirResource = FhirResource(
-            {"id": "cached-id", "resourceType": "Patient"}
-        )
-        mock_bundle_entry: FhirBundleEntry = FhirBundleEntry(resource=mock_resource)
-        await cache.add_async(
-            resource_type="Patient",
-            resource_id="cached-id",
-            bundle_entry=mock_bundle_entry,
+        yield FhirGetSingleResponse(
+            response_text=json.dumps({"id": "test-id-1", "resourceType": "Patient"}),
             status=200,
-        )
-
-        result, cache_hits = await mock_processor._get_resources_by_parameters_async(
-            id_="cached-id",
+            total_count=1,
+            next_url=None,
             resource_type="Patient",
-            parameters=None,
-            cache=cache,
-            scope_parser=mock_scope_parser,
-            logger=None,
-            id_search_unsupported_resources=[],
+            id_="test-id-1",
+            response_headers=None,
+            chunk_number=0,
+            cache_hits=0,
+            results_by_url=[],
+            storage_mode=CompressedDictStorageMode.raw(),
+            error=None,
+            access_token=None,
+            extra_context_to_return=None,
+            request_id=None,
+            url="http://example.com/fhir/Patient/test-id-1",
         )
-
-        assert cache_hits == 1
-        assert len(result.get_bundle_entries()) == 1
-        resource = result.get_bundle_entries()[0].resource
-        assert resource
-        assert resource.get("id") == "cached-id"
-
-    async def test_mixed_cache_and_fetch(
-        self,
-        mock_processor: MockSimulatedGraphProcessorMixin,
-        mock_scope_parser: FhirScopeParser,
-    ) -> None:
-        """Test scenario with some cached and some non-cached resources."""
-        cache: RequestCache = RequestCache()
-
-        # Simulate a cached resource
-        mock_cached_resource: FhirResource = FhirResource(
-            {"id": "cached-id", "resourceType": "Patient"}
-        )
-        mock_cached_bundle_entry: FhirBundleEntry = FhirBundleEntry(
-            resource=mock_cached_resource
-        )
-        await cache.add_async(
-            resource_type="Patient",
-            resource_id="cached-id",
-            bundle_entry=mock_cached_bundle_entry,
+        yield FhirGetSingleResponse(
+            response_text=json.dumps({"id": "test-id-2", "resourceType": "Patient"}),
             status=200,
-        )
-
-        result, cache_hits = await mock_processor._get_resources_by_parameters_async(
-            id_=["cached-id", "non-cached-id"],
+            total_count=1,
+            next_url=None,
             resource_type="Patient",
-            parameters=None,
-            cache=cache,
-            scope_parser=mock_scope_parser,
-            logger=None,
-            id_search_unsupported_resources=[],
+            id_="test-id-2",
+            response_headers=None,
+            chunk_number=1,
+            cache_hits=0,
+            results_by_url=[],
+            storage_mode=CompressedDictStorageMode.raw(),
+            error=None,
+            access_token=None,
+            extra_context_to_return=None,
+            request_id=None,
+            url="http://example.com/fhir/Patient/test-id-2",
         )
 
-        assert cache_hits == 1
-        assert len(result.get_bundle_entries()) == 2  # Cached + fetched resource
+    processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
 
-    async def test_no_cache_hit(
-        self,
-        mock_processor: MockSimulatedGraphProcessorMixin,
-        mock_scope_parser: FhirScopeParser,
-    ) -> None:
-        """Test scenario where no resources are in cache."""
-        cache: RequestCache = RequestCache()
+    result, cache_hits = await processor._get_resources_by_parameters_async(
+        id_="test-id",
+        resource_type="Patient",
+        parameters=None,
+        cache=cache,
+        scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
+        logger=None,
+        id_search_unsupported_resources=[],
+    )
 
-        result, cache_hits = await mock_processor._get_resources_by_parameters_async(
+    assert cache_hits == 0
+    assert len(result.get_bundle_entries()) == 2
+    resource = result.get_bundle_entries()[0].resource
+    assert resource is not None
+    assert resource.get("id") == "test-id-1"
+    resource = result.get_bundle_entries()[1].resource
+    assert resource is not None
+    assert resource.get("id") == "test-id-2"
+
+
+@pytest.mark.asyncio
+async def test_partial_cache() -> None:
+    """Test a scenario where some resources are in the cache and others are fetched."""
+    processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
+    cache = RequestCache()
+    mock_entry = FhirBundleEntry(
+        resource=FhirResource({"id": "cached-id", "resourceType": "Patient"})
+    )
+    await cache.add_async(
+        resource_type="Patient",
+        resource_id="cached-id",
+        bundle_entry=mock_entry,
+        status=200,
+        last_modified=None,
+        etag=None,
+        from_input_cache=False,
+    )
+
+    # noinspection PyUnusedLocal
+    async def mock_async_generator(
+        page_number: Optional[int],
+        ids: Optional[List[str]],
+        id_above: Optional[str],
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
+        additional_parameters: Optional[List[str]],
+        resource_type: Optional[str],
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        yield FhirGetSingleResponse(
+            response_text=json.dumps(
+                {"id": "non-cached-id", "resourceType": "Patient"}
+            ),
+            status=200,
+            total_count=1,
+            next_url=None,
+            resource_type="Patient",
             id_="non-cached-id",
-            resource_type="Patient",
-            parameters=None,
-            cache=cache,
-            scope_parser=mock_scope_parser,
-            logger=None,
-            id_search_unsupported_resources=[],
+            response_headers=None,
+            chunk_number=0,
+            cache_hits=0,
+            results_by_url=[],
+            storage_mode=CompressedDictStorageMode.raw(),
+            error=None,
+            access_token=None,
+            extra_context_to_return=None,
+            request_id=None,
+            url="http://example.com/fhir/Patient/non-cached-id",
         )
 
-        assert cache_hits == 0
-        assert len(result.get_bundle_entries()) == 1
+    processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
 
-    async def test_scope_restriction(
-        self, mock_processor: MockSimulatedGraphProcessorMixin
-    ) -> None:
-        """Test scenario where resource is not allowed by scope."""
-        mock_scope_parser: FhirScopeParser = Mock(spec=FhirScopeParser)
-        mock_scope_parser.scope_allows.return_value = False  # type: ignore[attr-defined]
+    result, cache_hits = await processor._get_resources_by_parameters_async(
+        id_=["cached-id", "non-cached-id"],
+        resource_type="Patient",
+        parameters=None,
+        cache=cache,
+        scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
+        logger=None,
+        id_search_unsupported_resources=[],
+    )
 
-        cache: RequestCache = RequestCache()
+    assert cache_hits == 1
+    assert len(result.get_bundle_entries()) == 2
+    resource_ids = [
+        entry.resource.get("id")
+        for entry in result.get_bundle_entries()
+        if entry.resource
+    ]
+    assert set(resource_ids) == {"cached-id", "non-cached-id"}
 
-        result, cache_hits = await mock_processor._get_resources_by_parameters_async(
+
+@pytest.mark.asyncio
+async def test_partial_cache_with_null_bundle_entry() -> None:
+    """Test a scenario where some resources are in the cache and others are fetched."""
+    processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
+    cache = RequestCache()
+
+    await cache.add_async(
+        resource_type="Patient",
+        resource_id="cached-id",
+        bundle_entry=None,
+        status=200,
+        last_modified=None,
+        etag=None,
+        from_input_cache=False,
+    )
+
+    # noinspection PyUnusedLocal
+    async def mock_async_generator(
+        page_number: Optional[int],
+        ids: Optional[List[str]],
+        id_above: Optional[str],
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
+        additional_parameters: Optional[List[str]],
+        resource_type: Optional[str],
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        yield FhirGetSingleResponse(
+            response_text=json.dumps(
+                {"id": "non-cached-id", "resourceType": "Patient"}
+            ),
+            status=200,
+            total_count=1,
+            next_url=None,
+            resource_type="Patient",
+            id_="non-cached-id",
+            response_headers=None,
+            chunk_number=0,
+            cache_hits=0,
+            results_by_url=[],
+            storage_mode=CompressedDictStorageMode.raw(),
+            error=None,
+            access_token=None,
+            extra_context_to_return=None,
+            request_id=None,
+            url="http://example.com/fhir/Patient/non-cached-id",
+        )
+
+    processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
+
+    result, cache_hits = await processor._get_resources_by_parameters_async(
+        id_=["cached-id", "non-cached-id"],
+        resource_type="Patient",
+        parameters=None,
+        cache=cache,
+        scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
+        logger=None,
+        id_search_unsupported_resources=[],
+    )
+
+    assert cache_hits == 1
+    assert len(result.get_bundle_entries()) == 1
+    resource_ids = [
+        entry.resource.get("id")
+        for entry in result.get_bundle_entries()
+        if entry.resource
+    ]
+    assert set(resource_ids) == {"non-cached-id"}
+
+
+@pytest.mark.asyncio
+async def test_cache_update() -> None:
+    """Test that fetched resources are added to the cache."""
+    processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
+    cache = RequestCache()
+
+    # noinspection PyUnusedLocal
+    async def mock_async_generator(
+        page_number: Optional[int],
+        ids: Optional[List[str]],
+        id_above: Optional[str],
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
+        additional_parameters: Optional[List[str]],
+        resource_type: Optional[str],
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        yield FhirGetSingleResponse(
+            response_text=json.dumps({"id": "test-id", "resourceType": "Patient"}),
+            status=200,
+            total_count=1,
+            next_url=None,
+            resource_type="Patient",
             id_="test-id",
-            resource_type="Patient",
-            parameters=None,
-            cache=cache,
-            scope_parser=mock_scope_parser,
-            logger=None,
-            id_search_unsupported_resources=[],
+            response_headers=None,
+            chunk_number=0,
+            cache_hits=0,
+            results_by_url=[],
+            storage_mode=CompressedDictStorageMode.raw(),
+            error=None,
+            access_token=None,
+            extra_context_to_return=None,
+            request_id=None,
+            url="http://example.com/fhir/Patient/test-id",
         )
 
-        assert cache_hits == 0
-        assert result.total_count == 0
-        # noinspection PyUnresolvedReferences
-        mock_scope_parser.scope_allows.assert_called_once_with(resource_type="Patient")  # type: ignore[attr-defined]
+    processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
 
-    async def test_empty_id_list(
-        self,
-        mock_processor: MockSimulatedGraphProcessorMixin,
-        mock_scope_parser: FhirScopeParser,
-    ) -> None:
-        """Test scenario with an empty ID list."""
-        cache: RequestCache = RequestCache()
+    result, cache_hits = await processor._get_resources_by_parameters_async(
+        id_="test-id",
+        resource_type="Patient",
+        parameters=None,
+        cache=cache,
+        scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
+        logger=None,
+        id_search_unsupported_resources=[],
+    )
 
-        result, cache_hits = await mock_processor._get_resources_by_parameters_async(
-            id_=None,
+    assert cache_hits == 0
+    assert len(result.get_bundle_entries()) == 1
+    resource = result.get_bundle_entries()[0].resource
+    assert resource is not None
+    assert resource.get("id") == "test-id"
+
+    # Verify the resource is now in the cache
+    cache_entry = await cache.get_async(resource_type="Patient", resource_id="test-id")
+    assert cache_entry is not None
+    bundle_entry = cache_entry.bundle_entry
+    assert bundle_entry is not None
+    resource = bundle_entry.resource
+    assert resource is not None
+    assert resource.get("id") == "test-id"
+
+
+@pytest.mark.asyncio
+async def test_empty_cache() -> None:
+    """Test behavior when the cache is empty."""
+    processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
+    cache = RequestCache()
+
+    # noinspection PyUnusedLocal
+    async def mock_async_generator(
+        page_number: Optional[int],
+        ids: Optional[List[str]],
+        id_above: Optional[str],
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
+        additional_parameters: Optional[List[str]],
+        resource_type: Optional[str],
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        yield FhirGetSingleResponse(
+            response_text=json.dumps({"id": "test-id", "resourceType": "Patient"}),
+            status=200,
+            total_count=1,
+            next_url=None,
             resource_type="Patient",
-            parameters=None,
-            cache=cache,
-            scope_parser=mock_scope_parser,
-            logger=None,
-            id_search_unsupported_resources=[],
-        )
-
-        assert cache_hits == 0
-        assert len(result.get_bundle_entries()) == 1
-
-    async def test_caching_fetched_resources(
-        self,
-        mock_processor: MockSimulatedGraphProcessorMixin,
-        mock_scope_parser: FhirScopeParser,
-    ) -> None:
-        """Test that fetched resources are added to the cache."""
-        cache: RequestCache = RequestCache()
-
-        result, _ = await mock_processor._get_resources_by_parameters_async(
             id_="test-id",
-            resource_type="Patient",
-            parameters=None,
-            cache=cache,
-            scope_parser=mock_scope_parser,
-            logger=None,
-            id_search_unsupported_resources=[],
+            response_headers=None,
+            chunk_number=0,
+            cache_hits=0,
+            results_by_url=[],
+            storage_mode=CompressedDictStorageMode.raw(),
+            error=None,
+            access_token=None,
+            extra_context_to_return=None,
+            request_id=None,
+            url="http://example.com/fhir/Patient/test-id",
         )
 
-        # Check that the fetched resource was added to the cache
-        cache_entry: Optional[RequestCacheEntry] = await cache.get_async(
-            resource_type="Patient", resource_id="test-id"
+    processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
+
+    result, cache_hits = await processor._get_resources_by_parameters_async(
+        id_="test-id",
+        resource_type="Patient",
+        parameters=None,
+        cache=cache,
+        scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
+        logger=None,
+        id_search_unsupported_resources=[],
+    )
+
+    assert cache_hits == 0
+    assert len(result.get_bundle_entries()) == 1
+    resource = result.get_bundle_entries()[0].resource
+    assert resource is not None
+    assert resource.get("id") == "test-id"
+
+
+@pytest.mark.asyncio
+async def test_items_added_to_input_cache() -> None:
+    """Test that items are appropriately added to the input cache."""
+    processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
+    input_cache = RequestCache()
+
+    # noinspection PyUnusedLocal
+    async def mock_async_generator(
+        page_number: Optional[int],
+        ids: Optional[List[str]],
+        id_above: Optional[str],
+        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
+        additional_parameters: Optional[List[str]],
+        resource_type: Optional[str],
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        yield FhirGetSingleResponse(
+            response_text=json.dumps({"id": "test-id", "resourceType": "Patient"}),
+            status=200,
+            total_count=1,
+            next_url=None,
+            resource_type="Patient",
+            id_="test-id",
+            response_headers=None,
+            chunk_number=0,
+            cache_hits=0,
+            results_by_url=[],
+            storage_mode=CompressedDictStorageMode.raw(),
+            error=None,
+            access_token=None,
+            extra_context_to_return=None,
+            request_id=None,
+            url="http://example.com/fhir/Patient/test-id",
         )
-        assert cache_entry is not None
-        cached_entry: Optional[FhirBundleEntry] = cache_entry.bundle_entry
-        assert cached_entry is not None
-        resource = cached_entry.resource
-        assert resource is not None
-        assert resource.get("id") == "test-id"
+
+    # Mock server response
+    processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
+
+    # Perform the operation
+    result, cache_hits = await processor._get_resources_by_parameters_async(
+        id_="test-id",
+        resource_type="Patient",
+        parameters=None,
+        cache=input_cache,
+        scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
+        logger=None,
+        id_search_unsupported_resources=[],
+    )
+
+    # Verify the resource is added to the input cache
+    cache_entry = await input_cache.get_async(
+        resource_type="Patient", resource_id="test-id"
+    )
+    assert cache_entry is not None
+    bundle_entry = cache_entry.bundle_entry
+    assert bundle_entry is not None
+    resource = bundle_entry.resource
+    assert resource is not None
+    assert resource.get("id") == "test-id"
+    assert cache_hits == 0
+    assert len(result.get_bundle_entries()) == 1
+    resource = result.get_bundle_entries()[0].resource
+    assert resource is not None
+    assert resource.get("id") == "test-id"

@@ -19,7 +19,7 @@ async_timeout = ">=4.0.3"
 # python-dateutil is needed for parsing dates
 python-dateutil = "*"
 # compressedfhir is needed for compressing and decompressing FHIR resources
-compressedfhir = ">=1.0.0"
+compressedfhir = ">=1.0.2"
 
 [dev-packages]
 packaging = "*"  # packaging is needed for version parsing
@@ -65,6 +65,8 @@ msgpack-types = { version = ">=0.5.0" }
 objsize = ">=0.7.1"
 # types-orjson is needed for type hints for orjson
 types-orjson = ">=3.6.2"
+# bandit is needed for security checks
+bandit = ">=1.8.3"
 
 # These dependencies are required for pipenv-setup.  They conflict with ones above, so we install these
 # only when running pipenv-setup

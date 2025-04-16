@@ -26,6 +26,8 @@ from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
+
+from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -141,6 +143,18 @@ class TestFhirGetResponse(FhirGetResponse):
 
     def remove_duplicates(self) -> "FhirGetResponse":
         # Simple implementation for testing
+        return self
+
+    @override
+    async def remove_entries_in_cache_async(
+        self, *, request_cache: RequestCache
+    ) -> "TestFhirGetResponse":
+        """
+        Removes the entries in the cache
+
+        :param request_cache: The cache to remove the entries from
+        :return: self
+        """
         return self
 
     @classmethod
