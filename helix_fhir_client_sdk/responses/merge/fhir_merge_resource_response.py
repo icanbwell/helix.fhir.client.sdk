@@ -1,6 +1,6 @@
 from collections import deque
-from typing import Optional, Dict, Any, AsyncGenerator, Deque
-
+from collections.abc import AsyncGenerator
+from typing import Any, Optional
 
 from helix_fhir_client_sdk.responses.merge.base_fhir_merge_resource_response_entry import (
     BaseFhirMergeResourceResponseEntry,
@@ -26,13 +26,13 @@ class FhirMergeResourceResponse:
     def __init__(
         self,
         *,
-        request_id: Optional[str],
+        request_id: str | None,
         url: str,
-        responses: Deque[BaseFhirMergeResourceResponseEntry],
-        error: Optional[str],
-        access_token: Optional[str],
+        responses: deque[BaseFhirMergeResourceResponseEntry],
+        error: str | None,
+        access_token: str | None,
         status: int,
-        response_text: Optional[str],
+        response_text: str | None,
     ) -> None:
         """
         Class that encapsulates a response to e $merge call to FHIR server
@@ -42,14 +42,14 @@ class FhirMergeResourceResponse:
         :param error: Any error returned by FHIR server
         :param access_token: access token that was used
         """
-        self.request_id: Optional[str] = request_id
+        self.request_id: str | None = request_id
         self.url: str = url
-        self.responses: Deque[BaseFhirMergeResourceResponseEntry] = responses
-        self.error: Optional[str] = error
-        self.access_token: Optional[str] = access_token
+        self.responses: deque[BaseFhirMergeResourceResponseEntry] = responses
+        self.error: str | None = error
+        self.access_token: str | None = access_token
         self.status: int = status
         self.successful: bool = status == 200
-        self.response_text: Optional[str] = response_text
+        self.response_text: str | None = response_text
 
     def append(self, other: Optional["FhirMergeResourceResponse"]) -> None:
         """
@@ -82,7 +82,7 @@ class FhirMergeResourceResponse:
         assert result
         return result
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Converts the FhirMergeResponse to a dictionary
 

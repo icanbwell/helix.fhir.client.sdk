@@ -1,60 +1,87 @@
-exclude: (^.idea/)
+exclude: (^.idea/|^docsrc|^docs)
+
+fail_fast: true
+
 repos:
+  # Pre-commit hooks for basic checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
+      # File and formatting checks
       - id: end-of-file-fixer
-        types: [ python ]
+        types: [python]
+      - id: trailing-whitespace
+        types: [python]
+
+      # Conflict and security checks
       - id: check-case-conflict
-        types: [ python ]
+        types: [python]
       - id: check-docstring-first
-        types: [ python ]
-      - id: debug-statements
-        types: [ python ]
+        types: [python]
+
+      # Security scans
       - id: detect-aws-credentials
-        types: [ python ]
-        args: [ '--allow-missing-credentials' ]
+        types: [python]
+        args: ['--allow-missing-credentials']
       - id: detect-private-key
-        types: [ python ]
-  #      - id: name-tests-test
-  #        types: [ python ]
+        types: [python]
+
+      # Additional security hooks
+      - id: no-commit-to-branch
+        args: [--branch, main, --branch, master]
+
+      # Dependency and import checks
+      - id: check-ast
+
+  # Local hooks for Ruff (using local installation)
   - repo: local
     hooks:
-      - id: autoflake
-        name: autoflake
-        language: system
-        types: [ python ]
-        entry: autoflake
-        require_serial: true
-        args: [ '--in-place', '--remove-all-unused-imports', '--ignore-init-module-imports' ]
       - id: ruff
-        name: ruff
-        language: system
-        types: [ python ]
-        require_serial: true
+        name: Ruff
         entry: ruff
+        language: system
+        types: [python]
         args: [check, --fix, --show-fixes]
-      - id: ruff-formatter
-        name: ruff-formatter
-        language: system
-        types: [ python ]
         require_serial: true
+
+      - id: ruff-format
+        name: Ruff Format
         entry: ruff
+        language: system
+        types: [python]
         args: [format]
+        require_serial: true
+
+      # MyPy for type checking
       - id: mypy
         name: mypy
         language: system
-        types: [ python ]
+        types: [python]
         entry: mypy
         require_serial: true
-        args: [ --strict, --python-version=3.12, --show-error-codes, --allow-untyped-decorators ]
+        args: [
+          --strict,
+          --python-version=3.12,
+          --show-error-codes,
+          --allow-untyped-decorators,
+          --ignore-missing-imports
+        ]
+
+      # Bandit for security scanning
       - id: bandit
         name: bandit
         language: system
-        types: [ python ]
+        types: [python]
         entry: bandit
         require_serial: true
-        args: [ '-q', '--skip', 'B101,B105,B106' ]
+        args: [
+          '-q',
+          '--skip', 'B101,B105,B106',
+          '-r',
+          '--severity-level', 'medium'
+        ]
+
+  # Pygrep hooks for additional checks
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: v1.10.0
     hooks:
@@ -64,9 +91,11 @@ repos:
       - id: python-check-mock-methods
       - id: python-no-eval
       - id: python-no-log-warn
-#  -   repo: https://github.com/thoughtworks/talisman
-#      rev: 'v1.34.0'
-#      hooks:
-#        - id: talisman-commit
-##          language: python
-#          pass_filenames: false
+
+  # Optional: Secret scanning
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['scan']
+        exclude: .*/tests/.*

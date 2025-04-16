@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Dict, Any
+from typing import Any
 
 
 @dataclasses.dataclass(slots=True)
@@ -11,7 +11,7 @@ class RetryableAioHttpUrlResult:
     start_time: float
     end_time: float
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Converts the object to a dictionary
 

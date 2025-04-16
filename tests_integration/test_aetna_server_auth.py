@@ -1,5 +1,4 @@
 from logging import Logger
-from typing import Dict
 
 import pytest
 
@@ -13,8 +12,8 @@ def test_aetna_server_auth() -> None:
 
     url = "https://vteapif1.aetna.com/fhirdemo/v1/patientaccess/Patient/1234567890123456701"
 
-    payload: Dict[str, str] = {}
-    headers: Dict[str, str] = {
+    payload: dict[str, str] = {}
+    headers: dict[str, str] = {
         "Host": "vteapif1.aetna.com",
         "accept": "*/*",
         "user-agent": "curl/7.79.1",

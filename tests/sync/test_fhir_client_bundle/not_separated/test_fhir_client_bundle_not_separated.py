@@ -2,10 +2,10 @@ import json
 from pathlib import Path
 
 from mockserver_client.mockserver_client import (
+    MockServerFriendlyClient,
     mock_request,
     mock_response,
     times,
-    MockServerFriendlyClient,
 )
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
@@ -16,9 +16,7 @@ def test_fhir_client_bundle_not_separated() -> None:
     test_name = "test_fhir_client_bundle_not_separated"
 
     mock_server_url = "http://mock-server:1080"
-    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
-        base_url=mock_server_url
-    )
+    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(base_url=mock_server_url)
 
     relative_url: str = test_name
     absolute_url: str = mock_server_url + "/" + test_name
@@ -84,9 +82,7 @@ def test_fhir_client_bundle_not_separated() -> None:
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     response: FhirGetResponse = fhir_client.get()
 
-    with open(
-        test_path.joinpath("./practitioner_graph_sample_not_separated.json")
-    ) as f:
+    with open(test_path.joinpath("./practitioner_graph_sample_not_separated.json")) as f:
         expected_response = json.load(f)
 
     assert json.loads(response.get_response_text()) == expected_response

@@ -1,0 +1,26 @@
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "C4",   # flake8-comprehensions
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "A",    # flake8-builtins
+    "C90",  # mccabe complexity
+]
+ignore = [
+    "E501",  # Line too long (handled by ruff-format)
+    "C408", # unnecessary dict()
+    "C901", # function is too complex
+]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+ignore_missing_imports = true

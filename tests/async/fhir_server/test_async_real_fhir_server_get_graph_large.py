@@ -1,18 +1,18 @@
 import json
 from os import environ
-from typing import Any, List, Dict, Optional
+from typing import Any
 
 import pytest
+from compressedfhir.fhir.fhir_resource_list import FhirResourceList
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+    CompressedDictStorageType,
+)
 from objsize import get_deep_size
 
-from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
-from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
-    CompressedDictStorageType,
-    CompressedDictStorageMode,
-)
 from helix_fhir_client_sdk.utilities.fhir_helper import FhirHelper
 from helix_fhir_client_sdk.utilities.fhir_server_helpers import FhirServerHelpers
 from helix_fhir_client_sdk.utilities.practitioner_generator import PractitionerGenerator
@@ -23,9 +23,7 @@ from tests.logger_for_test import LoggerForTest
 
 
 @pytest.mark.parametrize("use_data_streaming", [True, False])
-@pytest.mark.parametrize(
-    "storage_type", ["raw", "compressed", "msgpack", "compressed_msgpack"]
-)
+@pytest.mark.parametrize("storage_type", ["raw", "compressed", "msgpack", "compressed_msgpack"])
 async def test_async_real_fhir_server_get_graph_large(
     use_data_streaming: bool,
     storage_type: CompressedDictStorageType,
@@ -45,15 +43,13 @@ async def test_async_real_fhir_server_get_graph_large(
     fhir_client = FhirClient()
     fhir_client.logger(logger=logger)
     fhir_client = fhir_client.url(fhir_server_url).resource(resource_type)
-    fhir_client = fhir_client.client_credentials(
-        client_id=auth_client_id, client_secret=auth_client_secret
-    )
+    fhir_client = fhir_client.client_credentials(client_id=auth_client_id, client_secret=auth_client_secret)
     fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
 
     count: int = 100
     roles_per_practitioner: int = 10
 
-    id_dict: Dict[str, List[str]] = PractitionerGenerator.get_ids(
+    id_dict: dict[str, list[str]] = PractitionerGenerator.get_ids(
         count=count, roles_per_practitioner=roles_per_practitioner
     )
     # delete Practitioner resources
@@ -77,29 +73,23 @@ async def test_async_real_fhir_server_get_graph_large(
 
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(fhir_server_url).resource(resource_type)
-    fhir_client = fhir_client.client_credentials(
-        client_id=auth_client_id, client_secret=auth_client_secret
-    )
+    fhir_client = fhir_client.client_credentials(client_id=auth_client_id, client_secret=auth_client_secret)
     fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
 
-    bundle: Dict[str, Any] = PractitionerGenerator.generate_resources_bundle(
+    bundle: dict[str, Any] = PractitionerGenerator.generate_resources_bundle(
         count=count, roles_per_practitioner=roles_per_practitioner
     )
 
     expected_resource_count = len(bundle["entry"])
     logger.info("expected_resource_count", expected_resource_count)
 
-    merge_response: Optional[
-        FhirMergeResponse
-    ] = await FhirMergeResponse.from_async_generator(
+    merge_response: FhirMergeResponse | None = await FhirMergeResponse.from_async_generator(
         fhir_client.merge_async(json_data_list=[json.dumps(bundle)])
     )
     assert merge_response is not None
     logger.info(json.dumps(merge_response.responses))
     assert merge_response.status == 200, merge_response.responses
-    assert len(merge_response.responses) == expected_resource_count, (
-        merge_response.responses
-    )
+    assert len(merge_response.responses) == expected_resource_count, merge_response.responses
     # assert merge_response.responses[0]["created"] is True, merge_response.responses
 
     # Now start the test
@@ -156,25 +146,21 @@ async def test_async_real_fhir_server_get_graph_large(
     }
 
     fhir_client = FhirClient()
-    fhir_client = fhir_client.set_storage_mode(
-        CompressedDictStorageMode(storage_type=storage_type)
-    )
+    fhir_client = fhir_client.set_storage_mode(CompressedDictStorageMode(storage_type=storage_type))
     fhir_client = fhir_client.url(fhir_server_url).resource(resource_type)
     fhir_client = fhir_client.id_(id_dict[resource_type])
     fhir_client = fhir_client.action("$graph").action_payload(slot_practitioner_graph)
     fhir_client = fhir_client.additional_parameters(["contained=true"])
-    fhir_client = fhir_client.client_credentials(
-        client_id=auth_client_id, client_secret=auth_client_secret
-    )
+    fhir_client = fhir_client.client_credentials(client_id=auth_client_id, client_secret=auth_client_secret)
     fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
     fhir_client = fhir_client.expand_fhir_bundle(False)
     fhir_client = fhir_client.limit(expected_resource_count)
     fhir_client = fhir_client.use_data_streaming(use_data_streaming)
 
     if use_data_streaming:
-        responses: List[FhirGetResponse] = []
-        response: Optional[FhirGetResponse] = None
-        resource_chunks: List[FhirResourceList] = []
+        responses: list[FhirGetResponse] = []
+        response: FhirGetResponse | None = None
+        resource_chunks: list[FhirResourceList] = []
         async for response1 in fhir_client.get_streaming_async():
             resources_in_chunk = response1.get_resources()
             assert isinstance(resources_in_chunk, FhirResourceList)
@@ -202,9 +188,7 @@ async def test_async_real_fhir_server_get_graph_large(
         assert resources[0]["resourceType"] == resource_type
         assert response.chunk_number is not None
 
-        logger.info(
-            f"====== Response with {storage_type=} {use_data_streaming=} ======"
-        )
+        logger.info(f"====== Response with {storage_type=} {use_data_streaming=} ======")
         logger.info(
             f"{response.get_resource_count()} resources, {SizeCalculator.locale_format_bytes(get_deep_size(response))}"
         )
@@ -217,14 +201,12 @@ async def test_async_real_fhir_server_get_graph_large(
         response_text = response.get_response_text()
         bundle = json.loads(response_text)
         assert "entry" in bundle, bundle
-        responses_: List[Any] = [r["resource"] for r in bundle["entry"]]
+        responses_: list[Any] = [r["resource"] for r in bundle["entry"]]
         assert len(responses_) == count
         assert responses_[0]["id"].startswith("practitioner-")
         assert responses_[0]["resourceType"] == resource_type
 
-        logger.info(
-            f"====== Response with {storage_type=} {use_data_streaming=} ======"
-        )
+        logger.info(f"====== Response with {storage_type=} {use_data_streaming=} ======")
         logger.info(
             f"{response.get_resource_count()} resources, {SizeCalculator.locale_format_bytes(get_deep_size(response))}"
         )

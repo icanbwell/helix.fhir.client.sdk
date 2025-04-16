@@ -1,18 +1,19 @@
 import json
-from typing import List, cast
+from typing import cast
 from unittest.mock import Mock
 
 import pytest
-
+from aiohttp import ClientResponseError
+from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from compressedfhir.fhir.fhir_resource_map import FhirResourceMap
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
+
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_list_by_resource_type_response import (
     FhirGetListByResourceTypeResponse,
-)
-from compressedfhir.fhir.fhir_resource import FhirResource
-from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
-    CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -54,7 +55,7 @@ class TestFhirGetListByResourceTypeResponse:
 
     def test_init(self, sample_resources: FhirResourceList) -> None:
         """Test initialization of FhirGetListByResourceTypeResponse."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetListByResourceTypeResponse(
             request_id="test-request",
             url="https://example.com",
@@ -74,31 +75,25 @@ class TestFhirGetListByResourceTypeResponse:
             storage_mode=CompressedDictStorageMode.default(),
         )
         assert response.request_id == "test-request"
-        assert (
-            response._resource_map.get_count_of_resource_types() == 2
-        )  # Patient and Observation
+        assert response._resource_map.get_count_of_resource_types() == 2  # Patient and Observation
         assert len(response._resource_map["Patient"]) == 2
         assert len(response._resource_map["Observation"]) == 1
 
     def test_parse_resources(self, sample_resources: FhirResourceList) -> None:
         """Test parsing resources from JSON string."""
         resources_json = json.dumps([r.dict() for r in sample_resources])
-        parsed_resources = FhirGetListByResourceTypeResponse._parse_resources(
-            responses=resources_json
-        )
+        parsed_resources = FhirGetListByResourceTypeResponse._parse_resources(responses=resources_json)
         assert len(parsed_resources) == 3
         assert all("resourceType" in resource for resource in parsed_resources)
 
     def test_parse_resources_invalid(self) -> None:
         """Test parsing resources with invalid JSON."""
-        with pytest.raises(Exception):
+        with pytest.raises(ClientResponseError):
             FhirGetListByResourceTypeResponse._parse_resources(responses="invalid json")
 
     def test_parse_into_resource_map(self, sample_resources: FhirResourceList) -> None:
         """Test parsing resources into a resource map."""
-        _, resource_map = FhirGetListByResourceTypeResponse._parse_into_resource_map(
-            sample_resources
-        )
+        _, resource_map = FhirGetListByResourceTypeResponse._parse_into_resource_map(sample_resources)
         assert resource_map.get_count_of_resource_types() == 2
         assert "Patient" in resource_map
         assert "Observation" in resource_map
@@ -134,7 +129,7 @@ class TestFhirGetListByResourceTypeResponse:
 
     def test_get_response_text(self, sample_resources: FhirResourceList) -> None:
         """Test getting the response text as JSON."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetListByResourceTypeResponse(
             request_id="test-request",
             url="https://example.com",
@@ -159,7 +154,7 @@ class TestFhirGetListByResourceTypeResponse:
 
     def test_append(self, sample_resources: FhirResourceList) -> None:
         """Test appending another response."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         first_response = FhirGetListByResourceTypeResponse(
             request_id="test-request-1",
             url="https://example.com",
@@ -196,11 +191,9 @@ class TestFhirGetListByResourceTypeResponse:
         assert len(first_response._resource_map["Patient"]) == 2
         assert len(first_response._resource_map["Observation"]) == 1
 
-    async def test_unimplemented_methods(
-        self, sample_resources: FhirResourceList
-    ) -> None:
+    async def test_unimplemented_methods(self, sample_resources: FhirResourceList) -> None:
         """Test methods that raise NotImplementedError."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetListByResourceTypeResponse(
             request_id="test-request",
             url="https://example.com",
@@ -228,7 +221,7 @@ class TestFhirGetListByResourceTypeResponse:
 
     def test_sort_resources(self, sample_resources: FhirResourceList) -> None:
         """Test sort_resources method."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetListByResourceTypeResponse(
             request_id="test-request",
             url="https://example.com",
@@ -248,11 +241,9 @@ class TestFhirGetListByResourceTypeResponse:
         sorted_response = response.sort_resources()
         assert isinstance(sorted_response, FhirGetListByResourceTypeResponse)
 
-    async def test_consume_resource_async(
-        self, sample_resources: FhirResourceList
-    ) -> None:
+    async def test_consume_resource_async(self, sample_resources: FhirResourceList) -> None:
         """Test the async consume_resource_async method."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetListByResourceTypeResponse(
             request_id="test-request",
             url="https://example.com",
@@ -271,7 +262,7 @@ class TestFhirGetListByResourceTypeResponse:
         )
 
         # Collect resources from the async generator
-        consumed_resources: List[FhirResourceMap] = []
+        consumed_resources: list[FhirResourceMap] = []
         async for resource_map in response.consume_resource_map_async():
             consumed_resources.append(resource_map)
 
@@ -288,7 +279,7 @@ class TestFhirGetListByResourceTypeResponse:
 
     def test_consume_resource(self, sample_resources: FhirResourceList) -> None:
         """Test the synchronous consume_resource method."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetListByResourceTypeResponse(
             request_id="test-request",
             url="https://example.com",
@@ -307,7 +298,7 @@ class TestFhirGetListByResourceTypeResponse:
         )
 
         # Collect resources from the generator
-        consumed_resources: List[FhirResourceMap] = []
+        consumed_resources: list[FhirResourceMap] = []
         for resource_map in response.consume_resource_map():
             consumed_resources.append(resource_map)
 

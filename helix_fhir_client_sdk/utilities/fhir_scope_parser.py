@@ -1,5 +1,4 @@
 import logging
-from typing import Optional, List
 
 from helix_fhir_client_sdk.utilities.fhir_scope_parser_result import (
     FhirScopeParserResult,
@@ -7,7 +6,7 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser_result import (
 
 
 class FhirScopeParser:
-    def __init__(self, scopes: Optional[List[str]]) -> None:
+    def __init__(self, scopes: list[str] | None) -> None:
         """
         This class parses SMART on FHIR scopes and can answer whether a resource is allowed to be downloaded
         https://build.fhir.org/ig/HL7/smart-app-launch/scopes-and-launch-context.html
@@ -15,14 +14,12 @@ class FhirScopeParser:
         :param scopes: The scopes to parse.
         """
         self.logger = logging.getLogger(__name__)
-        self.scopes: Optional[List[str]] = scopes
-        self.parsed_scopes: Optional[List[FhirScopeParserResult]] = (
-            self.parse_scopes(" ".join([s for s in scopes if s]))
-            if scopes and len([s for s in scopes if s])
-            else None
+        self.scopes: list[str] | None = scopes
+        self.parsed_scopes: list[FhirScopeParserResult] | None = (
+            self.parse_scopes(" ".join([s for s in scopes if s])) if scopes and len([s for s in scopes if s]) else None
         )
 
-    def parse_scopes(self, scopes: Optional[str]) -> List[FhirScopeParserResult]:
+    def parse_scopes(self, scopes: str | None) -> list[FhirScopeParserResult]:
         """
         Parses the given scopes into a list of FhirScopeParserResult objects.
 
@@ -31,7 +28,7 @@ class FhirScopeParser:
         """
         if not scopes:
             return []
-        parsed_scopes: List[FhirScopeParserResult] = []
+        parsed_scopes: list[FhirScopeParserResult] = []
         scope_list = scopes.split(" ")
 
         for scope in scope_list:
@@ -43,20 +40,14 @@ class FhirScopeParser:
                         FhirScopeParserResult(
                             resource_type=resource.strip(" \n") if resource else None,
                             operation=operation.strip(" \n") if operation else None,
-                            interaction=(
-                                permission.strip(" \n").lower() if permission else None
-                            ),
+                            interaction=(permission.strip(" \n").lower() if permission else None),
                         )
                     )
                 else:
                     parsed_scopes.append(
                         FhirScopeParserResult(
                             resource_type=resource.strip(" \n") if resource else None,
-                            interaction=(
-                                interaction.strip(" \n").lower()
-                                if interaction
-                                else None
-                            ),
+                            interaction=(interaction.strip(" \n").lower() if interaction else None),
                         )
                     )
             elif scope and scope.strip(" \n") != "":
@@ -76,9 +67,7 @@ class FhirScopeParser:
             )
             in parsed_scopes
         ):
-            if not any(
-                [scope for scope in parsed_scopes if scope.resource_type == "patient"]
-            ):
+            if not any(scope for scope in parsed_scopes if scope.resource_type == "patient"):
                 self.logger.warning(
                     "No corresponding 'patient/xxx' scope detected for 'launch/patient', removing 'launch/patient'"
                 )
@@ -110,13 +99,7 @@ class FhirScopeParser:
             return True
 
         # default to True if vendor/client/server/etc. not using "patient", "user", or "system" based scopes
-        if not any(
-            [
-                s
-                for s in self.parsed_scopes
-                if s.resource_type in ["patient", "user", "system"]
-            ]
-        ):
+        if not any(s for s in self.parsed_scopes if s.resource_type in ["patient", "user", "system"]):
             return True
 
         # These resources are always allowed
@@ -134,14 +117,8 @@ class FhirScopeParser:
             if (
                 scope.operation
                 and scope.interaction
-                and (
-                    scope.operation == "*"
-                    or scope.operation.lower() == resource_type.lower()
-                )
-                and (
-                    scope.interaction == "*"
-                    or scope.interaction.lower() == interaction.lower()
-                )
+                and (scope.operation == "*" or scope.operation.lower() == resource_type.lower())
+                and (scope.interaction == "*" or scope.interaction.lower() == interaction.lower())
             ):
                 return True
         return False

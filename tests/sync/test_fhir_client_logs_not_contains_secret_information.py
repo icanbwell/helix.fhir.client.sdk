@@ -1,6 +1,8 @@
 import json
 import unittest
-from typing import Any, Mapping
+from collections.abc import Mapping
+from logging import Logger
+from typing import Any
 
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
@@ -10,7 +12,6 @@ from mockserver_client.mockserver_client import (
 )
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
-from logging import Logger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 log_output = []
@@ -48,9 +49,7 @@ class TestRemoveSecretInformationFromLogs(unittest.TestCase):
         test_name = "test_client_secrets_removed_from_logs"
         logger = TestLoggerLogs("test_logger")
         mock_server_url = "http://mock-server:1080"
-        mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
-            base_url=mock_server_url
-        )
+        mock_client: MockServerFriendlyClient = MockServerFriendlyClient(base_url=mock_server_url)
 
         relative_url: str = test_name
         absolute_url: str = mock_server_url + "/" + test_name

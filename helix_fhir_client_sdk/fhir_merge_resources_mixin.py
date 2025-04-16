@@ -1,17 +1,16 @@
 import json
 import time
 from collections import deque
+from collections.abc import AsyncGenerator
 from typing import (
-    Optional,
-    List,
     cast,
-    AsyncGenerator,
-    Tuple,
-    Deque,
 )
 from urllib import parse
 
 import requests
+from compressedfhir.fhir.fhir_bundle import FhirBundle
+from compressedfhir.fhir.fhir_resource import FhirResource
+from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from furl import furl
 
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
@@ -19,21 +18,18 @@ from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderExc
 from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
     FhirValidationException,
 )
-from compressedfhir.fhir.fhir_bundle import FhirBundle
-from compressedfhir.fhir.fhir_resource import FhirResource
-from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.merge.base_fhir_merge_resource_response_entry import (
     BaseFhirMergeResourceResponseEntry,
+)
+from helix_fhir_client_sdk.responses.merge.fhir_merge_resource_response import (
+    FhirMergeResourceResponse,
 )
 from helix_fhir_client_sdk.responses.merge.fhir_merge_resource_response_entry import (
     FhirMergeResourceResponseEntry,
 )
 from helix_fhir_client_sdk.responses.merge.fhir_merge_response_entry_issue import (
     FhirMergeResponseEntryError,
-)
-from helix_fhir_client_sdk.responses.merge.fhir_merge_resource_response import (
-    FhirMergeResourceResponse,
 )
 from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
@@ -51,7 +47,7 @@ from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValid
 class FhirMergeResourcesMixin(FhirClientProtocol):
     async def merge_bundle_async(
         self,
-        id_: Optional[str],
+        id_: str | None,
         bundle: FhirBundle,
     ) -> AsyncGenerator[FhirMergeResourceResponse, None]:
         """
@@ -72,17 +68,15 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
         self._internal_logger.debug(
             f"Calling $merge on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
         )
-        instance_variables_text = convert_dict_to_str(
-            FhirClientLogger.get_variables_to_log(vars(self))
-        )
+        instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
         if self._internal_logger:
             self._internal_logger.debug(f"parameters: {instance_variables_text}")
         else:
             self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
             self._internal_logger.info(f"parameters: {instance_variables_text}")
 
-        request_id: Optional[str] = None
-        response_status: Optional[int] = None
+        request_id: str | None = None
+        response_status: int | None = None
         full_uri: furl = furl(self._url)
         assert self._resource
         full_uri /= self._resource
@@ -93,33 +87,29 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
         start_time: float = time.time()
         # set access token in request if present
         access_token_result: GetAccessTokenResult = await self.get_access_token_async()
-        access_token: Optional[str] = access_token_result.access_token
+        access_token: str | None = access_token_result.access_token
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
 
-        validation_errors: Deque[BaseFhirMergeResourceResponseEntry] = deque()
+        validation_errors: deque[BaseFhirMergeResourceResponseEntry] = deque()
         try:
             # If we found some resources
             if len(bundle.entry) > 0:
-                responses: List[BaseFhirMergeResourceResponseEntry] = []
-                errors: List[FhirMergeResponseEntryError] = []
+                responses: list[BaseFhirMergeResourceResponseEntry] = []
+                errors: list[FhirMergeResponseEntryError] = []
                 resource_uri: furl = full_uri.copy()
                 # if there is only item in the list then send it instead of having it in a list
                 first_resource: FhirResource | None = bundle.entry[0].resource
                 assert isinstance(first_resource, FhirResource)
                 assert first_resource is not None
-                json_payload: str = (
-                    first_resource.json() if len(bundle.entry) == 1 else bundle.json()
-                )
+                json_payload: str = first_resource.json() if len(bundle.entry) == 1 else bundle.json()
                 # json_payload_bytes: str = json_payload
-                obj_id: str = (
-                    id_ or "1"
-                )  # TODO: remove this once the node fhir accepts merge without a parameter
+                obj_id: str = id_ or "1"  # TODO: remove this once the node fhir accepts merge without a parameter
                 assert obj_id
 
                 resource_uri /= parse.quote(str(obj_id), safe="")
                 resource_uri /= "$merge"
-                response_text: Optional[str] = None
+                response_text: str | None = None
                 try:
                     async with RetryableAioHttpClient(
                         fn_get_session=lambda: self.create_http_session(),
@@ -170,18 +160,15 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                                         )
                                     )
 
-                            all_responses: Deque[BaseFhirMergeResourceResponseEntry] = (
-                                deque([r for r in responses] + [e for e in errors])
+                            all_responses: deque[BaseFhirMergeResourceResponseEntry] = deque(
+                                list(responses) + list(errors)
                             )
                             yield FhirMergeResourceResponse(
                                 request_id=request_id,
                                 url=resource_uri.url,
                                 responses=all_responses,
                                 error=(
-                                    json.dumps(
-                                        [r.to_dict() for r in responses]
-                                        + [e.to_dict() for e in errors]
-                                    )
+                                    json.dumps([r.to_dict() for r in responses] + [e.to_dict() for e in errors])
                                     if response_status != 200
                                     else None
                                 ),
@@ -190,9 +177,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                                 response_text=json_payload,
                             )
                         else:  # other HTTP errors
-                            self._internal_logger.info(
-                                f"POST response for {resource_uri.url}: {response.status}"
-                            )
+                            self._internal_logger.info(f"POST response for {resource_uri.url}: {response.status}")
                             response_text = await response.get_text_async()
                             yield FhirMergeResourceResponse(
                                 request_id=request_id,
@@ -266,9 +251,9 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
 
     async def merge_resources_async(
         self,
-        id_: Optional[str],
+        id_: str | None,
         resources_to_merge: FhirResourceList,
-        batch_size: Optional[int],
+        batch_size: int | None,
     ) -> AsyncGenerator[FhirMergeResourceResponse, None]:
         """
         Calls $merge function on FHIR server
@@ -287,17 +272,15 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
         self._internal_logger.debug(
             f"Calling $merge on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
         )
-        instance_variables_text = convert_dict_to_str(
-            FhirClientLogger.get_variables_to_log(vars(self))
-        )
+        instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
         if self._internal_logger:
             self._internal_logger.debug(f"parameters: {instance_variables_text}")
         else:
             self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
             self._internal_logger.info(f"parameters: {instance_variables_text}")
 
-        request_id: Optional[str] = None
-        response_status: Optional[int] = None
+        request_id: str | None = None
+        response_status: int | None = None
         full_uri: furl = furl(self._url)
         assert self._resource
         full_uri /= self._resource
@@ -308,11 +291,11 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
         start_time: float = time.time()
         # set access token in request if present
         access_token_result: GetAccessTokenResult = await self.get_access_token_async()
-        access_token: Optional[str] = access_token_result.access_token
+        access_token: str | None = access_token_result.access_token
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
 
-        validation_errors: Deque[BaseFhirMergeResourceResponseEntry] = deque()
+        validation_errors: deque[BaseFhirMergeResourceResponseEntry] = deque()
         try:
             resource_json_list_clean: FhirResourceList
             if self._validation_server_url:
@@ -328,29 +311,21 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
             # If we found some resources
             if len(resource_json_list_clean) > 0:
                 resource_batch: FhirResourceList
-                async for (
-                    resource_batch
-                ) in resource_json_list_clean.consume_resource_batch_async(
+                async for resource_batch in resource_json_list_clean.consume_resource_batch_async(
                     batch_size=batch_size
                 ):
-                    responses: List[BaseFhirMergeResourceResponseEntry] = []
-                    errors: List[FhirMergeResponseEntryError] = []
+                    responses: list[BaseFhirMergeResourceResponseEntry] = []
+                    errors: list[FhirMergeResponseEntryError] = []
                     resource_uri: furl = full_uri.copy()
                     # if there is only item in the list then send it instead of having it in a list
-                    json_payload: str = (
-                        resource_batch[0].json()
-                        if len(resource_batch) == 1
-                        else resource_batch.json()
-                    )
+                    json_payload: str = resource_batch[0].json() if len(resource_batch) == 1 else resource_batch.json()
                     # json_payload_bytes: str = json_payload
-                    obj_id: str = (
-                        id_ or "1"
-                    )  # TODO: remove this once the node fhir accepts merge without a parameter
+                    obj_id: str = id_ or "1"  # TODO: remove this once the node fhir accepts merge without a parameter
                     assert obj_id
 
                     resource_uri /= parse.quote(str(obj_id), safe="")
                     resource_uri /= "$merge"
-                    response_text: Optional[str] = None
+                    response_text: str | None = None
                     try:
                         async with RetryableAioHttpClient(
                             fn_get_session=lambda: self.create_http_session(),
@@ -373,9 +348,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                                 headers=headers,
                             )
                             response_status = response.status
-                            request_id = response.response_headers.get(
-                                "X-Request-ID", None
-                            )
+                            request_id = response.response_headers.get("X-Request-ID", None)
                             self._internal_logger.info(f"X-Request-ID={request_id}")
                             if response and response.status == 200:
                                 response_text = await response.get_text_async()
@@ -403,18 +376,15 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                                             )
                                         )
 
-                                all_responses: Deque[
-                                    BaseFhirMergeResourceResponseEntry
-                                ] = deque([r for r in responses] + [e for e in errors])
+                                all_responses: deque[BaseFhirMergeResourceResponseEntry] = deque(
+                                    list(responses) + list(errors)
+                                )
                                 yield FhirMergeResourceResponse(
                                     request_id=request_id,
                                     url=resource_uri.url,
                                     responses=all_responses,
                                     error=(
-                                        json.dumps(
-                                            [r.to_dict() for r in responses]
-                                            + [e.to_dict() for e in errors]
-                                        )
+                                        json.dumps([r.to_dict() for r in responses] + [e.to_dict() for e in errors])
                                         if response_status != 200
                                         else None
                                     ),
@@ -423,9 +393,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                                     response_text=json_payload,
                                 )
                             else:  # other HTTP errors
-                                self._internal_logger.info(
-                                    f"POST response for {resource_uri.url}: {response.status}"
-                                )
+                                self._internal_logger.info(f"POST response for {resource_uri.url}: {response.status}")
                                 response_text = await response.get_text_async()
                                 yield FhirMergeResourceResponse(
                                     request_id=request_id,
@@ -501,14 +469,14 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
         self,
         *,
         resources_to_validate: FhirResourceList,
-    ) -> Tuple[FhirResourceList, Deque[BaseFhirMergeResourceResponseEntry]]:
+    ) -> tuple[FhirResourceList, deque[BaseFhirMergeResourceResponseEntry]]:
         """
         Calls the validation server to validate the content of a resource
 
         :param resources_to_validate: the resources to validate
         :returns: the validated resources, the list of errors
         """
-        errors: Deque[BaseFhirMergeResourceResponseEntry] = deque()
+        errors: deque[BaseFhirMergeResourceResponseEntry] = deque()
         resource_json_list_clean: FhirResourceList = FhirResourceList()
         assert self._validation_server_url
         # if there is only resource then just validate that individually
@@ -516,17 +484,13 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
             resource: FhirResource = resources_to_validate[0]
             try:
                 with resource.transaction():
-                    access_token_result: GetAccessTokenResult = (
-                        await self.get_access_token_async()
-                    )
-                    access_token: Optional[str] = access_token_result.access_token
+                    access_token_result: GetAccessTokenResult = await self.get_access_token_async()
+                    access_token: str | None = access_token_result.access_token
 
                     await AsyncFhirValidator.validate_fhir_resource(
                         fn_get_session=lambda: self.create_http_session(),
                         json_data=resource.json(),
-                        resource_name=cast(Optional[str], resource.get("resourceType"))
-                        or self._resource
-                        or "",
+                        resource_name=cast(str | None, resource.get("resourceType")) or self._resource or "",
                         validation_server_url=self._validation_server_url,
                         access_token=access_token,
                     )
@@ -543,19 +507,15 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                     )
                 )
         else:
-            access_token_result1: GetAccessTokenResult = (
-                await self.get_access_token_async()
-            )
-            access_token1: Optional[str] = access_token_result1.access_token
+            access_token_result1: GetAccessTokenResult = await self.get_access_token_async()
+            access_token1: str | None = access_token_result1.access_token
             for resource in resources_to_validate:
                 try:
                     with resource.transaction():
                         await AsyncFhirValidator.validate_fhir_resource(
                             fn_get_session=lambda: self.create_http_session(),
                             json_data=resource.json(),
-                            resource_name=resource.get("resourceType")
-                            or self._resource
-                            or "",
+                            resource_name=resource.get("resourceType") or self._resource or "",
                             validation_server_url=self._validation_server_url,
                             access_token=access_token1,
                         )

@@ -1,7 +1,6 @@
 import json
 from logging import Logger
 from os import environ
-from typing import List
 
 import pytest
 from mockserver_client.mockserver_client import (
@@ -29,9 +28,7 @@ async def test_fhir_graph_async(use_data_streaming: bool) -> None:
     environ["LOG_LEVEL"] = "DEBUG"
 
     mock_server_url = "http://mock-server:1080"
-    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
-        base_url=mock_server_url
-    )
+    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(base_url=mock_server_url)
 
     relative_url: str = test_name
     absolute_url: str = mock_server_url + "/" + test_name
@@ -46,26 +43,14 @@ async def test_fhir_graph_async(use_data_streaming: bool) -> None:
         name="my_everything",
         start="Patient",
         link=[
-            GraphDefinitionLink(
-                target=[
-                    GraphDefinitionTarget(
-                        type_="Location", params="managingOrganization={ref}"
-                    )
-                ]
-            ),
+            GraphDefinitionLink(target=[GraphDefinitionTarget(type_="Location", params="managingOrganization={ref}")]),
             GraphDefinitionLink(
                 target=[
                     GraphDefinitionTarget(
                         type_="HealthcareService",
                         params="providedBy={ref}",
                         link=[
-                            GraphDefinitionLink(
-                                target=[
-                                    GraphDefinitionTarget(
-                                        type_="Schedule", params="actor={ref}"
-                                    )
-                                ]
-                            )
+                            GraphDefinitionLink(target=[GraphDefinitionTarget(type_="Schedule", params="actor={ref}")])
                         ],
                     )
                 ]
@@ -84,10 +69,8 @@ async def test_fhir_graph_async(use_data_streaming: bool) -> None:
 
     fhir_client = fhir_client.url(absolute_url).resource("Patient").id_("1")
     fhir_client = fhir_client.use_data_streaming(use_data_streaming)
-    responses: List[FhirGetResponse] = []
-    async for response in fhir_client.graph_async(
-        id_="1", graph_definition=graph_definition, contained=False
-    ):
+    responses: list[FhirGetResponse] = []
+    async for response in fhir_client.graph_async(id_="1", graph_definition=graph_definition, contained=False):
         logger.info(f"Response Chunk: {response.get_response_text()}")
         responses.append(response)
 

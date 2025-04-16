@@ -1,14 +1,15 @@
 import asyncio
 import time
+from collections.abc import Coroutine
 from concurrent.futures import ThreadPoolExecutor
-from typing import Coroutine, Any, TypeVar, Optional
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
 
 class AsyncRunner:
     @staticmethod
-    def run(fn: Coroutine[Any, Any, T], timeout: Optional[float] = None) -> T:
+    def run(fn: Coroutine[Any, Any, T], timeout: float | None = None) -> T:
         """
         Runs an async function but returns the result synchronously
         Similar to asyncio.run() but does not create a new event loop if one already exists
@@ -47,7 +48,7 @@ class AsyncRunner:
             if "This event loop is already running" in str(e):
                 try:
                     return AsyncRunner.run_in_thread_pool_and_wait(coro=fn)
-                except RuntimeError:
+                except RuntimeError as err:
                     raise RuntimeError(
                         f"While calling {fn.__name__} there is already an event loop running."
                         "\nThis usually happens because you are calling this function"
@@ -55,7 +56,7 @@ class AsyncRunner:
                         f"\nEither use `await {fn.__name__}` or"
                         " use nest_asyncio (https://github.com/erdewit/nest_asyncio)."
                         f"\nException: {e}"
-                    )
+                    ) from err
             else:
                 raise
         return result
@@ -96,8 +97,8 @@ class AsyncRunner:
         :param coro: Coroutine
         :return: T
         """
-        result: Optional[T] = None
-        exception: Optional[Exception] = None
+        result: T | None = None
+        exception: Exception | None = None
 
         def target() -> None:
             nonlocal result, exception

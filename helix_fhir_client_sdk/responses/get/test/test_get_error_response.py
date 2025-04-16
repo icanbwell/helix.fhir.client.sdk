@@ -1,25 +1,25 @@
 import json
-from typing import Dict, Any
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
-
 from compressedfhir.fhir.fhir_bundle_entry import (
     FhirBundleEntry,
 )
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
+
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_error_response import (
     FhirGetErrorResponse,
-)
-from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
-    CompressedDictStorageMode,
 )
 
 
 class TestFhirGetErrorResponse:
     @pytest.fixture
-    def sample_error_response(self) -> Dict[str, Any]:
+    def sample_error_response(self) -> dict[str, Any]:
         """Fixture to provide a sample error response."""
         return {
             "resourceType": "OperationOutcome",
@@ -33,7 +33,7 @@ class TestFhirGetErrorResponse:
         }
 
     @pytest.fixture
-    def base_response_params(self) -> Dict[str, Any]:
+    def base_response_params(self) -> dict[str, Any]:
         """Fixture to provide base parameters for creating a response."""
         return {
             "request_id": "test-request",
@@ -55,8 +55,8 @@ class TestFhirGetErrorResponse:
 
     def test_init(
         self,
-        base_response_params: Dict[str, Any],
-        sample_error_response: Dict[str, Any],
+        base_response_params: dict[str, Any],
+        sample_error_response: dict[str, Any],
     ) -> None:
         """Test initialization of FhirGetErrorResponse."""
 
@@ -73,8 +73,8 @@ class TestFhirGetErrorResponse:
 
     def test_get_resources(
         self,
-        base_response_params: Dict[str, Any],
-        sample_error_response: Dict[str, Any],
+        base_response_params: dict[str, Any],
+        sample_error_response: dict[str, Any],
     ) -> None:
         """Test getting resources from the error response."""
 
@@ -91,8 +91,8 @@ class TestFhirGetErrorResponse:
 
     def test_get_bundle_entries(
         self,
-        base_response_params: Dict[str, Any],
-        sample_error_response: Dict[str, Any],
+        base_response_params: dict[str, Any],
+        sample_error_response: dict[str, Any],
     ) -> None:
         """Test getting bundle entries from the error response."""
 
@@ -110,8 +110,8 @@ class TestFhirGetErrorResponse:
 
     def test_get_response_text(
         self,
-        base_response_params: Dict[str, Any],
-        sample_error_response: Dict[str, Any],
+        base_response_params: dict[str, Any],
+        sample_error_response: dict[str, Any],
     ) -> None:
         """Test getting the response text."""
 
@@ -127,8 +127,8 @@ class TestFhirGetErrorResponse:
     @pytest.mark.asyncio
     async def test_consume_resource_async(
         self,
-        base_response_params: Dict[str, Any],
-        sample_error_response: Dict[str, Any],
+        base_response_params: dict[str, Any],
+        sample_error_response: dict[str, Any],
     ) -> None:
         """Test async resources generator."""
 
@@ -150,8 +150,8 @@ class TestFhirGetErrorResponse:
 
     def test_consume_resource(
         self,
-        base_response_params: Dict[str, Any],
-        sample_error_response: Dict[str, Any],
+        base_response_params: dict[str, Any],
+        sample_error_response: dict[str, Any],
     ) -> None:
         """Test async resources generator."""
 
@@ -174,8 +174,8 @@ class TestFhirGetErrorResponse:
     @pytest.mark.asyncio
     async def test_consume_bundle_entry_async(
         self,
-        base_response_params: Dict[str, Any],
-        sample_error_response: Dict[str, Any],
+        base_response_params: dict[str, Any],
+        sample_error_response: dict[str, Any],
     ) -> None:
         """Test async bundle entries generator."""
 
@@ -197,8 +197,8 @@ class TestFhirGetErrorResponse:
 
     def test_consume_bundle_entry(
         self,
-        base_response_params: Dict[str, Any],
-        sample_error_response: Dict[str, Any],
+        base_response_params: dict[str, Any],
+        sample_error_response: dict[str, Any],
     ) -> None:
         """Test async bundle entries generator."""
 
@@ -220,8 +220,8 @@ class TestFhirGetErrorResponse:
 
     def test_from_response_raises_not_implemented(
         self,
-        base_response_params: Dict[str, Any],
-        sample_error_response: Dict[str, Any],
+        base_response_params: dict[str, Any],
+        sample_error_response: dict[str, Any],
     ) -> None:
         """Test that from_response method raises NotImplementedError."""
 

@@ -1,9 +1,11 @@
 import asyncio
+from collections.abc import AsyncGenerator
 from datetime import datetime
 from types import TracebackType
-from typing import Optional, Type, Dict, Any, AsyncGenerator
+from typing import Any
 
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
+
 from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
 
 
@@ -25,14 +27,14 @@ class RequestCache:
     def __init__(
         self,
         *,
-        initial_dict: Dict[str, Any] | None = None,
-        clear_cache_at_the_end: Optional[bool] = True,
+        initial_dict: dict[str, Any] | None = None,
+        clear_cache_at_the_end: bool | None = True,
     ) -> None:
         self.cache_hits: int = 0
         self.cache_misses: int = 0
-        self._cache: Dict[str, RequestCacheEntry] = initial_dict or {}
+        self._cache: dict[str, RequestCacheEntry] = initial_dict or {}
         self._lock: asyncio.Lock = asyncio.Lock()
-        self._clear_cache_at_the_end: Optional[bool] = clear_cache_at_the_end
+        self._clear_cache_at_the_end: bool | None = clear_cache_at_the_end
 
     async def __aenter__(self) -> "RequestCache":
         """
@@ -46,10 +48,10 @@ class RequestCache:
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
-    ) -> Optional[bool]:
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> bool | None:
         """
         This method is called when the RequestCache is exited from a context manager.
         It clears the cache.
@@ -63,9 +65,7 @@ class RequestCache:
 
         return True
 
-    async def get_async(
-        self, *, resource_type: str, resource_id: str
-    ) -> Optional[RequestCacheEntry]:
+    async def get_async(self, *, resource_type: str, resource_id: str) -> RequestCacheEntry | None:
         """
         This method returns the cached data for a given URL, or None if the URL is not in the cache.
 
@@ -90,11 +90,11 @@ class RequestCache:
         *,
         resource_type: str,
         resource_id: str,
-        bundle_entry: Optional[FhirBundleEntry],
+        bundle_entry: FhirBundleEntry | None,
         status: int,
-        last_modified: Optional[datetime],
-        etag: Optional[str],
-        from_input_cache: Optional[bool] | None,
+        last_modified: datetime | None,
+        etag: str | None,
+        from_input_cache: bool | None | None,
     ) -> bool:
         """
         This method adds the given data to the cache.

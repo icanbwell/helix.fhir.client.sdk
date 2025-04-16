@@ -1,5 +1,4 @@
 import json
-from typing import Optional
 
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
@@ -21,9 +20,7 @@ def test_fhir_graph() -> None:
     test_name = "test_fhir_graph"
 
     mock_server_url = "http://mock-server:1080"
-    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
-        base_url=mock_server_url
-    )
+    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(base_url=mock_server_url)
 
     relative_url: str = test_name
     absolute_url: str = mock_server_url + "/" + test_name
@@ -38,26 +35,14 @@ def test_fhir_graph() -> None:
         name="my_everything",
         start="Patient",
         link=[
-            GraphDefinitionLink(
-                target=[
-                    GraphDefinitionTarget(
-                        type_="Location", params="managingOrganization={ref}"
-                    )
-                ]
-            ),
+            GraphDefinitionLink(target=[GraphDefinitionTarget(type_="Location", params="managingOrganization={ref}")]),
             GraphDefinitionLink(
                 target=[
                     GraphDefinitionTarget(
                         type_="HealthcareService",
                         params="providedBy={ref}",
                         link=[
-                            GraphDefinitionLink(
-                                target=[
-                                    GraphDefinitionTarget(
-                                        type_="Schedule", params="actor={ref}"
-                                    )
-                                ]
-                            )
+                            GraphDefinitionLink(target=[GraphDefinitionTarget(type_="Schedule", params="actor={ref}")])
                         ],
                     )
                 ]
@@ -74,8 +59,6 @@ def test_fhir_graph() -> None:
     fhir_client = FhirClient()
 
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
-    response: Optional[FhirGetResponse] = fhir_client.graph(
-        graph_definition=graph_definition, contained=False
-    )
+    response: FhirGetResponse | None = fhir_client.graph(graph_definition=graph_definition, contained=False)
     assert response is not None
     assert json.loads(response.get_response_text()) == response_text

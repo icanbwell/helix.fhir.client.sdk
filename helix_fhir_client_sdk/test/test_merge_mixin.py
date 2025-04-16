@@ -1,6 +1,6 @@
-import pytest
-from typing import List, Dict, Any
+from typing import Any
 
+import pytest
 from aioresponses import aioresponses
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
@@ -19,12 +19,7 @@ async def test_merge_async_success() -> None:
         fhir_merge_mixin._resource = "Patient"
         fhir_merge_mixin._validation_server_url = "http://validation-server.com"
 
-        responses = [
-            response
-            async for response in fhir_merge_mixin.merge_async(
-                json_data_list=json_data_list
-            )
-        ]
+        responses = [response async for response in fhir_merge_mixin.merge_async(json_data_list=json_data_list)]
 
         assert len(responses) == 1
         assert responses[0].status == 200
@@ -46,12 +41,7 @@ async def test_merge_async_validation_error() -> None:
             payload={"issue": [{"severity": "error", "code": "invalid"}]},
         )
 
-        responses = [
-            response
-            async for response in fhir_merge_mixin.merge_async(
-                json_data_list=json_data_list
-            )
-        ]
+        responses = [response async for response in fhir_merge_mixin.merge_async(json_data_list=json_data_list)]
 
         assert len(responses) == 1
         assert responses[0].status == 500
@@ -62,9 +52,7 @@ async def test_merge_async_validation_error() -> None:
 async def test_merge_async_http_error() -> None:
     """Test merge_async call with HTTP errors."""
     url = "http://example.com/Patient/1/$merge"
-    fhir_merge_mixin = (
-        FhirClient().url(url).resource("Patient").throw_exception_on_error(False)
-    )
+    fhir_merge_mixin = FhirClient().url(url).resource("Patient").throw_exception_on_error(False)
 
     json_data_list = ['{"resourceType": "Patient", "id": "1"}']
 
@@ -75,12 +63,7 @@ async def test_merge_async_http_error() -> None:
             payload={"issue": [{"severity": "error", "code": "exception"}]},
         )
 
-        responses = [
-            response
-            async for response in fhir_merge_mixin.merge_async(
-                json_data_list=json_data_list
-            )
-        ]
+        responses = [response async for response in fhir_merge_mixin.merge_async(json_data_list=json_data_list)]
 
         assert len(responses) == 1
         assert responses[0].status == 500
@@ -99,7 +82,7 @@ async def test_validate_content_success() -> None:
     with aioresponses() as m:
         m.post("http://validation-server.com/Patient/$validate", status=200, payload={})
 
-        errors: List[Dict[str, Any]] = []
+        errors: list[dict[str, Any]] = []
         clean_resources = await fhir_merge_mixin.validate_content(
             errors=errors, resource_json_list_incoming=json_data_list
         )
@@ -124,7 +107,7 @@ async def test_validate_content_error() -> None:
             payload={"issue": [{"severity": "error", "code": "invalid"}]},
         )
 
-        errors: List[Dict[str, Any]] = []
+        errors: list[dict[str, Any]] = []
         clean_resources = await fhir_merge_mixin.validate_content(
             errors=errors, resource_json_list_incoming=json_data_list
         )

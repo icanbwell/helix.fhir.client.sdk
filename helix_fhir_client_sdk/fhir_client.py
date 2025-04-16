@@ -2,18 +2,14 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import AsyncGenerator
 from datetime import datetime
 from logging import Logger
 from os import environ
 from threading import Lock
 from types import SimpleNamespace
 from typing import (
-    Dict,
-    Optional,
-    List,
-    Union,
     Any,
-    AsyncGenerator,
 )
 from urllib import parse
 
@@ -22,6 +18,9 @@ from aiohttp import (
     ClientSession,
     TraceRequestEndParams,
     TraceResponseChunkReceivedParams,
+)
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
 )
 from furl import furl
 from requests.adapters import BaseAdapter
@@ -51,9 +50,6 @@ from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
 )
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
-from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
-    CompressedDictStorageMode,
-)
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 
 
@@ -82,34 +78,32 @@ class FhirClient(
         """
         Class used to call FHIR server (uses async and parallel execution to speed up)
         """
-        self._action: Optional[str] = None
-        self._action_payload: Optional[Dict[str, Any]] = None
-        self._resource: Optional[str] = None
-        self._id: Optional[Union[List[str], str]] = None
-        self._url: Optional[str] = None
-        self._additional_parameters: Optional[List[str]] = None
-        self._filter_by_resource: Optional[str] = None
-        self._filter_parameter: Optional[str] = None
-        self._include_only_properties: Optional[List[str]] = None
-        self._page_number: Optional[int] = None
-        self._page_size: Optional[int] = None
-        self._last_updated_after: Optional[datetime] = None
-        self._last_updated_before: Optional[datetime] = None
-        self._sort_fields: Optional[List[SortField]] = None
-        self._logger: Optional[Logger] = None
-        self._adapter: Optional[BaseAdapter] = None
-        self._limit: Optional[int] = None
-        self._validation_server_url: Optional[str] = None
-        self._separate_bundle_resources: bool = (
-            False  # for each entry in bundle create a property for each resource
-        )
-        self._obj_id: Optional[str] = None
+        self._action: str | None = None
+        self._action_payload: dict[str, Any] | None = None
+        self._resource: str | None = None
+        self._id: list[str] | str | None = None
+        self._url: str | None = None
+        self._additional_parameters: list[str] | None = None
+        self._filter_by_resource: str | None = None
+        self._filter_parameter: str | None = None
+        self._include_only_properties: list[str] | None = None
+        self._page_number: int | None = None
+        self._page_size: int | None = None
+        self._last_updated_after: datetime | None = None
+        self._last_updated_before: datetime | None = None
+        self._sort_fields: list[SortField] | None = None
+        self._logger: Logger | None = None
+        self._adapter: BaseAdapter | None = None
+        self._limit: int | None = None
+        self._validation_server_url: str | None = None
+        self._separate_bundle_resources: bool = False  # for each entry in bundle create a property for each resource
+        self._obj_id: str | None = None
         self._include_total: bool = False
-        self._filters: List[BaseFilter] = []
+        self._filters: list[BaseFilter] = []
         self._expand_fhir_bundle: bool = True
 
         self._stop_processing: bool = False
-        self._last_page: Optional[int] = None
+        self._last_page: int | None = None
 
         self._use_data_streaming: bool = False
         self._send_data_as_chunked: bool = False
@@ -119,22 +113,20 @@ class FhirClient(
 
         self._accept: str = "application/fhir+json"
         self._content_type: str = "application/fhir+json"
-        self._additional_request_headers: Dict[str, str] = {}
+        self._additional_request_headers: dict[str, str] = {}
         self._accept_encoding: str = "gzip,deflate"
 
         self._maximum_time_to_retry_on_429: int = 60 * 60
 
-        self._extra_context_to_return: Optional[Dict[str, Any]] = None
+        self._extra_context_to_return: dict[str, Any] | None = None
 
         self._retry_count: int = 2
-        self._exclude_status_codes_from_retry: Optional[List[int]] = None
+        self._exclude_status_codes_from_retry: list[int] | None = None
 
         self._uuid = uuid.uuid4()
-        self._log_level: Optional[str] = environ.get("LOGLEVEL")
+        self._log_level: str | None = environ.get("LOGLEVEL")
         # default to built-in function to refresh token
-        self._refresh_token_function: RefreshTokenFunction = (
-            self.authenticate_async_wrapper()
-        )
+        self._refresh_token_function: RefreshTokenFunction = self.authenticate_async_wrapper()
         self._trace_request_function: TraceRequestFunction | None = None
         self._chunk_size: int = 1024
 
@@ -153,7 +145,7 @@ class FhirClient(
 
         self._create_operation_outcome_for_error = False
 
-    def action(self, action: str) -> "FhirClient":
+    def action(self, action: str) -> FhirClient:
         """
         Set the action
 
@@ -162,7 +154,7 @@ class FhirClient(
         self._action = action
         return self
 
-    def action_payload(self, action_payload: Dict[str, Any]) -> "FhirClient":
+    def action_payload(self, action_payload: dict[str, Any]) -> FhirClient:
         """
         Set action payload
 
@@ -171,7 +163,7 @@ class FhirClient(
         self._action_payload = action_payload
         return self
 
-    def resource(self, resource: str) -> "FhirClient":
+    def resource(self, resource: str) -> FhirClient:
         """
         set resource to query
 
@@ -180,11 +172,11 @@ class FhirClient(
         self._resource = resource
         return self
 
-    def id_(self, id_: Union[List[str], str] | None) -> "FhirClient":
+    def id_(self, id_: list[str] | str | None) -> FhirClient:
         self._id = id_
         return self
 
-    def url(self, url: str) -> "FhirClient":
+    def url(self, url: str) -> FhirClient:
         """
         set url
 
@@ -194,7 +186,7 @@ class FhirClient(
         self._url = url
         return self
 
-    def validation_server_url(self, validation_server_url: str) -> "FhirClient":
+    def validation_server_url(self, validation_server_url: str) -> FhirClient:
         """
         set url to validate
 
@@ -204,7 +196,7 @@ class FhirClient(
         self._validation_server_url = validation_server_url
         return self
 
-    def additional_parameters(self, additional_parameters: List[str]) -> "FhirClient":
+    def additional_parameters(self, additional_parameters: list[str]) -> FhirClient:
         """
         set additional parameters
 
@@ -214,7 +206,7 @@ class FhirClient(
         self._additional_parameters = additional_parameters
         return self
 
-    def filter_by_resource(self, filter_by_resource: str) -> "FhirClient":
+    def filter_by_resource(self, filter_by_resource: str) -> FhirClient:
         """
         filter
 
@@ -225,7 +217,7 @@ class FhirClient(
         self._filter_by_resource = filter_by_resource
         return self
 
-    def filter_parameter(self, filter_parameter: str) -> "FhirClient":
+    def filter_parameter(self, filter_parameter: str) -> FhirClient:
         """
         filter
 
@@ -236,9 +228,7 @@ class FhirClient(
         self._filter_parameter = filter_parameter
         return self
 
-    def include_only_properties(
-        self, include_only_properties: List[str] | None
-    ) -> "FhirClient":
+    def include_only_properties(self, include_only_properties: list[str] | None) -> FhirClient:
         """
         include only these properties
 
@@ -248,7 +238,7 @@ class FhirClient(
         self._include_only_properties = include_only_properties
         return self
 
-    def page_number(self, page_number: int) -> "FhirClient":
+    def page_number(self, page_number: int) -> FhirClient:
         """
         page number to load
 
@@ -258,7 +248,7 @@ class FhirClient(
         self._page_number = page_number
         return self
 
-    def page_size(self, page_size: int) -> "FhirClient":
+    def page_size(self, page_size: int) -> FhirClient:
         """
         page size
 
@@ -269,7 +259,7 @@ class FhirClient(
         self._page_size = page_size
         return self
 
-    def last_updated_after(self, last_updated_after: datetime) -> "FhirClient":
+    def last_updated_after(self, last_updated_after: datetime) -> FhirClient:
         """
         get records updated after this datetime
 
@@ -279,7 +269,7 @@ class FhirClient(
         self._last_updated_after = last_updated_after
         return self
 
-    def last_updated_before(self, last_updated_before: datetime) -> "FhirClient":
+    def last_updated_before(self, last_updated_before: datetime) -> FhirClient:
         """
         get records updated before this datetime
 
@@ -289,7 +279,7 @@ class FhirClient(
         self._last_updated_before = last_updated_before
         return self
 
-    def sort_fields(self, sort_fields: List[SortField]) -> "FhirClient":
+    def sort_fields(self, sort_fields: list[SortField]) -> FhirClient:
         """
         sort
 
@@ -299,23 +289,23 @@ class FhirClient(
         self._sort_fields = sort_fields
         return self
 
-    def maximum_time_to_retry_on_429(self, time_in_seconds: int) -> "FhirClient":
+    def maximum_time_to_retry_on_429(self, time_in_seconds: int) -> FhirClient:
         self._maximum_time_to_retry_on_429 = time_in_seconds
         return self
 
-    def extra_context_to_return(self, context: Dict[str, Any]) -> "FhirClient":
+    def extra_context_to_return(self, context: dict[str, Any]) -> FhirClient:
         self._extra_context_to_return = context
         return self
 
-    def exclude_status_codes_from_retry(self, status_codes: List[int]) -> "FhirClient":
+    def exclude_status_codes_from_retry(self, status_codes: list[int]) -> FhirClient:
         self._exclude_status_codes_from_retry = status_codes
         return self
 
-    def retry_count(self, count: int) -> "FhirClient":
+    def retry_count(self, count: int) -> FhirClient:
         self._retry_count = count
         return self
 
-    def logger(self, logger: Logger) -> "FhirClient":
+    def logger(self, logger: Logger) -> FhirClient:
         """
         Logger to use for logging calls to the FHIR server
 
@@ -328,7 +318,7 @@ class FhirClient(
             self._internal_logger.setLevel(logging.ERROR)
         return self
 
-    def adapter(self, adapter: BaseAdapter) -> "FhirClient":
+    def adapter(self, adapter: BaseAdapter) -> FhirClient:
         """
         Http Adapter to use for calling the FHIR server
 
@@ -338,7 +328,7 @@ class FhirClient(
         self._adapter = adapter
         return self
 
-    def limit(self, limit: int) -> "FhirClient":
+    def limit(self, limit: int) -> FhirClient:
         """
         Limit the results
 
@@ -348,7 +338,7 @@ class FhirClient(
         self._limit = limit
         return self
 
-    def use_data_streaming(self, use: bool) -> "FhirClient":
+    def use_data_streaming(self, use: bool) -> FhirClient:
         """
         Use data streaming or not
 
@@ -363,7 +353,7 @@ class FhirClient(
 
         return self
 
-    def send_data_as_chunked(self, send_data_as_chunked: bool) -> "FhirClient":
+    def send_data_as_chunked(self, send_data_as_chunked: bool) -> FhirClient:
         """
         Send data as chunked
 
@@ -373,7 +363,7 @@ class FhirClient(
         self._send_data_as_chunked = send_data_as_chunked
         return self
 
-    def use_post_for_search(self, use: bool) -> "FhirClient":
+    def use_post_for_search(self, use: bool) -> FhirClient:
         """
         Whether to use POST instead of GET for search
 
@@ -383,7 +373,7 @@ class FhirClient(
         self._use_post_for_search = use
         return self
 
-    def accept(self, accept_type: str) -> "FhirClient":
+    def accept(self, accept_type: str) -> FhirClient:
         """
         Type to send to server in the request header Accept
 
@@ -393,7 +383,7 @@ class FhirClient(
         self._accept = accept_type
         return self
 
-    def content_type(self, type_: str) -> "FhirClient":
+    def content_type(self, type_: str) -> FhirClient:
         """
         Type to send to server in the request header Content-Type
 
@@ -403,7 +393,7 @@ class FhirClient(
         self._content_type = type_
         return self
 
-    def additional_request_headers(self, headers: Dict[str, str]) -> "FhirClient":
+    def additional_request_headers(self, headers: dict[str, str]) -> FhirClient:
         """
         Additional headers to send to server in the request header
 
@@ -413,7 +403,7 @@ class FhirClient(
         self._additional_request_headers = headers
         return self
 
-    def accept_encoding(self, encoding: str) -> "FhirClient":
+    def accept_encoding(self, encoding: str) -> FhirClient:
         """
         Type to send to server in the request header Accept-Encoding
 
@@ -423,11 +413,11 @@ class FhirClient(
         self._accept_encoding = encoding
         return self
 
-    def log_level(self, level: Optional[str]) -> "FhirClient":
+    def log_level(self, level: str | None) -> FhirClient:
         self._log_level = level
         return self
 
-    def refresh_token_function(self, fn: RefreshTokenFunction) -> "FhirClient":
+    def refresh_token_function(self, fn: RefreshTokenFunction) -> FhirClient:
         """
         Sets the function to call to refresh the token
 
@@ -436,7 +426,7 @@ class FhirClient(
         self._refresh_token_function = fn
         return self
 
-    def chunk_size(self, size: int) -> "FhirClient":
+    def chunk_size(self, size: int) -> FhirClient:
         """
         Sets the chunk size for streaming
 
@@ -445,7 +435,7 @@ class FhirClient(
         self._chunk_size = size
         return self
 
-    def last_page(self, last_page: int) -> "FhirClient":
+    def last_page(self, last_page: int) -> FhirClient:
         """
         Sets the last page number
 
@@ -454,7 +444,7 @@ class FhirClient(
         self._last_page = last_page
         return self
 
-    def compress(self, compress: bool) -> "FhirClient":
+    def compress(self, compress: bool) -> FhirClient:
         """
         Sets the compress flag
 
@@ -463,7 +453,7 @@ class FhirClient(
         self._compress = compress
         return self
 
-    def throw_exception_on_error(self, throw_exception_on_error: bool) -> "FhirClient":
+    def throw_exception_on_error(self, throw_exception_on_error: bool) -> FhirClient:
         """
         Sets the throw_exception_on_error flag
 
@@ -479,19 +469,11 @@ class FhirClient(
         trace_config_ctx: SimpleNamespace,
         params: TraceRequestEndParams,
     ) -> None:
-        accept: Optional[str] = params.response.request_info.headers.get("Accept", "")
-        accept_encoding: Optional[str] = params.response.request_info.headers.get(
-            "Accept-Encoding", ""
-        )
-        content_type_sent: Optional[str] = params.response.request_info.headers.get(
-            "Content-Type", ""
-        )
-        content_encoding_sent: Optional[str] = params.response.request_info.headers.get(
-            "Content-Encoding", ""
-        )
-        transfer_encoding_sent: Optional[str] = (
-            params.response.request_info.headers.get("Transfer-Encoding", "")
-        )
+        accept: str | None = params.response.request_info.headers.get("Accept", "")
+        accept_encoding: str | None = params.response.request_info.headers.get("Accept-Encoding", "")
+        content_type_sent: str | None = params.response.request_info.headers.get("Content-Type", "")
+        content_encoding_sent: str | None = params.response.request_info.headers.get("Content-Encoding", "")
+        transfer_encoding_sent: str | None = params.response.request_info.headers.get("Transfer-Encoding", "")
         FhirClient._internal_logger.info(
             f"Sent: {params.method} {params.url}"
             + f" | Accept: {accept}"
@@ -500,24 +482,15 @@ class FhirClient(
             + f" | Content-Encoding: {content_encoding_sent}"
             + f" | Transfer-Encoding: {transfer_encoding_sent}"
         )
-        sent_headers: List[str] = [
-            f"{key}:{value}"
-            for key, value in params.response.request_info.headers.items()
-        ]
+        sent_headers: list[str] = [f"{key}:{value}" for key, value in params.response.request_info.headers.items()]
         FhirClient._internal_logger.debug(f"Sent headers: {sent_headers}")
-        received_headers: List[str] = [
-            f"{key}:{value}" for key, value in params.response.headers.items()
-        ]
+        received_headers: list[str] = [f"{key}:{value}" for key, value in params.response.headers.items()]
         FhirClient._internal_logger.debug(f"Received headers: {received_headers}")
 
         # Log that we received a response
-        content_type: Optional[str] = params.response.headers.get("Content-Type", "")
-        content_encoding: Optional[str] = params.response.headers.get(
-            "Content-Encoding", ""
-        )
-        transfer_encoding: Optional[str] = params.response.headers.get(
-            "Transfer-Encoding", ""
-        )
+        content_type: str | None = params.response.headers.get("Content-Type", "")
+        content_encoding: str | None = params.response.headers.get("Content-Encoding", "")
+        transfer_encoding: str | None = params.response.headers.get("Transfer-Encoding", "")
 
         FhirClient._internal_logger.info(
             f"Received: {params.method} {params.url}"
@@ -542,7 +515,7 @@ class FhirClient(
     def get_access_token(self) -> GetAccessTokenResult:
         return AsyncRunner.run(self.get_access_token_async())
 
-    def set_access_token(self, value: str | None) -> "FhirClient":
+    def set_access_token(self, value: str | None) -> FhirClient:
         """
         Sets access token
 
@@ -552,7 +525,7 @@ class FhirClient(
         self._access_token = value
         return self
 
-    def set_access_token_expiry_date(self, value: datetime | None) -> "FhirClient":
+    def set_access_token_expiry_date(self, value: datetime | None) -> FhirClient:
         """
         Sets access token
 
@@ -562,9 +535,7 @@ class FhirClient(
         self._access_token_expiry_date = value
         return self
 
-    def separate_bundle_resources(
-        self, separate_bundle_resources: bool
-    ) -> "FhirClient":
+    def separate_bundle_resources(self, separate_bundle_resources: bool) -> FhirClient:
         """
         Set flag to separate bundle resources
 
@@ -574,7 +545,7 @@ class FhirClient(
         self._separate_bundle_resources = separate_bundle_resources
         return self
 
-    def expand_fhir_bundle(self, expand_fhir_bundle: bool) -> "FhirClient":
+    def expand_fhir_bundle(self, expand_fhir_bundle: bool) -> FhirClient:
         """
         Set flag to expand the FHIR bundle into a list of resources. If false then we don't un bundle the response
 
@@ -586,7 +557,7 @@ class FhirClient(
 
     async def get_async(
         self,
-        data_chunk_handler: Optional[HandleStreamingChunkFunction] = None,
+        data_chunk_handler: HandleStreamingChunkFunction | None = None,
     ) -> FhirGetResponse:
         """
         Issues a GET call
@@ -595,20 +566,18 @@ class FhirClient(
 
         :return: response
         """
-        instance_variables_text = convert_dict_to_str(
-            FhirClientLogger.get_variables_to_log(vars(self))
-        )
+        instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
         if self._logger:
             # self._logger.info(f"LOGLEVEL: {self._log_level}")
             self._logger.debug(f"parameters: {instance_variables_text}")
         else:
             self._internal_logger.debug(f"LOGLEVEL (InternalLogger): {self._log_level}")
             self._internal_logger.debug(f"parameters: {instance_variables_text}")
-        ids: Optional[List[str]] = None
+        ids: list[str] | None = None
         if self._id:
             ids = self._id if isinstance(self._id, list) else [self._id]
         # actually make the request
-        full_response: Optional[FhirGetResponse] = None
+        full_response: FhirGetResponse | None = None
         async for response in self._get_with_session_async(
             ids=ids,
             fn_handle_streaming_chunk=data_chunk_handler,
@@ -628,7 +597,7 @@ class FhirClient(
     async def get_streaming_async(
         self,
         *,
-        data_chunk_handler: Optional[HandleStreamingChunkFunction] = None,
+        data_chunk_handler: HandleStreamingChunkFunction | None = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Issues a GET call and returns a generator for streaming
@@ -637,20 +606,18 @@ class FhirClient(
 
         :return: async generator of responses
         """
-        instance_variables_text = convert_dict_to_str(
-            FhirClientLogger.get_variables_to_log(vars(self))
-        )
+        instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
         if self._logger:
             # self._logger.info(f"LOGLEVEL: {self._log_level}")
             self._logger.info(f"parameters: {instance_variables_text}")
         else:
             self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
             self._internal_logger.info(f"parameters: {instance_variables_text}")
-        ids: Optional[List[str]] = None
+        ids: list[str] | None = None
         if self._id:
             ids = self._id if isinstance(self._id, list) else [self._id]
         # actually make the request
-        response: Optional[FhirGetResponse]
+        response: FhirGetResponse | None
         async for response in self._get_with_session_async(
             ids=ids,
             fn_handle_streaming_chunk=data_chunk_handler,
@@ -674,11 +641,11 @@ class FhirClient(
     async def build_url(
         self,
         *,
-        additional_parameters: Optional[List[str]],
-        id_above: Optional[str],
-        ids: Optional[List[str]],
-        page_number: Optional[int],
-        resource_type: Optional[str],
+        additional_parameters: list[str] | None,
+        id_above: str | None,
+        ids: list[str] | None,
+        page_number: int | None,
+        resource_type: str | None,
     ) -> str:
         full_uri: furl = furl(self._url)
         full_uri /= resource_type or self._resource
@@ -688,14 +655,10 @@ class FhirClient(
             if self._filter_by_resource:
                 if self._filter_parameter:
                     # ?subject:Patient=27384972
-                    full_uri.args[
-                        f"{self._filter_parameter}:{self._filter_by_resource}"
-                    ] = ",".join(sorted(ids))
+                    full_uri.args[f"{self._filter_parameter}:{self._filter_by_resource}"] = ",".join(sorted(ids))
                 else:
                     # ?patient=27384972
-                    full_uri.args[self._filter_by_resource.lower()] = ",".join(
-                        sorted(ids)
-                    )
+                    full_uri.args[self._filter_by_resource.lower()] = ",".join(sorted(ids))
             else:
                 if len(ids) == 1 and not self._obj_id:
                     full_uri /= ids
@@ -707,19 +670,12 @@ class FhirClient(
         # add a query for just desired properties
         if self._include_only_properties:
             full_uri.args["_elements"] = ",".join(self._include_only_properties)
-        if self._page_size and (
-            self._page_number is not None or page_number is not None
-        ):
+        if self._page_size and (self._page_number is not None or page_number is not None):
             # noinspection SpellCheckingInspection
             full_uri.args["_count"] = self._page_size
             # noinspection SpellCheckingInspection
             full_uri.args["_getpagesoffset"] = page_number or self._page_number
-        if (
-            not self._obj_id
-            and (ids is None or self._filter_by_resource)
-            and self._limit
-            and self._limit >= 0
-        ):
+        if not self._obj_id and (ids is None or self._filter_by_resource) and self._limit and self._limit >= 0:
             full_uri.args["_count"] = self._limit
         # add any sort fields
         if self._sort_fields is not None:
@@ -754,9 +710,7 @@ class FhirClient(
             else:
                 query_param_exists = True
                 full_url += "?"
-            full_url += "&".join(
-                set([str(f) for f in self._filters])
-            )  # remove any duplicates
+            full_url += "&".join({str(f) for f in self._filters})  # remove any duplicates
         # have to be done here since this arg can be used twice
         if self._last_updated_before:
             if query_param_exists:
@@ -789,9 +743,7 @@ class FhirClient(
         # trace_config.on_request_start.append(on_request_start)
         if self._log_level == "DEBUG":
             trace_config.on_request_end.append(FhirClient.on_request_end)
-            trace_config.on_response_chunk_received.append(
-                FhirClient.on_response_chunk_received
-            )
+            trace_config.on_response_chunk_received.append(FhirClient.on_response_chunk_received)
         # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
         timeout = aiohttp.ClientTimeout(total=60 * 60, sock_read=240)
         session: ClientSession = aiohttp.ClientSession(
@@ -801,7 +753,7 @@ class FhirClient(
         )
         return session
 
-    def include_total(self, include_total: bool) -> "FhirClient":
+    def include_total(self, include_total: bool) -> FhirClient:
         """
         Whether to ask the server to include the total count in the result
 
@@ -811,7 +763,7 @@ class FhirClient(
         self._include_total = include_total
         return self
 
-    def filter(self, filter_: List[BaseFilter]) -> "FhirClient":
+    def filter(self, filter_: list[BaseFilter]) -> FhirClient:
         """
         Allows adding in a custom filters that derives from BaseFilter
 
@@ -822,7 +774,7 @@ class FhirClient(
         self._filters.extend(filter_)
         return self
 
-    def clone(self) -> "FhirClient":
+    def clone(self) -> FhirClient:
         """
         Clones the current instance
 
@@ -858,25 +810,19 @@ class FhirClient(
         fhir_client._auth_server_url = self._auth_server_url
         fhir_client._login_token = self._login_token
         fhir_client._refresh_token_function = self._refresh_token_function
-        fhir_client._exclude_status_codes_from_retry = (
-            self._exclude_status_codes_from_retry
-        )
+        fhir_client._exclude_status_codes_from_retry = self._exclude_status_codes_from_retry
         fhir_client._chunk_size = self._chunk_size
         fhir_client._expand_fhir_bundle = self._expand_fhir_bundle
         fhir_client._separate_bundle_resources = self._separate_bundle_resources
         fhir_client._use_data_streaming = self._use_data_streaming
         fhir_client._extra_context_to_return = self._extra_context_to_return
-        fhir_client._well_known_configuration_cache = (
-            self._well_known_configuration_cache
-        )
+        fhir_client._well_known_configuration_cache = self._well_known_configuration_cache
         fhir_client._auth_wellknown_url = self._auth_wellknown_url
-        fhir_client._time_to_live_in_secs_for_cache = (
-            self._time_to_live_in_secs_for_cache
-        )
+        fhir_client._time_to_live_in_secs_for_cache = self._time_to_live_in_secs_for_cache
         fhir_client._validation_server_url = self._validation_server_url
         return fhir_client
 
-    def set_log_all_response_urls(self, value: bool) -> "FhirClient":
+    def set_log_all_response_urls(self, value: bool) -> FhirClient:
         """
         Sets the log_all_response_urls flag
 
@@ -885,7 +831,7 @@ class FhirClient(
         self._log_all_response_urls = value
         return self
 
-    def set_trace_request_function(self, value: TraceRequestFunction) -> "FhirClient":
+    def set_trace_request_function(self, value: TraceRequestFunction) -> FhirClient:
         """
         Sets the trace_request_function
 
@@ -894,7 +840,7 @@ class FhirClient(
         self._trace_request_function = value
         return self
 
-    def set_storage_mode(self, value: CompressedDictStorageMode) -> "FhirClient":
+    def set_storage_mode(self, value: CompressedDictStorageMode) -> FhirClient:
         """
         Sets the storage mode
 
@@ -903,7 +849,7 @@ class FhirClient(
         self._storage_mode = value
         return self
 
-    def set_create_operation_outcome_for_error(self, value: bool) -> "FhirClient":
+    def set_create_operation_outcome_for_error(self, value: bool) -> FhirClient:
         """
         Sets the create_operation_outcome_for_error flag
 

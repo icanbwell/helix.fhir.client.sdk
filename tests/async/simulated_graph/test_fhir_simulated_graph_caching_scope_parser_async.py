@@ -1,7 +1,7 @@
 import json
 from logging import Logger
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
 
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
@@ -11,7 +11,6 @@ from mockserver_client.mockserver_client import (
 )
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
-
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from tests.logger_for_test import LoggerForTest
 
@@ -19,17 +18,15 @@ from tests.logger_for_test import LoggerForTest
 async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
     logger: Logger = LoggerForTest()
     data_dir: Path = Path(__file__).parent.joinpath("./")
-    graph_json: Dict[str, Any]
-    with open(data_dir.joinpath("graphs").joinpath("provider.json"), "r") as file:
+    graph_json: dict[str, Any]
+    with open(data_dir.joinpath("graphs").joinpath("provider.json")) as file:
         contents = file.read()
         graph_json = json.loads(contents)
 
     test_name = test_fhir_simulated_graph_caching_scope_parser_async.__name__
 
     mock_server_url = "http://mock-server:1080"
-    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
-        base_url=mock_server_url
-    )
+    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(base_url=mock_server_url)
 
     relative_url: str = test_name
     absolute_url: str = mock_server_url + "/" + test_name
@@ -37,7 +34,7 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
     mock_client.clear(f"/{test_name}/*.*")
     mock_client.reset()
 
-    response_text: Dict[str, Any] = {
+    response_text: dict[str, Any] = {
         "resourceType": "Patient",
         "id": "1",
         "generalPractitioner": [{"reference": "Practitioner/5"}],
@@ -75,9 +72,7 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
         timing=times(1),
     )
 
-    response_text = {
-        "entry": [{"resource": {"resourceType": "Observation", "id": "8"}}]
-    }
+    response_text = {"entry": [{"resource": {"resourceType": "Observation", "id": "8"}}]}
     mock_client.expect(
         request=mock_request(
             path=f"/{relative_url}/Observation",
@@ -99,18 +94,14 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
                 "resource": {
                     "resourceType": "Encounter",
                     "id": "8",
-                    "participant": [
-                        {"individual": {"reference": "Practitioner/12345"}}
-                    ],
+                    "participant": [{"individual": {"reference": "Practitioner/12345"}}],
                 }
             },
             {
                 "resource": {
                     "resourceType": "Encounter",
                     "id": "10",
-                    "participant": [
-                        {"individual": {"reference": "Practitioner/12345"}}
-                    ],
+                    "participant": [{"individual": {"reference": "Practitioner/12345"}}],
                 }
             },
         ],
@@ -125,9 +116,7 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
         timing=times(1),
     )
 
-    response_text = {
-        "entry": [{"resource": {"resourceType": "Practitioner", "id": "12345"}}]
-    }
+    response_text = {"entry": [{"resource": {"resourceType": "Practitioner", "id": "12345"}}]}
     mock_client.expect(
         request=mock_request(
             path=f"/{relative_url}/Practitioner/12345",
@@ -159,7 +148,7 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
         fhir_client = fhir_client.set_access_token(auth_access_token)
 
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
-    response: Optional[FhirGetResponse] = await FhirGetResponse.from_async_generator(
+    response: FhirGetResponse | None = await FhirGetResponse.from_async_generator(
         fhir_client.simulate_graph_streaming_async(
             id_="1",
             graph_json=graph_json,
@@ -174,19 +163,13 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
     with open(expected_file_path.joinpath(test_name + ".json")) as f:
         expected_json = json.load(f)
 
-    bundle: Dict[str, Any]
+    bundle: dict[str, Any]
     try:
         bundle = json.loads(response.get_response_text())
     except Exception as e:
-        raise Exception(
-            f"Unable to parse result json: {e}: {response.get_response_text()}"
-        ) from e
+        raise Exception(f"Unable to parse result json: {e}: {response.get_response_text()}") from e
 
-    bundle["entry"] = [
-        e
-        for e in bundle["entry"]
-        if e["resource"]["resourceType"] != "OperationOutcome"
-    ]
+    bundle["entry"] = [e for e in bundle["entry"] if e["resource"]["resourceType"] != "OperationOutcome"]
 
     bundle["entry"] = sorted(
         bundle["entry"],

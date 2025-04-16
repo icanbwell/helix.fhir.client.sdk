@@ -1,22 +1,22 @@
 import json
-from datetime import datetime, UTC
-from typing import Dict, Any, List
+from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
-
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
 from compressedfhir.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
 from compressedfhir.fhir.fhir_bundle_entry_response import (
     FhirBundleEntryResponse,
 )
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
+
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
     FhirGetBundleResponse,
-)
-from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
-    CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -25,7 +25,7 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
 
 class TestFhirGetBundleResponse:
     @pytest.fixture
-    def sample_bundle_response(self) -> Dict[str, Any]:
+    def sample_bundle_response(self) -> dict[str, Any]:
         """Fixture to provide a sample FHIR bundle response."""
         return {
             "resourceType": "Bundle",
@@ -45,9 +45,9 @@ class TestFhirGetBundleResponse:
             ],
         }
 
-    def test_init(self, sample_bundle_response: Dict[str, Any]) -> None:
+    def test_init(self, sample_bundle_response: dict[str, Any]) -> None:
         """Test initialization of FhirGetBundleResponse."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
 
         response = FhirGetBundleResponse(
             request_id="test-request",
@@ -73,9 +73,9 @@ class TestFhirGetBundleResponse:
         assert response._bundle_metadata.id_ == "test-bundle-id"
         assert response._bundle_metadata.type_ == "searchset"
 
-    def test_append_unique(self, sample_bundle_response: Dict[str, Any]) -> None:
+    def test_append_unique(self, sample_bundle_response: dict[str, Any]) -> None:
         """Test appending another response."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
 
         first_response = FhirGetBundleResponse(
             request_id="test-request-1",
@@ -115,9 +115,9 @@ class TestFhirGetBundleResponse:
 
         assert len(first_response.get_bundle_entries()) == 2
 
-    def test_get_resources(self, sample_bundle_response: Dict[str, Any]) -> None:
+    def test_get_resources(self, sample_bundle_response: dict[str, Any]) -> None:
         """Test getting resources from the response."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
 
         response = FhirGetBundleResponse(
             request_id="test-request",
@@ -142,12 +142,12 @@ class TestFhirGetBundleResponse:
         assert resources[0]["resourceType"] == "Patient"
         assert resources[1]["resourceType"] == "Observation"
 
-    def test_remove_duplicates(self, sample_bundle_response: Dict[str, Any]) -> None:
+    def test_remove_duplicates(self, sample_bundle_response: dict[str, Any]) -> None:
         """Test removing duplicate resources."""
         # Add a duplicate entry to the sample bundle response
         sample_bundle_response["entry"].append(sample_bundle_response["entry"][0])
 
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
 
         response = FhirGetBundleResponse(
             request_id="test-request",
@@ -193,9 +193,7 @@ class TestFhirGetBundleResponse:
             FhirBundleEntry(
                 resource={"resourceType": "Patient", "id": "123"},
                 request=FhirBundleEntryRequest(url="https://example.com"),
-                response=FhirBundleEntryResponse(
-                    status="200", etag="test-etag", lastModified=datetime.now(UTC)
-                ),
+                response=FhirBundleEntryResponse(status="200", etag="test-etag", lastModified=datetime.now(UTC)),
                 storage_mode=CompressedDictStorageMode.default(),
             )
         ]
@@ -205,9 +203,9 @@ class TestFhirGetBundleResponse:
         assert bundle_response.request_id == "test-request"
         assert len(bundle_response.get_bundle_entries()) == 1
 
-    def test_create_bundle(self, sample_bundle_response: Dict[str, Any]) -> None:
+    def test_create_bundle(self, sample_bundle_response: dict[str, Any]) -> None:
         """Test creating a Bundle from the response."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
 
         response = FhirGetBundleResponse(
             request_id="test-request",
@@ -233,9 +231,9 @@ class TestFhirGetBundleResponse:
         assert bundle.entry
         assert len(bundle.entry) == 2
 
-    def test_sort_resources(self, sample_bundle_response: Dict[str, Any]) -> None:
+    def test_sort_resources(self, sample_bundle_response: dict[str, Any]) -> None:
         """Test sorting resources in the response."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
 
         response = FhirGetBundleResponse(
             request_id="test-request",
@@ -259,9 +257,9 @@ class TestFhirGetBundleResponse:
         assert isinstance(sorted_response, FhirGetBundleResponse)
         assert len(sorted_response.get_bundle_entries()) == 2
 
-    def test_get_response_text(self, sample_bundle_response: Dict[str, Any]) -> None:
+    def test_get_response_text(self, sample_bundle_response: dict[str, Any]) -> None:
         """Test getting the response text as JSON."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
 
         response = FhirGetBundleResponse(
             request_id="test-request",
@@ -287,11 +285,9 @@ class TestFhirGetBundleResponse:
         assert "Observation" in response_text
 
     @pytest.mark.asyncio
-    async def test_consume_resource_async(
-        self, sample_bundle_response: Dict[str, Any]
-    ) -> None:
+    async def test_consume_resource_async(self, sample_bundle_response: dict[str, Any]) -> None:
         """Test async generator for resources."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
 
         response = FhirGetBundleResponse(
             request_id="test-request",
@@ -320,9 +316,9 @@ class TestFhirGetBundleResponse:
         assert resources[1]["resourceType"] == "Observation"
         assert response.get_resource_count() == 0
 
-    def test_consume_resource(self, sample_bundle_response: Dict[str, Any]) -> None:
+    def test_consume_resource(self, sample_bundle_response: dict[str, Any]) -> None:
         """Test async generator for resources."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
 
         response = FhirGetBundleResponse(
             request_id="test-request",
@@ -354,7 +350,7 @@ class TestFhirGetBundleResponse:
     @pytest.mark.asyncio
     async def test_consume_resource_async_empty(self) -> None:
         """Test resources generator with no entries."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
 
         response = FhirGetBundleResponse(
             request_id="test-request",
@@ -381,11 +377,9 @@ class TestFhirGetBundleResponse:
         assert len(resources) == 0
 
     @pytest.mark.asyncio
-    async def test_consume_bundle_entry_async(
-        self, sample_bundle_response: Dict[str, Any]
-    ) -> None:
+    async def test_consume_bundle_entry_async(self, sample_bundle_response: dict[str, Any]) -> None:
         """Test async generator for bundle entries."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
 
         response = FhirGetBundleResponse(
             request_id="test-request",
@@ -419,9 +413,9 @@ class TestFhirGetBundleResponse:
         assert response.get_resource_count() == 0
         assert len(response._bundle_entries) == 0
 
-    def test_consume_bundle_async(self, sample_bundle_response: Dict[str, Any]) -> None:
+    def test_consume_bundle_async(self, sample_bundle_response: dict[str, Any]) -> None:
         """Test async generator for bundle entries."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
 
         response = FhirGetBundleResponse(
             request_id="test-request",
@@ -458,7 +452,7 @@ class TestFhirGetBundleResponse:
     @pytest.mark.asyncio
     async def test_consume_bundle_entry_async_empty(self) -> None:
         """Test bundle entries generator with no entries."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
 
         response = FhirGetBundleResponse(
             request_id="test-request",
@@ -488,7 +482,7 @@ class TestFhirGetBundleResponse:
     @pytest.mark.asyncio
     async def test_consume_resource_async_with_none_resources(self) -> None:
         """Test resources generator with some None resources."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
 
         # Create a response with some None resources
         response = FhirGetBundleResponse(

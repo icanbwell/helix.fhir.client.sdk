@@ -1,12 +1,10 @@
 import json
 
 import pytest
-from typing import List
-
 from aioresponses import aioresponses
-
 from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
+
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.merge.fhir_merge_resource_response import (
     FhirMergeResourceResponse,
@@ -26,13 +24,11 @@ async def test_merge_resources_async_success() -> None:
         fhir_merge_mixin._resource = "Patient"
         fhir_merge_mixin._validation_server_url = "http://validation-server.com"
 
-        responses: List[FhirMergeResourceResponse] = [
+        responses: list[FhirMergeResourceResponse] = [
             response
             async for response in fhir_merge_mixin.merge_resources_async(
                 id_="1",
-                resources_to_merge=FhirResourceList(
-                    [FhirResource(json.loads(o)) for o in json_data_list]
-                ),
+                resources_to_merge=FhirResourceList([FhirResource(json.loads(o)) for o in json_data_list]),
                 batch_size=None,
             )
         ]
@@ -57,13 +53,11 @@ async def test_merge_resources_async_validation_error() -> None:
             payload={"issue": [{"severity": "error", "code": "invalid"}]},
         )
 
-        responses: List[FhirMergeResourceResponse] = [
+        responses: list[FhirMergeResourceResponse] = [
             response
             async for response in fhir_merge_mixin.merge_resources_async(
                 id_="1",
-                resources_to_merge=FhirResourceList(
-                    [FhirResource(json.loads(o)) for o in json_data_list]
-                ),
+                resources_to_merge=FhirResourceList([FhirResource(json.loads(o)) for o in json_data_list]),
                 batch_size=None,
             )
         ]
@@ -79,9 +73,7 @@ async def test_merge_resources_async_validation_error() -> None:
 async def test_merge_async_http_error() -> None:
     """Test merge_async call with HTTP errors."""
     url = "http://example.com/Patient/1/$merge"
-    fhir_merge_mixin = (
-        FhirClient().url(url).resource("Patient").throw_exception_on_error(False)
-    )
+    fhir_merge_mixin = FhirClient().url(url).resource("Patient").throw_exception_on_error(False)
 
     json_data_list = ['{"resourceType": "Patient", "id": "1"}']
 
@@ -92,13 +84,11 @@ async def test_merge_async_http_error() -> None:
             payload={"issue": [{"severity": "error", "code": "exception"}]},
         )
 
-        responses: List[FhirMergeResourceResponse] = [
+        responses: list[FhirMergeResourceResponse] = [
             response
             async for response in fhir_merge_mixin.merge_resources_async(
                 id_="1",
-                resources_to_merge=FhirResourceList(
-                    [FhirResource(json.loads(o)) for o in json_data_list]
-                ),
+                resources_to_merge=FhirResourceList([FhirResource(json.loads(o)) for o in json_data_list]),
                 batch_size=None,
             )
         ]
@@ -123,9 +113,7 @@ async def test_validate_content_success() -> None:
         m.post("http://validation-server.com/Patient/$validate", status=200, payload={})
 
         clean_resources, errors = await fhir_merge_mixin.validate_resource(
-            resources_to_validate=FhirResourceList(
-                [FhirResource(o) for o in json_data_list]
-            )
+            resources_to_validate=FhirResourceList([FhirResource(o) for o in json_data_list])
         )
 
         assert len(clean_resources) == 1
@@ -149,9 +137,7 @@ async def test_validate_content_error() -> None:
         )
 
         clean_resources, errors = await fhir_merge_mixin.validate_resource(
-            resources_to_validate=FhirResourceList(
-                [FhirResource(o) for o in json_data_list]
-            )
+            resources_to_validate=FhirResourceList([FhirResource(o) for o in json_data_list])
         )
 
         assert len(clean_resources) == 0

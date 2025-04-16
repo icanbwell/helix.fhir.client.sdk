@@ -1,6 +1,11 @@
 import json
-from typing import Optional, Dict, Any, Union, List
+from typing import Any
 
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
+
+from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
@@ -10,12 +15,8 @@ from helix_fhir_client_sdk.responses.get.fhir_get_error_response import (
 from helix_fhir_client_sdk.responses.get.fhir_get_list_response import (
     FhirGetListResponse,
 )
-from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_single_response import (
     FhirGetSingleResponse,
-)
-from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
-    CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -30,25 +31,23 @@ class FhirGetResponseFactory:
     @staticmethod
     def create(
         *,
-        request_id: Optional[str],
+        request_id: str | None,
         url: str,
         response_text: str,
-        error: Optional[str],
-        access_token: Optional[str],
-        total_count: Optional[int],
+        error: str | None,
+        access_token: str | None,
+        total_count: int | None,
         status: int,
-        next_url: Optional[str] = None,
-        extra_context_to_return: Optional[Dict[str, Any]],
-        resource_type: Optional[str],
-        id_: Optional[Union[List[str], str]],
-        response_headers: Optional[
-            List[str]
-        ],  # header name and value separated by a colon
-        chunk_number: Optional[int] = None,
-        cache_hits: Optional[int] = None,
-        results_by_url: List[RetryableAioHttpUrlResult],
+        next_url: str | None = None,
+        extra_context_to_return: dict[str, Any] | None,
+        resource_type: str | None,
+        id_: list[str] | str | None,
+        response_headers: list[str] | None,  # header name and value separated by a colon
+        chunk_number: int | None = None,
+        cache_hits: int | None = None,
+        results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
-        create_operation_outcome_for_error: Optional[bool],
+        create_operation_outcome_for_error: bool | None,
     ) -> FhirGetResponse:
         if not error and response_text:
             # test if responses is valid json
@@ -80,9 +79,7 @@ class FhirGetResponseFactory:
                 create_operation_outcome_for_error=create_operation_outcome_for_error,
             )
 
-        child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
-            FhirGetResponse.parse_json(response_text)
-        )
+        child_response_resources: dict[str, Any] | list[dict[str, Any]] = FhirGetResponse.parse_json(response_text)
 
         # first see if it is just a list of resources
         if isinstance(child_response_resources, list):
@@ -107,8 +104,7 @@ class FhirGetResponseFactory:
 
         # then check if it is a bundle
         if "entry" in child_response_resources or (
-            "resourceType" in child_response_resources
-            and child_response_resources["resourceType"].lower() == "bundle"
+            "resourceType" in child_response_resources and child_response_resources["resourceType"].lower() == "bundle"
         ):
             return FhirGetBundleResponse(
                 request_id=request_id,

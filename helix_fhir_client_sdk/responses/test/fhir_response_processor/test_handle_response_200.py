@@ -1,14 +1,16 @@
+from logging import Logger
 from unittest.mock import AsyncMock, MagicMock
-from helix_fhir_client_sdk.responses.fhir_response_processor import (
-    FhirResponseProcessor,
-)
+
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
+)
+
+from helix_fhir_client_sdk.responses.fhir_response_processor import (
+    FhirResponseProcessor,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
-from logging import Logger
 
 
 async def test_handle_response_200() -> None:

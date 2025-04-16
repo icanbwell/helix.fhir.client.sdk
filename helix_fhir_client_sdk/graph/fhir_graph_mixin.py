@@ -1,4 +1,4 @@
-from typing import Optional, AsyncGenerator, List
+from collections.abc import AsyncGenerator
 
 from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
@@ -14,10 +14,10 @@ class FhirGraphMixin(FhirClientProtocol):
     async def graph_async(
         self,
         *,
-        id_: str | List[str] | None = None,
+        id_: str | list[str] | None = None,
         graph_definition: GraphDefinition,
         contained: bool,
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction] = None,
+        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Executes the $graph query on the FHIR server
@@ -51,7 +51,7 @@ class FhirGraphMixin(FhirClientProtocol):
         else:
             id_list.append("1")
         self.id_(id_list)  # this is needed because the $graph endpoint requires an id
-        result1: Optional[FhirGetResponse]
+        result1: FhirGetResponse | None
         chunk_size: int = self._page_size or 1
         for chunk in ListChunker.divide_into_chunks(id_list, chunk_size):
             async for result1 in self._get_with_session_async(
@@ -69,7 +69,7 @@ class FhirGraphMixin(FhirClientProtocol):
         *,
         graph_definition: GraphDefinition,
         contained: bool,
-    ) -> Optional[FhirGetResponse]:
+    ) -> FhirGetResponse | None:
         return AsyncRunner.run(
             FhirGetResponse.from_async_generator(
                 self.graph_async(

@@ -1,12 +1,15 @@
 import json
 from collections.abc import AsyncGenerator
-from typing import Any, Dict
+from logging import Logger
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
-from helix_fhir_client_sdk.responses.fhir_response_processor import (
-    FhirResponseProcessor,
-)
+
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
+)
+
+from helix_fhir_client_sdk.responses.fhir_response_processor import (
+    FhirResponseProcessor,
 )
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
@@ -14,7 +17,6 @@ from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
-from logging import Logger
 
 
 async def test_handle_response_200_streaming_separate_bundle() -> None:
@@ -36,7 +38,7 @@ async def test_handle_response_200_streaming_separate_bundle() -> None:
     response.results_by_url = []
     response.content = MagicMock()
 
-    bundle: Dict[str, Any] = {
+    bundle: dict[str, Any] = {
         "resourceType": "Bundle",
         "total": 2,
         "entry": [
@@ -56,9 +58,7 @@ async def test_handle_response_200_streaming_separate_bundle() -> None:
         yield json.dumps(bundle).encode("utf-8")
 
     response.content.iter_chunked = async_iterator
-    response.content.at_eof = MagicMock(
-        return_value=False
-    )  # Mocking the at_eof method to return False
+    response.content.at_eof = MagicMock(return_value=False)  # Mocking the at_eof method to return False
 
     response.response_headers = {"mock_header": "mock_value"}
 

@@ -1,16 +1,12 @@
 from __future__ import annotations
-from __future__ import annotations
 
 import logging
 import time
 from abc import ABC
 from asyncio import Semaphore
+from collections.abc import AsyncGenerator
 from typing import (
-    Dict,
-    Optional,
-    List,
     Any,
-    AsyncGenerator,
 )
 
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
@@ -37,12 +33,10 @@ from helix_fhir_client_sdk.utilities.url_checker import UrlChecker
 
 class RequestQueueMixin(ABC, FhirClientProtocol):
     def __init__(self) -> None:
-        self._max_concurrent_requests: Optional[int] = None
-        self._max_concurrent_requests_semaphore: Optional[Semaphore] = None
+        self._max_concurrent_requests: int | None = None
+        self._max_concurrent_requests_semaphore: Semaphore | None = None
 
-    def set_max_concurrent_requests(
-        self, max_concurrent_requests: Optional[int]
-    ) -> "FhirClientProtocol":
+    def set_max_concurrent_requests(self, max_concurrent_requests: int | None) -> FhirClientProtocol:
         """
         Sets the maximum number of concurrent requests to make to the FHIR server
 
@@ -56,12 +50,12 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
 
     async def _get_with_session_async(
         self,
-        page_number: Optional[int],
-        ids: Optional[List[str]],
-        id_above: Optional[str],
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
-        additional_parameters: Optional[List[str]],
-        resource_type: Optional[str],
+        page_number: int | None,
+        ids: list[str] | None,
+        id_above: str | None,
+        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
+        additional_parameters: list[str] | None,
+        resource_type: str | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         issues a GET call with the specified session, page_number and ids
@@ -76,7 +70,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         """
         assert self._url, "No FHIR server url was set"
         assert resource_type or self._resource, "No Resource was set"
-        request_id: Optional[str] = None
+        request_id: str | None = None
 
         # create url and query to request from FHIR server
         resources_json: str = ""
@@ -89,9 +83,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         )
 
         # set up headers
-        payload: Dict[str, str] | None = (
-            self._action_payload if self._action_payload else None
-        )
+        payload: dict[str, str] | None = self._action_payload if self._action_payload else None
         headers = {
             "Accept": self._accept,
             "Content-Type": self._content_type,
@@ -101,9 +93,9 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         self._internal_logger.debug(f"Request headers: {headers}")
 
         start_time: float = time.time()
-        last_status_code: Optional[int] = None
-        last_response_text: Optional[str] = None
-        next_url: Optional[str] = full_url
+        last_status_code: int | None = None
+        last_response_text: str | None = None
+        next_url: str | None = full_url
         try:
             await FhirResponseProcessor.log_request(
                 full_url=full_url,
@@ -130,10 +122,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
             ) as client:
                 while next_url:
                     # set access token in request if present
-                    access_token_result: GetAccessTokenResult = (
-                        await self.get_access_token_async()
-                    )
-                    access_token: Optional[str] = access_token_result.access_token
+                    access_token_result: GetAccessTokenResult = await self.get_access_token_async()
+                    access_token: str | None = access_token_result.access_token
                     if access_token:
                         headers["Authorization"] = f"Bearer {access_token}"
 
@@ -141,13 +131,11 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         next_url = UrlChecker.convert_relative_url_to_absolute_url(
                             base_url=self._url, relative_url=next_url
                         )
-                    response: RetryableAioHttpResponse = (
-                        await self._send_fhir_request_async(
-                            client=client,
-                            full_url=next_url,
-                            headers=headers,
-                            payload=payload,
-                        )
+                    response: RetryableAioHttpResponse = await self._send_fhir_request_async(
+                        client=client,
+                        full_url=next_url,
+                        headers=headers,
+                        payload=payload,
                     )
                     assert isinstance(response, RetryableAioHttpResponse)
 
@@ -155,15 +143,10 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         access_token = response.access_token
                         self.set_access_token(response.access_token)
                     if response.access_token_expiry_date:
-                        self.set_access_token_expiry_date(
-                            response.access_token_expiry_date
-                        )
+                        self.set_access_token_expiry_date(response.access_token_expiry_date)
 
                     last_status_code = response.status
-                    response_headers: List[str] = [
-                        f"{key}:{value}"
-                        for key, value in response.response_headers.items()
-                    ]
+                    response_headers: list[str] = [f"{key}:{value}" for key, value in response.response_headers.items()]
                     await FhirResponseProcessor.log_response(
                         full_url=next_url,
                         response_status=response.status,
@@ -214,7 +197,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 response_status_code=last_status_code,
                 message="",
                 elapsed_time=time.time() - start_time,
-            )
+            ) from ex
 
     # noinspection PyProtocol
     async def _send_fhir_request_async(
@@ -222,8 +205,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         *,
         client: RetryableAioHttpClient,
         full_url: str,
-        headers: Dict[str, str],
-        payload: Dict[str, Any] | None,
+        headers: dict[str, str],
+        payload: dict[str, Any] | None,
     ) -> RetryableAioHttpResponse:
         """
         Sends a request to the server
@@ -251,8 +234,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         *,
         client: RetryableAioHttpClient,
         full_url: str,
-        headers: Dict[str, str],
-        payload: Dict[str, Any] | None,
+        headers: dict[str, str],
+        payload: dict[str, Any] | None,
     ) -> RetryableAioHttpResponse:
         """
         Sends a request to the server
@@ -274,9 +257,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 self._logger.info(
                     f"sending a post: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
                 )
-            logging.info(
-                f"sending a post: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
-            )
+            logging.info(f"sending a post: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}")
             if payload:
                 return await client.post(url=full_url, headers=headers, json=payload)
             else:

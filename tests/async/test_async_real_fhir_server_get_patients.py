@@ -2,11 +2,11 @@ import datetime
 import json
 from logging import Logger
 from os import environ
-from typing import Any, List, Optional
+from typing import Any
 
 import pytest
-
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
+
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
@@ -28,9 +28,7 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
 
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(fhir_server_url).resource("Patient")
-    fhir_client = fhir_client.client_credentials(
-        client_id=auth_client_id, client_secret=auth_client_secret
-    )
+    fhir_client = fhir_client.client_credentials(client_id=auth_client_id, client_secret=auth_client_secret)
     fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
     resource = {
         "resourceType": "Patient",
@@ -43,9 +41,7 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
             ],
         },
     }
-    merge_response: Optional[
-        FhirMergeResponse
-    ] = await FhirMergeResponse.from_async_generator(
+    merge_response: FhirMergeResponse | None = await FhirMergeResponse.from_async_generator(
         fhir_client.merge_async(json_data_list=[json.dumps(resource)])
     )
     assert merge_response is not None
@@ -56,17 +52,11 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
 
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(fhir_server_url).resource("Patient")
-    fhir_client = fhir_client.client_credentials(
-        client_id=auth_client_id, client_secret=auth_client_secret
-    )
+    fhir_client = fhir_client.client_credentials(client_id=auth_client_id, client_secret=auth_client_secret)
     fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
     fhir_client = fhir_client.expand_fhir_bundle(False)
-    fhir_client = fhir_client.last_updated_before(
-        datetime.datetime.strptime("2025-06-15", "%Y-%m-%d")
-    )
-    fhir_client = fhir_client.last_updated_after(
-        datetime.datetime.strptime("2024-06-13", "%Y-%m-%d")
-    )
+    fhir_client = fhir_client.last_updated_before(datetime.datetime.strptime("2025-06-15", "%Y-%m-%d"))
+    fhir_client = fhir_client.last_updated_after(datetime.datetime.strptime("2024-06-13", "%Y-%m-%d"))
     fhir_client = fhir_client.use_data_streaming(use_data_streaming)
     response: FhirGetResponse = await fhir_client.get_async()
     response_text = response.get_response_text()
@@ -89,7 +79,7 @@ async def test_async_real_fhir_server_get_patients(use_data_streaming: bool) -> 
     else:
         bundle = json.loads(response_text)
         assert "entry" in bundle, bundle
-        responses_: List[Any] = [r["resource"] for r in bundle["entry"]]
+        responses_: list[Any] = [r["resource"] for r in bundle["entry"]]
         assert len(responses_) == 1
         assert responses_[0]["id"] == "12355"
         assert responses_[0]["resourceType"] == "Patient"

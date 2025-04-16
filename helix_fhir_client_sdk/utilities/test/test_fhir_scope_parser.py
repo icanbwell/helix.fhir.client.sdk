@@ -18,9 +18,7 @@ def test_parse_scopes_valid() -> None:
     scopes = ["patient/*.read", "user/*.write", "launch/patient"]
     parser = FhirScopeParser(scopes=scopes)
     expected = [
-        FhirScopeParserResult(
-            resource_type="patient", operation="*", interaction="read"
-        ),
+        FhirScopeParserResult(resource_type="patient", operation="*", interaction="read"),
         FhirScopeParserResult(resource_type="user", operation="*", interaction="write"),
         FhirScopeParserResult(resource_type="launch", interaction="patient"),
     ]

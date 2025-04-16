@@ -1,5 +1,4 @@
 import json
-from typing import Dict, List
 
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
@@ -16,9 +15,7 @@ def test_fhir_client_patient_update() -> None:
     test_name = "test_fhir_client_patient_merge"
 
     mock_server_url = "http://mock-server:1080"
-    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
-        base_url=mock_server_url
-    )
+    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(base_url=mock_server_url)
 
     relative_url: str = test_name
     absolute_url: str = mock_server_url + "/" + test_name
@@ -26,7 +23,7 @@ def test_fhir_client_patient_update() -> None:
     mock_client.clear(f"/{test_name}/*.*")
     mock_client.reset()
 
-    response_text_1: List[Dict[str, int]] = [{"created": 1, "updated": 0}]
+    response_text_1: list[dict[str, int]] = [{"created": 1, "updated": 0}]
     resource = {"resourceType": "Patient", "id": "12355"}
     # request_body = {"resourceType": "Bundle", "entry": [{"resource": resource}]}
     mock_client.expect(

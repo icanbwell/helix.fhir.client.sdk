@@ -1,6 +1,5 @@
 import json
 import time
-from typing import Optional
 
 from furl import furl
 
@@ -40,7 +39,7 @@ class FhirPatchMixin(FhirClientProtocol):
         full_uri: furl = furl(self._url)
         full_uri /= self._resource
         full_uri /= self._id
-        request_id: Optional[str] = None
+        request_id: str | None = None
 
         start_time: float = time.time()
 
@@ -49,13 +48,13 @@ class FhirPatchMixin(FhirClientProtocol):
         headers.update(self._additional_request_headers)
         self._internal_logger.debug(f"Request headers: {headers}")
         access_token_result: GetAccessTokenResult = await self.get_access_token_async()
-        access_token: Optional[str] = access_token_result.access_token
+        access_token: str | None = access_token_result.access_token
         # set access token in request if present
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
 
-        response_text: Optional[str] = None
-        response_status: Optional[int] = None
+        response_text: str | None = None
+        response_status: int | None = None
 
         try:
             deserialized_data = json.loads(data)
@@ -90,9 +89,7 @@ class FhirPatchMixin(FhirClientProtocol):
                         self._logger.info(f"Request resource was not found: {full_uri}")
                 else:
                     # other HTTP errors
-                    self._internal_logger.info(
-                        f"PATCH response for {full_uri.url}: {response_status}"
-                    )
+                    self._internal_logger.info(f"PATCH response for {full_uri.url}: {response_status}")
         except Exception as e:
             raise FhirSenderException(
                 request_id=request_id,
@@ -129,7 +126,5 @@ class FhirPatchMixin(FhirClientProtocol):
         Update the resource.  This will partially update an existing resource with changes specified in the request.
         :param data: data to update the resource with
         """
-        result: FhirUpdateResponse = AsyncRunner.run(
-            self.send_patch_request_async(data)
-        )
+        result: FhirUpdateResponse = AsyncRunner.run(self.send_patch_request_async(data))
         return result

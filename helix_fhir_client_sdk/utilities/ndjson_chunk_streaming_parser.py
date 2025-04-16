@@ -1,7 +1,6 @@
 import json
-from typing import List, Dict, Any, Optional
-
 from logging import Logger
+from typing import Any
 
 
 class NdJsonChunkStreamingParser:
@@ -9,7 +8,7 @@ class NdJsonChunkStreamingParser:
         # Initialize an empty buffer to store incomplete JSON objects
         self.buffer = ""
 
-    def add_chunk(self, chunk: str, logger: Optional[Logger]) -> List[Dict[str, Any]]:
+    def add_chunk(self, chunk: str, logger: Logger | None) -> list[dict[str, Any]]:
         """
         Add a new chunk of NDJSON data and return a list of complete JSON objects.
 
@@ -25,9 +24,9 @@ class NdJsonChunkStreamingParser:
         # Split the buffer into lines based on newline characters
         lines = self.buffer.split("\n")
 
-        complete_json_objects: List[Dict[str, Any]] = []
+        complete_json_objects: list[dict[str, Any]] = []
 
-        incomplete_lines: List[str] = []
+        incomplete_lines: list[str] = []
 
         # Process all complete lines
         for line in lines:

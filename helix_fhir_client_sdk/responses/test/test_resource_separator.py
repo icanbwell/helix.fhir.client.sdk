@@ -1,10 +1,10 @@
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from helix_fhir_client_sdk.responses.resource_separator import ResourceSeparator
 
 
 async def test_separate_contained_resources_async_with_contained() -> None:
-    resources_list: List[Dict[str, Any]] = [
+    resources_list: list[dict[str, Any]] = [
         {
             "resourceType": "Patient",
             "id": "1",
@@ -41,7 +41,7 @@ async def test_separate_contained_resources_async_with_contained() -> None:
 
 
 async def test_separate_contained_resources_async_with_multiple_contained() -> None:
-    resources_list: List[Dict[str, Any]] = [
+    resources_list: list[dict[str, Any]] = [
         {
             "resourceType": "Patient",
             "id": "1",
@@ -82,7 +82,7 @@ async def test_separate_contained_resources_async_with_multiple_contained() -> N
 
 
 async def test_separate_contained_resources_async_without_contained() -> None:
-    resources_list: List[Dict[str, Any]] = [
+    resources_list: list[dict[str, Any]] = [
         {"resourceType": "Patient", "id": "1"},
         {"resourceType": "Practitioner", "id": "2"},
     ]
@@ -117,7 +117,7 @@ async def test_separate_contained_resources_async_without_contained() -> None:
 
 
 async def test_separate_contained_resources_async_empty_list() -> None:
-    resources_list: List[Dict[str, Any]] = []
+    resources_list: list[dict[str, Any]] = []
     access_token = "mock_access_token"
     url = "http://example.com"
     extra_context_to_return = {"extra_key": "extra_value"}
@@ -129,7 +129,7 @@ async def test_separate_contained_resources_async_empty_list() -> None:
         extra_context_to_return=extra_context_to_return,
     )
 
-    expected_result: List[Dict[str, Optional[str] | List[Dict[str, Any]]]] = []
+    expected_result: list[dict[str, str | None | list[dict[str, Any]]]] = []
 
     assert result.resources_dicts == expected_result
     assert result.total_count == 0

@@ -1,17 +1,17 @@
-from typing import List
+from logging import Logger
 from unittest.mock import AsyncMock, MagicMock
+
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
 )
-from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
-    CompressedDictStorageMode,
-)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
-from logging import Logger
 
 
 async def test_handle_response_200_non_streaming() -> None:
@@ -38,7 +38,7 @@ async def test_handle_response_200_non_streaming() -> None:
         return_value='{"resourceType": "Bundle", "total": 2, "entry": [{"resource": {"resourceType": "Patient", "id": "1"}}, {"resource": {"resourceType": "Patient", "id": "2"}}]}'
     )
 
-    result: List[FhirGetResponse] = [
+    result: list[FhirGetResponse] = [
         r
         async for r in FhirResponseProcessor._handle_response_200_non_streaming(
             access_token=access_token,

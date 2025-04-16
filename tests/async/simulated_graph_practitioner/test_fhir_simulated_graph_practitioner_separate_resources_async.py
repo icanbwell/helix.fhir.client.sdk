@@ -1,7 +1,7 @@
 import json
 from logging import Logger
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
 
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
@@ -11,7 +11,6 @@ from mockserver_client.mockserver_client import (
 )
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
-
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from tests.logger_for_test import LoggerForTest
 
@@ -19,17 +18,15 @@ from tests.logger_for_test import LoggerForTest
 async def test_fhir_simulated_graph_async() -> None:
     logger: Logger = LoggerForTest()
     data_dir: Path = Path(__file__).parent.joinpath("./")
-    graph_json: Dict[str, Any]
-    with open(data_dir.joinpath("graphs").joinpath("aetna.json"), "r") as file:
+    graph_json: dict[str, Any]
+    with open(data_dir.joinpath("graphs").joinpath("aetna.json")) as file:
         contents = file.read()
         graph_json = json.loads(contents)
 
     test_name = "test_fhir_simulated_graph_async"
 
     mock_server_url = "http://mock-server:1080"
-    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
-        base_url=mock_server_url
-    )
+    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(base_url=mock_server_url)
 
     relative_url: str = test_name
     absolute_url: str = mock_server_url + "/" + test_name
@@ -37,7 +34,7 @@ async def test_fhir_simulated_graph_async() -> None:
     mock_client.clear(f"/{test_name}/*.*")
     mock_client.reset()
 
-    response_text: Dict[str, Any]
+    response_text: dict[str, Any]
 
     response_text = {"id": "1", "resourceType": "Practitioner"}
 
@@ -94,7 +91,7 @@ async def test_fhir_simulated_graph_async() -> None:
 
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
-    response: Optional[FhirGetResponse] = await FhirGetResponse.from_async_generator(
+    response: FhirGetResponse | None = await FhirGetResponse.from_async_generator(
         fhir_client.simulate_graph_streaming_async(
             id_="1",
             graph_json=graph_json,

@@ -27,6 +27,6 @@ class SizeCalculator:
         for factor, unit in units:
             if bytes_size >= factor:
                 # Use locale-specific formatting
-                return f"{locale.format_string('%.{}f'.format(precision), bytes_size / factor, grouping=True)} {unit}"
+                return f"{locale.format_string(f'%.{precision}f', bytes_size / factor, grouping=True)} {unit}"
 
         return f"{locale.format_string('%d', bytes_size, grouping=True)} bytes"

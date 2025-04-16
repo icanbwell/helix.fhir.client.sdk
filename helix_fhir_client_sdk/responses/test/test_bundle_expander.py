@@ -15,11 +15,9 @@ async def test_bundle_expander() -> None:
     }
     total_count = 0
 
-    bundle_expander_result: BundleExpanderResult = (
-        await BundleExpander.expand_bundle_async(
-            bundle=response_json,
-            total_count=total_count,
-        )
+    bundle_expander_result: BundleExpanderResult = await BundleExpander.expand_bundle_async(
+        bundle=response_json,
+        total_count=total_count,
     )
 
     expected_resources = [

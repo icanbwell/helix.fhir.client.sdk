@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Any, List
+from typing import Any
 
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 
@@ -7,14 +7,14 @@ class FhirValidationException(Exception):
     def __init__(
         self,
         *,
-        request_id: Optional[str],
+        request_id: str | None,
         url: str,
         json_data: str,
-        response_text: Optional[str],
-        response_status_code: Optional[int],
+        response_text: str | None,
+        response_status_code: int | None,
         message: str,
-        headers: Dict[str, str],
-        issue: Optional[List[Dict[str, Any]]],
+        headers: dict[str, str],
+        issue: list[dict[str, Any]] | None,
     ) -> None:
         """
         Validation Failure
@@ -28,11 +28,11 @@ class FhirValidationException(Exception):
         :param message: error message
         :param issue: FHIR OperationOutcomeIssue
         """
-        self.request_id: Optional[str] = request_id
+        self.request_id: str | None = request_id
         self.url: str = url
         self.data: str = json_data
         self.headers = headers
-        self.issue: Optional[List[Dict[str, Any]]] = issue
+        self.issue: list[dict[str, Any]] | None = issue
         json = {
             "message": f"FHIR validation failed: {message}",
             "request_id": request_id,

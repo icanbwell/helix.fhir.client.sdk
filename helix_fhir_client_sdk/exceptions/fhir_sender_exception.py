@@ -1,6 +1,6 @@
 import sys
 import traceback
-from typing import Optional, Dict, Any, List
+from typing import Any
 
 
 class FhirSenderException(Exception):
@@ -12,15 +12,15 @@ class FhirSenderException(Exception):
     def __init__(
         self,
         message: str,
-        exception: Optional[Exception] = None,
-        request_id: Optional[str] = None,
-        url: Optional[str] = None,
-        headers: Optional[Dict[str, str]] = None,
-        json_data: Optional[str] = None,
-        response_text: Optional[str] = None,
-        response_status_code: Optional[int] = None,
-        variables: Optional[Dict[str, Any]] = None,
-        elapsed_time: Optional[float] = None,
+        exception: Exception | None = None,
+        request_id: str | None = None,
+        url: str | None = None,
+        headers: dict[str, str] | None = None,
+        json_data: str | None = None,
+        response_text: str | None = None,
+        response_status_code: int | None = None,
+        variables: dict[str, Any] | None = None,
+        elapsed_time: float | None = None,
     ) -> None:
         """
         Initialize the FHIR sender exception with comprehensive error details.
@@ -48,7 +48,7 @@ class FhirSenderException(Exception):
         self.elapsed_time = elapsed_time
 
         # Preserve the original exception's traceback
-        self.original_exception: Optional[Exception]
+        self.original_exception: Exception | None
         if exception:
             self.original_exception = exception
             self.original_traceback = traceback.extract_tb(exception.__traceback__)
@@ -80,7 +80,7 @@ class FhirSenderException(Exception):
         :return: Detailed error message with traceback
         """
         # Start with the exception message
-        error_str: List[str] = [super().__str__()]
+        error_str: list[str] = [super().__str__()]
 
         # Add original exception details if available
         if self.original_exception:
@@ -94,7 +94,7 @@ class FhirSenderException(Exception):
 
         return "\n".join(error_str)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert exception details to a dictionary for logging or serialization.
 
@@ -110,12 +110,6 @@ class FhirSenderException(Exception):
             "response_text": self.response_text,
             "variables": self.variables,
             "elapsed_time": self.elapsed_time,
-            "exception_type": (
-                type(self.original_exception).__name__
-                if self.original_exception
-                else None
-            ),
-            "exception_details": (
-                str(self.original_exception) if self.original_exception else None
-            ),
+            "exception_type": (type(self.original_exception).__name__ if self.original_exception else None),
+            "exception_details": (str(self.original_exception) if self.original_exception else None),
         }

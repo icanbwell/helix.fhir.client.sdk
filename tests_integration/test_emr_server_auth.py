@@ -1,6 +1,5 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from logging import Logger
-from typing import Dict
 
 import pytest
 
@@ -17,12 +16,10 @@ def test_emr_server_auth() -> None:
     token = ""
 
     # Convert 2024-01-01 to HTTP header date format
-    modified_since_date = datetime(2024, 1, 1, tzinfo=timezone.utc).strftime(
-        "%a, %d %b %Y %H:%M:%S GMT"
-    )
+    modified_since_date = datetime(2024, 1, 1, tzinfo=UTC).strftime("%a, %d %b %Y %H:%M:%S GMT")
 
-    payload: Dict[str, str] = {}
-    headers: Dict[str, str] = {
+    payload: dict[str, str] = {}
+    headers: dict[str, str] = {
         "Host": "epicproxy.et1131.epichosted.com",
         "accept": "application/fhir+json",
         "user-agent": "curl/7.79.1",

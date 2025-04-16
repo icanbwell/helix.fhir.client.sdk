@@ -20,9 +20,7 @@ async def test_async_fhir_client_patient_by_identifier_missing_false() -> None:
     test_name = "test_fhir_client_patient_by_id_async"
 
     mock_server_url = "http://mock-server:1080"
-    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
-        base_url=mock_server_url
-    )
+    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(base_url=mock_server_url)
 
     relative_url: str = test_name
     absolute_url: str = mock_server_url + "/" + test_name
@@ -61,9 +59,7 @@ async def test_async_fhir_client_patient_by_identifier_missing_true() -> None:
     test_name = "test_fhir_client_patient_by_id_async"
 
     mock_server_url = "http://mock-server:1080"
-    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
-        base_url=mock_server_url
-    )
+    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(base_url=mock_server_url)
 
     relative_url: str = test_name
     absolute_url: str = mock_server_url + "/" + test_name

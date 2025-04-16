@@ -1,6 +1,5 @@
 from logging import Logger
 from types import SimpleNamespace
-from typing import Dict
 
 import aiohttp
 import pytest
@@ -15,8 +14,8 @@ async def test_aetna_server_auth_aiohttp() -> None:
     # environ["AIOHTTP_NO_EXTENSIONS"] = "1"
     url = "https://vteapif1.aetna.com/fhirdemo/v1/patientaccess/Patient/1234567890123456701"
 
-    payload: Dict[str, str] = {}
-    headers: Dict[str, str] = {
+    payload: dict[str, str] = {}
+    headers: dict[str, str] = {
         "Host": "vteapif1.aetna.com",
         "accept": "*/*",
         "user-agent": "curl/7.79.1",
@@ -30,11 +29,8 @@ async def test_aetna_server_auth_aiohttp() -> None:
         trace_config_ctx: SimpleNamespace,
         params: TraceRequestEndParams,
     ) -> None:
-        logger.info(
-            "Ending %s request for %s. I sent: %s"
-            % (params.method, params.url, params.headers)
-        )
-        logger.info("Sent headers: %s" % params.response.request_info.headers)
+        logger.info(f"Ending {params.method} request for {params.url}. I sent: {params.headers}")
+        logger.info(f"Sent headers: {params.response.request_info.headers}")
 
     trace_config = aiohttp.TraceConfig()
     # trace_config.on_request_start.append(on_request_start)

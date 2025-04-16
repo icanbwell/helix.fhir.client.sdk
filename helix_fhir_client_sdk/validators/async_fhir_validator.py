@@ -1,4 +1,5 @@
-from typing import Dict, Any, Optional, Callable, List, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 from aiohttp import ClientSession
 from furl import furl
@@ -21,7 +22,7 @@ class AsyncFhirValidator:
         json_data: str,
         resource_name: str,
         validation_server_url: str,
-        access_token: Optional[str],
+        access_token: str | None,
     ) -> None:
         """
         Calls the validation server url to validate the given resource
@@ -54,10 +55,8 @@ class AsyncFhirValidator:
             )
             request_id = validation_response.response_headers.get("X-Request-ID")
             if validation_response.ok:
-                operation_outcome: Dict[str, Any] = cast(
-                    Dict[str, Any], await validation_response.json()
-                )
-                issue: List[Dict[str, Any]] = operation_outcome.get("issue", [])
+                operation_outcome: dict[str, Any] = cast(dict[str, Any], await validation_response.json())
+                issue: list[dict[str, Any]] = operation_outcome.get("issue", [])
                 if len(issue) > 0 and issue[0].get("severity") == "error":
                     response_text = await validation_response.get_text_async()
                     raise FhirValidationException(

@@ -3,8 +3,8 @@ from logging import Logger
 from pathlib import Path
 
 from mockserver_client.mockserver_client import (
-    mock_request,
     MockServerFriendlyClient,
+    mock_request,
     mock_response,
     times,
 )
@@ -19,9 +19,7 @@ async def test_fhir_client_bundle_separated_async() -> None:
     test_name = test_fhir_client_bundle_separated_async.__name__
 
     mock_server_url = "http://mock-server:1080"
-    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
-        base_url=mock_server_url
-    )
+    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(base_url=mock_server_url)
 
     relative_url: str = test_name
     absolute_url: str = mock_server_url + "/" + test_name

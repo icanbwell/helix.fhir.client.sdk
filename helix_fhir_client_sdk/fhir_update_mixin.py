@@ -1,9 +1,9 @@
-from typing import Optional, AsyncGenerator
-
-from furl import furl
+from collections.abc import AsyncGenerator
 
 from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
+from furl import furl
+
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_update_response import FhirUpdateResponse
 from helix_fhir_client_sdk.structures.get_access_token_result import (
@@ -17,9 +17,7 @@ from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValid
 
 
 class FhirUpdateMixin(FhirClientProtocol):
-    async def update_single_resource_async(
-        self, *, resource: FhirResource
-    ) -> FhirUpdateResponse:
+    async def update_single_resource_async(self, *, resource: FhirResource) -> FhirUpdateResponse:
         """
         Update a single resource. This will completely overwrite the resource. We recommend using merge()
             instead since that does proper merging.
@@ -35,9 +33,7 @@ class FhirUpdateMixin(FhirClientProtocol):
             raise ValueError(f"Failed to update resource: {response.error}")
         return response
 
-    async def update_resources_async(
-        self, *, resources: FhirResourceList
-    ) -> AsyncGenerator[FhirUpdateResponse, None]:
+    async def update_resources_async(self, *, resources: FhirResourceList) -> AsyncGenerator[FhirUpdateResponse, None]:
         """
         Update the resources. This will completely overwrite the resources. We recommend using merge()
             instead since that does proper merging.
@@ -55,9 +51,7 @@ class FhirUpdateMixin(FhirClientProtocol):
                 raise ValueError(f"Failed to update resource: {response.error}")
             yield response
 
-    async def update_async(
-        self, *, id_: Optional[str] = None, json_data: str
-    ) -> FhirUpdateResponse:
+    async def update_async(self, *, id_: str | None = None, json_data: str) -> FhirUpdateResponse:
         """
         Update the resource.  This will completely overwrite the resource.  We recommend using merge()
             instead since that does proper merging.
@@ -84,7 +78,7 @@ class FhirUpdateMixin(FhirClientProtocol):
         self._internal_logger.debug(f"Request headers: {headers}")
 
         access_token_result: GetAccessTokenResult = await self.get_access_token_async()
-        access_token: Optional[str] = access_token_result.access_token
+        access_token: str | None = access_token_result.access_token
         # set access token in request if present
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
@@ -113,9 +107,7 @@ class FhirUpdateMixin(FhirClientProtocol):
             access_token=self._access_token,
             access_token_expiry_date=self._access_token_expiry_date,
         ) as client:
-            response = await client.put(
-                url=full_uri.url, data=json_data, headers=headers
-            )
+            response = await client.put(url=full_uri.url, data=json_data, headers=headers)
             request_id = response.response_headers.get("X-Request-ID", None)
             self._internal_logger.info(f"X-Request-ID={request_id}")
             if response.status == 200:
@@ -140,7 +132,5 @@ class FhirUpdateMixin(FhirClientProtocol):
 
         :param json_data: data to update the resource with
         """
-        result: FhirUpdateResponse = AsyncRunner.run(
-            self.update_async(json_data=json_data)
-        )
+        result: FhirUpdateResponse = AsyncRunner.run(self.update_async(json_data=json_data))
         return result

@@ -1,17 +1,17 @@
-from typing import List
+from logging import Logger
 from unittest.mock import AsyncMock, MagicMock
+
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
 )
-from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
-    CompressedDictStorageMode,
-)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
-from logging import Logger
 
 
 async def test_handle_response_404() -> None:
@@ -30,7 +30,7 @@ async def test_handle_response_404() -> None:
     response.results_by_url = []
     response.get_text_async = AsyncMock(return_value="Not Found")
 
-    result: List[FhirGetResponse] = [
+    result: list[FhirGetResponse] = [
         r
         async for r in FhirResponseProcessor._handle_response_404(
             full_url=full_url,

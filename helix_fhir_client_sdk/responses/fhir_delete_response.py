@@ -1,4 +1,5 @@
-from typing import Optional, AsyncGenerator, Dict, Any
+from collections.abc import AsyncGenerator
+from typing import Any, Optional
 
 
 class FhirDeleteResponse:
@@ -21,14 +22,14 @@ class FhirDeleteResponse:
     def __init__(
         self,
         *,
-        request_id: Optional[str],
+        request_id: str | None,
         url: str,
         responses: str,
-        error: Optional[str],
-        access_token: Optional[str],
+        error: str | None,
+        access_token: str | None,
         status: int,
-        resource_type: Optional[str],
-        count: Optional[int] = None,
+        resource_type: str | None,
+        count: int | None = None,
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -39,16 +40,16 @@ class FhirDeleteResponse:
         :param error: Any error returned by FHIR server
         :param access_token: access token that was used
         """
-        self.request_id: Optional[str] = request_id
+        self.request_id: str | None = request_id
         self.url: str = url
         """ Response text """
         self.responses: str = responses
-        self.error: Optional[str] = error
-        self.access_token: Optional[str] = access_token
+        self.error: str | None = error
+        self.access_token: str | None = access_token
         self.status: int = status
         """ Number of resources deleted """
-        self.count: Optional[int] = count
-        self.resource_type: Optional[str] = resource_type
+        self.count: int | None = count
+        self.resource_type: str | None = resource_type
 
     def append(self, other: Optional["FhirDeleteResponse"]) -> None:
         """
@@ -79,7 +80,7 @@ class FhirDeleteResponse:
                 result.append(value)
         return result
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Converts the object to a dictionary
 

@@ -1,12 +1,16 @@
 import json
 import time
+from collections.abc import AsyncGenerator
 from datetime import datetime
 from logging import Logger
-from typing import Optional, List, Dict, Any, Union, AsyncGenerator, Tuple
+from typing import Any
 from uuid import UUID
 
 # noinspection PyProtectedMember
 from aiohttp.streams import AsyncStreamIterator
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 
 from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
@@ -25,9 +29,6 @@ from helix_fhir_client_sdk.responses.get.fhir_get_response_factory import (
 from helix_fhir_client_sdk.responses.resource_separator import (
     ResourceSeparator,
     ResourceSeparatorResult,
-)
-from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
-    CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
@@ -48,23 +49,23 @@ class FhirResponseProcessor:
         *,
         response: RetryableAioHttpResponse,
         full_url: str,
-        request_id: Optional[str],
-        response_headers: List[str],
-        access_token: Optional[str],
+        request_id: str | None,
+        response_headers: list[str],
+        access_token: str | None,
         resources_json: str,
         fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
-        logger: Optional[Logger],
-        internal_logger: Optional[Logger],
-        extra_context_to_return: Optional[Dict[str, Any]],
-        resource: Optional[str],
-        id_: Optional[Union[List[str], str]],
+        logger: Logger | None,
+        internal_logger: Logger | None,
+        extra_context_to_return: dict[str, Any] | None,
+        resource: str | None,
+        id_: list[str] | str | None,
         chunk_size: int,
         expand_fhir_bundle: bool,
-        url: Optional[str],
+        url: str | None,
         separate_bundle_resources: bool,
         use_data_streaming: bool,
         storage_mode: CompressedDictStorageMode,
-        create_operation_outcome_for_error: Optional[bool],
+        create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         This method is responsible for handling the response from the FHIR server.
@@ -151,17 +152,17 @@ class FhirResponseProcessor:
     async def _handle_response_unknown(
         *,
         full_url: str,
-        request_id: Optional[str],
+        request_id: str | None,
         response: RetryableAioHttpResponse,
-        response_headers: List[str],
-        logger: Optional[Logger],
-        internal_logger: Optional[Logger],
-        access_token: Optional[str],
-        extra_context_to_return: Optional[Dict[str, Any]],
-        resource: Optional[str],
-        id_: Optional[Union[List[str], str]],
+        response_headers: list[str],
+        logger: Logger | None,
+        internal_logger: Logger | None,
+        access_token: str | None,
+        extra_context_to_return: dict[str, Any] | None,
+        resource: str | None,
+        id_: list[str] | str | None,
         storage_mode: CompressedDictStorageMode,
-        create_operation_outcome_for_error: Optional[bool],
+        create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         This method is responsible for handling an unknown response from the FHIR server.
@@ -182,9 +183,7 @@ class FhirResponseProcessor:
         if logger:
             logger.error(f"Fhir Receive failed [{response.status}]: {full_url} ")
         if internal_logger:
-            internal_logger.error(
-                f"Fhir Receive failed [{response.status}]: {full_url} "
-            )
+            internal_logger.error(f"Fhir Receive failed [{response.status}]: {full_url} ")
         error_text: str = await response.get_text_async()
         if logger:
             logger.error(error_text)
@@ -211,16 +210,16 @@ class FhirResponseProcessor:
     async def _handle_response_404(
         *,
         full_url: str,
-        request_id: Optional[str],
+        request_id: str | None,
         response: RetryableAioHttpResponse,
-        response_headers: List[str],
-        access_token: Optional[str],
-        extra_context_to_return: Optional[Dict[str, Any]],
-        resource: Optional[str],
-        id_: Optional[Union[List[str], str]],
-        logger: Optional[Logger],
+        response_headers: list[str],
+        access_token: str | None,
+        extra_context_to_return: dict[str, Any] | None,
+        resource: str | None,
+        id_: list[str] | str | None,
+        logger: Logger | None,
         storage_mode: CompressedDictStorageMode,
-        create_operation_outcome_for_error: Optional[bool],
+        create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         This method is responsible for handling a 404 response from the FHIR server.
@@ -260,24 +259,24 @@ class FhirResponseProcessor:
     @staticmethod
     async def _handle_response_200(
         *,
-        access_token: Optional[str],
+        access_token: str | None,
         full_url: str,
         response: RetryableAioHttpResponse,
-        request_id: Optional[str],
-        response_headers: List[str],
+        request_id: str | None,
+        response_headers: list[str],
         resources_json: str,
         fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
         use_data_streaming: bool,
         chunk_size: int,
-        extra_context_to_return: Optional[Dict[str, Any]],
-        resource: Optional[str],
-        id_: Optional[Union[List[str], str]],
-        logger: Optional[Logger],
+        extra_context_to_return: dict[str, Any] | None,
+        resource: str | None,
+        id_: list[str] | str | None,
+        logger: Logger | None,
         expand_fhir_bundle: bool,
         separate_bundle_resources: bool,
-        url: Optional[str],
+        url: str | None,
         storage_mode: CompressedDictStorageMode,
-        create_operation_outcome_for_error: Optional[bool],
+        create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         This method is responsible for handling a 200 response from the FHIR server. A 200 response indicates that the
@@ -302,12 +301,10 @@ class FhirResponseProcessor:
         :return: An async generator of FhirGetResponse objects.
         """
         total_count: int = 0
-        next_url: Optional[str] = None
+        next_url: str | None = None
         if use_data_streaming:
             # used to parse the ndjson response for streaming
-            nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser = (
-                NdJsonChunkStreamingParser()
-            )
+            nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser = NdJsonChunkStreamingParser()
             async for r in FhirResponseProcessor._handle_response_200_streaming(
                 access_token=access_token,
                 fn_handle_streaming_chunk=fn_handle_streaming_chunk,
@@ -357,21 +354,21 @@ class FhirResponseProcessor:
         *,
         full_url: str,
         response: RetryableAioHttpResponse,
-        request_id: Optional[str],
-        access_token: Optional[str],
-        response_headers: List[str],
+        request_id: str | None,
+        access_token: str | None,
+        response_headers: list[str],
         resources_json: str,
-        next_url: Optional[str],
+        next_url: str | None,
         total_count: int,
-        logger: Optional[Logger],
+        logger: Logger | None,
         expand_fhir_bundle: bool,
         separate_bundle_resources: bool,
-        extra_context_to_return: Optional[Dict[str, Any]],
-        resource: Optional[str],
-        id_: Optional[Union[List[str], str]],
-        url: Optional[str],
+        extra_context_to_return: dict[str, Any] | None,
+        resource: str | None,
+        id_: list[str] | str | None,
+        url: str | None,
         storage_mode: CompressedDictStorageMode,
-        create_operation_outcome_for_error: Optional[bool],
+        create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         This method is responsible for handling a 200 response from the FHIR server. A 200 response indicates that the
@@ -397,24 +394,19 @@ class FhirResponseProcessor:
         """
         if logger:
             logger.debug(f"Successfully retrieved: {full_url}")
-        text: Optional[str] = None
+        text: str | None = None
         # noinspection PyBroadException
         try:
             text = await response.get_text_async()
             if len(text) > 0:
-                response_json: Dict[str, Any] = json.loads(text)
-                if (
-                    "resourceType" in response_json
-                    and response_json["resourceType"] == "Bundle"
-                ):
+                response_json: dict[str, Any] = json.loads(text)
+                if "resourceType" in response_json and response_json["resourceType"] == "Bundle":
                     # get next url if present
                     if "link" in response_json:
-                        links: List[Dict[str, Any]] = response_json.get("link", [])
-                        next_links = [
-                            link for link in links if link.get("relation") == "next"
-                        ]
+                        links: list[dict[str, Any]] = response_json.get("link", [])
+                        next_links = [link for link in links if link.get("relation") == "next"]
                         if len(next_links) > 0:
-                            next_link: Dict[str, Any] = next_links[0]
+                            next_link: dict[str, Any] = next_links[0]
                             next_url = next_link.get("url")
 
                 (
@@ -448,9 +440,7 @@ class FhirResponseProcessor:
             )
         except Exception as e:
             if logger:
-                logger.error(
-                    f"Error processing response from {full_url} with error: {str(e)}"
-                )
+                logger.error(f"Error processing response from {full_url} with error: {str(e)}")
             yield FhirGetResponseFactory.create(
                 request_id=request_id,
                 url=full_url,
@@ -472,25 +462,23 @@ class FhirResponseProcessor:
     @staticmethod
     async def expand_or_separate_bundle_async(
         *,
-        access_token: Optional[str],
-        expand_fhir_bundle: Optional[bool],
-        extra_context_to_return: Optional[Dict[str, Any]],
-        resource_or_bundle: Dict[str, Any],
+        access_token: str | None,
+        expand_fhir_bundle: bool | None,
+        extra_context_to_return: dict[str, Any] | None,
+        resource_or_bundle: dict[str, Any],
         separate_bundle_resources: bool,
         total_count: int,
-        url: Optional[str],
-    ) -> Tuple[str, int]:
+        url: str | None,
+    ) -> tuple[str, int]:
         # see if this is a Resource Bundle and un-bundle it
         if (
             expand_fhir_bundle
             and "resourceType" in resource_or_bundle
             and resource_or_bundle["resourceType"] == "Bundle"
         ):
-            bundle_expander_result: BundleExpanderResult = (
-                await BundleExpander.expand_bundle_async(
-                    total_count=total_count,
-                    bundle=resource_or_bundle,
-                )
+            bundle_expander_result: BundleExpanderResult = await BundleExpander.expand_bundle_async(
+                total_count=total_count,
+                bundle=resource_or_bundle,
             )
             resources = bundle_expander_result.resources
             total_count = bundle_expander_result.total_count
@@ -523,25 +511,25 @@ class FhirResponseProcessor:
     @staticmethod
     async def _handle_response_200_streaming(
         *,
-        access_token: Optional[str],
+        access_token: str | None,
         fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
         full_url: str,
         nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser,
-        next_url: Optional[str],
-        request_id: Optional[str],
+        next_url: str | None,
+        request_id: str | None,
         response: RetryableAioHttpResponse,
-        response_headers: List[str],
+        response_headers: list[str],
         total_count: int,
         chunk_size: int,
-        extra_context_to_return: Optional[Dict[str, Any]],
-        resource: Optional[str],
-        id_: Optional[Union[List[str], str]],
-        logger: Optional[Logger],
+        extra_context_to_return: dict[str, Any] | None,
+        resource: str | None,
+        id_: list[str] | str | None,
+        logger: Logger | None,
         expand_fhir_bundle: bool,
         separate_bundle_resources: bool,
-        url: Optional[str],
+        url: str | None,
         storage_mode: CompressedDictStorageMode,
-        create_operation_outcome_for_error: Optional[bool],
+        create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         This method is responsible for handling a 200 response from the FHIR server. A 200 response indicates that the
@@ -574,12 +562,10 @@ class FhirResponseProcessor:
             """
             if response.content is None:
                 return
-            async for chunk1, end_of_http_chunk in response.content.iter_chunks():
+            async for chunk1, _ in response.content.iter_chunks():
                 yield chunk1
 
-        def get_chunk_iterator() -> (
-            AsyncStreamIterator[bytes] | AsyncGenerator[bytes, None]
-        ):
+        def get_chunk_iterator() -> AsyncStreamIterator[bytes] | AsyncGenerator[bytes, None]:
             """
             Looks at the headers to determine if the response is chunked or not.  Then returns
             the appropriate async generator
@@ -596,7 +582,7 @@ class FhirResponseProcessor:
         total_resources: int = 0
         total_kilobytes: int = 0
         start_time: float = time.time()
-        chunk: Optional[str] = None
+        chunk: str | None = None
         try:
             # Check if the response content is empty or the stream has reached the end. If either condition is true,
             # yield a FhirGetResponse indicating no content was received from the request.
@@ -629,20 +615,16 @@ class FhirResponseProcessor:
                     chunk = chunk_bytes.decode("utf-8")
                     chunk_length = len(chunk_bytes)
                     total_kilobytes += chunk_length // 1024
-                    completed_resources: List[Dict[str, Any]] = (
-                        nd_json_chunk_streaming_parser.add_chunk(
-                            chunk=chunk,
-                            logger=logger,
-                        )
+                    completed_resources: list[dict[str, Any]] = nd_json_chunk_streaming_parser.add_chunk(
+                        chunk=chunk,
+                        logger=logger,
                     )
                     if completed_resources:
                         total_time: float = time.time() - start_time
                         if total_time == 0:
                             total_time = 0.1  # avoid division by zero
                         total_resources += len(completed_resources)
-                        total_time_str: str = datetime.fromtimestamp(
-                            total_time
-                        ).strftime("%H:%M:%S")
+                        total_time_str: str = datetime.fromtimestamp(total_time).strftime("%H:%M:%S")
                         if logger:
                             logger.debug(
                                 f"Chunk: {chunk_number:,}"
@@ -698,9 +680,7 @@ class FhirResponseProcessor:
                             )
         except Exception as e:
             if logger:
-                logger.error(
-                    f"Error processing response from {full_url} with error: {str(e)}"
-                )
+                logger.error(f"Error processing response from {full_url} with error: {str(e)}")
             yield FhirGetResponseFactory.create(
                 request_id=request_id,
                 url=full_url,
@@ -724,12 +704,12 @@ class FhirResponseProcessor:
         *,
         full_url: str,
         response_status: int,
-        client_id: Optional[str],
-        auth_scopes: List[str] | None,
+        client_id: str | None,
+        auth_scopes: list[str] | None,
         uuid: UUID,
-        logger: Optional[Logger],
-        internal_logger: Optional[Logger],
-        log_level: Optional[str],
+        logger: Logger | None,
+        internal_logger: Logger | None,
+        log_level: str | None,
     ) -> None:
         """
         This method is responsible for logging the response from the FHIR server.
@@ -763,12 +743,12 @@ class FhirResponseProcessor:
     async def log_request(
         *,
         full_url: str,
-        client_id: Optional[str],
-        auth_scopes: List[str] | None,
+        client_id: str | None,
+        auth_scopes: list[str] | None,
         uuid: UUID,
-        logger: Optional[Logger],
-        internal_logger: Optional[Logger],
-        log_level: Optional[str],
+        logger: Logger | None,
+        internal_logger: Logger | None,
+        log_level: str | None,
     ) -> None:
         """
         This method is responsible for logging the request to the FHIR server.

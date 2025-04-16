@@ -1,20 +1,20 @@
 import json
-from typing import List, Any
+from typing import Any
 
 import pytest
-
 from compressedfhir.fhir.fhir_bundle import FhirBundle
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
 from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
+from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
+
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
     FhirGetBundleResponse,
-)
-from compressedfhir.fhir.fhir_resource import FhirResource
-from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
-    CompressedDictStorageMode,
 )
 
 
@@ -52,9 +52,7 @@ class TestFhirBundleAppender:
         """Fixture to create a sample Bundle."""
         return FhirBundle(type_="collection", total=0, entry=FhirBundleEntryList())
 
-    def test_append_responses(
-        self, sample_fhir_get_response: FhirGetResponse, sample_bundle: FhirBundle
-    ) -> None:
+    def test_append_responses(self, sample_fhir_get_response: FhirGetResponse, sample_bundle: FhirBundle) -> None:
         """Test appending responses to a bundle."""
         responses = [sample_fhir_get_response]
         updated_bundle = FhirBundleAppender.append_responses(
@@ -68,9 +66,7 @@ class TestFhirBundleAppender:
         assert updated_bundle.entry[0].resource is not None
         assert updated_bundle.entry[0].resource["resourceType"] == "Patient"
 
-    def test_add_operation_outcomes_to_response(
-        self, sample_fhir_get_response: FhirGetResponse
-    ) -> None:
+    def test_add_operation_outcomes_to_response(self, sample_fhir_get_response: FhirGetResponse) -> None:
         """Test adding operation outcomes to a response."""
         bundle_entries = FhirBundleAppender.add_operation_outcomes_to_response(
             response=sample_fhir_get_response, storage_mode=CompressedDictStorageMode()
@@ -111,9 +107,7 @@ class TestFhirBundleAppender:
 
         assert len(diagnostics) == 5
         assert any(d["system"] == "https://www.icanbwell.com/url" for d in diagnostics)
-        assert any(
-            d["system"] == "https://www.icanbwell.com/resourceType" for d in diagnostics
-        )
+        assert any(d["system"] == "https://www.icanbwell.com/resourceType" for d in diagnostics)
 
     def test_remove_duplicate_resources(self) -> None:
         """Test removing duplicate resources from a bundle."""
@@ -148,9 +142,7 @@ class TestFhirBundleAppender:
         assert updated_bundle.entry is not None
         assert len(updated_bundle.entry) == 2
         resource_types = [
-            entry.resource["resourceType"]
-            for entry in updated_bundle.entry
-            if entry.resource is not None
+            entry.resource["resourceType"] for entry in updated_bundle.entry if entry.resource is not None
         ]
         assert set(resource_types) == {"Patient", "Observation"}
 
@@ -187,11 +179,7 @@ class TestFhirBundleAppender:
         assert sorted_bundle.entry is not None
         assert len(sorted_bundle.entry) == 3
         sorted_ids = [
-            (
-                entry.resource.get("resourceType", "")
-                + "/"
-                + entry.resource.get("id", "")
-            )
+            (entry.resource.get("resourceType", "") + "/" + entry.resource.get("id", ""))
             for entry in sorted_bundle.entry
             if entry.resource is not None
         ]
@@ -239,7 +227,7 @@ class TestFhirBundleAppender:
 
         assert bundle.entry is not None
 
-        transaction_generators: List[Any] = []
+        transaction_generators: list[Any] = []
         # start transactions for each entry
         for entry in bundle.entry:
             if entry.resource is not None:
@@ -262,11 +250,7 @@ class TestFhirBundleAppender:
             # noinspection PyTypeChecker
             bundle_entries: FhirBundleEntryList = sorted_bundle.entry
 
-            sorted_names: List[str] = [
-                entry.resource["name"]
-                for entry in bundle_entries
-                if entry.resource is not None
-            ]
+            sorted_names: list[str] = [entry.resource["name"] for entry in bundle_entries if entry.resource is not None]
             assert sorted_names == ["Alice", "Bob", "Charlie"]
         finally:
             # Attempt to close all transactions
@@ -297,7 +281,6 @@ class TestFhirBundleAppender:
         )
 
         sorted_ids = [
-            (resource.get("resourceType", "") + "/" + resource.get("id", ""))
-            for resource in sorted_resources
+            (resource.get("resourceType", "") + "/" + resource.get("id", "")) for resource in sorted_resources
         ]
         assert sorted_ids == ["Observation/789", "Patient/123", "Patient/456"]

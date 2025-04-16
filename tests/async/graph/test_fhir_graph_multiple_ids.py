@@ -1,7 +1,7 @@
 from logging import Logger
 from os import environ
-from typing import List
 
+from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
     mock_request,
@@ -9,7 +9,6 @@ from mockserver_client.mockserver_client import (
     times,
 )
 
-from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinition,
@@ -27,9 +26,7 @@ async def test_fhir_graph_multiple_ids_async() -> None:
     environ["LOG_LEVEL"] = "DEBUG"
 
     mock_server_url = "http://mock-server:1080"
-    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
-        base_url=mock_server_url
-    )
+    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(base_url=mock_server_url)
 
     relative_url: str = test_name
     absolute_url: str = mock_server_url + "/" + test_name
@@ -42,26 +39,14 @@ async def test_fhir_graph_multiple_ids_async() -> None:
         name="my_everything",
         start="Patient",
         link=[
-            GraphDefinitionLink(
-                target=[
-                    GraphDefinitionTarget(
-                        type_="Location", params="managingOrganization={ref}"
-                    )
-                ]
-            ),
+            GraphDefinitionLink(target=[GraphDefinitionTarget(type_="Location", params="managingOrganization={ref}")]),
             GraphDefinitionLink(
                 target=[
                     GraphDefinitionTarget(
                         type_="HealthcareService",
                         params="providedBy={ref}",
                         link=[
-                            GraphDefinitionLink(
-                                target=[
-                                    GraphDefinitionTarget(
-                                        type_="Schedule", params="actor={ref}"
-                                    )
-                                ]
-                            )
+                            GraphDefinitionLink(target=[GraphDefinitionTarget(type_="Schedule", params="actor={ref}")])
                         ],
                     )
                 ]
@@ -91,10 +76,8 @@ async def test_fhir_graph_multiple_ids_async() -> None:
 
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
     fhir_client = fhir_client.page_size(10)
-    responses: List[FhirGetResponse] = []
-    async for response in fhir_client.graph_async(
-        id_=["1", "2"], graph_definition=graph_definition, contained=False
-    ):
+    responses: list[FhirGetResponse] = []
+    async for response in fhir_client.graph_async(id_=["1", "2"], graph_definition=graph_definition, contained=False):
         logger.info(f"Response Chunk: {response.get_response_text()}")
         responses.append(response)
 
@@ -105,7 +88,7 @@ async def test_fhir_graph_multiple_ids_async() -> None:
     )
     resources = responses[0].get_resources()
     assert isinstance(resources, FhirResourceList)
-    assert list([r.dict() for r in resources]) == [
+    assert [r.dict() for r in resources] == [
         {"id": "1", "resourceType": "Patient"},
         {"id": "2", "resourceType": "Patient"},
     ]

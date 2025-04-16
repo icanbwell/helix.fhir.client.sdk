@@ -1,5 +1,5 @@
 import json
-from typing import Optional, List, AsyncGenerator
+from collections.abc import AsyncGenerator
 from unittest.mock import MagicMock
 
 import pytest
@@ -39,9 +39,7 @@ async def test_cache_hit() -> None:
     """Test that resources are retrieved from the cache when available."""
     processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
     cache = RequestCache()
-    mock_entry = FhirBundleEntry(
-        resource=FhirResource({"id": "test-id", "resourceType": "Patient"})
-    )
+    mock_entry = FhirBundleEntry(resource=FhirResource({"id": "test-id", "resourceType": "Patient"}))
     await cache.add_async(
         resource_type="Patient",
         resource_id="test-id",
@@ -77,12 +75,12 @@ async def test_cache_miss() -> None:
 
     # noinspection PyUnusedLocal
     async def mock_async_generator(
-        page_number: Optional[int],
-        ids: Optional[List[str]],
-        id_above: Optional[str],
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
-        additional_parameters: Optional[List[str]],
-        resource_type: Optional[str],
+        page_number: int | None,
+        ids: list[str] | None,
+        id_above: str | None,
+        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
+        additional_parameters: list[str] | None,
+        resource_type: str | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         yield FhirGetSingleResponse(
             response_text=json.dumps({"id": "test-id-1", "resourceType": "Patient"}),
@@ -148,9 +146,7 @@ async def test_partial_cache() -> None:
     """Test a scenario where some resources are in the cache and others are fetched."""
     processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
     cache = RequestCache()
-    mock_entry = FhirBundleEntry(
-        resource=FhirResource({"id": "cached-id", "resourceType": "Patient"})
-    )
+    mock_entry = FhirBundleEntry(resource=FhirResource({"id": "cached-id", "resourceType": "Patient"}))
     await cache.add_async(
         resource_type="Patient",
         resource_id="cached-id",
@@ -163,17 +159,15 @@ async def test_partial_cache() -> None:
 
     # noinspection PyUnusedLocal
     async def mock_async_generator(
-        page_number: Optional[int],
-        ids: Optional[List[str]],
-        id_above: Optional[str],
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
-        additional_parameters: Optional[List[str]],
-        resource_type: Optional[str],
+        page_number: int | None,
+        ids: list[str] | None,
+        id_above: str | None,
+        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
+        additional_parameters: list[str] | None,
+        resource_type: str | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         yield FhirGetSingleResponse(
-            response_text=json.dumps(
-                {"id": "non-cached-id", "resourceType": "Patient"}
-            ),
+            response_text=json.dumps({"id": "non-cached-id", "resourceType": "Patient"}),
             status=200,
             total_count=1,
             next_url=None,
@@ -205,11 +199,7 @@ async def test_partial_cache() -> None:
 
     assert cache_hits == 1
     assert len(result.get_bundle_entries()) == 2
-    resource_ids = [
-        entry.resource.get("id")
-        for entry in result.get_bundle_entries()
-        if entry.resource
-    ]
+    resource_ids = [entry.resource.get("id") for entry in result.get_bundle_entries() if entry.resource]
     assert set(resource_ids) == {"cached-id", "non-cached-id"}
 
 
@@ -231,17 +221,15 @@ async def test_partial_cache_with_null_bundle_entry() -> None:
 
     # noinspection PyUnusedLocal
     async def mock_async_generator(
-        page_number: Optional[int],
-        ids: Optional[List[str]],
-        id_above: Optional[str],
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
-        additional_parameters: Optional[List[str]],
-        resource_type: Optional[str],
+        page_number: int | None,
+        ids: list[str] | None,
+        id_above: str | None,
+        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
+        additional_parameters: list[str] | None,
+        resource_type: str | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         yield FhirGetSingleResponse(
-            response_text=json.dumps(
-                {"id": "non-cached-id", "resourceType": "Patient"}
-            ),
+            response_text=json.dumps({"id": "non-cached-id", "resourceType": "Patient"}),
             status=200,
             total_count=1,
             next_url=None,
@@ -273,11 +261,7 @@ async def test_partial_cache_with_null_bundle_entry() -> None:
 
     assert cache_hits == 1
     assert len(result.get_bundle_entries()) == 1
-    resource_ids = [
-        entry.resource.get("id")
-        for entry in result.get_bundle_entries()
-        if entry.resource
-    ]
+    resource_ids = [entry.resource.get("id") for entry in result.get_bundle_entries() if entry.resource]
     assert set(resource_ids) == {"non-cached-id"}
 
 
@@ -289,12 +273,12 @@ async def test_cache_update() -> None:
 
     # noinspection PyUnusedLocal
     async def mock_async_generator(
-        page_number: Optional[int],
-        ids: Optional[List[str]],
-        id_above: Optional[str],
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
-        additional_parameters: Optional[List[str]],
-        resource_type: Optional[str],
+        page_number: int | None,
+        ids: list[str] | None,
+        id_above: str | None,
+        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
+        additional_parameters: list[str] | None,
+        resource_type: str | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         yield FhirGetSingleResponse(
             response_text=json.dumps({"id": "test-id", "resourceType": "Patient"}),
@@ -351,12 +335,12 @@ async def test_empty_cache() -> None:
 
     # noinspection PyUnusedLocal
     async def mock_async_generator(
-        page_number: Optional[int],
-        ids: Optional[List[str]],
-        id_above: Optional[str],
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
-        additional_parameters: Optional[List[str]],
-        resource_type: Optional[str],
+        page_number: int | None,
+        ids: list[str] | None,
+        id_above: str | None,
+        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
+        additional_parameters: list[str] | None,
+        resource_type: str | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         yield FhirGetSingleResponse(
             response_text=json.dumps({"id": "test-id", "resourceType": "Patient"}),
@@ -404,12 +388,12 @@ async def test_items_added_to_input_cache() -> None:
 
     # noinspection PyUnusedLocal
     async def mock_async_generator(
-        page_number: Optional[int],
-        ids: Optional[List[str]],
-        id_above: Optional[str],
-        fn_handle_streaming_chunk: Optional[HandleStreamingChunkFunction],
-        additional_parameters: Optional[List[str]],
-        resource_type: Optional[str],
+        page_number: int | None,
+        ids: list[str] | None,
+        id_above: str | None,
+        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
+        additional_parameters: list[str] | None,
+        resource_type: str | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         yield FhirGetSingleResponse(
             response_text=json.dumps({"id": "test-id", "resourceType": "Patient"}),
@@ -445,9 +429,7 @@ async def test_items_added_to_input_cache() -> None:
     )
 
     # Verify the resource is added to the input cache
-    cache_entry = await input_cache.get_async(
-        resource_type="Patient", resource_id="test-id"
-    )
+    cache_entry = await input_cache.get_async(resource_type="Patient", resource_id="test-id")
     assert cache_entry is not None
     bundle_entry = cache_entry.bundle_entry
     assert bundle_entry is not None

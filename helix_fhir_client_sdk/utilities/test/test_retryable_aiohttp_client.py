@@ -1,9 +1,8 @@
 # test_retryable_aiohttp_client.py
 from datetime import datetime
-from typing import Optional
 
 import pytest
-from aiohttp import ClientSession
+from aiohttp import ClientResponseError, ClientSession
 from aioresponses import aioresponses
 
 from helix_fhir_client_sdk.function_types import RefreshTokenResult
@@ -44,7 +43,7 @@ async def test_retry_on_500() -> None:
     ) as client:
         with aioresponses() as m:
             m.get("http://test.com", status=500)
-            with pytest.raises(Exception):
+            with pytest.raises(ClientResponseError):
                 await client.get(url="http://test.com", headers=None)
 
 
@@ -68,15 +67,13 @@ async def test_non_retryable_status_code() -> None:
 async def test_token_refresh_on_401() -> None:
     # noinspection PyUnusedLocal
     async def mock_refresh_token(
-        url: Optional[str],
-        status_code: Optional[int],
-        current_token: Optional[str],
-        expiry_date: Optional[datetime],
-        retry_count: Optional[int],
+        url: str | None,
+        status_code: int | None,
+        current_token: str | None,
+        expiry_date: datetime | None,
+        retry_count: int | None,
     ) -> RefreshTokenResult:
-        return RefreshTokenResult(
-            access_token="new_token", expiry_date=None, abort_request=False
-        )
+        return RefreshTokenResult(access_token="new_token", expiry_date=None, abort_request=False)
 
     async with RetryableAioHttpClient(
         refresh_token_func=mock_refresh_token,
@@ -88,9 +85,7 @@ async def test_token_refresh_on_401() -> None:
         with aioresponses() as m:
             m.get("http://test.com", status=401)
             m.get("http://test.com", status=200, payload={"key": "value"})
-            response = await client.get(
-                url="http://test.com", headers={"Authorization": "Bearer old_token"}
-            )
+            response = await client.get(url="http://test.com", headers={"Authorization": "Bearer old_token"})
             assert response.ok
             assert response.status == 200
             assert await response.get_text_async() == '{"key": "value"}'
@@ -133,10 +128,7 @@ async def test_chunked_transfer_encoding() -> None:
             response = await client.get(url="http://test.com", headers=None)
             assert response.ok
             assert response.status == 200
-            assert (
-                await response.get_text_async()
-                == "4\r\nWiki\r\n5\r\npedia\r\n0\r\n\r\n"
-            )
+            assert await response.get_text_async() == "4\r\nWiki\r\n5\r\npedia\r\n0\r\n\r\n"
 
 
 async def test_no_exception_on_error() -> None:
@@ -230,17 +222,15 @@ async def test_token_refresh_max_retries() -> None:
 
     # noinspection PyUnusedLocal
     async def mock_refresh_token(
-        url: Optional[str],
-        status_code: Optional[int],
-        current_token: Optional[str],
-        expiry_date: Optional[datetime],
-        retry_count: Optional[int],
+        url: str | None,
+        status_code: int | None,
+        current_token: str | None,
+        expiry_date: datetime | None,
+        retry_count: int | None,
     ) -> RefreshTokenResult:
         nonlocal retry_attempts
         retry_attempts += 1
-        return RefreshTokenResult(
-            access_token=f"token_{retry_count}", expiry_date=None, abort_request=False
-        )
+        return RefreshTokenResult(access_token=f"token_{retry_count}", expiry_date=None, abort_request=False)
 
     async with RetryableAioHttpClient(
         refresh_token_func=mock_refresh_token,
@@ -257,9 +247,7 @@ async def test_token_refresh_max_retries() -> None:
             m.get("http://test.com", status=401)
 
             with pytest.raises(Exception) as excinfo:
-                await client.get(
-                    url="http://test.com", headers={"Authorization": "Bearer old_token"}
-                )
+                await client.get(url="http://test.com", headers={"Authorization": "Bearer old_token"})
 
             assert "Unauthorized" in str(excinfo.value)
             assert retry_attempts == 3
@@ -357,12 +345,10 @@ async def test_timeout_handling() -> None:
             m.get(
                 "http://test.com",
                 status=200,
-                callback=get_payload_function(
-                    {"resourceType": "Patient", "id": "1"}, delay=1
-                ),
+                callback=get_payload_function({"resourceType": "Patient", "id": "1"}, delay=1),
             )
 
-            with pytest.raises(Exception):
+            with pytest.raises(ClientResponseError):
                 await client.get(url="http://test.com")
 
 
@@ -379,11 +365,11 @@ async def test_token_refresh_with_new_token_success() -> None:
 
     # noinspection PyUnusedLocal
     async def mock_refresh_token(
-        url: Optional[str],
-        status_code: Optional[int],
-        current_token: Optional[str],
-        expiry_date: Optional[datetime],
-        retry_count: Optional[int],
+        url: str | None,
+        status_code: int | None,
+        current_token: str | None,
+        expiry_date: datetime | None,
+        retry_count: int | None,
     ) -> RefreshTokenResult:
         nonlocal refresh_call_count
         refresh_call_count += 1
@@ -413,9 +399,7 @@ async def test_token_refresh_with_new_token_success() -> None:
             m.get("http://test.com", status=200, payload={"key": "value"})
 
             # Perform the request
-            response = await client.get(
-                url="http://test.com", headers={"Authorization": "Bearer old_token"}
-            )
+            response = await client.get(url="http://test.com", headers={"Authorization": "Bearer old_token"})
 
             # Assertions
             assert response.ok
@@ -435,19 +419,17 @@ async def test_token_refresh_multiple_consecutive_401() -> None:
 
     # noinspection PyUnusedLocal
     async def mock_refresh_token(
-        url: Optional[str],
-        status_code: Optional[int],
-        current_token: Optional[str],
-        expiry_date: Optional[datetime],
-        retry_count: Optional[int],
+        url: str | None,
+        status_code: int | None,
+        current_token: str | None,
+        expiry_date: datetime | None,
+        retry_count: int | None,
     ) -> RefreshTokenResult:
         nonlocal refresh_call_count, tokens_generated
         refresh_call_count += 1
         new_token = f"new_token_{refresh_call_count}"
         tokens_generated.append(new_token)
-        return RefreshTokenResult(
-            access_token=new_token, expiry_date=expiry_date, abort_request=False
-        )
+        return RefreshTokenResult(access_token=new_token, expiry_date=expiry_date, abort_request=False)
 
     async with RetryableAioHttpClient(
         refresh_token_func=mock_refresh_token,
@@ -466,9 +448,7 @@ async def test_token_refresh_multiple_consecutive_401() -> None:
             m.get("http://test.com", status=200, payload={"key": "success"})
 
             # Perform the request
-            response = await client.get(
-                url="http://test.com", headers={"Authorization": "Bearer initial_token"}
-            )
+            response = await client.get(url="http://test.com", headers={"Authorization": "Bearer initial_token"})
 
             # Assertions
             assert response.ok
@@ -487,11 +467,11 @@ async def test_token_refresh_with_invalid_refresh_function() -> None:
 
     # noinspection PyUnusedLocal
     async def failing_refresh_token(
-        url: Optional[str],
-        status_code: Optional[int],
-        current_token: Optional[str],
-        expiry_date: Optional[datetime],
-        retry_count: Optional[int],
+        url: str | None,
+        status_code: int | None,
+        current_token: str | None,
+        expiry_date: datetime | None,
+        retry_count: int | None,
     ) -> RefreshTokenResult:
         raise ValueError("Unauthorized: Token refresh failed")
 
@@ -513,9 +493,7 @@ async def test_token_refresh_with_invalid_refresh_function() -> None:
 
             # Expect an exception due to failed token refresh
             with pytest.raises(Exception) as excinfo:
-                await client.get(
-                    url="http://test.com", headers={"Authorization": "Bearer old_token"}
-                )
+                await client.get(url="http://test.com", headers={"Authorization": "Bearer old_token"})
 
             # Verify the exception contains relevant information
             assert "Unauthorized" in str(excinfo.value)
@@ -531,11 +509,11 @@ async def test_token_refresh_with_different_headers() -> None:
 
     # noinspection PyUnusedLocal
     async def mock_refresh_token(
-        url: Optional[str],
-        status_code: Optional[int],
-        current_token: Optional[str],
-        expiry_date: Optional[datetime],
-        retry_count: Optional[int],
+        url: str | None,
+        status_code: int | None,
+        current_token: str | None,
+        expiry_date: datetime | None,
+        retry_count: int | None,
     ) -> RefreshTokenResult:
         nonlocal refresh_call_count
         refresh_call_count += 1

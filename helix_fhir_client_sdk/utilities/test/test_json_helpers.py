@@ -1,4 +1,4 @@
-from typing import Dict, List, Any
+from typing import Any
 
 from compressedfhir.utilities.json_helpers import FhirClientJsonHelpers
 
@@ -22,16 +22,14 @@ class TestFhirClientJsonHelpers:
             },
             "test_results": None,
         }
-        expected_output = {
-            "patient": {"name": "Jane", "address": {"street": "123 Main St"}}
-        }
+        expected_output = {"patient": {"name": "Jane", "address": {"street": "123 Main St"}}}
 
         result = FhirClientJsonHelpers.remove_empty_elements(input_dict)
         assert result == expected_output
 
     def test_remove_none_values_from_dict_or_list_with_list(self) -> None:
         # Test removing None values from a list of dictionaries
-        input_list: List[Dict[str, Any]] = [
+        input_list: list[dict[str, Any]] = [
             {"name": "Alice", "age": 25},
             {"name": "Bob", "age": None},
             {"name": None, "city": "New York"},
@@ -161,9 +159,7 @@ class TestFhirClientJsonHelpers:
                 },
             ],
             "active": True,
-            "name": [
-                {"use": "usual", "text": " Unknown", "family": "Unknown", "given": [""]}
-            ],
+            "name": [{"use": "usual", "text": " Unknown", "family": "Unknown", "given": [""]}],
             "meta": {
                 "source": "https://interconnect.test.org/interconnect-prd-fhir/api/FHIR/R4//Practitioner/ez8G1fAosfeD9EEA6iXlFQw3",
                 "security": [
