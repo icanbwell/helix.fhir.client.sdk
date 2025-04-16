@@ -275,7 +275,7 @@ class FhirBundleAppender:
         bundle_entries: FhirBundleEntryList = bundle.entry
         unique_bundle_entries: FhirBundleEntryList = FhirBundleEntryList(
             {
-                f'{e.resource["resourceType"]}/{e.resource["id"]}': e
+                f"{e.resource['resourceType']}/{e.resource['id']}": e
                 for e in bundle_entries
                 if e.resource and e.resource.resource_type and e.resource.id
             }.values()
@@ -304,12 +304,18 @@ class FhirBundleAppender:
         """
         if not bundle.entry:
             return bundle
-        if not fn_sort:
-            fn_sort = lambda e: (
+
+        def my_sort(
+            e: FhirBundleEntry,
+        ) -> str:
+            return (
                 (e.resource.get("resourceType", "") + "/" + e.resource.get("id", ""))
                 if e.resource
                 else ""
             )
+
+        if not fn_sort:
+            fn_sort = my_sort
         bundle.entry = FhirBundleEntryList(
             sorted(
                 bundle.entry,
@@ -333,10 +339,13 @@ class FhirBundleAppender:
         if not resources:
             return resources
 
+        def my_sort(
+            r: FhirResource,
+        ) -> str:
+            return (r.get("resourceType", "") + "/" + r.get("id", "")) if r else ""
+
         if not fn_sort:
-            fn_sort = lambda r: (
-                (r.get("resourceType", "") + "/" + r.get("id", "")) if r else ""
-            )
+            fn_sort = my_sort
 
         return FhirResourceList(
             sorted(

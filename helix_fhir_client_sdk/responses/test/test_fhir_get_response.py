@@ -59,7 +59,7 @@ class TestFhirGetResponse(FhirGetResponse):
         chunk_number: Optional[int] = None,
         cache_hits: Optional[int] = None,
         results_by_url: List[RetryableAioHttpUrlResult],
-        storage_mode: CompressedDictStorageMode
+        storage_mode: CompressedDictStorageMode,
     ) -> None:
         super().__init__(
             request_id=request_id,

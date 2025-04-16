@@ -74,7 +74,9 @@ class AsyncParallelProcessor:
         )
 
     async def process_rows_in_parallel[
-        TInput, TOutput, TParameters: Dict[str, Any] | object
+        TInput,
+        TOutput,
+        TParameters: Dict[str, Any] | object,
     ](
         self,
         *,

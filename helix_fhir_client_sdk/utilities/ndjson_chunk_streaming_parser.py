@@ -35,7 +35,7 @@ class NdJsonChunkStreamingParser:
                 try:
                     json_object = json.loads(line)  # Load the JSON object
                     complete_json_objects.append(json_object)
-                except json.JSONDecodeError as e:
+                except json.JSONDecodeError:
                     incomplete_lines.append(line)
                     # if logger:
                     #     logger.debug(

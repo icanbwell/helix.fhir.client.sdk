@@ -26,7 +26,6 @@ from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
     TraceRequestFunction,
 )
-from logging import Logger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.merge.fhir_merge_resource_response import (
     FhirMergeResourceResponse,

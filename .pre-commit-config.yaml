@@ -27,12 +27,20 @@ repos:
         entry: autoflake
         require_serial: true
         args: [ '--in-place', '--remove-all-unused-imports', '--ignore-init-module-imports' ]
-      - id: black
-        name: black
+      - id: ruff
+        name: ruff
         language: system
         types: [ python ]
         require_serial: true
-        entry: black
+        entry: ruff
+        args: [check, --fix, --show-fixes]
+      - id: ruff-formatter
+        name: ruff-formatter
+        language: system
+        types: [ python ]
+        require_serial: true
+        entry: ruff
+        args: [format]
       - id: mypy
         name: mypy
         language: system

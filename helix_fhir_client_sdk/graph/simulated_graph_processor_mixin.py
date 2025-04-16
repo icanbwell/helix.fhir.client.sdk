@@ -327,7 +327,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # Log debug information about the current link processing
         if parameters.logger:
             parameters.logger.debug(
-                f"Processing link"
+                "Processing link"
                 + f" | task_index: {context.task_index}/{context.total_task_count}"
                 + (
                     f" | path: {row.path}"
@@ -386,7 +386,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # Log detailed processing information
         if parameters.logger:
             parameters.logger.debug(
-                f"Finished Processing link"
+                "Finished Processing link"
                 + f" | task_index: {context.task_index}/{context.total_task_count}"
                 + (
                     f" | path: {row.path}"
@@ -641,7 +641,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         if logger:
             logger.info(
                 # Construct a detailed log message with retrieval context
-                f"Received child resources"
+                "Received child resources"
                 + f" from parent {parent_resource_type}/{parent_ids}"
                 + f" path:[{path}]. id_:{id_}. resource_type:{resource_type}"
                 + f", count:{len(child_response.get_resource_type_and_ids())}"

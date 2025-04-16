@@ -31,13 +31,6 @@ def convert_dict_to_str(obj: Any) -> str:
             if not name.startswith("__") and not callable(value)
         }
 
-    # Optional: Filter for specific types if needed
-    filtered_variables = {
-        k: v
-        for k, v in instance_variables.items()
-        if isinstance(v, (int, float, bool, str, type(None)))
-    }
-
     def json_serial(obj1: Any) -> str:
         """JSON serializer for objects not serializable by default json code"""
 

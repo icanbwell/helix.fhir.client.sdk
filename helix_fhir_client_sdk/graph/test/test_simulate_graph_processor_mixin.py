@@ -15,7 +15,6 @@ from helix_fhir_client_sdk.function_types import RefreshTokenResult
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
     SimulatedGraphProcessorMixin,
 )
-from logging import Logger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from tests.logger_for_test import LoggerForTest
 
@@ -332,9 +331,9 @@ async def test_graph_definition_with_nested_links() -> None:
         resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
-        assert (
-            len(resources) == 3
-        ), f"Expected 3 resources, got {len(resources)}: {resources}"
+        assert len(resources) == 3, (
+            f"Expected 3 resources, got {len(resources)}: {resources}"
+        )
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
@@ -413,9 +412,9 @@ async def test_graph_definition_with_multiple_links() -> None:
         assert len(response) == 1
         resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
-        assert (
-            len(resources) == 3
-        ), f"Expected 3 resources, got {len(resources)}: {resources}"
+        assert len(resources) == 3, (
+            f"Expected 3 resources, got {len(resources)}: {resources}"
+        )
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
@@ -491,9 +490,9 @@ async def test_graph_definition_with_multiple_targets() -> None:
         resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
-        assert (
-            len(resources) == 3
-        ), f"Expected 3 resources, got {len(resources)}: {resources}"
+        assert len(resources) == 3, (
+            f"Expected 3 resources, got {len(resources)}: {resources}"
+        )
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
@@ -697,9 +696,9 @@ async def test_graph_definition_with_multiple_links_concurrent_requests() -> Non
         resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
-        assert (
-            len(resources) == 3
-        ), f"Expected 3 resources, got {len(resources)}: {resources}"
+        assert len(resources) == 3, (
+            f"Expected 3 resources, got {len(resources)}: {resources}"
+        )
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
@@ -775,9 +774,9 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests() -> N
         resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
-        assert (
-            len(resources) == 3
-        ), f"Expected 3 resources, got {len(resources)}: {resources}"
+        assert len(resources) == 3, (
+            f"Expected 3 resources, got {len(resources)}: {resources}"
+        )
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
@@ -899,9 +898,9 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
         resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
-        assert (
-            len(resources) == 4
-        ), f"Expected 3 resources, got {len(resources)}: {resources}"
+        assert len(resources) == 4, (
+            f"Expected 3 resources, got {len(resources)}: {resources}"
+        )
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         encounter = [
@@ -1316,9 +1315,9 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
         resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
-        assert (
-            len(resources) == 4
-        ), f"Expected 3 resources, got {len(resources)}: {resources}"
+        assert len(resources) == 4, (
+            f"Expected 3 resources, got {len(resources)}: {resources}"
+        )
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         encounter = [

@@ -32,7 +32,7 @@ class FhirMergeResourceResponse:
         error: Optional[str],
         access_token: Optional[str],
         status: int,
-        response_text: Optional[str]
+        response_text: Optional[str],
     ) -> None:
         """
         Class that encapsulates a response to e $merge call to FHIR server

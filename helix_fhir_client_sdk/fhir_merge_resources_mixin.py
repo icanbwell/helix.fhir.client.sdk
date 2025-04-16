@@ -101,7 +101,6 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
         try:
             # If we found some resources
             if len(bundle.entry) > 0:
-                resource_batch: FhirResourceList
                 responses: List[BaseFhirMergeResourceResponseEntry] = []
                 errors: List[FhirMergeResponseEntryError] = []
                 resource_uri: furl = full_uri.copy()
@@ -281,9 +280,9 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
         :return: response
         """
         assert self._url, "No FHIR server url was set"
-        assert isinstance(
-            resources_to_merge, FhirResourceList
-        ), f"Expected FhirResourceList, got {type(resources_to_merge)}"
+        assert isinstance(resources_to_merge, FhirResourceList), (
+            f"Expected FhirResourceList, got {type(resources_to_merge)}"
+        )
 
         self._internal_logger.debug(
             f"Calling $merge on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
@@ -317,10 +316,11 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
         try:
             resource_json_list_clean: FhirResourceList
             if self._validation_server_url:
-                resource_json_list_clean, validation_errors = (
-                    await self.validate_resource(
-                        resources_to_validate=resources_to_merge,
-                    )
+                (
+                    resource_json_list_clean,
+                    validation_errors,
+                ) = await self.validate_resource(
+                    resources_to_validate=resources_to_merge,
                 )
             else:
                 resource_json_list_clean = resources_to_merge

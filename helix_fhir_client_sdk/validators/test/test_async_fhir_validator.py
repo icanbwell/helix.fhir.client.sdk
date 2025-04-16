@@ -67,7 +67,6 @@ async def test_validate_fhir_resource_validation_error() -> None:
 
 @pytest.mark.asyncio
 async def test_validate_fhir_resource_server_error() -> None:
-
     json_data = '{"resourceType": "Patient"}'
     resource_name = "Patient"
     validation_server_url = "http://validation-server.com"

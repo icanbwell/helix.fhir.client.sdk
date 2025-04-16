@@ -99,7 +99,7 @@ class TestFhirGraphMixin:
             )
 
             with pytest.raises(FhirSenderException):
-                result = [
+                result = [  # noqa: F841
                     response
                     async for response in fhir_graph_mixin.graph_async(
                         id_="123",

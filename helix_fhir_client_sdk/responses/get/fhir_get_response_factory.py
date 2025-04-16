@@ -50,7 +50,6 @@ class FhirGetResponseFactory:
         storage_mode: CompressedDictStorageMode,
         create_operation_outcome_for_error: Optional[bool],
     ) -> FhirGetResponse:
-
         if not error and response_text:
             # test if responses is valid json
             try:

@@ -9,7 +9,7 @@ class GraphDefinitionTarget:
         *,
         type_: str,
         params: Optional[str] = None,
-        link: Optional[List["GraphDefinitionLink"]] = None
+        link: Optional[List["GraphDefinitionLink"]] = None,
     ) -> None:
         """
         Create a target for a link

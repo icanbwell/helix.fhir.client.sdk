@@ -51,7 +51,7 @@ class FhirGraphMixin(FhirClientProtocol):
         else:
             id_list.append("1")
         self.id_(id_list)  # this is needed because the $graph endpoint requires an id
-        result: Optional[FhirGetResponse]
+        result1: Optional[FhirGetResponse]
         chunk_size: int = self._page_size or 1
         for chunk in ListChunker.divide_into_chunks(id_list, chunk_size):
             async for result1 in self._get_with_session_async(
@@ -70,7 +70,6 @@ class FhirGraphMixin(FhirClientProtocol):
         graph_definition: GraphDefinition,
         contained: bool,
     ) -> Optional[FhirGetResponse]:
-
         return AsyncRunner.run(
             FhirGetResponse.from_async_generator(
                 self.graph_async(

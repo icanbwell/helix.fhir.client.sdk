@@ -71,7 +71,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         cache_hits: Optional[int] = None,
         results_by_url: List[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
-        create_operation_outcome_for_error: Optional[bool]
+        create_operation_outcome_for_error: Optional[bool],
     ) -> None:
         super().__init__(
             request_id=request_id,
@@ -240,7 +240,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         extra_context_to_return: Optional[Dict[str, Any]],
         request_id: Optional[str],
         storage_mode: CompressedDictStorageMode,
-        create_operation_outcome_for_error: Optional[bool]
+        create_operation_outcome_for_error: Optional[bool],
     ) -> Optional[FhirResource]:
         """
         Parses the response text to extract any useful information. This can be overridden by subclasses.

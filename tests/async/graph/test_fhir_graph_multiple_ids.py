@@ -100,9 +100,9 @@ async def test_fhir_graph_multiple_ids_async() -> None:
 
     assert len(responses) == 1
     logger.info(f"Response: {responses[0].get_response_text()}")
-    assert responses[
-        0
-    ].get_response_text(), f"Expected {response_text} but got {responses[0].get_response_text()} from url {responses[0].url}"
+    assert responses[0].get_response_text(), (
+        f"Expected {response_text} but got {responses[0].get_response_text()} from url {responses[0].url}"
+    )
     resources = responses[0].get_resources()
     assert isinstance(resources, FhirResourceList)
     assert list([r.dict() for r in resources]) == [

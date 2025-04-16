@@ -11,7 +11,6 @@ from aiohttp.streams import AsyncStreamIterator
 from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
 )
-from logging import Logger
 from helix_fhir_client_sdk.responses.bundle_expander import (
     BundleExpander,
     BundleExpanderResult,
@@ -418,16 +417,17 @@ class FhirResponseProcessor:
                             next_link: Dict[str, Any] = next_links[0]
                             next_url = next_link.get("url")
 
-                resources_json, total_count = (
-                    await FhirResponseProcessor.expand_or_separate_bundle_async(
-                        access_token=access_token,
-                        expand_fhir_bundle=expand_fhir_bundle,
-                        extra_context_to_return=extra_context_to_return,
-                        resource_or_bundle=response_json,
-                        separate_bundle_resources=separate_bundle_resources,
-                        total_count=total_count,
-                        url=url,
-                    )
+                (
+                    resources_json,
+                    total_count,
+                ) = await FhirResponseProcessor.expand_or_separate_bundle_async(
+                    access_token=access_token,
+                    expand_fhir_bundle=expand_fhir_bundle,
+                    extra_context_to_return=extra_context_to_return,
+                    resource_or_bundle=response_json,
+                    separate_bundle_resources=separate_bundle_resources,
+                    total_count=total_count,
+                    url=url,
                 )
             yield FhirGetResponseFactory.create(
                 request_id=request_id,
@@ -480,7 +480,6 @@ class FhirResponseProcessor:
         total_count: int,
         url: Optional[str],
     ) -> Tuple[str, int]:
-
         # see if this is a Resource Bundle and un-bundle it
         if (
             expand_fhir_bundle
@@ -659,16 +658,17 @@ class FhirResponseProcessor:
 
                         for completed_resource in completed_resources:
                             if expand_fhir_bundle or separate_bundle_resources:
-                                resources_json, total_count = (
-                                    await FhirResponseProcessor.expand_or_separate_bundle_async(
-                                        access_token=access_token,
-                                        expand_fhir_bundle=expand_fhir_bundle,
-                                        extra_context_to_return=extra_context_to_return,
-                                        resource_or_bundle=completed_resource,
-                                        separate_bundle_resources=separate_bundle_resources,
-                                        total_count=total_count,
-                                        url=url,
-                                    )
+                                (
+                                    resources_json,
+                                    total_count,
+                                ) = await FhirResponseProcessor.expand_or_separate_bundle_async(
+                                    access_token=access_token,
+                                    expand_fhir_bundle=expand_fhir_bundle,
+                                    extra_context_to_return=extra_context_to_return,
+                                    resource_or_bundle=completed_resource,
+                                    separate_bundle_resources=separate_bundle_resources,
+                                    total_count=total_count,
+                                    url=url,
                                 )
                             else:
                                 resources_json = json.dumps(completed_resource)

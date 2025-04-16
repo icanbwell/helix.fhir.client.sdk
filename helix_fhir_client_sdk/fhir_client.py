@@ -602,7 +602,6 @@ class FhirClient(
             # self._logger.info(f"LOGLEVEL: {self._log_level}")
             self._logger.debug(f"parameters: {instance_variables_text}")
         else:
-
             self._internal_logger.debug(f"LOGLEVEL (InternalLogger): {self._log_level}")
             self._internal_logger.debug(f"parameters: {instance_variables_text}")
         ids: Optional[List[str]] = None
@@ -651,7 +650,7 @@ class FhirClient(
         if self._id:
             ids = self._id if isinstance(self._id, list) else [self._id]
         # actually make the request
-        full_response: Optional[FhirGetResponse]
+        response: Optional[FhirGetResponse]
         async for response in self._get_with_session_async(
             ids=ids,
             fn_handle_streaming_chunk=data_chunk_handler,

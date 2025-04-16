@@ -40,7 +40,7 @@ class RetryableAioHttpResponse:
         results_by_url: List[RetryableAioHttpUrlResult],
         access_token: Optional[str],
         access_token_expiry_date: Optional[datetime],
-        retry_count: Optional[int]
+        retry_count: Optional[int],
     ) -> None:
         """
         Response object for retryable aiohttp requests

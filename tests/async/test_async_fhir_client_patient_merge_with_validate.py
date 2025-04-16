@@ -55,10 +55,10 @@ async def test_fhir_client_patient_merge_with_validate_async() -> None:
     )
     fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
-    response: Optional[FhirMergeResponse] = (
-        await FhirMergeResponse.from_async_generator(
-            fhir_client.merge_async(json_data_list=[json.dumps(resource)])
-        )
+    response: Optional[
+        FhirMergeResponse
+    ] = await FhirMergeResponse.from_async_generator(
+        fhir_client.merge_async(json_data_list=[json.dumps(resource)])
     )
     assert response is not None
     logger.info(response.responses)

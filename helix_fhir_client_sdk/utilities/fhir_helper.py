@@ -11,7 +11,6 @@ class FhirHelper:
     @staticmethod
     async def create_test_patients(count: int) -> Dict[str, Any]:
         logger: Logger = logging.getLogger("fhir-client")
-        resource_type = "Patient"
         # now create 1000 patients
         patient = {
             "resourceType": "Patient",

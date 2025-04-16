@@ -36,7 +36,6 @@ from helix_fhir_client_sdk.utilities.url_checker import UrlChecker
 
 
 class RequestQueueMixin(ABC, FhirClientProtocol):
-
     def __init__(self) -> None:
         self._max_concurrent_requests: Optional[int] = None
         self._max_concurrent_requests_semaphore: Optional[Semaphore] = None
