@@ -58,6 +58,7 @@ async def test_cache_hit() -> None:
         scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
         logger=None,
         id_search_unsupported_resources=[],
+        max_cache_misses=None,
     )
 
     assert cache_hits == 1
@@ -129,6 +130,7 @@ async def test_cache_miss() -> None:
         scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
         logger=None,
         id_search_unsupported_resources=[],
+        max_cache_misses=None,
     )
 
     assert cache_hits == 0
@@ -195,6 +197,7 @@ async def test_partial_cache() -> None:
         scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
         logger=None,
         id_search_unsupported_resources=[],
+        max_cache_misses=None,
     )
 
     assert cache_hits == 1
@@ -257,6 +260,7 @@ async def test_partial_cache_with_null_bundle_entry() -> None:
         scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
         logger=None,
         id_search_unsupported_resources=[],
+        max_cache_misses=None,
     )
 
     assert cache_hits == 1
@@ -309,6 +313,7 @@ async def test_cache_update() -> None:
         scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
         logger=None,
         id_search_unsupported_resources=[],
+        max_cache_misses=None,
     )
 
     assert cache_hits == 0
@@ -371,6 +376,7 @@ async def test_empty_cache() -> None:
         scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
         logger=None,
         id_search_unsupported_resources=[],
+        max_cache_misses=None,
     )
 
     assert cache_hits == 0
@@ -426,6 +432,7 @@ async def test_items_added_to_input_cache() -> None:
         scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
         logger=None,
         id_search_unsupported_resources=[],
+        max_cache_misses=None,
     )
 
     # Verify the resource is added to the input cache
