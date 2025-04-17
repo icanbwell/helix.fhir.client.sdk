@@ -53,6 +53,7 @@ class FhirGetResponse:
         "cache_hits",
         "results_by_url",
         "storage_mode",
+        "failed",
     ]
 
     def __init__(
@@ -124,6 +125,8 @@ class FhirGetResponse:
         """ Count of errors in the response by status """
         self.storage_mode: CompressedDictStorageMode = storage_mode
         """ Storage mode for the response """
+        self.failed: bool | None = None
+        """ True if the request was failed """
 
     @abstractmethod
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse": ...
@@ -158,6 +161,9 @@ class FhirGetResponse:
 
         if other_response.request_id:
             result.request_id = other_response.request_id
+
+        if other_response.failed:
+            result.failed = other_response.failed
 
         return result
 
