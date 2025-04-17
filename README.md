@@ -80,3 +80,47 @@ The data will be streamed in AsyncGenerators as described above.
 
 # Storage Compression
 The FHIR client SDK natively stores the FHIR resources compressed in memory.  This allows use in environments where you are processing large number of FHIR resources.
+
+# Examples
+
+## Data Streaming
+```python
+from helix_fhir_client_sdk.fhir_client import FhirClient
+
+server_url = "https://fhir.icanbwell.com/4_0_0"
+auth_client_id = "{put client_id here}"
+auth_client_secret = "{put client_secret here}"
+auth_scopes = ["user/*.read", "access/*.*"]
+fhir_client: FhirClient = FhirClient()
+fhir_client = fhir_client.url(server_url)
+fhir_client = fhir_client.resource("Patient")
+fhir_client = fhir_client.client_credentials(auth_client_id, auth_client_secret)
+fhir_client = fhir_client.auth_scopes(auth_scopes)
+fhir_client = fhir_client.use_data_streaming(True)
+
+async for response in fhir_client.get():
+    print(response.resource)
+```
+
+## Storage Compression
+```python
+from helix_fhir_client_sdk.fhir_client import FhirClient
+
+server_url = "https://fhir.icanbwell.com/4_0_0"
+auth_client_id = "{put client_id here}"
+auth_client_secret = "{put client_secret here}"
+auth_scopes = ["user/*.read", "access/*.*"]
+fhir_client: FhirClient = FhirClient()
+fhir_client = fhir_client.url(server_url)
+fhir_client = fhir_client.resource("Patient")
+fhir_client = fhir_client.client_credentials(auth_client_id, auth_client_secret)
+fhir_client = fhir_client.auth_scopes(auth_scopes)
+fhir_client = fhir_client.compress(True)
+
+result = fhir_client.get()
+
+import json
+resource_list = json.loads(result.responses)
+for resource in resource_list:
+    print(resource['id'])
+```
