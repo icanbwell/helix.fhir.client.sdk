@@ -1222,6 +1222,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         sort_resources: bool | None = False,
         add_cached_bundles_to_result: bool = True,
         input_cache: RequestCache | None = None,
+        max_cache_misses: int | None = None,
     ) -> FhirGetResponse:
         """
         Simulates the $graph query on the FHIR server
@@ -1272,6 +1273,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 sort_resources=sort_resources,
                 add_cached_bundles_to_result=add_cached_bundles_to_result,
                 input_cache=input_cache,
+                max_cache_misses=max_cache_misses,
             )
         )
         assert result, "No result returned from simulate_graph_async"

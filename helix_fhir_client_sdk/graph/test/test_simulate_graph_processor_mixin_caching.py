@@ -448,3 +448,126 @@ async def test_items_added_to_input_cache() -> None:
     resource = result.get_bundle_entries()[0].resource
     assert resource is not None
     assert resource.get("id") == "test-id"
+
+
+@pytest.mark.asyncio
+async def test_max_cache_misses_exceeded() -> None:
+    """Test that processing stops when max_cache_misses is exceeded."""
+    processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
+    cache = RequestCache()
+
+    # noinspection PyUnusedLocal
+    async def mock_async_generator(
+        page_number: int | None,
+        ids: list[str] | None,
+        id_above: str | None,
+        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
+        additional_parameters: list[str] | None,
+        resource_type: str | None,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        yield FhirGetSingleResponse(
+            response_text=json.dumps({"id": "non-cached-id-1", "resourceType": "Patient"}),
+            status=200,
+            total_count=1,
+            next_url=None,
+            resource_type="Patient",
+            id_="non-cached-id-1",
+            response_headers=None,
+            chunk_number=0,
+            cache_hits=0,
+            results_by_url=[],
+            storage_mode=CompressedDictStorageMode.raw(),
+            error=None,
+            access_token=None,
+            extra_context_to_return=None,
+            request_id=None,
+            url="http://example.com/fhir/Patient/non-cached-id-1",
+        )
+        yield FhirGetSingleResponse(
+            response_text=json.dumps({"id": "non-cached-id-2", "resourceType": "Patient"}),
+            status=200,
+            total_count=2,
+            next_url=None,
+            resource_type="Patient",
+            id_="non-cached-id-2",
+            response_headers=None,
+            chunk_number=1,
+            cache_hits=0,
+            results_by_url=[],
+            storage_mode=CompressedDictStorageMode.raw(),
+            error=None,
+            access_token=None,
+            extra_context_to_return=None,
+            request_id=None,
+            url="http://example.com/fhir/Patient/non-cached-id-2",
+        )
+
+    processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
+
+    response, count = await processor._get_resources_by_parameters_async(
+        id_=["non-cached-id-1", "non-cached-id-2"],
+        resource_type="Patient",
+        parameters=None,
+        cache=cache,
+        scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
+        logger=None,
+        id_search_unsupported_resources=[],
+        max_cache_misses=1,  # Set max_cache_misses to 1
+    )
+    assert response is not None
+    assert isinstance(response, FhirGetResponse)
+    assert count == 1
+
+
+@pytest.mark.asyncio
+async def test_max_cache_misses_not_exceeded() -> None:
+    """Test that processing continues when max_cache_misses is not exceeded."""
+    processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
+    cache = RequestCache()
+
+    # noinspection PyUnusedLocal
+    async def mock_async_generator(
+        page_number: int | None,
+        ids: list[str] | None,
+        id_above: str | None,
+        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
+        additional_parameters: list[str] | None,
+        resource_type: str | None,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        yield FhirGetSingleResponse(
+            response_text=json.dumps({"id": "non-cached-id-1", "resourceType": "Patient"}),
+            status=200,
+            total_count=1,
+            next_url=None,
+            resource_type="Patient",
+            id_="non-cached-id-1",
+            response_headers=None,
+            chunk_number=0,
+            cache_hits=0,
+            results_by_url=[],
+            storage_mode=CompressedDictStorageMode.raw(),
+            error=None,
+            access_token=None,
+            extra_context_to_return=None,
+            request_id=None,
+            url="http://example.com/fhir/Patient/non-cached-id-1",
+        )
+
+    processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
+
+    result, cache_hits = await processor._get_resources_by_parameters_async(
+        id_=["non-cached-id-1"],
+        resource_type="Patient",
+        parameters=None,
+        cache=cache,
+        scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
+        logger=None,
+        id_search_unsupported_resources=[],
+        max_cache_misses=2,  # Set max_cache_misses to 2
+    )
+
+    assert cache_hits == 0
+    assert len(result.get_bundle_entries()) == 1
+    resource = result.get_bundle_entries()[0].resource
+    assert resource is not None
+    assert resource.get("id") == "non-cached-id-1"
