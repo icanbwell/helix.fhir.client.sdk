@@ -21,9 +21,7 @@ async def test_fhir_client_patient_list_auth_fail_retry_async() -> None:
     environ["LOGLEVEL"] = "DEBUG"
 
     mock_server_url = "http://mock-server:1080"
-    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(
-        base_url=mock_server_url
-    )
+    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(base_url=mock_server_url)
 
     relative_url: str = test_name
     absolute_url: str = mock_server_url + "/" + test_name
@@ -45,9 +43,7 @@ async def test_fhir_client_patient_list_auth_fail_retry_async() -> None:
     mock_client.expect(
         request=mock_request(path=f"/{relative_url}/auth", method="POST"),
         response=mock_response(code=200, body=auth_response_text),
-        timing=times(
-            2
-        ),  # called twice.  first for initial auth token and second when we return 401 above
+        timing=times(2),  # called twice.  first for initial auth token and second when we return 401 above
     )
 
     response_text: str = json.dumps({"resourceType": "Patient", "id": "12355"})
@@ -59,12 +55,8 @@ async def test_fhir_client_patient_list_auth_fail_retry_async() -> None:
 
     fhir_client = FhirClient()
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
-    fhir_client = fhir_client.client_credentials(
-        client_id="client_id", client_secret="client_secret"
-    )
-    fhir_client = fhir_client.auth_server_url(absolute_url + "/" + "auth").auth_scopes(
-        ["user/*.ready"]
-    )
+    fhir_client = fhir_client.client_credentials(client_id="client_id", client_secret="client_secret")
+    fhir_client = fhir_client.auth_server_url(absolute_url + "/" + "auth").auth_scopes(["user/*.ready"])
     response: FhirGetResponse = await fhir_client.get_async()
 
     logger.info(response.get_response_text())

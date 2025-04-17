@@ -1,7 +1,7 @@
 import copy
 import logging
 from logging import Logger
-from typing import List, Dict, Any
+from typing import Any
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.utilities.list_chunker import ListChunker
@@ -9,9 +9,8 @@ from helix_fhir_client_sdk.utilities.list_chunker import ListChunker
 
 class FhirHelper:
     @staticmethod
-    async def create_test_patients(count: int) -> Dict[str, Any]:
+    async def create_test_patients(count: int) -> dict[str, Any]:
         logger: Logger = logging.getLogger("fhir-client")
-        resource_type = "Patient"
         # now create 1000 patients
         patient = {
             "resourceType": "Patient",
@@ -30,11 +29,7 @@ class FhirHelper:
             "identifier": [
                 {
                     "use": "usual",
-                    "type": {
-                        "coding": [
-                            {"system": "http://hl7.org/fhir/v2/0203", "code": "MR"}
-                        ]
-                    },
+                    "type": {"coding": [{"system": "http://hl7.org/fhir/v2/0203", "code": "MR"}]},
                     "system": "http://example.com",
                     "value": "12345",
                 }
@@ -56,7 +51,7 @@ class FhirHelper:
         }
         # add 1000 patients
         logger.info(f"Adding {count} patients")
-        patients: List[Dict[str, Any]] = []
+        patients: list[dict[str, Any]] = []
         for i in range(count):
             patient_new = copy.deepcopy(patient)
             patient_new["id"] = f"example-{i}"
@@ -85,9 +80,7 @@ class FhirHelper:
         return bundle
 
     @staticmethod
-    async def delete_resources_by_ids_async(
-        fhir_client: FhirClient, resource_type: str, id_list: List[str]
-    ) -> None:
+    async def delete_resources_by_ids_async(fhir_client: FhirClient, resource_type: str, id_list: list[str]) -> None:
         logger: Logger = logging.getLogger("FhirHelper.delete_resources_by_ids_async")
         count: int = len(id_list)
         logger.info(f"Deleting {count} {resource_type} resources: {id_list}")

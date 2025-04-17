@@ -48,9 +48,7 @@ async def test_staging_server_graph() -> None:
                                             "link": [
                                                 {
                                                     "path": "valueReference",
-                                                    "target": [
-                                                        {"type": "InsurancePlan"}
-                                                    ],
+                                                    "target": [{"type": "InsurancePlan"}],
                                                 }
                                             ]
                                         }
@@ -194,9 +192,7 @@ async def test_staging_server_graph() -> None:
         ]
     )
     fhir_client = fhir_client.additional_parameters(["contained=true"])
-    fhir_client = fhir_client.auth_server_url(
-        "https://staging-icanbwell.auth.us-east-1.amazoncognito.com/oauth2/token"
-    )
+    fhir_client = fhir_client.auth_server_url("https://staging-icanbwell.auth.us-east-1.amazoncognito.com/oauth2/token")
     fhir_client = fhir_client.auth_scopes(["user/*.read", "user/*.write", "access/*.*"])
     fhir_client = fhir_client.login_token("")
     fhir_client = fhir_client.client_credentials(client_id="", client_secret="")

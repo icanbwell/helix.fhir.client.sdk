@@ -1,5 +1,4 @@
 import dataclasses
-from typing import Optional
 
 
 @dataclasses.dataclass(slots=True)
@@ -10,7 +9,7 @@ class FhirScopeParserResult:
 
     """
 
-    resource_type: Optional[str] = None
-    operation: Optional[str] = None
-    interaction: Optional[str] = None
-    scope: Optional[str] = None
+    resource_type: str | None = None
+    operation: str | None = None
+    interaction: str | None = None
+    scope: str | None = None

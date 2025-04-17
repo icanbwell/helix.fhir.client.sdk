@@ -3,10 +3,11 @@ import aiohttp
 import pytest
 from aiohttp import ClientSession
 from aioresponses import aioresponses
-from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValidator
+
 from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
     FhirValidationException,
 )
+from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValidator
 
 
 @pytest.mark.asyncio
@@ -49,9 +50,7 @@ async def test_validate_fhir_resource_validation_error() -> None:
             m.post(
                 "http://validation-server.com/Patient/$validate",
                 status=200,
-                payload={
-                    "issue": [{"severity": "error", "details": "Validation error"}]
-                },
+                payload={"issue": [{"severity": "error", "details": "Validation error"}]},
                 headers={"X-Request-ID": "test-request-id"},
             )
 
@@ -67,7 +66,6 @@ async def test_validate_fhir_resource_validation_error() -> None:
 
 @pytest.mark.asyncio
 async def test_validate_fhir_resource_server_error() -> None:
-
     json_data = '{"resourceType": "Patient"}'
     resource_name = "Patient"
     validation_server_url = "http://validation-server.com"

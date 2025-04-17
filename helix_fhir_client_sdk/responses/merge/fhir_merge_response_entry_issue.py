@@ -1,27 +1,28 @@
 import dataclasses
 import json
-from typing import Optional, Any, Dict, List, override
+from typing import Any, override
+
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 
 from helix_fhir_client_sdk.responses.merge.base_fhir_merge_resource_response_entry import (
     BaseFhirMergeResourceResponseEntry,
-)
-from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
-    CompressedDictStorageMode,
 )
 
 
 @dataclasses.dataclass(kw_only=True, slots=True)
 class FhirMergeResponseEntryError(BaseFhirMergeResourceResponseEntry):
-    status: Optional[int]
-    issue: Optional[List[Dict[str, Any]]]
-    error: Optional[str]
-    token: Optional[str]
-    resource_type: Optional[str]
-    id_: Optional[str] = None
-    uuid: Optional[str] = None
+    status: int | None
+    issue: list[dict[str, Any]] | None
+    error: str | None
+    token: str | None
+    resource_type: str | None
+    id_: str | None = None
+    uuid: str | None = None
 
     @override
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id_": self.id_,
             "uuid": self.uuid,
@@ -32,7 +33,7 @@ class FhirMergeResponseEntryError(BaseFhirMergeResourceResponseEntry):
 
     @classmethod
     def from_dict(
-        cls, data: Dict[str, Any], *, storage_mode: CompressedDictStorageMode
+        cls, data: dict[str, Any], *, storage_mode: CompressedDictStorageMode
     ) -> "FhirMergeResponseEntryError":
         return FhirMergeResponseEntryError(
             id_=data.get("id"),
@@ -48,21 +49,14 @@ class FhirMergeResponseEntryError(BaseFhirMergeResourceResponseEntry):
     @override
     def from_json(
         cls, data: str, *, storage_mode: CompressedDictStorageMode
-    ) -> List[BaseFhirMergeResourceResponseEntry]:
+    ) -> list[BaseFhirMergeResourceResponseEntry]:
         if not data:
             return []
-        loaded_data: Dict[str, Any] | List[Dict[str, Any]] = json.loads(data)
+        loaded_data: dict[str, Any] | list[dict[str, Any]] = json.loads(data)
         if isinstance(loaded_data, list):
-            return [
-                FhirMergeResponseEntryError.from_dict(d, storage_mode=storage_mode)
-                for d in loaded_data
-            ]
+            return [FhirMergeResponseEntryError.from_dict(d, storage_mode=storage_mode) for d in loaded_data]
         else:
-            return [
-                FhirMergeResponseEntryError.from_dict(
-                    loaded_data, storage_mode=storage_mode
-                )
-            ]
+            return [FhirMergeResponseEntryError.from_dict(loaded_data, storage_mode=storage_mode)]
 
     def _repr__(self) -> str:
         return f"FhirMergeResponseEntryError({self.resource_type}/{self.id_}: {self.error})"

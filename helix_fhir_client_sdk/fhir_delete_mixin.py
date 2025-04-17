@@ -1,5 +1,4 @@
 import json
-from typing import Dict, Optional, List
 
 from furl import furl
 
@@ -35,12 +34,12 @@ class FhirDeleteMixin(FhirClientProtocol):
         full_uri /= id_list
         # setup retry
         # set up headers
-        headers: Dict[str, str] = {}
+        headers: dict[str, str] = {}
         headers.update(self._additional_request_headers)
         self._internal_logger.debug(f"Request headers: {headers}")
 
         access_token_result: GetAccessTokenResult = await self.get_access_token_async()
-        access_token: Optional[str] = access_token_result.access_token
+        access_token: str | None = access_token_result.access_token
         # set access token in request if present
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
@@ -58,9 +57,7 @@ class FhirDeleteMixin(FhirClientProtocol):
             access_token_expiry_date=self._access_token_expiry_date,
             tracer_request_func=self._trace_request_function,
         ) as client:
-            response: RetryableAioHttpResponse = await client.delete(
-                url=full_uri.tostr(), headers=headers
-            )
+            response: RetryableAioHttpResponse = await client.delete(url=full_uri.tostr(), headers=headers)
             request_id = response.response_headers.get("X-Request-ID", None)
             self._internal_logger.info(f"X-Request-ID={request_id}")
             if response.status == 200:
@@ -85,9 +82,7 @@ class FhirDeleteMixin(FhirClientProtocol):
         result: FhirDeleteResponse = AsyncRunner.run(self.delete_async())
         return result
 
-    async def delete_by_query_async(
-        self, *, additional_parameters: Optional[List[str]] = None
-    ) -> FhirDeleteResponse:
+    async def delete_by_query_async(self, *, additional_parameters: list[str] | None = None) -> FhirDeleteResponse:
         """
         Delete the resources using the specified query if any
 
@@ -108,12 +103,12 @@ class FhirDeleteMixin(FhirClientProtocol):
         )
         # setup retry
         # set up headers
-        headers: Dict[str, str] = {}
+        headers: dict[str, str] = {}
         headers.update(self._additional_request_headers)
         self._internal_logger.debug(f"Request headers: {headers}")
 
         access_token_result: GetAccessTokenResult = await self.get_access_token_async()
-        access_token: Optional[str] = access_token_result.access_token
+        access_token: str | None = access_token_result.access_token
         # set access token in request if present
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
@@ -131,16 +126,14 @@ class FhirDeleteMixin(FhirClientProtocol):
             access_token_expiry_date=self._access_token_expiry_date,
             tracer_request_func=self._trace_request_function,
         ) as client:
-            response: RetryableAioHttpResponse = await client.delete(
-                url=full_url, headers=headers
-            )
+            response: RetryableAioHttpResponse = await client.delete(url=full_url, headers=headers)
             request_id = response.response_headers.get("X-Request-ID", None)
             self._internal_logger.info(f"X-Request-ID={request_id}")
             if response.status == 200:
                 if self._logger:
                     self._logger.info(f"Successfully deleted: {full_uri}")
 
-            deleted_count: Optional[int] = None
+            deleted_count: int | None = None
             response_text = await response.get_text_async()
             if response_text and response_text.startswith("{"):
                 # '{"deleted":0}'

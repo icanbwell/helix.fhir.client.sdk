@@ -1,4 +1,4 @@
-from typing import Union, cast
+from typing import cast
 from urllib.parse import urlparse
 
 from furl import furl
@@ -6,7 +6,7 @@ from furl import furl
 
 class UrlChecker:
     @staticmethod
-    def is_absolute_url(*, url: Union[str, furl]) -> bool:
+    def is_absolute_url(*, url: str | furl) -> bool:
         """
         Determine if a URL is absolute or relative.
 
@@ -27,9 +27,7 @@ class UrlChecker:
         return bool(parsed_url.scheme)
 
     @staticmethod
-    def convert_relative_url_to_absolute_url(
-        *, base_url: str, relative_url: Union[str, furl]
-    ) -> str:
+    def convert_relative_url_to_absolute_url(*, base_url: str, relative_url: str | furl) -> str:
         """
         Convert a relative URL to an absolute URL using the provided base URL.
 

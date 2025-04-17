@@ -1,32 +1,26 @@
 import json
-from datetime import datetime, UTC
+from collections.abc import AsyncGenerator, Generator
+from datetime import UTC, datetime
 from typing import (
-    Dict,
     Any,
-    List,
-    AsyncGenerator,
-    Optional,
-    Union,
     override,
-    Generator,
 )
 
 import pytest
-
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
+from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from compressedfhir.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
 from compressedfhir.fhir.fhir_bundle_entry_response import (
     FhirBundleEntryResponse,
 )
-from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
+from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from compressedfhir.fhir.fhir_resource_map import FhirResourceMap
-from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 
+from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -43,23 +37,21 @@ class TestFhirGetResponse(FhirGetResponse):
     def __init__(
         self,
         *,
-        request_id: Optional[str],
+        request_id: str | None,
         url: str,
-        error: Optional[str],
-        access_token: Optional[str],
-        total_count: Optional[int],
+        error: str | None,
+        access_token: str | None,
+        total_count: int | None,
         status: int,
-        next_url: Optional[str] = None,
-        extra_context_to_return: Optional[Dict[str, Any]],
-        resource_type: Optional[str],
-        id_: Optional[Union[List[str], str]],
-        response_headers: Optional[
-            List[str]
-        ],  # header name and value separated by a colon
-        chunk_number: Optional[int] = None,
-        cache_hits: Optional[int] = None,
-        results_by_url: List[RetryableAioHttpUrlResult],
-        storage_mode: CompressedDictStorageMode
+        next_url: str | None = None,
+        extra_context_to_return: dict[str, Any] | None,
+        resource_type: str | None,
+        id_: list[str] | str | None,
+        response_headers: list[str] | None,  # header name and value separated by a colon
+        chunk_number: int | None = None,
+        cache_hits: int | None = None,
+        results_by_url: list[RetryableAioHttpUrlResult],
+        storage_mode: CompressedDictStorageMode,
     ) -> None:
         super().__init__(
             request_id=request_id,
@@ -84,7 +76,7 @@ class TestFhirGetResponse(FhirGetResponse):
         # Simple implementation for testing
         return self
 
-    def _extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
+    def _extend(self, others: list["FhirGetResponse"]) -> "FhirGetResponse":
         # Simple implementation for testing
         return self
 
@@ -134,21 +126,14 @@ class TestFhirGetResponse(FhirGetResponse):
             yield self._create_bundle_entry(resource=resource)
 
     def get_bundle_entries(self) -> FhirBundleEntryList:
-        return FhirBundleEntryList(
-            [
-                self._create_bundle_entry(resource=resource)
-                for resource in self._resources
-            ]
-        )
+        return FhirBundleEntryList([self._create_bundle_entry(resource=resource) for resource in self._resources])
 
     def remove_duplicates(self) -> "FhirGetResponse":
         # Simple implementation for testing
         return self
 
     @override
-    async def remove_entries_in_cache_async(
-        self, *, request_cache: RequestCache
-    ) -> "TestFhirGetResponse":
+    async def remove_entries_in_cache_async(self, *, request_cache: RequestCache) -> "TestFhirGetResponse":
         """
         Removes the entries in the cache
 
@@ -208,7 +193,7 @@ class TestFhirGetResponse(FhirGetResponse):
 
 class TestFhirGetResponseClass:
     @pytest.fixture
-    def sample_response_data(self) -> Dict[str, Any]:
+    def sample_response_data(self) -> dict[str, Any]:
         return {
             "request_id": "test-request-id",
             "url": "https://example.com/fhir",
@@ -230,7 +215,7 @@ class TestFhirGetResponseClass:
             "storage_mode": CompressedDictStorageMode(),
         }
 
-    def test_init(self, sample_response_data: Dict[str, Any]) -> None:
+    def test_init(self, sample_response_data: dict[str, Any]) -> None:
         """Test initialization of FhirGetResponse."""
         response = TestFhirGetResponse(**sample_response_data)
 
@@ -240,13 +225,13 @@ class TestFhirGetResponseClass:
         assert response.successful is True
 
     # noinspection PyPep8Naming
-    def test_lastModified(self, sample_response_data: Dict[str, Any]) -> None:
+    def test_lastModified(self, sample_response_data: dict[str, Any]) -> None:
         """Test lastModified property."""
         response = TestFhirGetResponse(**sample_response_data)
 
         assert response.lastModified == datetime(2023, 12, 1, 12, 0, 0, tzinfo=UTC)
 
-    def test_etag(self, sample_response_data: Dict[str, Any]) -> None:
+    def test_etag(self, sample_response_data: dict[str, Any]) -> None:
         """Test etag property."""
         response = TestFhirGetResponse(**sample_response_data)
 
@@ -255,7 +240,7 @@ class TestFhirGetResponseClass:
     def test_parse_json(self) -> None:
         """Test parse_json method."""
         # Test valid JSON
-        result: Dict[str, Any] | List[Dict[str, Any]] = FhirGetResponse.parse_json(
+        result: dict[str, Any] | list[dict[str, Any]] = FhirGetResponse.parse_json(
             '{"resourceType": "Patient", "id": "123"}'
         )
         assert isinstance(result, dict)
@@ -315,13 +300,11 @@ class TestFhirGetResponseClass:
             yield response1
             yield response2
 
-        result: FhirGetResponse | None = await TestFhirGetResponse.from_async_generator(
-            mock_generator()
-        )
+        result: FhirGetResponse | None = await TestFhirGetResponse.from_async_generator(mock_generator())
         assert result is not None
         assert result.request_id == "test2"  # Last response in the generator
 
-    def test_get_operation_outcomes(self, sample_response_data: Dict[str, Any]) -> None:
+    def test_get_operation_outcomes(self, sample_response_data: dict[str, Any]) -> None:
         """Test get_operation_outcomes method."""
         response = TestFhirGetResponse(**sample_response_data)
         response._resources = FhirResourceList(
@@ -341,9 +324,7 @@ class TestFhirGetResponseClass:
         assert len(outcomes) == 1
         assert outcomes[0]["resourceType"] == "OperationOutcome"
 
-    def test_get_resources_except_operation_outcomes(
-        self, sample_response_data: Dict[str, Any]
-    ) -> None:
+    def test_get_resources_except_operation_outcomes(self, sample_response_data: dict[str, Any]) -> None:
         """Test get_resources_except_operation_outcomes method."""
         response = TestFhirGetResponse(**sample_response_data)
         response._resources = FhirResourceList(
@@ -363,7 +344,7 @@ class TestFhirGetResponseClass:
         assert len(resources) == 1
         assert resources[0]["resourceType"] == "Patient"
 
-    def test_to_dict(self, sample_response_data: Dict[str, Any]) -> None:
+    def test_to_dict(self, sample_response_data: dict[str, Any]) -> None:
         """Test to_dict method."""
         response = TestFhirGetResponse(**sample_response_data)
         response_dict = response.to_dict()

@@ -1,5 +1,5 @@
 from pytest import mark
-from typing import List
+
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 
 
@@ -50,25 +50,9 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
     ],
     ids=["Patient Scopes", "User Scopes", "System Scopes", "Non-SMART on FHIR Scopes"],
 )
-def test_fhir_scope_parser_correct_allow(
-    scopes: List[str], expected: List[bool]
-) -> None:
+def test_fhir_scope_parser_correct_allow(scopes: list[str], expected: list[bool]) -> None:
     scope_parser: FhirScopeParser = FhirScopeParser(scopes)
-    assert (
-        scope_parser.scope_allows(resource_type="Patient", interaction="read")
-        is expected[0]
-    )
-    assert (
-        scope_parser.scope_allows(resource_type="Condition", interaction="read")
-        is expected[1]
-    )
-    assert (
-        scope_parser.scope_allows(
-            resource_type="MedicationDispense", interaction="read"
-        )
-        is expected[2]
-    )
-    assert (
-        scope_parser.scope_allows(resource_type="Patient", interaction="write")
-        is expected[3]
-    )
+    assert scope_parser.scope_allows(resource_type="Patient", interaction="read") is expected[0]
+    assert scope_parser.scope_allows(resource_type="Condition", interaction="read") is expected[1]
+    assert scope_parser.scope_allows(resource_type="MedicationDispense", interaction="read") is expected[2]
+    assert scope_parser.scope_allows(resource_type="Patient", interaction="write") is expected[3]

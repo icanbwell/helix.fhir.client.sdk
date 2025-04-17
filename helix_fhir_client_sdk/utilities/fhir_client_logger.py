@@ -1,10 +1,10 @@
 import threading
-from typing import Dict, Any
+from typing import Any
 
 
 class FhirClientLogger:
     @staticmethod
-    def get_variables_to_log(vars_dict: Dict[str, Any]) -> Dict[str, Any]:
+    def get_variables_to_log(vars_dict: dict[str, Any]) -> dict[str, Any]:
         """
         Method to return the variables which we need to log
 

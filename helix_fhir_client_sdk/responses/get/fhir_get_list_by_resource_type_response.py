@@ -1,29 +1,24 @@
 import json
+from collections.abc import AsyncGenerator, Generator
 from typing import (
-    Optional,
-    Dict,
     Any,
-    List,
-    Union,
     override,
-    AsyncGenerator,
-    Tuple,
-    Generator,
 )
 
 from compressedfhir.fhir.fhir_bundle_entry import (
     FhirBundleEntry,
 )
 from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
+from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from compressedfhir.fhir.fhir_resource_map import FhirResourceMap
-from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 from compressedfhir.utilities.fhir_json_encoder import FhirJSONEncoder
 
+from helix_fhir_client_sdk.exceptions.fhir_get_exception import FhirGetException
+from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -46,23 +41,21 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
     def __init__(
         self,
         *,
-        request_id: Optional[str],
+        request_id: str | None,
         url: str,
         resources: FhirResourceList,
-        error: Optional[str],
-        access_token: Optional[str],
-        total_count: Optional[int],
+        error: str | None,
+        access_token: str | None,
+        total_count: int | None,
         status: int,
-        next_url: Optional[str] = None,
-        extra_context_to_return: Optional[Dict[str, Any]],
-        resource_type: Optional[str],
-        id_: Optional[Union[List[str], str]],
-        response_headers: Optional[
-            List[str]
-        ],  # header name and value separated by a colon
-        chunk_number: Optional[int] = None,
-        cache_hits: Optional[int] = None,
-        results_by_url: List[RetryableAioHttpUrlResult],
+        next_url: str | None = None,
+        extra_context_to_return: dict[str, Any] | None,
+        resource_type: str | None,
+        id_: list[str] | str | None,
+        response_headers: list[str] | None,  # header name and value separated by a colon
+        chunk_number: int | None = None,
+        cache_hits: int | None = None,
+        results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
     ) -> None:
         super().__init__(
@@ -98,7 +91,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
         new_count: int = 0
 
-        resource_type: Optional[str]
+        resource_type: str | None
         if other_response.has_resource_map:
             resource_map: FhirResourceMap = other_response.get_resource_map()
             resource_list: FhirResourceList
@@ -121,7 +114,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return self
 
     @override
-    def _extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
+    def _extend(self, others: list["FhirGetResponse"]) -> "FhirGetResponse":
         """
         Append the responses from other to self
 
@@ -172,7 +165,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         )
 
     @classmethod
-    def _parse_resources(cls, *, responses: str) -> List[Dict[str, Any]]:
+    def _parse_resources(cls, *, responses: str) -> list[dict[str, Any]]:
         """
         Gets the resources from the response
 
@@ -181,13 +174,24 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         """
         try:
             # THis is either a list of resources or a Bundle resource containing a list of resources
-            child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
-                cls.parse_json(responses)
-            )
+            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(responses)
             assert isinstance(child_response_resources, list)
             return child_response_resources
         except Exception as e:
-            raise Exception(f"Could not get resources from: {responses}") from e
+            raise FhirGetException(
+                exception=e,
+                message="Error parsing response: " + responses + ": " + str(e) + " - this is not a valid FHIR response",
+                request_id=None,
+                url=None,
+                json_data=responses,
+                response_text=responses,
+                response_status_code=None,
+                headers=None,
+                variables={
+                    "responses": responses,
+                    "error": str(e),
+                },
+            ) from e
 
     @override
     def remove_duplicates(self) -> FhirGetResponse:
@@ -200,9 +204,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return self
 
     @override
-    async def remove_entries_in_cache_async(
-        self, *, request_cache: RequestCache
-    ) -> "FhirGetResponse":
+    async def remove_entries_in_cache_async(self, *, request_cache: RequestCache) -> "FhirGetResponse":
         """
         Removes the entries in the cache
 
@@ -264,9 +266,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return json.dumps(self._resource_map.dict(), cls=FhirJSONEncoder)
 
     @classmethod
-    def _parse_into_resource_map(
-        cls, resources: FhirResourceList
-    ) -> Tuple[int, FhirResourceMap]:
+    def _parse_into_resource_map(cls, resources: FhirResourceList) -> tuple[int, FhirResourceMap]:
         if isinstance(resources, FhirResourceMap):
             return resources.get_resource_count(), resources
 
@@ -347,7 +347,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         yield None
 
     @override
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Converts the object to a dictionary
 

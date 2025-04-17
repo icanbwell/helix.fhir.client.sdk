@@ -1,34 +1,27 @@
+from collections.abc import AsyncGenerator, Generator
 from datetime import datetime
 from typing import (
-    Optional,
-    Dict,
     Any,
-    List,
-    Union,
     cast,
     override,
-    Tuple,
-    AsyncGenerator,
-    Generator,
-    Set,
 )
 
 from compressedfhir.fhir.fhir_bundle import FhirBundle
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
+from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from compressedfhir.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
 from compressedfhir.fhir.fhir_bundle_entry_response import (
     FhirBundleEntryResponse,
 )
-from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
+from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from compressedfhir.fhir.fhir_resource_map import FhirResourceMap
-from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
-from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 
+from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
+from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -52,23 +45,21 @@ class FhirGetBundleResponse(FhirGetResponse):
     def __init__(
         self,
         *,
-        request_id: Optional[str],
+        request_id: str | None,
         url: str,
         response_text: str,
-        error: Optional[str],
-        access_token: Optional[str],
-        total_count: Optional[int],
+        error: str | None,
+        access_token: str | None,
+        total_count: int | None,
         status: int,
-        next_url: Optional[str] = None,
-        extra_context_to_return: Optional[Dict[str, Any]],
-        resource_type: Optional[str],
-        id_: Optional[Union[List[str], str]],
-        response_headers: Optional[
-            List[str]
-        ],  # header name and value separated by a colon
-        chunk_number: Optional[int] = None,
-        cache_hits: Optional[int] = None,
-        results_by_url: List[RetryableAioHttpUrlResult],
+        next_url: str | None = None,
+        extra_context_to_return: dict[str, Any] | None,
+        resource_type: str | None,
+        id_: list[str] | str | None,
+        response_headers: list[str] | None,  # header name and value separated by a colon
+        chunk_number: int | None = None,
+        cache_hits: int | None = None,
+        results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
     ) -> None:
         super().__init__(
@@ -132,7 +123,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         return self
 
     @override
-    def _extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
+    def _extend(self, others: list["FhirGetResponse"]) -> "FhirGetResponse":
         """
         Append the responses from other to self
 
@@ -153,9 +144,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         :return: list of resources
         """
 
-        return FhirResourceList(
-            c.resource for c in self._bundle_entries if c.resource is not None
-        )
+        return FhirResourceList(c.resource for c in self._bundle_entries if c.resource is not None)
 
     @override
     def get_resource_map(self) -> FhirResourceMap:
@@ -185,19 +174,19 @@ class FhirGetBundleResponse(FhirGetResponse):
         responses: str,
         url: str,
         status: int,
-        last_modified: Optional[datetime],
-        etag: Optional[str],
+        last_modified: datetime | None,
+        etag: str | None,
         storage_mode: CompressedDictStorageMode,
-    ) -> Tuple[FhirBundleEntryList, FhirBundle]:
+    ) -> tuple[FhirBundleEntryList, FhirBundle]:
         """
         Gets the Bundle entries from the response
 
 
         :return: list of bundle entries and a bundle with metadata but without any entries
         """
-        assert isinstance(
-            storage_mode, CompressedDictStorageMode
-        ), f"Expected CompressedDictStorageMode but got {type(storage_mode)}"
+        assert isinstance(storage_mode, CompressedDictStorageMode), (
+            f"Expected CompressedDictStorageMode but got {type(storage_mode)}"
+        )
 
         if not responses:
             return FhirBundleEntryList(), FhirBundle(
@@ -207,14 +196,10 @@ class FhirGetBundleResponse(FhirGetResponse):
             )
         try:
             # This is either a list of resources or a Bundle resource containing a list of resources
-            child_response_resources: Union[Dict[str, Any], List[Dict[str, Any]]] = (
-                cls.parse_json(responses)
-            )
+            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(responses)
             assert isinstance(child_response_resources, dict)
 
-            timestamp: Optional[str] = cast(
-                Optional[str], child_response_resources.get("timestamp")
-            )
+            timestamp: str | None = cast(str | None, child_response_resources.get("timestamp"))
             bundle: FhirBundle = FhirBundle(
                 id_=child_response_resources.get("id"),
                 timestamp=timestamp,
@@ -235,25 +220,19 @@ class FhirGetBundleResponse(FhirGetResponse):
 
             # otherwise it is a bundle so parse out the resources
             if "entry" in child_response_resources:
-                bundle_entries: List[Dict[str, Any]] = child_response_resources["entry"]
+                bundle_entries: list[dict[str, Any]] = child_response_resources["entry"]
                 for entry in bundle_entries:
                     result.append(
                         FhirBundleEntry(
                             resource=entry["resource"],
                             request=(
-                                FhirBundleEntryRequest.from_dict(
-                                    cast(Dict[str, Any], entry.get("request"))
-                                )
-                                if entry.get("request")
-                                and isinstance(entry.get("request"), dict)
+                                FhirBundleEntryRequest.from_dict(cast(dict[str, Any], entry.get("request")))
+                                if entry.get("request") and isinstance(entry.get("request"), dict)
                                 else request
                             ),
                             response=(
-                                FhirBundleEntryResponse.from_dict(
-                                    cast(Dict[str, Any], entry.get("response"))
-                                )
-                                if entry.get("response")
-                                and isinstance(entry.get("response"), dict)
+                                FhirBundleEntryResponse.from_dict(cast(dict[str, Any], entry.get("response")))
+                                if entry.get("response") and isinstance(entry.get("response"), dict)
                                 else response
                             ),
                             fullUrl=entry.get("fullUrl"),
@@ -294,23 +273,17 @@ class FhirGetBundleResponse(FhirGetResponse):
         bundle: FhirBundle = self.create_bundle()
         try:
             # remove duplicates from the list if they have the same resourceType and id
-            resource_type_plus_id_seen: Set[str] = set()
-            entry_request_url_seen: Set[str] = set()
+            resource_type_plus_id_seen: set[str] = set()
+            entry_request_url_seen: set[str] = set()
             i = 0
             while i < len(self._bundle_entries):
                 if self._bundle_entries[i] is not None:
                     # Create a tuple of values for specified keys
                     resource = self._bundle_entries[i].resource
-                    resource_id: Optional[str] = (
-                        resource.id if resource is not None else None
-                    )
-                    resource_type_plus_id: Optional[str] = (
-                        resource.resource_type_and_id if resource is not None else None
-                    )
+                    resource_id: str | None = resource.id if resource is not None else None
+                    resource_type_plus_id: str | None = resource.resource_type_and_id if resource is not None else None
                     request = self._bundle_entries[i].request
-                    entry_request_url: Optional[str] = (
-                        request.url if request is not None else None
-                    )
+                    entry_request_url: str | None = request.url if request is not None else None
 
                     if resource_id is None and entry_request_url is not None:
                         # check only the entry request url if the resource has no id
@@ -331,9 +304,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             raise Exception(f"Could not get parse json from: {bundle}") from e
 
     @override
-    async def remove_entries_in_cache_async(
-        self, *, request_cache: RequestCache
-    ) -> "FhirGetBundleResponse":
+    async def remove_entries_in_cache_async(self, *, request_cache: RequestCache) -> "FhirGetBundleResponse":
         """
         Removes the entries in the cache from the bundle
 
@@ -346,8 +317,7 @@ class FhirGetBundleResponse(FhirGetResponse):
                 for entry in self._bundle_entries:
                     if (
                         entry.resource
-                        and entry.resource.id
-                        is not None  # only remove if resource has an id
+                        and entry.resource.id is not None  # only remove if resource has an id
                         and entry.resource.id == cached_entry.id_
                         and entry.resource.resource_type == cached_entry.resource_type
                     ):
@@ -358,9 +328,7 @@ class FhirGetBundleResponse(FhirGetResponse):
 
     @classmethod
     @override
-    def from_response(
-        cls, other_response: "FhirGetResponse"
-    ) -> "FhirGetBundleResponse":
+    def from_response(cls, other_response: "FhirGetResponse") -> "FhirGetBundleResponse":
         """
         Creates a new FhirGetBundleResponse from another FhirGetResponse
 
@@ -412,9 +380,7 @@ class FhirGetBundleResponse(FhirGetResponse):
     def sort_resources(self) -> "FhirGetBundleResponse":
         bundle: FhirBundle = self.create_bundle()
         bundle = FhirBundleAppender.sort_resources(bundle=bundle)
-        self._bundle_entries = (
-            FhirBundleEntryList(bundle.entry) if bundle.entry else FhirBundleEntryList()
-        )
+        self._bundle_entries = FhirBundleEntryList(bundle.entry) if bundle.entry else FhirBundleEntryList()
         return self
 
     @override
@@ -444,7 +410,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             yield self._bundle_entries.popleft()
 
     @override
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Converts the object to a dictionary
 
@@ -474,8 +440,4 @@ class FhirGetBundleResponse(FhirGetResponse):
         return len(self._bundle_entries)
 
     def __repr__(self) -> str:
-        return (
-            f"FhirGetBundleResponse(request_id={self.request_id}"
-            f", url={self.url}"
-            f", count={self.get_resource_count()}"
-        )
+        return f"FhirGetBundleResponse(request_id={self.request_id}, url={self.url}, count={self.get_resource_count()}"

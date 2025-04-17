@@ -1,4 +1,4 @@
-from typing import Generator
+from collections.abc import Generator
 
 from helix_fhir_client_sdk.utilities.list_chunker import ListChunker
 
@@ -27,8 +27,7 @@ def test_divide_into_chunks() -> None:
 def test_divide_generator_into_chunks() -> None:
     # Helper function to create a generator
     def generator() -> Generator[int, None, None]:
-        for i in range(1, 6):
-            yield i
+        yield from range(1, 6)
 
     # Test with a normal generator and a valid chunk size
     gen = generator()

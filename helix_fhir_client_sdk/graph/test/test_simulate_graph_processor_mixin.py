@@ -1,21 +1,21 @@
 import asyncio
 import json
 import logging
-from logging import Logger
-from typing import Dict, Any, Optional, cast, Callable, Awaitable
+from collections.abc import Awaitable, Callable
 from datetime import datetime
+from logging import Logger
+from typing import Any, cast
 
 import aiohttp
 import pytest
-from aioresponses import aioresponses, CallbackResult
-
+from aioresponses import CallbackResult, aioresponses
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
+
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.function_types import RefreshTokenResult
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
     SimulatedGraphProcessorMixin,
 )
-from logging import Logger
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from tests.logger_for_test import LoggerForTest
 
@@ -36,22 +36,20 @@ class TestGraphProcessor(FhirClient):
         return aiohttp.ClientSession()
 
 
-def get_graph_processor(*, max_concurrent_requests: Optional[int] = None) -> FhirClient:
+def get_graph_processor(*, max_concurrent_requests: int | None = None) -> FhirClient:
     """
     Fixture to create an instance of the SimulatedGraphProcessorMixin class.
     """
     processor: FhirClient = TestGraphProcessor()
-    processor = cast(
-        FhirClient, processor.set_max_concurrent_requests(max_concurrent_requests)
-    )
+    processor = cast(FhirClient, processor.set_max_concurrent_requests(max_concurrent_requests))
     return processor
 
 
 def get_payload_function(
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     delay: int = 0,
     status: int = 200,
-    match_access_token: Optional[str] = None,
+    match_access_token: str | None = None,
 ) -> Callable[[str, Any], Awaitable[CallbackResult]]:
     """
     This function returns a function that will return a delayed response with the given payload.
@@ -69,21 +67,13 @@ def get_payload_function(
         logger.setLevel(logging.INFO)
         logger.info(f"Mock Request Received: {url}")
         if match_access_token:
-            access_token = (
-                kwargs.get("headers", {})
-                .get("Authorization", "")
-                .replace("Bearer ", "")
-            )
+            access_token = kwargs.get("headers", {}).get("Authorization", "").replace("Bearer ", "")
             if access_token != match_access_token:
                 await asyncio.sleep(delay)  # 2 second delay
                 return CallbackResult(
                     status=401,
                     headers={},
-                    body=json.dumps(
-                        {
-                            "error": f"Unauthorized: Unexpected access token: {access_token}"
-                        }
-                    ),
+                    body=json.dumps({"error": f"Unauthorized: Unexpected access token: {access_token}"}),
                 )
 
         await asyncio.sleep(delay)  # 2 second delay
@@ -105,11 +95,9 @@ async def test_process_simulate_graph_async() -> None:
 
     logger: Logger = LoggerForTest()
 
-    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
-        max_concurrent_requests=1
-    )
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
 
-    graph_json: Dict[str, Any] = {
+    graph_json: dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
         "resourceType": "GraphDefinition",
@@ -155,11 +143,9 @@ async def test_simulate_graph_async() -> None:
     Test the simulate_graph_async method.
     """
 
-    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
-        max_concurrent_requests=1
-    )
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
 
-    graph_json: Dict[str, Any] = {
+    graph_json: dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
         "resourceType": "GraphDefinition",
@@ -197,13 +183,11 @@ async def test_graph_definition_with_single_link() -> None:
     Test GraphDefinition with a single link.
     """
 
-    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
-        max_concurrent_requests=1
-    )
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
 
     logger: Logger = LoggerForTest()
 
-    graph_json: Dict[str, Any] = {
+    graph_json: dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
         "resourceType": "GraphDefinition",
@@ -258,13 +242,11 @@ async def test_graph_definition_with_nested_links() -> None:
     Test GraphDefinition with nested links.
     """
 
-    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
-        max_concurrent_requests=1
-    )
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
 
     logger: Logger = LoggerForTest()
 
-    graph_json: Dict[str, Any] = {
+    graph_json: dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
         "resourceType": "GraphDefinition",
@@ -332,9 +314,7 @@ async def test_graph_definition_with_nested_links() -> None:
         resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
-        assert (
-            len(resources) == 3
-        ), f"Expected 3 resources, got {len(resources)}: {resources}"
+        assert len(resources) == 3, f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
@@ -348,13 +328,11 @@ async def test_graph_definition_with_multiple_links() -> None:
     """
     Test GraphDefinition with multiple targets.
     """
-    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
-        max_concurrent_requests=1
-    )
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
 
     logger: Logger = LoggerForTest()
 
-    graph_json: Dict[str, Any] = {
+    graph_json: dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
         "resourceType": "GraphDefinition",
@@ -413,9 +391,7 @@ async def test_graph_definition_with_multiple_links() -> None:
         assert len(response) == 1
         resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
-        assert (
-            len(resources) == 3
-        ), f"Expected 3 resources, got {len(resources)}: {resources}"
+        assert len(resources) == 3, f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
@@ -429,13 +405,11 @@ async def test_graph_definition_with_multiple_targets() -> None:
     """
     Test GraphDefinition with multiple targets.
     """
-    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
-        max_concurrent_requests=1
-    )
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
 
     logger: Logger = LoggerForTest()
 
-    graph_json: Dict[str, Any] = {
+    graph_json: dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
         "resourceType": "GraphDefinition",
@@ -491,9 +465,7 @@ async def test_graph_definition_with_multiple_targets() -> None:
         resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
-        assert (
-            len(resources) == 3
-        ), f"Expected 3 resources, got {len(resources)}: {resources}"
+        assert len(resources) == 3, f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
@@ -507,13 +479,11 @@ async def test_graph_definition_with_no_links() -> None:
     """
     Test GraphDefinition with no links (only the start resource).
     """
-    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
-        max_concurrent_requests=1
-    )
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
 
     logger: Logger = LoggerForTest()
 
-    graph_json: Dict[str, Any] = {
+    graph_json: dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
         "resourceType": "GraphDefinition",
@@ -561,13 +531,11 @@ async def test_process_simulate_graph_async_multiple_patients() -> None:
     """
     Test processing of multiple patients.
     """
-    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
-        max_concurrent_requests=1
-    )
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
 
     logger: Logger = LoggerForTest()
 
-    graph_json: Dict[str, Any] = {
+    graph_json: dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
         "resourceType": "GraphDefinition",
@@ -612,17 +580,11 @@ async def test_process_simulate_graph_async_multiple_patients() -> None:
         resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
-        patient = [
-            r for r in resources if r["resourceType"] == "Patient" and r["id"] == "1"
-        ][0]
+        patient = [r for r in resources if r["resourceType"] == "Patient" and r["id"] == "1"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "1"}
-        patient = [
-            r for r in resources if r["resourceType"] == "Patient" and r["id"] == "2"
-        ][0]
+        patient = [r for r in resources if r["resourceType"] == "Patient" and r["id"] == "2"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "2"}
-        patient = [
-            r for r in resources if r["resourceType"] == "Patient" and r["id"] == "3"
-        ][0]
+        patient = [r for r in resources if r["resourceType"] == "Patient" and r["id"] == "3"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "3"}
 
 
@@ -631,13 +593,11 @@ async def test_graph_definition_with_multiple_links_concurrent_requests() -> Non
     """
     Test GraphDefinition with multiple targets.
     """
-    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
-        max_concurrent_requests=3
-    )
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=3)
 
     logger: Logger = LoggerForTest()
 
-    graph_json: Dict[str, Any] = {
+    graph_json: dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
         "resourceType": "GraphDefinition",
@@ -697,9 +657,7 @@ async def test_graph_definition_with_multiple_links_concurrent_requests() -> Non
         resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
-        assert (
-            len(resources) == 3
-        ), f"Expected 3 resources, got {len(resources)}: {resources}"
+        assert len(resources) == 3, f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
@@ -713,13 +671,11 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests() -> N
     """
     Test GraphDefinition with multiple targets.
     """
-    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
-        max_concurrent_requests=3
-    )
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=3)
 
     logger: Logger = LoggerForTest()
 
-    graph_json: Dict[str, Any] = {
+    graph_json: dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
         "resourceType": "GraphDefinition",
@@ -775,9 +731,7 @@ async def test_graph_definition_with_multiple_targets_concurrent_requests() -> N
         resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
-        assert (
-            len(resources) == 3
-        ), f"Expected 3 resources, got {len(resources)}: {resources}"
+        assert len(resources) == 3, f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "1"}
         observation = [r for r in resources if r["resourceType"] == "Observation"][0]
@@ -791,13 +745,11 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
     """
     Test GraphDefinition with multiple targets.
     """
-    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(
-        max_concurrent_requests=3
-    )
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=3)
 
     logger: Logger = LoggerForTest()
 
-    graph_json: Dict[str, Any] = {
+    graph_json: dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
         "resourceType": "GraphDefinition",
@@ -844,18 +796,14 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
                             "resource": {
                                 "resourceType": "Encounter",
                                 "id": "8",
-                                "participant": [
-                                    {"individual": {"reference": "Practitioner/12345"}}
-                                ],
+                                "participant": [{"individual": {"reference": "Practitioner/12345"}}],
                             }
                         },
                         {
                             "resource": {
                                 "resourceType": "Encounter",
                                 "id": "10",
-                                "participant": [
-                                    {"individual": {"reference": "Practitioner/12345"}}
-                                ],
+                                "participant": [{"individual": {"reference": "Practitioner/12345"}}],
                             }
                         },
                     ]
@@ -865,9 +813,7 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
 
         m.get(
             "http://example.com/fhir/Practitioner/12345",
-            callback=get_payload_function(
-                {"resourceType": "Practitioner", "id": "12345"}
-            ),
+            callback=get_payload_function({"resourceType": "Practitioner", "id": "12345"}),
         )
 
         async_gen = graph_processor.process_simulate_graph_async(
@@ -899,22 +845,16 @@ async def test_graph_definition_with_nested_links_concurrent_requests() -> None:
         resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
-        assert (
-            len(resources) == 4
-        ), f"Expected 3 resources, got {len(resources)}: {resources}"
+        assert len(resources) == 4, f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "1"}
-        encounter = [
-            r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "8"
-        ][0]
+        encounter = [r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "8"][0]
         assert encounter.dict() == {
             "resourceType": "Encounter",
             "id": "8",
             "participant": [{"individual": {"reference": "Practitioner/12345"}}],
         }
-        encounter = [
-            r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "10"
-        ][0]
+        encounter = [r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "10"][0]
         assert encounter.dict() == {
             "resourceType": "Encounter",
             "id": "10",
@@ -940,19 +880,17 @@ async def test_process_simulate_graph_401_patient_only_async() -> None:
 
     # noinspection PyUnusedLocal
     async def my_refresh_token_function(
-        url: Optional[str],
-        status_code: Optional[int],
-        current_token: Optional[str],
-        expiry_date: Optional[datetime],
-        retry_count: Optional[int],
+        url: str | None,
+        status_code: int | None,
+        current_token: str | None,
+        expiry_date: datetime | None,
+        retry_count: int | None,
     ) -> RefreshTokenResult:
-        return RefreshTokenResult(
-            access_token="new_access_token", expiry_date=None, abort_request=False
-        )
+        return RefreshTokenResult(access_token="new_access_token", expiry_date=None, abort_request=False)
 
     graph_processor.refresh_token_function(my_refresh_token_function)
 
-    graph_json: Dict[str, Any] = {
+    graph_json: dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
         "resourceType": "GraphDefinition",
@@ -1045,21 +983,19 @@ async def test_graph_definition_with_single_link_401() -> None:
 
     # noinspection PyUnusedLocal
     async def my_refresh_token_function(
-        url: Optional[str],
-        status_code: Optional[int],
-        current_token: Optional[str],
-        expiry_date: Optional[datetime],
-        retry_count: Optional[int],
+        url: str | None,
+        status_code: int | None,
+        current_token: str | None,
+        expiry_date: datetime | None,
+        retry_count: int | None,
     ) -> RefreshTokenResult:
-        return RefreshTokenResult(
-            access_token="new_access_token", expiry_date=None, abort_request=False
-        )
+        return RefreshTokenResult(access_token="new_access_token", expiry_date=None, abort_request=False)
 
     graph_processor.refresh_token_function(my_refresh_token_function)
 
     logger: Logger = LoggerForTest()
 
-    graph_json: Dict[str, Any] = {
+    graph_json: dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
         "resourceType": "GraphDefinition",
@@ -1169,21 +1105,19 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
 
     # noinspection PyUnusedLocal
     async def my_refresh_token_function(
-        url: Optional[str],
-        status_code: Optional[int],
-        current_token: Optional[str],
-        expiry_date: Optional[datetime],
-        retry_count: Optional[int],
+        url: str | None,
+        status_code: int | None,
+        current_token: str | None,
+        expiry_date: datetime | None,
+        retry_count: int | None,
     ) -> RefreshTokenResult:
-        return RefreshTokenResult(
-            access_token="new_access_token", expiry_date=None, abort_request=False
-        )
+        return RefreshTokenResult(access_token="new_access_token", expiry_date=None, abort_request=False)
 
     graph_processor.refresh_token_function(my_refresh_token_function)
 
     logger: Logger = LoggerForTest()
 
-    graph_json: Dict[str, Any] = {
+    graph_json: dict[str, Any] = {
         "id": "1",
         "name": "Test Graph",
         "resourceType": "GraphDefinition",
@@ -1259,18 +1193,14 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
                             "resource": {
                                 "resourceType": "Encounter",
                                 "id": "8",
-                                "participant": [
-                                    {"individual": {"reference": "Practitioner/12345"}}
-                                ],
+                                "participant": [{"individual": {"reference": "Practitioner/12345"}}],
                             }
                         },
                         {
                             "resource": {
                                 "resourceType": "Encounter",
                                 "id": "10",
-                                "participant": [
-                                    {"individual": {"reference": "Practitioner/12345"}}
-                                ],
+                                "participant": [{"individual": {"reference": "Practitioner/12345"}}],
                             }
                         },
                     ]
@@ -1316,22 +1246,16 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
         resources: FhirResourceList = response[0].get_resources()
         assert isinstance(resources, FhirResourceList)
 
-        assert (
-            len(resources) == 4
-        ), f"Expected 3 resources, got {len(resources)}: {resources}"
+        assert len(resources) == 4, f"Expected 3 resources, got {len(resources)}: {resources}"
         patient = [r for r in resources if r["resourceType"] == "Patient"][0]
         assert patient.dict() == {"resourceType": "Patient", "id": "1"}
-        encounter = [
-            r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "8"
-        ][0]
+        encounter = [r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "8"][0]
         assert encounter.dict() == {
             "resourceType": "Encounter",
             "id": "8",
             "participant": [{"individual": {"reference": "Practitioner/12345"}}],
         }
-        encounter = [
-            r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "10"
-        ][0]
+        encounter = [r for r in resources if r["resourceType"] == "Encounter" and r["id"] == "10"][0]
         assert encounter.dict() == {
             "resourceType": "Encounter",
             "id": "10",

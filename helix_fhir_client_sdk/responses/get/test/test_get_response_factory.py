@@ -1,8 +1,12 @@
 import json
-from typing import Dict, Any
+from typing import Any
 
 import pytest
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 
+from helix_fhir_client_sdk.exceptions.fhir_get_exception import FhirGetException
 from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
@@ -18,14 +22,11 @@ from helix_fhir_client_sdk.responses.get.fhir_get_response_factory import (
 from helix_fhir_client_sdk.responses.get.fhir_get_single_response import (
     FhirGetSingleResponse,
 )
-from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
-    CompressedDictStorageMode,
-)
 
 
 class TestFhirGetResponseFactory:
     @pytest.fixture
-    def default_params(self) -> Dict[str, Any]:
+    def default_params(self) -> dict[str, Any]:
         """Provide default parameters for creating responses."""
         return {
             "request_id": "test-request",
@@ -45,7 +46,7 @@ class TestFhirGetResponseFactory:
             "create_operation_outcome_for_error": False,
         }
 
-    def test_create_error_response(self, default_params: Dict[str, Any]) -> None:
+    def test_create_error_response(self, default_params: dict[str, Any]) -> None:
         """Test creating an error response."""
         params = default_params.copy()
         params.update(
@@ -62,7 +63,7 @@ class TestFhirGetResponseFactory:
         assert response.status == 404
         assert response.error == "Resource not found"
 
-    def test_create_list_response(self, default_params: Dict[str, Any]) -> None:
+    def test_create_list_response(self, default_params: dict[str, Any]) -> None:
         """Test creating a list response."""
         params = default_params.copy()
         params.update(
@@ -82,7 +83,7 @@ class TestFhirGetResponseFactory:
         assert isinstance(response, FhirGetListResponse)
         assert response.status == 200
 
-    def test_create_bundle_response(self, default_params: Dict[str, Any]) -> None:
+    def test_create_bundle_response(self, default_params: dict[str, Any]) -> None:
         """Test creating a bundle response."""
         params = default_params.copy()
         params.update(
@@ -106,17 +107,13 @@ class TestFhirGetResponseFactory:
         assert isinstance(response, FhirGetBundleResponse)
         assert response.status == 200
 
-    def test_create_single_resource_response(
-        self, default_params: Dict[str, Any]
-    ) -> None:
+    def test_create_single_resource_response(self, default_params: dict[str, Any]) -> None:
         """Test creating a single resource response."""
         params = default_params.copy()
         params.update(
             {
                 "status": 200,
-                "response_text": json.dumps(
-                    {"resourceType": "Patient", "id": "123", "name": "John Doe"}
-                ),
+                "response_text": json.dumps({"resourceType": "Patient", "id": "123", "name": "John Doe"}),
             }
         )
 
@@ -125,19 +122,15 @@ class TestFhirGetResponseFactory:
         assert isinstance(response, FhirGetSingleResponse)
         assert response.status == 200
 
-    def test_create_response_with_none_resources(
-        self, default_params: Dict[str, Any]
-    ) -> None:
+    def test_create_response_with_none_resources(self, default_params: dict[str, Any]) -> None:
         """Test creating a response with None resources."""
         params = default_params.copy()
         params.update({"status": 200, "response_text": json.dumps(None)})
 
-        with pytest.raises(Exception):  # Adjust the specific exception as needed
+        with pytest.raises(FhirGetException):  # Adjust the specific exception as needed
             FhirGetResponseFactory.create(**params)
 
-    def test_create_response_with_invalid_json(
-        self, default_params: Dict[str, Any]
-    ) -> None:
+    def test_create_response_with_invalid_json(self, default_params: dict[str, Any]) -> None:
         """Test creating a response with invalid JSON."""
         params = default_params.copy()
         params.update({"status": 200, "response_text": "invalid json"})
@@ -146,9 +139,7 @@ class TestFhirGetResponseFactory:
         # should return an error response
         assert isinstance(response, FhirGetErrorResponse)
 
-    def test_create_response_with_optional_parameters(
-        self, default_params: Dict[str, Any]
-    ) -> None:
+    def test_create_response_with_optional_parameters(self, default_params: dict[str, Any]) -> None:
         """Test creating a response with all optional parameters."""
         params = default_params.copy()
         params.update(

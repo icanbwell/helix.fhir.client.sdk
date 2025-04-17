@@ -1,9 +1,9 @@
-from typing import Dict, Any, List
+from typing import Any
 
 
 class PractitionerGenerator:
     @staticmethod
-    def generate_practitioner(*, practitioner_id: int) -> Dict[str, Any]:
+    def generate_practitioner(*, practitioner_id: int) -> dict[str, Any]:
         return {
             "resourceType": "Practitioner",
             "id": f"practitioner-{practitioner_id}",
@@ -23,7 +23,7 @@ class PractitionerGenerator:
         }
 
     @staticmethod
-    def generate_organization(*, organization_id: int) -> Dict[str, Any]:
+    def generate_organization(*, organization_id: int) -> dict[str, Any]:
         return {
             "resourceType": "Organization",
             "meta": {
@@ -38,9 +38,7 @@ class PractitionerGenerator:
         }
 
     @staticmethod
-    def generate_practitioner_role(
-        *, practitioner_id: int, organization_id: int, role_id: str
-    ) -> Dict[str, Any]:
+    def generate_practitioner_role(*, practitioner_id: int, organization_id: int, role_id: str) -> dict[str, Any]:
         return {
             "resourceType": "PractitionerRole",
             "id": f"role-{role_id}",
@@ -51,12 +49,8 @@ class PractitionerGenerator:
                     {"system": "https://www.icanbwell.com/owner", "code": "bwell"},
                 ],
             },
-            "practitioner": {
-                "reference": f"Practitioner/practitioner-{practitioner_id}"
-            },
-            "organization": {
-                "reference": f"Organization/organization-{organization_id}"
-            },
+            "practitioner": {"reference": f"Practitioner/practitioner-{practitioner_id}"},
+            "organization": {"reference": f"Organization/organization-{organization_id}"},
             "code": [
                 {
                     "coding": [
@@ -71,20 +65,14 @@ class PractitionerGenerator:
         }
 
     @staticmethod
-    def generate_resources_bundle(
-        *, count: int, roles_per_practitioner: int
-    ) -> Dict[str, Any]:
+    def generate_resources_bundle(*, count: int, roles_per_practitioner: int) -> dict[str, Any]:
         practitioners = []
         organizations = []
         practitioner_roles = []
 
         for i in range(0, count):
-            practitioners.append(
-                PractitionerGenerator.generate_practitioner(practitioner_id=i)
-            )
-            organizations.append(
-                PractitionerGenerator.generate_organization(organization_id=i)
-            )
+            practitioners.append(PractitionerGenerator.generate_practitioner(practitioner_id=i))
+            organizations.append(PractitionerGenerator.generate_organization(organization_id=i))
             for j in range(1, roles_per_practitioner):
                 practitioner_roles.append(
                     PractitionerGenerator.generate_practitioner_role(
@@ -95,20 +83,13 @@ class PractitionerGenerator:
         return {
             "resourceType": "Bundle",
             "type": "transaction",
-            "entry": [
-                {"resource": r}
-                for r in practitioners + organizations + practitioner_roles
-            ],
+            "entry": [{"resource": r} for r in practitioners + organizations + practitioner_roles],
         }
 
     @staticmethod
-    def get_ids(*, count: int, roles_per_practitioner: int) -> Dict[str, List[str]]:
+    def get_ids(*, count: int, roles_per_practitioner: int) -> dict[str, list[str]]:
         return {
             "Practitioner": [f"practitioner-{i}" for i in range(0, count)],
             "Organization": [f"organization-{i}" for i in range(0, count)],
-            "PractitionerRole": [
-                f"role-{i}-{j}"
-                for j in range(0, roles_per_practitioner)
-                for i in range(1, count)
-            ],
+            "PractitionerRole": [f"role-{i}-{j}" for j in range(0, roles_per_practitioner) for i in range(1, count)],
         }

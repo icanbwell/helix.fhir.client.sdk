@@ -1,18 +1,19 @@
 import json
-from typing import List, Any, Dict
+from logging import Logger
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
+
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
 
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
 )
-from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
-    CompressedDictStorageMode,
-)
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
-from logging import Logger
 
 
 async def test_handle_response_200_non_streaming_separate_bundle() -> None:
@@ -31,7 +32,7 @@ async def test_handle_response_200_non_streaming_separate_bundle() -> None:
     id_ = "mock_id"
     url = "http://example.com"
 
-    bundle: Dict[str, Any] = {
+    bundle: dict[str, Any] = {
         "resourceType": "Bundle",
         "total": 2,
         "entry": [
@@ -52,7 +53,7 @@ async def test_handle_response_200_non_streaming_separate_bundle() -> None:
     response.results_by_url = []
     response.get_text_async = AsyncMock(return_value=json.dumps(bundle))
 
-    result: List[FhirGetResponse] = [
+    result: list[FhirGetResponse] = [
         r
         async for r in FhirResponseProcessor._handle_response_200_non_streaming(
             access_token=access_token,
@@ -73,22 +74,6 @@ async def test_handle_response_200_non_streaming_separate_bundle() -> None:
             storage_mode=CompressedDictStorageMode(),
             create_operation_outcome_for_error=False,
         )
-    ]
-
-    expected_resources = [
-        {
-            "practitioner": [{"resourceType": "Practitioner", "id": "1"}],
-            "practitionerrole": [{"resourceType": "PractitionerRole", "id": "2"}],
-            "token": "mock_access_token",
-            "url": "http://example.com",
-            "extra_key": "extra_value",
-        },
-        {
-            "practitioner": [{"resourceType": "Practitioner", "id": "3"}],
-            "token": "mock_access_token",
-            "url": "http://example.com",
-            "extra_key": "extra_value",
-        },
     ]
 
     expected_result = {

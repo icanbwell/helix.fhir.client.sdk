@@ -1,4 +1,5 @@
-from typing import List, Optional, Dict, Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any, Optional
 
 
 class FhirMergeResponse:
@@ -20,11 +21,11 @@ class FhirMergeResponse:
     def __init__(
         self,
         *,
-        request_id: Optional[str],
+        request_id: str | None,
         url: str,
-        responses: List[Dict[str, Any]],
-        error: Optional[str],
-        access_token: Optional[str],
+        responses: list[dict[str, Any]],
+        error: str | None,
+        access_token: str | None,
         status: int,
         json_data: str,
     ) -> None:
@@ -36,11 +37,11 @@ class FhirMergeResponse:
         :param error: Any error returned by FHIR server
         :param access_token: access token that was used
         """
-        self.request_id: Optional[str] = request_id
+        self.request_id: str | None = request_id
         self.url: str = url
-        self.responses: List[Dict[str, Any]] = responses
-        self.error: Optional[str] = error
-        self.access_token: Optional[str] = access_token
+        self.responses: list[dict[str, Any]] = responses
+        self.error: str | None = error
+        self.access_token: str | None = access_token
         self.status: int = status
         self.data: str = json_data
         self.successful: bool = status != 200
@@ -76,7 +77,7 @@ class FhirMergeResponse:
         assert result
         return result
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Converts the FhirMergeResponse to a dictionary
 

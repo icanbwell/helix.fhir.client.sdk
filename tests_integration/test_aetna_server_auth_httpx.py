@@ -1,5 +1,4 @@
 from logging import Logger
-from typing import Dict
 
 import httpx
 import pytest
@@ -14,7 +13,7 @@ async def test_aetna_server_auth_httpx() -> None:
     url = "https://vteapif1.aetna.com/fhirdemo/v1/patientaccess/Patient/1234567890123456701"
 
     # payload = {}
-    headers: Dict[str, str] = {
+    headers: dict[str, str] = {
         "Host": "vteapif1.aetna.com",
         "accept": "*/*",
         "user-agent": "curl/7.79.1",

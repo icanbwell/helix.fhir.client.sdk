@@ -3,7 +3,7 @@ import traceback
 from typing import Any
 
 
-class FhirSenderException(Exception):
+class FhirGetException(Exception):
     """
     Custom exception for FHIR sender operations that preserves the original
     exception's call stack and provides detailed error context.

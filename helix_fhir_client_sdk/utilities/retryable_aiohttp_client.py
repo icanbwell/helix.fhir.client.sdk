@@ -1,10 +1,11 @@
 import asyncio
 import time
-from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List, Callable, Type, Union, cast
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import async_timeout
-from aiohttp import ClientResponse, ClientError, ClientResponseError, ClientSession
+from aiohttp import ClientError, ClientResponse, ClientResponseError, ClientSession
 from multidict import MultiMapping
 
 from helix_fhir_client_sdk.function_types import (
@@ -25,51 +26,45 @@ class RetryableAioHttpClient:
         self,
         *,
         retries: int = 3,
-        timeout_in_seconds: Optional[float] = None,
+        timeout_in_seconds: float | None = None,
         backoff_factor: float = 0.5,
-        retry_status_codes: Optional[List[int]] = None,
-        refresh_token_func: Optional[RefreshTokenFunction],
-        tracer_request_func: Optional[TraceRequestFunction],
-        fn_get_session: Optional[Callable[[], ClientSession]] = None,
-        exclude_status_codes_from_retry: List[int] | None = None,
-        use_data_streaming: Optional[bool],
-        compress: Optional[bool] = False,
-        send_data_as_chunked: Optional[bool] = None,
+        retry_status_codes: list[int] | None = None,
+        refresh_token_func: RefreshTokenFunction | None,
+        tracer_request_func: TraceRequestFunction | None,
+        fn_get_session: Callable[[], ClientSession] | None = None,
+        exclude_status_codes_from_retry: list[int] | None = None,
+        use_data_streaming: bool | None,
+        compress: bool | None = False,
+        send_data_as_chunked: bool | None = None,
         throw_exception_on_error: bool = True,
         log_all_url_results: bool = False,
-        access_token: Optional[str],
-        access_token_expiry_date: Optional[datetime],
+        access_token: str | None,
+        access_token_expiry_date: datetime | None,
     ) -> None:
         """
         RetryableClient provides a way to make HTTP calls with automatic retry and automatic refreshing of access tokens
 
         """
         self.retries: int = retries
-        self.timeout_in_seconds: Optional[float] = timeout_in_seconds
+        self.timeout_in_seconds: float | None = timeout_in_seconds
         self.backoff_factor: float = backoff_factor
-        self.retry_status_codes: Optional[List[int]] = (
-            retry_status_codes
-            if retry_status_codes is not None
-            else [500, 502, 503, 504]
+        self.retry_status_codes: list[int] | None = (
+            retry_status_codes if retry_status_codes is not None else [500, 502, 503, 504]
         )
-        self.refresh_token_func_async: Optional[RefreshTokenFunction] = (
-            refresh_token_func
-        )
-        self.trace_function_async: Optional[TraceRequestFunction] = tracer_request_func
+        self.refresh_token_func_async: RefreshTokenFunction | None = refresh_token_func
+        self.trace_function_async: TraceRequestFunction | None = tracer_request_func
         self.fn_get_session: Callable[[], ClientSession] = (
             fn_get_session if fn_get_session is not None else lambda: ClientSession()
         )
-        self.exclude_status_codes_from_retry: List[int] | None = (
-            exclude_status_codes_from_retry
-        )
-        self.use_data_streaming: Optional[bool] = use_data_streaming
-        self.send_data_as_chunked: Optional[bool] = send_data_as_chunked
-        self.compress: Optional[bool] = compress
-        self.session: Optional[ClientSession] = None
+        self.exclude_status_codes_from_retry: list[int] | None = exclude_status_codes_from_retry
+        self.use_data_streaming: bool | None = use_data_streaming
+        self.send_data_as_chunked: bool | None = send_data_as_chunked
+        self.compress: bool | None = compress
+        self.session: ClientSession | None = None
         self._throw_exception_on_error: bool = throw_exception_on_error
         self.log_all_url_results: bool = log_all_url_results
-        self.access_token: Optional[str] = access_token
-        self.access_token_expiry_date: Optional[datetime] = access_token_expiry_date
+        self.access_token: str | None = access_token
+        self.access_token_expiry_date: datetime | None = access_token_expiry_date
 
     async def __aenter__(self) -> "RetryableAioHttpClient":
         self.session = self.fn_get_session()
@@ -77,26 +72,22 @@ class RetryableAioHttpClient:
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[Union[Type[BaseException], None]],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: type[BaseException] | None | None,
     ) -> None:
         if self.session is not None:
             await self.session.close()
 
     @staticmethod
-    async def get_safe_response_text_async(
-        *, response: Optional[ClientResponse]
-    ) -> str:
+    async def get_safe_response_text_async(*, response: ClientResponse | None) -> str:
         """
         This method is responsible for getting the response text from the response object.
 
         :param response: The response object from the FHIR server.
         """
         try:
-            return (
-                await response.text() if (response and response.status != 504) else ""
-            )
+            return await response.text() if (response and response.status != 504) else ""
         except Exception as e:
             return str(e)
 
@@ -105,13 +96,13 @@ class RetryableAioHttpClient:
         *,
         url: str,
         method: str = "GET",
-        headers: Dict[str, str] | None,
+        headers: dict[str, str] | None,
         **kwargs: Any,
     ) -> RetryableAioHttpResponse:
         retry_attempts: int = -1
-        results_by_url: List[RetryableAioHttpUrlResult] = []
-        access_token: Optional[str] = self.access_token
-        expiry_date: Optional[datetime] = self.access_token_expiry_date
+        results_by_url: list[RetryableAioHttpUrlResult] = []
+        access_token: str | None = self.access_token
+        expiry_date: datetime | None = self.access_token_expiry_date
 
         # run with retry
         while retry_attempts < self.retries:
@@ -148,16 +139,13 @@ class RetryableAioHttpClient:
                                 end_time=time.time(),
                             )
                         )
-                    response_headers: Dict[str, str] = {
-                        k: ",".join(response.headers.getall(k))
-                        for k in response.headers.keys()
+                    response_headers: dict[str, str] = {
+                        k: ",".join(response.headers.getall(k)) for k in response.headers.keys()
                     }
-                    response_headers_multi_mapping: MultiMapping[str] = cast(
-                        MultiMapping[str], response.headers
-                    )
+                    response_headers_multi_mapping: MultiMapping[str] = cast(MultiMapping[str], response.headers)
 
                     if self.trace_function_async:
-                        request_headers: Dict[str, str] = {
+                        request_headers: dict[str, str] = {
                             k: ",".join(response.request_info.headers.getall(k))
                             for k in response.request_info.headers.keys()
                         }
@@ -181,9 +169,7 @@ class RetryableAioHttpClient:
                             status=response.status,
                             response_headers=response_headers,
                             response_text=(
-                                await self.get_safe_response_text_async(
-                                    response=response
-                                )
+                                await self.get_safe_response_text_async(response=response)
                                 if not self.use_data_streaming
                                 else ""
                             ),
@@ -195,16 +181,13 @@ class RetryableAioHttpClient:
                             retry_count=retry_attempts,
                         )
                     elif (
-                        self.exclude_status_codes_from_retry
-                        and response.status in self.exclude_status_codes_from_retry
+                        self.exclude_status_codes_from_retry and response.status in self.exclude_status_codes_from_retry
                     ):
                         return RetryableAioHttpResponse(
                             ok=response.ok,
                             status=response.status,
                             response_headers=response_headers,
-                            response_text=await self.get_safe_response_text_async(
-                                response=response
-                            ),
+                            response_text=await self.get_safe_response_text_async(response=response),
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
                             results_by_url=results_by_url,
@@ -217,9 +200,7 @@ class RetryableAioHttpClient:
                             ok=response.ok,
                             status=response.status,
                             response_headers=response_headers,
-                            response_text=await self.get_safe_response_text_async(
-                                response=response
-                            ),
+                            response_text=await self.get_safe_response_text_async(response=response),
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
                             results_by_url=results_by_url,
@@ -232,9 +213,7 @@ class RetryableAioHttpClient:
                             ok=response.ok,
                             status=response.status,
                             response_headers=response_headers,
-                            response_text=await self.get_safe_response_text_async(
-                                response=response
-                            ),
+                            response_text=await self.get_safe_response_text_async(response=response),
                             content=response.content,
                             use_data_streaming=self.use_data_streaming,
                             results_by_url=results_by_url,
@@ -244,10 +223,7 @@ class RetryableAioHttpClient:
                         )
                     elif response.status == 429:
                         await self._handle_429(response=response, full_url=url)
-                    elif (
-                        self.retry_status_codes
-                        and response.status in self.retry_status_codes
-                    ):
+                    elif self.retry_status_codes and response.status in self.retry_status_codes:
                         raise ClientResponseError(
                             status=response.status,
                             message="Retryable status code received",
@@ -257,19 +233,14 @@ class RetryableAioHttpClient:
                         )
                     elif response.status == 401 and self.refresh_token_func_async:
                         # Call the token refresh function if status code is 401
-                        refresh_token_result: RefreshTokenResult = (
-                            await self.refresh_token_func_async(
-                                current_token=access_token,
-                                expiry_date=expiry_date,
-                                url=url,
-                                status_code=response.status,
-                                retry_count=retry_attempts,
-                            )
+                        refresh_token_result: RefreshTokenResult = await self.refresh_token_func_async(
+                            current_token=access_token,
+                            expiry_date=expiry_date,
+                            url=url,
+                            status_code=response.status,
+                            retry_count=retry_attempts,
                         )
-                        if (
-                            refresh_token_result.abort_request
-                            or refresh_token_result.access_token is None
-                        ):
+                        if refresh_token_result.abort_request or refresh_token_result.access_token is None:
                             return RetryableAioHttpResponse(
                                 ok=False,
                                 status=401,
@@ -296,9 +267,7 @@ class RetryableAioHttpClient:
                                     history=response.history,
                                     request_info=response.request_info,
                                 )
-                            await asyncio.sleep(
-                                self.backoff_factor * (2 ** (retry_attempts - 1))
-                            )
+                            await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
                     else:
                         if self._throw_exception_on_error:
                             raise ClientResponseError(
@@ -313,9 +282,7 @@ class RetryableAioHttpClient:
                                 ok=response.ok,
                                 status=response.status,
                                 response_headers=response_headers,
-                                response_text=await self.get_safe_response_text_async(
-                                    response=response
-                                ),
+                                response_text=await self.get_safe_response_text_async(response=response),
                                 content=response.content,
                                 use_data_streaming=self.use_data_streaming,
                                 results_by_url=results_by_url,
@@ -323,7 +290,7 @@ class RetryableAioHttpClient:
                                 access_token_expiry_date=expiry_date,
                                 retry_count=retry_attempts,
                             )
-            except (ClientError, asyncio.TimeoutError) as e:
+            except (TimeoutError, ClientError, ClientResponseError) as e:
                 if retry_attempts >= self.retries:
                     if self._throw_exception_on_error:
                         raise
@@ -361,18 +328,16 @@ class RetryableAioHttpClient:
         # Raise an exception if all retries fail
         raise Exception("All retries failed")
 
-    async def get(
-        self, *, url: str, headers: Optional[Dict[str, str]] = None, **kwargs: Any
-    ) -> RetryableAioHttpResponse:
+    async def get(self, *, url: str, headers: dict[str, str] | None = None, **kwargs: Any) -> RetryableAioHttpResponse:
         return await self.fetch(url=url, method="GET", headers=headers, **kwargs)
 
     async def post(
         self,
         *,
         url: str,
-        headers: Optional[Dict[str, str]],
-        data: Optional[str] = None,
-        json: Optional[Dict[str, Any]] = None,
+        headers: dict[str, str] | None,
+        data: str | None = None,
+        json: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> RetryableAioHttpResponse:
         if data is not None:
@@ -385,9 +350,9 @@ class RetryableAioHttpClient:
         self,
         *,
         url: str,
-        headers: Optional[Dict[str, str]],
-        data: Optional[str] = None,
-        json: Optional[Dict[str, Any]] = None,
+        headers: dict[str, str] | None,
+        data: str | None = None,
+        json: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> RetryableAioHttpResponse:
         if data is not None:
@@ -400,9 +365,9 @@ class RetryableAioHttpClient:
         self,
         *,
         url: str,
-        headers: Optional[Dict[str, str]],
-        data: Optional[str] = None,
-        json: Optional[Dict[str, Any]] = None,
+        headers: dict[str, str] | None,
+        data: str | None = None,
+        json: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> RetryableAioHttpResponse:
         if data is not None:
@@ -411,9 +376,7 @@ class RetryableAioHttpClient:
             kwargs["json"] = json
         return await self.fetch(url=url, method="PUT", headers=headers, **kwargs)
 
-    async def delete(
-        self, *, headers: Optional[Dict[str, str]], url: str, **kwargs: Any
-    ) -> RetryableAioHttpResponse:
+    async def delete(self, *, headers: dict[str, str] | None, url: str, **kwargs: Any) -> RetryableAioHttpResponse:
         return await self.fetch(url=url, headers=headers, method="DELETE", **kwargs)
 
     @staticmethod
@@ -428,14 +391,12 @@ class RetryableAioHttpClient:
                 if retry_after_text.isnumeric():  # it is number of seconds
                     await asyncio.sleep(int(retry_after_text))
                 else:
-                    wait_till: datetime = datetime.strptime(
-                        retry_after_text, "%a, %d %b %Y %H:%M:%S GMT"
-                    )
+                    wait_till: datetime = datetime.strptime(retry_after_text, "%a, %d %b %Y %H:%M:%S GMT")
                     # Ensure the parsed time is in UTC
-                    wait_till = wait_till.replace(tzinfo=timezone.utc)
+                    wait_till = wait_till.replace(tzinfo=UTC)
 
                     # Calculate the time difference
-                    time_diff = (wait_till - datetime.now(timezone.utc)).total_seconds()
+                    time_diff = (wait_till - datetime.now(UTC)).total_seconds()
 
                     # If the time difference is positive, sleep for that amount of time
                     if time_diff > 0:

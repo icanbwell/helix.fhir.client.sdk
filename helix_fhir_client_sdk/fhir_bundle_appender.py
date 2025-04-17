@@ -1,20 +1,22 @@
 import json
+from collections.abc import Callable
 from datetime import datetime
-from typing import List, Optional, Dict, Any, Callable
+from typing import Any
 
 from compressedfhir.fhir.fhir_bundle import FhirBundle
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
+from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from compressedfhir.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
 from compressedfhir.fhir.fhir_bundle_entry_response import (
     FhirBundleEntryResponse,
 )
-from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
-from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
+
+from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
 
 class FhirBundleAppender:
@@ -27,7 +29,7 @@ class FhirBundleAppender:
     @staticmethod
     def append_responses(
         *,
-        responses: List[FhirGetResponse],
+        responses: list[FhirGetResponse],
         bundle: FhirBundle,
         storage_mode: CompressedDictStorageMode,
     ) -> FhirBundle:
@@ -43,10 +45,8 @@ class FhirBundleAppender:
         response: FhirGetResponse
         bundle_entries: FhirBundleEntryList = FhirBundleEntryList()
         for response in responses:
-            bundle_entries_for_response: FhirBundleEntryList = (
-                FhirBundleAppender.add_operation_outcomes_to_response(
-                    response=response, storage_mode=storage_mode
-                )
+            bundle_entries_for_response: FhirBundleEntryList = FhirBundleAppender.add_operation_outcomes_to_response(
+                response=response, storage_mode=storage_mode
             )
             bundle_entries.extend(bundle_entries_for_response)
 
@@ -77,16 +77,16 @@ class FhirBundleAppender:
     def add_operation_outcomes_to_bundle_entries(
         *,
         bundle_entries: FhirBundleEntryList,
-        error: Optional[str],
+        error: str | None,
         url: str,
-        resource_type: Optional[str],
-        id_: Optional[str | List[str]],
+        resource_type: str | None,
+        id_: str | list[str] | None,
         status: int,
-        access_token: Optional[str],
-        extra_context_to_return: Optional[Dict[str, Any]],
-        request_id: Optional[str],
-        last_modified: Optional[datetime],
-        etag: Optional[str],
+        access_token: str | None,
+        extra_context_to_return: dict[str, Any] | None,
+        request_id: str | None,
+        last_modified: datetime | None,
+        etag: str | None,
         storage_mode: CompressedDictStorageMode,
     ) -> FhirBundleEntryList:
         """
@@ -105,44 +105,35 @@ class FhirBundleAppender:
         :param etag: The etag of the resource
         :param storage_mode: The storage mode to use for the bundle entries
         """
-        diagnostics_coding: List[Dict[str, Any]] = (
-            FhirBundleAppender.get_diagnostic_coding(
-                access_token=access_token,
-                url=url,
-                resource_type=resource_type,
-                id_=id_,
-                status=status,
-            )
+        diagnostics_coding: list[dict[str, Any]] = FhirBundleAppender.get_diagnostic_coding(
+            access_token=access_token,
+            url=url,
+            resource_type=resource_type,
+            id_=id_,
+            status=status,
         )
 
         bundle_entry: FhirBundleEntry
         for bundle_entry in bundle_entries:
-            if (
-                bundle_entry.resource
-                and bundle_entry.resource.resource_type == "OperationOutcome"
-            ):
+            if bundle_entry.resource and bundle_entry.resource.resource_type == "OperationOutcome":
                 # This is an OperationOutcome resource so we need to add the diagnostics to it
-                bundle_entry.resource = (
-                    FhirBundle.add_diagnostics_to_operation_outcomes(
-                        resource=bundle_entry.resource,
-                        diagnostics_coding=diagnostics_coding,
-                    )
+                bundle_entry.resource = FhirBundle.add_diagnostics_to_operation_outcomes(
+                    resource=bundle_entry.resource,
+                    diagnostics_coding=diagnostics_coding,
                 )
 
         # now add a bundle entry for errors
         if error and len(bundle_entries) == 0:
-            operation_outcome: FhirResource = (
-                FhirBundleAppender.create_operation_outcome_resource(
-                    error=error,
-                    url=url,
-                    resource_type=resource_type,
-                    id_=id_,
-                    status=status,
-                    access_token=access_token,
-                    extra_context_to_return=extra_context_to_return,
-                    request_id=request_id,
-                    storage_mode=storage_mode,
-                )
+            operation_outcome: FhirResource = FhirBundleAppender.create_operation_outcome_resource(
+                error=error,
+                url=url,
+                resource_type=resource_type,
+                id_=id_,
+                status=status,
+                access_token=access_token,
+                extra_context_to_return=extra_context_to_return,
+                request_id=request_id,
+                storage_mode=storage_mode,
             )
             bundle_entries.append(
                 FhirBundleEntry(
@@ -161,24 +152,22 @@ class FhirBundleAppender:
     @staticmethod
     def create_operation_outcome_resource(
         *,
-        error: Optional[str],
+        error: str | None,
         url: str,
-        resource_type: Optional[str],
-        id_: Optional[str | List[str]],
+        resource_type: str | None,
+        id_: str | list[str] | None,
         status: int,
-        access_token: Optional[str],
-        extra_context_to_return: Optional[Dict[str, Any]],
-        request_id: Optional[str],
+        access_token: str | None,
+        extra_context_to_return: dict[str, Any] | None,
+        request_id: str | None,
         storage_mode: CompressedDictStorageMode,
     ) -> FhirResource:
-        diagnostics_coding: List[Dict[str, Any]] = (
-            FhirBundleAppender.get_diagnostic_coding(
-                access_token=access_token,
-                url=url,
-                resource_type=resource_type,
-                id_=id_,
-                status=status,
-            )
+        diagnostics_coding: list[dict[str, Any]] = FhirBundleAppender.get_diagnostic_coding(
+            access_token=access_token,
+            url=url,
+            resource_type=resource_type,
+            id_=id_,
+            status=status,
         )
         return FhirResource(
             initial_dict={
@@ -186,11 +175,7 @@ class FhirBundleAppender:
                 "issue": [
                     {
                         "severity": "error",
-                        "code": (
-                            "expired"
-                            if status == 401
-                            else ("not-found" if status == 404 else "exception")
-                        ),
+                        "code": ("expired" if status == 401 else ("not-found" if status == 404 else "exception")),
                         "details": {"coding": diagnostics_coding},
                         "diagnostics": json.dumps(
                             {
@@ -213,13 +198,13 @@ class FhirBundleAppender:
     @staticmethod
     def get_diagnostic_coding(
         *,
-        url: Optional[str],
-        resource_type: Optional[str],
-        id_: Optional[str | List[str]],
+        url: str | None,
+        resource_type: str | None,
+        id_: str | list[str] | None,
         status: int,
-        access_token: Optional[str],
-    ) -> List[Dict[str, Any]]:
-        diagnostics_coding_nullable: List[Optional[Dict[str, Any]]] = [
+        access_token: str | None,
+    ) -> list[dict[str, Any]]:
+        diagnostics_coding_nullable: list[dict[str, Any] | None] = [
             (
                 {
                     "system": "https://www.icanbwell.com/url",
@@ -257,9 +242,7 @@ class FhirBundleAppender:
                 else None
             ),
         ]
-        diagnostics_coding: List[Dict[str, Any]] = [
-            c for c in diagnostics_coding_nullable if c is not None
-        ]
+        diagnostics_coding: list[dict[str, Any]] = [c for c in diagnostics_coding_nullable if c is not None]
         return diagnostics_coding
 
     @staticmethod
@@ -275,17 +258,13 @@ class FhirBundleAppender:
         bundle_entries: FhirBundleEntryList = bundle.entry
         unique_bundle_entries: FhirBundleEntryList = FhirBundleEntryList(
             {
-                f'{e.resource["resourceType"]}/{e.resource["id"]}': e
+                f"{e.resource['resourceType']}/{e.resource['id']}": e
                 for e in bundle_entries
                 if e.resource and e.resource.resource_type and e.resource.id
             }.values()
         )
         null_id_bundle_entries: FhirBundleEntryList = FhirBundleEntryList(
-            [
-                e
-                for e in bundle_entries
-                if not e.resource or not e.resource.resource_type
-            ]
+            [e for e in bundle_entries if not e.resource or not e.resource.resource_type]
         )
         unique_bundle_entries.extend(null_id_bundle_entries)
         bundle.entry = unique_bundle_entries
@@ -293,9 +272,7 @@ class FhirBundleAppender:
         return bundle
 
     @staticmethod
-    def sort_resources(
-        *, bundle: FhirBundle, fn_sort: Callable[[FhirBundleEntry], str] | None = None
-    ) -> FhirBundle:
+    def sort_resources(*, bundle: FhirBundle, fn_sort: Callable[[FhirBundleEntry], str] | None = None) -> FhirBundle:
         """
         Sorts the resources in the bundle
 
@@ -304,12 +281,14 @@ class FhirBundleAppender:
         """
         if not bundle.entry:
             return bundle
+
+        def my_sort(
+            e: FhirBundleEntry,
+        ) -> str:
+            return (e.resource.get("resourceType", "") + "/" + e.resource.get("id", "")) if e.resource else ""
+
         if not fn_sort:
-            fn_sort = lambda e: (
-                (e.resource.get("resourceType", "") + "/" + e.resource.get("id", ""))
-                if e.resource
-                else ""
-            )
+            fn_sort = my_sort
         bundle.entry = FhirBundleEntryList(
             sorted(
                 bundle.entry,
@@ -333,10 +312,13 @@ class FhirBundleAppender:
         if not resources:
             return resources
 
+        def my_sort(
+            r: FhirResource,
+        ) -> str:
+            return (r.get("resourceType", "") + "/" + r.get("id", "")) if r else ""
+
         if not fn_sort:
-            fn_sort = lambda r: (
-                (r.get("resourceType", "") + "/" + r.get("id", "")) if r else ""
-            )
+            fn_sort = my_sort
 
         return FhirResourceList(
             sorted(

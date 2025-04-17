@@ -1,5 +1,4 @@
 from pytest import mark
-from typing import List, Optional
 
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.fhir_scope_parser_result import (
@@ -179,9 +178,7 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser_result import (
                     interaction=None,
                     scope="offline_access",
                 ),
-                FhirScopeParserResult(
-                    resource_type=None, operation=None, interaction=None, scope="openid"
-                ),
+                FhirScopeParserResult(resource_type=None, operation=None, interaction=None, scope="openid"),
                 FhirScopeParserResult(
                     resource_type=None,
                     operation=None,
@@ -265,9 +262,7 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser_result import (
                     interaction=None,
                     scope="offline_access",
                 ),
-                FhirScopeParserResult(
-                    resource_type=None, operation=None, interaction=None, scope="openid"
-                ),
+                FhirScopeParserResult(resource_type=None, operation=None, interaction=None, scope="openid"),
                 FhirScopeParserResult(
                     resource_type=None,
                     operation=None,
@@ -286,9 +281,7 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser_result import (
     ],
     ids=["Patient Scopes", "User Scopes", "System Scopes", "Non-Smart on FHIR Scopes"],
 )
-def test_fhir_scope_parser_can_parse_scopes(
-    scopes: List[str], expected: Optional[List[FhirScopeParserResult]]
-) -> None:
+def test_fhir_scope_parser_can_parse_scopes(scopes: list[str], expected: list[FhirScopeParserResult] | None) -> None:
     scope_parser: FhirScopeParser = FhirScopeParser(scopes)
     if expected is None:
         assert scope_parser.parsed_scopes is expected
@@ -332,14 +325,10 @@ def test_fhir_scope_parser_can_parse_scopes(
     ],
     ids=["Patient Scopes", "User Scopes", "System Scopes", "Non-Smart on FHIR Scopes"],
 )
-def test_fhir_scope_parser_launch_patient_parsing(
-    scopes: List[str], expected: bool
-) -> None:
+def test_fhir_scope_parser_launch_patient_parsing(scopes: list[str], expected: bool) -> None:
     no_patient_scope_parser: FhirScopeParser = FhirScopeParser(scopes)
     assert no_patient_scope_parser.parsed_scopes is not None
     assert (
-        FhirScopeParserResult(
-            resource_type="launch", operation=None, interaction="patient", scope=None
-        )
+        FhirScopeParserResult(resource_type="launch", operation=None, interaction="patient", scope=None)
         in no_patient_scope_parser.parsed_scopes
     ) is expected

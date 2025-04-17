@@ -1,20 +1,21 @@
 # noinspection Mypy
 
-from setuptools import setup, find_packages
-from os import path, getcwd
+from os import getcwd, path
+
+from setuptools import find_packages, setup
 
 # from https://packaging.python.org/tutorials/packaging-projects/
 
 # noinspection SpellCheckingInspection
 package_name = "helix.fhir.client.sdk"
 
-with open("README.md", "r") as fh:
+with open("README.md") as fh:
     long_description = fh.read()
 
 try:
     with open(path.join(getcwd(), "VERSION")) as version_file:
         version = version_file.read().strip()
-except IOError:
+except OSError:
     raise
 
 
@@ -39,7 +40,7 @@ setup(
         "aiohttp",
         "async-timeout>=4.0.3",
         "python-dateutil",
-        "compressedfhir>=1.0.2",
+        "compressedfhir>=1.0.3",
     ],
     classifiers=[
         "Development Status :: 4 - Beta",

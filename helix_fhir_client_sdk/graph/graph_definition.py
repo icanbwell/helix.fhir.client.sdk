@@ -1,4 +1,4 @@
-from typing import List, Any, Dict, Optional
+from typing import Any
 
 
 class GraphDefinitionTarget:
@@ -8,8 +8,8 @@ class GraphDefinitionTarget:
         self,
         *,
         type_: str,
-        params: Optional[str] = None,
-        link: Optional[List["GraphDefinitionLink"]] = None
+        params: str | None = None,
+        link: list["GraphDefinitionLink"] | None = None,
     ) -> None:
         """
         Create a target for a link
@@ -19,11 +19,11 @@ class GraphDefinitionTarget:
         :param link: Nested for additional links to children of this child resource
         """
         self.type_: str = type_
-        self.params: Optional[str] = params
-        self.link: Optional[List["GraphDefinitionLink"]] = link
+        self.params: str | None = params
+        self.link: list[GraphDefinitionLink] | None = link
 
-    def to_dict(self) -> Dict[str, Any]:
-        my_dict: Dict[str, Any] = {"type": self.type_}
+    def to_dict(self) -> dict[str, Any]:
+        my_dict: dict[str, Any] = {"type": self.type_}
         if self.params:
             my_dict["params"] = self.params
         if self.link:
@@ -31,23 +31,18 @@ class GraphDefinitionTarget:
         return my_dict
 
     @classmethod
-    def from_dict(cls, dictionary: Dict[str, Any]) -> "GraphDefinitionTarget":
+    def from_dict(cls, dictionary: dict[str, Any]) -> "GraphDefinitionTarget":
         type_ = dictionary.get("type")
         assert type_
         return GraphDefinitionTarget(
             type_=type_,
             params=dictionary.get("params"),
-            link=[
-                GraphDefinitionLink.from_dict(link)
-                for link in dictionary.get("link", [])
-            ],
+            link=[GraphDefinitionLink.from_dict(link) for link in dictionary.get("link", [])],
         )
 
 
 class GraphDefinitionLink:
-    def __init__(
-        self, *, path: Optional[str] = None, target: List[GraphDefinitionTarget]
-    ):
+    def __init__(self, *, path: str | None = None, target: list[GraphDefinitionTarget]):
         """
         Create a link to another resource
 
@@ -55,35 +50,28 @@ class GraphDefinitionLink:
                         to this related resource
         :param target: list of targeted resources.
         """
-        self.path: Optional[str] = path
-        self.target: List[GraphDefinitionTarget] = target
+        self.path: str | None = path
+        self.target: list[GraphDefinitionTarget] = target
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Returns this object as a dictionary
         """
-        my_dict: Dict[str, Any] = {
-            "target": [target.to_dict() for target in self.target]
-        }
+        my_dict: dict[str, Any] = {"target": [target.to_dict() for target in self.target]}
         if self.path:
             my_dict["path"] = self.path
         return my_dict
 
     @classmethod
-    def from_dict(cls, dictionary: Dict[str, Any]) -> "GraphDefinitionLink":
+    def from_dict(cls, dictionary: dict[str, Any]) -> "GraphDefinitionLink":
         return GraphDefinitionLink(
             path=dictionary.get("path"),
-            target=[
-                GraphDefinitionTarget.from_dict(target)
-                for target in dictionary.get("target", [])
-            ],
+            target=[GraphDefinitionTarget.from_dict(target) for target in dictionary.get("target", [])],
         )
 
 
 class GraphDefinition:
-    def __init__(
-        self, *, id_: str, name: str, start: str, link: List[GraphDefinitionLink]
-    ):
+    def __init__(self, *, id_: str, name: str, start: str, link: list[GraphDefinitionLink]):
         """
         Creates a GraphDefinition object to use in a $graph call
 
@@ -95,13 +83,13 @@ class GraphDefinition:
         self.id_: str = id_
         self.name: str = name
         self.start: str = start
-        self.link: List[GraphDefinitionLink] = link
+        self.link: list[GraphDefinitionLink] = link
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Returns this object as a dictionary
         """
-        my_dict: Dict[str, Any] = {
+        my_dict: dict[str, Any] = {
             "resourceType": self.resourceType,
             "id": self.id_,
             "name": self.name,
@@ -112,7 +100,7 @@ class GraphDefinition:
         return my_dict
 
     @classmethod
-    def from_dict(cls, dictionary: Dict[str, Any]) -> "GraphDefinition":
+    def from_dict(cls, dictionary: dict[str, Any]) -> "GraphDefinition":
         id_ = dictionary.get("id")
         assert id_
         name = dictionary.get("name")
@@ -123,8 +111,5 @@ class GraphDefinition:
             id_=id_,
             name=name,
             start=start,
-            link=[
-                GraphDefinitionLink.from_dict(link)
-                for link in dictionary.get("link", [])
-            ],
+            link=[GraphDefinitionLink.from_dict(link) for link in dictionary.get("link", [])],
         )

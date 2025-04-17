@@ -1,4 +1,4 @@
-from typing import List, Any, Dict, Union
+from typing import Any
 
 
 class DictionaryParser:
@@ -6,7 +6,7 @@ class DictionaryParser:
         pass
 
     @staticmethod
-    def flatten(my_list: List[Any]) -> List[Any]:
+    def flatten(my_list: list[Any]) -> list[Any]:
         """
 
         :param my_list:
@@ -14,7 +14,7 @@ class DictionaryParser:
         """
         if not my_list:
             return my_list
-        flat_list: List[Any] = []
+        flat_list: list[Any] = []
         for element in my_list:
             if isinstance(element, list):
                 flat_list.extend(DictionaryParser.flatten(element))
@@ -23,9 +23,7 @@ class DictionaryParser:
         return flat_list
 
     @staticmethod
-    def get_nested_property(
-        parent: Dict[str, Any], path: str
-    ) -> Union[List[Dict[str, Any]], Dict[str, Any], str, None]:
+    def get_nested_property(parent: dict[str, Any], path: str) -> list[dict[str, Any]] | dict[str, Any] | str | None:
         """
         Iterate through each part of the path.
         Using path to drill down into the parent dictionary, return the value(s) for the last element in path.
@@ -41,8 +39,8 @@ class DictionaryParser:
         if parent is None:
             return None
 
-        parts: List[str] = path.split(".")
-        result: Union[List[Dict[str, Any]], Dict[str, Any], None] = parent
+        parts: list[str] = path.split(".")
+        result: list[dict[str, Any]] | dict[str, Any] | None = parent
 
         for part in parts:
             # tried a .get earlier, and it was None - exit function
@@ -54,11 +52,7 @@ class DictionaryParser:
             # Iterate through the list, try a .get(part) on each iteration for part (remove the [x] first),
             # and create a new list of the values in result
             elif part.endswith("[x]") and isinstance(result, list):
-                result = [
-                    value
-                    for result_entry in result
-                    if (value := result_entry.get(part[:-3]))
-                ]
+                result = [value for result_entry in result if (value := result_entry.get(part[:-3]))]
 
             # part is looking for a repeating field, but result is currently a dict.
             # We have gotten a part of the dictionary that we want to return.
@@ -71,11 +65,7 @@ class DictionaryParser:
             # a .get(path) returns a value on a given iteration
             elif isinstance(result, list):
                 result = DictionaryParser.flatten(
-                    [
-                        DictionaryParser.get_nested_property(parent=r, path=part)
-                        for r in result
-                        if r is not None
-                    ]
+                    [DictionaryParser.get_nested_property(parent=r, path=part) for r in result if r is not None]
                 )
             else:
                 # if we get here, part should be the key for the value we want to return in result

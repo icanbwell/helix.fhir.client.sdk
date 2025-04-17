@@ -1,32 +1,27 @@
 import json
+from collections.abc import AsyncGenerator, Generator
 from typing import (
-    Optional,
-    Dict,
     Any,
-    List,
-    Union,
     override,
-    AsyncGenerator,
-    Generator,
 )
 
 from compressedfhir.fhir.fhir_bundle import FhirBundle
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
+from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from compressedfhir.fhir.fhir_bundle_entry_request import FhirBundleEntryRequest
 from compressedfhir.fhir.fhir_bundle_entry_response import (
     FhirBundleEntryResponse,
 )
-from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
+from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from compressedfhir.fhir.fhir_resource_map import FhirResourceMap
-from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
-from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
-from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 from compressedfhir.utilities.fhir_json_encoder import FhirJSONEncoder
 
+from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
+from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
@@ -53,25 +48,23 @@ class FhirGetErrorResponse(FhirGetResponse):
     def __init__(
         self,
         *,
-        request_id: Optional[str],
+        request_id: str | None,
         url: str,
         response_text: str,
-        error: Optional[str],
-        access_token: Optional[str],
-        total_count: Optional[int],
+        error: str | None,
+        access_token: str | None,
+        total_count: int | None,
         status: int,
-        next_url: Optional[str] = None,
-        extra_context_to_return: Optional[Dict[str, Any]],
-        resource_type: Optional[str],
-        id_: Optional[Union[List[str], str]],
-        response_headers: Optional[
-            List[str]
-        ],  # header name and value separated by a colon
-        chunk_number: Optional[int] = None,
-        cache_hits: Optional[int] = None,
-        results_by_url: List[RetryableAioHttpUrlResult],
+        next_url: str | None = None,
+        extra_context_to_return: dict[str, Any] | None,
+        resource_type: str | None,
+        id_: list[str] | str | None,
+        response_headers: list[str] | None,  # header name and value separated by a colon
+        chunk_number: int | None = None,
+        cache_hits: int | None = None,
+        results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
-        create_operation_outcome_for_error: Optional[bool]
+        create_operation_outcome_for_error: bool | None,
     ) -> None:
         super().__init__(
             request_id=request_id,
@@ -90,8 +83,8 @@ class FhirGetErrorResponse(FhirGetResponse):
             results_by_url=results_by_url,
             storage_mode=storage_mode,
         )
-        self._error_text: Optional[str] = response_text
-        self._resource: Optional[FhirResource] = self._parse_response_text(
+        self._error_text: str | None = response_text
+        self._resource: FhirResource | None = self._parse_response_text(
             response_text=response_text,
             error=error,
             url=url,
@@ -114,12 +107,10 @@ class FhirGetErrorResponse(FhirGetResponse):
         :return: self
         """
         # if someone is trying to append to a single resource then we need to convert it to a bundle
-        return FhirGetBundleResponse.from_response(other_response=self).append(
-            other_response=other_response
-        )
+        return FhirGetBundleResponse.from_response(other_response=self).append(other_response=other_response)
 
     @override
-    def _extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
+    def _extend(self, others: list["FhirGetResponse"]) -> "FhirGetResponse":
         """
         Append the responses from other to self
 
@@ -127,9 +118,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         :return: self
         """
         # if someone is trying to append to a single resource then we need to convert it to a bundle
-        return FhirGetBundleResponse.from_response(other_response=self).extend(
-            others=others
-        )
+        return FhirGetBundleResponse.from_response(other_response=self).extend(others=others)
 
     @override
     def get_resources(self) -> FhirResourceList:
@@ -139,9 +128,7 @@ class FhirGetErrorResponse(FhirGetResponse):
 
         :return: list of resources
         """
-        return (
-            FhirResourceList([self._resource]) if self._resource else FhirResourceList()
-        )
+        return FhirResourceList([self._resource]) if self._resource else FhirResourceList()
 
     @override
     def get_resource_map(self) -> FhirResourceMap:
@@ -168,11 +155,7 @@ class FhirGetErrorResponse(FhirGetResponse):
 
         :return: list of bundle entries
         """
-        return FhirBundleEntryList(
-            [self._create_bundle_entry(resource=self._resource)]
-            if self._resource
-            else []
-        )
+        return FhirBundleEntryList([self._create_bundle_entry(resource=self._resource)] if self._resource else [])
 
     def _create_bundle_entry(self, *, resource: FhirResource) -> FhirBundleEntry:
         return FhirBundleEntry(
@@ -195,9 +178,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         return self  # nothing to do since this is a single resource
 
     @override
-    async def remove_entries_in_cache_async(
-        self, *, request_cache: RequestCache
-    ) -> "FhirGetResponse":
+    async def remove_entries_in_cache_async(self, *, request_cache: RequestCache) -> "FhirGetResponse":
         """
         Removes the entries in the cache
 
@@ -209,9 +190,7 @@ class FhirGetErrorResponse(FhirGetResponse):
     @classmethod
     @override
     def from_response(cls, other_response: "FhirGetResponse") -> "FhirGetResponse":
-        raise NotImplementedError(
-            "FhirSingleGetResponse does not support from_response()"
-        )
+        raise NotImplementedError("FhirSingleGetResponse does not support from_response()")
 
     @override
     def get_response_text(self) -> str:
@@ -220,28 +199,24 @@ class FhirGetErrorResponse(FhirGetResponse):
 
         :return: response text
         """
-        return (
-            json.dumps(self._resource.dict(), cls=FhirJSONEncoder)
-            if self._resource
-            else ""
-        )
+        return json.dumps(self._resource.dict(), cls=FhirJSONEncoder) if self._resource else ""
 
     @classmethod
     def _parse_response_text(
         cls,
         *,
-        response_text: Optional[str],
-        error: Optional[str],
+        response_text: str | None,
+        error: str | None,
         url: str,
-        resource_type: Optional[str],
-        id_: Optional[str | List[str]],
+        resource_type: str | None,
+        id_: str | list[str] | None,
         status: int,
-        access_token: Optional[str],
-        extra_context_to_return: Optional[Dict[str, Any]],
-        request_id: Optional[str],
+        access_token: str | None,
+        extra_context_to_return: dict[str, Any] | None,
+        request_id: str | None,
         storage_mode: CompressedDictStorageMode,
-        create_operation_outcome_for_error: Optional[bool]
-    ) -> Optional[FhirResource]:
+        create_operation_outcome_for_error: bool | None,
+    ) -> FhirResource | None:
         """
         Parses the response text to extract any useful information. This can be overridden by subclasses.
 
@@ -271,15 +246,11 @@ class FhirGetErrorResponse(FhirGetResponse):
                 # No resource was found in the response
                 return None
 
-            child_response_resources: Dict[str, Any] | List[Dict[str, Any]] = (
-                cls.parse_json(response_text)
-            )
+            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(response_text)
             assert isinstance(child_response_resources, dict)
-            response_json: Dict[str, Any] | None = child_response_resources
+            response_json: dict[str, Any] | None = child_response_resources
             return FhirBundle.add_diagnostics_to_operation_outcomes(
-                resource=FhirResource(
-                    initial_dict=response_json, storage_mode=storage_mode
-                ),
+                resource=FhirResource(initial_dict=response_json, storage_mode=storage_mode),
                 diagnostics_coding=FhirBundleAppender.get_diagnostic_coding(
                     access_token=access_token,
                     url=url,
@@ -339,7 +310,7 @@ class FhirGetErrorResponse(FhirGetResponse):
             yield self._create_bundle_entry(resource=resource)
 
     @override
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Converts the object to a dictionary
 

@@ -1,17 +1,11 @@
 import json
 from abc import abstractmethod
-from datetime import datetime, UTC
-
-from dateutil import parser
+from collections.abc import AsyncGenerator, Generator
+from datetime import UTC, datetime
 from typing import (
-    Optional,
-    Dict,
     Any,
-    List,
-    Union,
+    Optional,
     cast,
-    AsyncGenerator,
-    Generator,
 )
 
 from compressedfhir.fhir.fhir_bundle_entry import (
@@ -24,6 +18,7 @@ from compressedfhir.fhir.fhir_resource_map import FhirResourceMap
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
+from dateutil import parser
 
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
@@ -63,22 +58,20 @@ class FhirGetResponse:
     def __init__(
         self,
         *,
-        request_id: Optional[str],
+        request_id: str | None,
         url: str,
-        error: Optional[str],
-        access_token: Optional[str],
-        total_count: Optional[int],
+        error: str | None,
+        access_token: str | None,
+        total_count: int | None,
         status: int,
-        next_url: Optional[str] = None,
-        extra_context_to_return: Optional[Dict[str, Any]],
-        resource_type: Optional[str],
-        id_: Optional[Union[List[str], str]],
-        response_headers: Optional[
-            List[str]
-        ],  # header name and value separated by a colon
-        chunk_number: Optional[int] = None,
-        cache_hits: Optional[int] = None,
-        results_by_url: List[RetryableAioHttpUrlResult],
+        next_url: str | None = None,
+        extra_context_to_return: dict[str, Any] | None,
+        resource_type: str | None,
+        id_: list[str] | str | None,
+        response_headers: list[str] | None,  # header name and value separated by a colon
+        chunk_number: int | None = None,
+        cache_hits: int | None = None,
+        results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
     ) -> None:
         """
@@ -103,31 +96,31 @@ class FhirGetResponse:
         :param results_by_url: results by url
         :return: None
         """
-        self.id_: Optional[Union[List[str], str]] = id_
-        self.resource_type: Optional[str] = resource_type
-        self.request_id: Optional[str] = request_id
+        self.id_: list[str] | str | None = id_
+        self.resource_type: str | None = resource_type
+        self.request_id: str | None = request_id
         self.url: str = url
-        self.error: Optional[str] = error
+        self.error: str | None = error
         """ Any error returned by the fhir server """
-        self.access_token: Optional[str] = access_token
+        self.access_token: str | None = access_token
         """ Access token used to make the request to the fhir server """
-        self.total_count: Optional[int] = total_count
+        self.total_count: int | None = total_count
         """ Total count of resources returned by the fhir serer """
         self.status: int = status
         """ Status code returned by the fhir server """ ""
-        self.next_url: Optional[str] = next_url
+        self.next_url: str | None = next_url
         """ Next url to use for pagination """
-        self.extra_context_to_return: Optional[Dict[str, Any]] = extra_context_to_return
+        self.extra_context_to_return: dict[str, Any] | None = extra_context_to_return
         """ Extra context to return with every row (separate_bundle_resources is set) or with FhirGetResponse"""
         self.successful: bool = status == 200
         """ True if the request was successful """
-        self.response_headers: Optional[List[str]] = response_headers
+        self.response_headers: list[str] | None = response_headers
         """ Headers returned by the server (can have duplicate header names) """ ""
-        self.chunk_number: Optional[int] = chunk_number
+        self.chunk_number: int | None = chunk_number
         """ Chunk number for streaming """
-        self.cache_hits: Optional[int] = cache_hits
+        self.cache_hits: int | None = cache_hits
         """ Count of cache hits """
-        self.results_by_url: List[RetryableAioHttpUrlResult] = results_by_url
+        self.results_by_url: list[RetryableAioHttpUrlResult] = results_by_url
         """ Count of errors in the response by status """
         self.storage_mode: CompressedDictStorageMode = storage_mode
         """ Storage mode for the response """
@@ -145,9 +138,7 @@ class FhirGetResponse:
 
         result: FhirGetResponse = self._append(other_response=other_response)
 
-        if other_response.chunk_number and (other_response.chunk_number or 0) > (
-            result.chunk_number or 0
-        ):
+        if other_response.chunk_number and (other_response.chunk_number or 0) > (result.chunk_number or 0):
             result.chunk_number = other_response.chunk_number
         if other_response.next_url:
             result.next_url = other_response.next_url
@@ -159,11 +150,7 @@ class FhirGetResponse:
                 result.results_by_url = other_response.results_by_url
             else:
                 result.results_by_url.extend(
-                    [
-                        u
-                        for u in other_response.results_by_url
-                        if u not in result.results_by_url
-                    ]
+                    [u for u in other_response.results_by_url if u not in result.results_by_url]
                 )
 
         if other_response.access_token:
@@ -175,9 +162,9 @@ class FhirGetResponse:
         return result
 
     @abstractmethod
-    def _extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse": ...
+    def _extend(self, others: list["FhirGetResponse"]) -> "FhirGetResponse": ...
 
-    def extend(self, others: List["FhirGetResponse"]) -> "FhirGetResponse":
+    def extend(self, others: list["FhirGetResponse"]) -> "FhirGetResponse":
         """
         Append the responses from other to self
 
@@ -186,9 +173,7 @@ class FhirGetResponse:
         """
         result: FhirGetResponse = self._extend(others=others)
 
-        latest_chunk_number: List[int] = sorted(
-            [o.chunk_number for o in others if o.chunk_number], reverse=True
-        )
+        latest_chunk_number: list[int] = sorted([o.chunk_number for o in others if o.chunk_number], reverse=True)
         if len(latest_chunk_number) > 0:
             result.chunk_number = latest_chunk_number[0]
         return result
@@ -288,7 +273,7 @@ class FhirGetResponse:
         ...
 
     @staticmethod
-    def parse_json(responses: str) -> Dict[str, Any] | List[Dict[str, Any]]:
+    def parse_json(responses: str) -> dict[str, Any] | list[dict[str, Any]]:
         """
         Parses the json response from the fhir server
 
@@ -312,15 +297,11 @@ class FhirGetResponse:
             }
 
         try:
-            return cast(
-                Union[Dict[str, Any], List[Dict[str, Any]]], json.loads(responses)
-            )
+            return cast(dict[str, Any] | list[dict[str, Any]], json.loads(responses))
         except json.decoder.JSONDecodeError as e:
             return {
                 "resourceType": "OperationOutcome",
-                "issue": [
-                    {"severity": "error", "code": "exception", "diagnostics": str(e)}
-                ],
+                "issue": [{"severity": "error", "code": "exception", "diagnostics": str(e)}],
             }
 
     def __repr__(self) -> str:
@@ -329,7 +310,7 @@ class FhirGetResponse:
 
     # noinspection PyPep8Naming
     @property
-    def lastModified(self) -> Optional[datetime]:
+    def lastModified(self) -> datetime | None:
         """
         Returns the last modified date from the response headers
 
@@ -342,7 +323,7 @@ class FhirGetResponse:
             header_name: str = header.split(":")[0].strip()
             header_value: str = header.split(":")[1].strip()
             if header_name == "Last-Modified":
-                last_modified_str: Optional[str] = header_value
+                last_modified_str: str | None = header_value
                 if last_modified_str is None:
                     return None
                 if isinstance(last_modified_str, datetime):
@@ -351,16 +332,14 @@ class FhirGetResponse:
                 try:
                     last_modified_datetime: datetime = parser.parse(last_modified_str)
                     if last_modified_datetime.tzinfo is None:
-                        last_modified_datetime = last_modified_datetime.replace(
-                            tzinfo=UTC
-                        )
+                        last_modified_datetime = last_modified_datetime.replace(tzinfo=UTC)
                     return last_modified_datetime
                 except ValueError:
                     return None
         return None
 
     @property
-    def etag(self) -> Optional[str]:
+    def etag(self) -> str | None:
         """
         Returns the etag from the response headers
 
@@ -387,9 +366,7 @@ class FhirGetResponse:
         ...
 
     @abstractmethod
-    async def remove_entries_in_cache_async(
-        self, *, request_cache: RequestCache
-    ) -> "FhirGetResponse":
+    async def remove_entries_in_cache_async(self, *, request_cache: RequestCache) -> "FhirGetResponse":
         """
         removes entries in the cache for the given response
 
@@ -398,7 +375,7 @@ class FhirGetResponse:
         """
         ...
 
-    def get_resource_type_and_ids(self) -> List[str]:
+    def get_resource_type_and_ids(self) -> list[str]:
         """
         Gets the ids of the resources from the response
         """
@@ -406,9 +383,7 @@ class FhirGetResponse:
         try:
             return resources.get_resource_type_and_ids()
         except Exception as e:
-            raise Exception(
-                f"Could not get resourceType and id from resources: {resources.json()}"
-            ) from e
+            raise Exception(f"Could not get resourceType and id from resources: {resources.json()}") from e
 
     @classmethod
     async def from_async_generator(
@@ -446,7 +421,7 @@ class FhirGetResponse:
         """
         return self.get_resources().get_resources_except_operation_outcomes()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Converts the object to a dictionary
 

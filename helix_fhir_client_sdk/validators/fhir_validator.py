@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Any
 
 import requests
 from furl import furl
@@ -37,7 +37,7 @@ class FhirValidator:
         )
         request_id = validation_response.headers.get("X-Request-ID", None)
         if validation_response.ok:
-            operation_outcome: Dict[str, Any] = validation_response.json()
+            operation_outcome: dict[str, Any] = validation_response.json()
             if operation_outcome["issue"][0]["severity"] == "error":
                 raise FhirValidationException(
                     request_id=request_id,

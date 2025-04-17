@@ -1,16 +1,13 @@
 import dataclasses
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Protocol, runtime_checkable
-
+from typing import Any, Protocol, runtime_checkable
 
 # This file contains contracts for callback functions
 
 
 @runtime_checkable
 class HandleBatchFunction(Protocol):
-    async def __call__(
-        self, resources_: List[Dict[str, Any]], page_number: Optional[int]
-    ) -> bool:
+    async def __call__(self, resources_: list[dict[str, Any]], page_number: int | None) -> bool:
         """
         Handle a batch of data
 
@@ -26,7 +23,7 @@ class HandleStreamingChunkFunction(Protocol):
     async def __call__(
         self,
         line: bytes,
-        chunk_number: Optional[int] = None,
+        chunk_number: int | None = None,
     ) -> bool:
         """
         Handle a streaming result
@@ -40,9 +37,7 @@ class HandleStreamingChunkFunction(Protocol):
 
 @runtime_checkable
 class HandleErrorFunction(Protocol):
-    async def __call__(
-        self, *, error: str, response: str, page_number: Optional[int], url: str
-    ) -> bool:
+    async def __call__(self, *, error: str, response: str, page_number: int | None, url: str) -> bool:
         """
         Handle an error
 
@@ -60,13 +55,13 @@ class RefreshTokenResult:
     Result of a token refresh
     """
 
-    access_token: Optional[str]
+    access_token: str | None
     """ New access token """
 
-    expiry_date: Optional[datetime]
+    expiry_date: datetime | None
     """ Expiry date of the new token """
 
-    abort_request: Optional[bool]
+    abort_request: bool | None
     """ If True, abort the request """
 
 
@@ -75,11 +70,11 @@ class RefreshTokenFunction(Protocol):
     async def __call__(
         self,
         *,
-        url: Optional[str],
-        status_code: Optional[int],
-        current_token: Optional[str],
-        expiry_date: Optional[datetime],
-        retry_count: Optional[int],
+        url: str | None,
+        status_code: int | None,
+        current_token: str | None,
+        expiry_date: datetime | None,
+        retry_count: int | None,
     ) -> RefreshTokenResult:
         """
         Refreshes a token and returns the new token. If the token cannot be refreshed, returns None.
@@ -100,8 +95,8 @@ class HandleStreamingResourcesFunction(Protocol):
     async def __call__(
         self,
         *,
-        resources: Optional[List[Dict[str, Any]]],
-        chunk_number: Optional[int] = None,
+        resources: list[dict[str, Any]] | None,
+        chunk_number: int | None = None,
     ) -> bool:
         """
         Handle a streaming result
@@ -119,7 +114,7 @@ class TraceRequestResult:
     Result of a request trace
     """
 
-    abort_request: Optional[bool]
+    abort_request: bool | None
     """ Whether to abort the request """
 
 
@@ -129,15 +124,15 @@ class TraceRequestFunction(Protocol):
         self,
         *,
         ok: bool,
-        url: Optional[str],
-        status_code: Optional[int],
-        access_token: Optional[str],
-        expiry_date: Optional[datetime],
-        retry_count: Optional[int],
-        start_time: Optional[float],
-        end_time: Optional[float],
-        request_headers: Optional[Dict[str, str]],
-        response_headers: Optional[Dict[str, str]],
+        url: str | None,
+        status_code: int | None,
+        access_token: str | None,
+        expiry_date: datetime | None,
+        retry_count: int | None,
+        start_time: float | None,
+        end_time: float | None,
+        request_headers: dict[str, str] | None,
+        response_headers: dict[str, str] | None,
     ) -> TraceRequestResult:
         """
         Called whenever we load a new url

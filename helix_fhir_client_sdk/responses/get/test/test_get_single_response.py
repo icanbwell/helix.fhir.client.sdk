@@ -1,22 +1,22 @@
 import json
-from typing import Dict, Any, List
-from unittest.mock import Mock, AsyncMock
+from typing import Any
+from unittest.mock import AsyncMock, Mock
 
 import pytest
-
 from compressedfhir.fhir.fhir_bundle_entry import (
     FhirBundleEntry,
 )
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
+    CompressedDictStorageMode,
+)
+
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
 from helix_fhir_client_sdk.responses.get.fhir_get_single_response import (
     FhirGetSingleResponse,
-)
-from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
-    CompressedDictStorageMode,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -25,7 +25,7 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
 
 class TestFhirGetSingleResponse:
     @pytest.fixture
-    def sample_single_resource(self) -> Dict[str, Any]:
+    def sample_single_resource(self) -> dict[str, Any]:
         """Fixture to provide a sample FHIR single resource."""
         return {
             "resourceType": "Patient",
@@ -33,9 +33,9 @@ class TestFhirGetSingleResponse:
             "name": [{"given": ["John"], "family": "Doe"}],
         }
 
-    def test_init(self, sample_single_resource: Dict[str, Any]) -> None:
+    def test_init(self, sample_single_resource: dict[str, Any]) -> None:
         """Test initialization of FhirGetSingleResponse."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
@@ -57,9 +57,9 @@ class TestFhirGetSingleResponse:
         assert response.request_id == "test-request"
         assert response.url == "https://example.com/Patient/123"
 
-    def test_get_resources(self, sample_single_resource: Dict[str, Any]) -> None:
+    def test_get_resources(self, sample_single_resource: dict[str, Any]) -> None:
         """Test getting resources from the response."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
@@ -77,16 +77,14 @@ class TestFhirGetSingleResponse:
             storage_mode=CompressedDictStorageMode.default(),
         )
         resources = response.get_resources()
-        assert isinstance(
-            resources, FhirResourceList
-        ), f"response is not a FhirResourceList but {type(response)}"
+        assert isinstance(resources, FhirResourceList), f"response is not a FhirResourceList but {type(response)}"
         assert len(resources) == 1
         assert resources[0]["resourceType"] == "Patient"
         assert resources[0]["id"] == "123"
 
     def test_get_resources_empty(self) -> None:
         """Test getting resources when no resource exists."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
@@ -107,9 +105,9 @@ class TestFhirGetSingleResponse:
         assert isinstance(resources, FhirResourceList)
         assert len(resources) == 0
 
-    def test_get_bundle_entry(self, sample_single_resource: Dict[str, Any]) -> None:
+    def test_get_bundle_entry(self, sample_single_resource: dict[str, Any]) -> None:
         """Test getting a bundle entry from the response."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
@@ -135,9 +133,9 @@ class TestFhirGetSingleResponse:
         assert bundle_entry.resource["resourceType"] == "Patient"
         assert bundle_entry.resource["id"] == "123"
 
-    def test_get_bundle_entries(self, sample_single_resource: Dict[str, Any]) -> None:
+    def test_get_bundle_entries(self, sample_single_resource: dict[str, Any]) -> None:
         """Test getting bundle entries from the response."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
@@ -160,9 +158,9 @@ class TestFhirGetSingleResponse:
         assert bundle_entries[0].resource is not None
         assert bundle_entries[0].resource["resourceType"] == "Patient"
 
-    def test_remove_duplicates(self, sample_single_resource: Dict[str, Any]) -> None:
+    def test_remove_duplicates(self, sample_single_resource: dict[str, Any]) -> None:
         """Test removing duplicates from a single resource response."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
@@ -182,9 +180,9 @@ class TestFhirGetSingleResponse:
         result = response.remove_duplicates()
         assert result == response
 
-    def test_get_response_text(self, sample_single_resource: Dict[str, Any]) -> None:
+    def test_get_response_text(self, sample_single_resource: dict[str, Any]) -> None:
         """Test getting the response text as JSON."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
@@ -205,9 +203,9 @@ class TestFhirGetSingleResponse:
         assert "Patient" in response_text
         assert "123" in response_text
 
-    def test_sort_resources(self, sample_single_resource: Dict[str, Any]) -> None:
+    def test_sort_resources(self, sample_single_resource: dict[str, Any]) -> None:
         """Test sorting resources in a single resource response."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
@@ -234,11 +232,9 @@ class TestFhirGetSingleResponse:
             FhirGetSingleResponse.from_response(mock_response)
 
     @pytest.mark.asyncio
-    async def test_consume_resource_async(
-        self, sample_single_resource: Dict[str, Any]
-    ) -> None:
+    async def test_consume_resource_async(self, sample_single_resource: dict[str, Any]) -> None:
         """Test async generator for resources."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
@@ -263,9 +259,9 @@ class TestFhirGetSingleResponse:
         assert resources[0]["resourceType"] == "Patient"
         assert response.get_resource_count() == 0
 
-    def test_consume_resource(self, sample_single_resource: Dict[str, Any]) -> None:
+    def test_consume_resource(self, sample_single_resource: dict[str, Any]) -> None:
         """Test async generator for resources."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
@@ -291,11 +287,9 @@ class TestFhirGetSingleResponse:
         assert response.get_resource_count() == 0
 
     @pytest.mark.asyncio
-    async def test_consume_bundle_entry_async(
-        self, sample_single_resource: Dict[str, Any]
-    ) -> None:
+    async def test_consume_bundle_entry_async(self, sample_single_resource: dict[str, Any]) -> None:
         """Test async generator for bundle entries."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
@@ -322,9 +316,9 @@ class TestFhirGetSingleResponse:
         assert bundle_entries[0].resource["resourceType"] == "Patient"
         assert response.get_resource_count() == 0
 
-    def test_consume_bundle_entry(self, sample_single_resource: Dict[str, Any]) -> None:
+    def test_consume_bundle_entry(self, sample_single_resource: dict[str, Any]) -> None:
         """Test async generator for bundle entries."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
@@ -351,9 +345,9 @@ class TestFhirGetSingleResponse:
         assert bundle_entries[0].resource["resourceType"] == "Patient"
         assert response.get_resource_count() == 0
 
-    def test_append_method(self, sample_single_resource: Dict[str, Any]) -> None:
+    def test_append_method(self, sample_single_resource: dict[str, Any]) -> None:
         """Test the _append method."""
-        results_by_url: List[RetryableAioHttpUrlResult] = []
+        results_by_url: list[RetryableAioHttpUrlResult] = []
         response = FhirGetSingleResponse(
             request_id="test-request",
             url="https://example.com/Patient/123",
@@ -372,9 +366,7 @@ class TestFhirGetSingleResponse:
         )
         mock_other_response = Mock(spec=FhirGetSingleResponse)
         # implement an async generator for the mock
-        mock_other_response.get_resources_generator = AsyncMock(
-            return_value=iter([sample_single_resource])
-        )
+        mock_other_response.get_resources_generator = AsyncMock(return_value=iter([sample_single_resource]))
         mock_other_response.get_bundle_entries_generator = AsyncMock(
             return_value=iter(
                 [

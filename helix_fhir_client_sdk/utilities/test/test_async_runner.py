@@ -1,6 +1,8 @@
-import pytest
 import asyncio
 from typing import TypeVar
+
+import pytest
+
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 
 T = TypeVar("T")
@@ -33,7 +35,5 @@ def test_run_in_thread_pool_and_wait() -> None:
 # Test for AsyncRunner.run when event loop is already running
 @pytest.mark.asyncio
 async def test_run_with_existing_event_loop() -> None:
-    result: str = await asyncio.to_thread(
-        AsyncRunner.run, sample_coroutine(), timeout=1.0
-    )
+    result: str = await asyncio.to_thread(AsyncRunner.run, sample_coroutine(), timeout=1.0)
     assert result == "success"

@@ -1,14 +1,10 @@
 import asyncio
 from asyncio import Task
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from typing import (
-    AsyncGenerator,
-    Protocol,
-    List,
-    Optional,
-    Set,
-    Dict,
     Any,
+    Protocol,
     runtime_checkable,
 )
 
@@ -23,7 +19,7 @@ class ParallelFunctionContext:
     name: str
 
     """ log level """
-    log_level: Optional[str]
+    log_level: str | None
 
     """ index of the task """
     task_index: int
@@ -39,8 +35,8 @@ class ParallelFunction[TInput, TOutput, TParameters](Protocol):
         *,
         context: ParallelFunctionContext,
         row: TInput,
-        parameters: Optional[TParameters],
-        additional_parameters: Optional[Dict[str, Any]],
+        parameters: TParameters | None,
+        additional_parameters: dict[str, Any] | None,
     ) -> TOutput:
         """
         Handle a batch of data
@@ -58,7 +54,7 @@ class AsyncParallelProcessor:
         self,
         *,
         name: str,
-        max_concurrent_tasks: Optional[int] = None,
+        max_concurrent_tasks: int | None = None,
     ) -> None:
         """
         This class is used to process rows in parallel
@@ -68,20 +64,22 @@ class AsyncParallelProcessor:
                                     If 1 then the tasks are processed sequentially else they are processed in parallel
         """
         self.name: str = name
-        self.max_concurrent_tasks: Optional[int] = max_concurrent_tasks
-        self.semaphore: Optional[asyncio.Semaphore] = (
+        self.max_concurrent_tasks: int | None = max_concurrent_tasks
+        self.semaphore: asyncio.Semaphore | None = (
             asyncio.Semaphore(max_concurrent_tasks) if max_concurrent_tasks else None
         )
 
     async def process_rows_in_parallel[
-        TInput, TOutput, TParameters: Dict[str, Any] | object
+        TInput,
+        TOutput,
+        TParameters: dict[str, Any] | object,
     ](
         self,
         *,
-        rows: List[TInput],
+        rows: list[TInput],
         process_row_fn: ParallelFunction[TInput, TOutput, TParameters],
-        parameters: Optional[TParameters],
-        log_level: Optional[str] = None,
+        parameters: TParameters | None,
+        log_level: str | None = None,
         **kwargs: Any,
     ) -> AsyncGenerator[TOutput, None]:
         """
@@ -143,7 +141,7 @@ class AsyncParallelProcessor:
         total_task_count: int = len(rows)
 
         # Create all tasks at once with their indices
-        pending: Set[Task[TOutput]] = {
+        pending: set[Task[TOutput]] = {
             asyncio.create_task(
                 process_with_semaphore_async(
                     name=self.name,
@@ -158,10 +156,8 @@ class AsyncParallelProcessor:
 
         try:
             while pending:
-                done: Set[Task[TOutput]]
-                done, pending = await asyncio.wait(
-                    pending, return_when=asyncio.FIRST_COMPLETED
-                )
+                done: set[Task[TOutput]]
+                done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
 
                 # Process completed tasks
                 for task in done:

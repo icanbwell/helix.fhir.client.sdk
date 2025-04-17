@@ -1,11 +1,10 @@
-from typing import List, Any, Generator, Optional
+from collections.abc import Generator
+from typing import Any
 
 
 class ListChunker:
     @staticmethod
-    def divide_into_chunks(
-        array: List[Any], chunk_size: Optional[int]
-    ) -> Generator[List[Any], None, None]:
+    def divide_into_chunks(array: list[Any], chunk_size: int | None) -> Generator[list[Any], None, None]:
         """
         Divides a list into a list of chunks
         Yield successive n-sized chunks from l.
@@ -24,8 +23,8 @@ class ListChunker:
 
     @staticmethod
     def divide_generator_into_chunks(
-        generator: Generator[Any, None, None], chunk_size: Optional[int]
-    ) -> Generator[List[Any], None, None]:
+        generator: Generator[Any, None, None], chunk_size: int | None
+    ) -> Generator[list[Any], None, None]:
         """
         Divides a list into a list of chunks
         Yield successive n-sized chunks from l.
@@ -36,7 +35,7 @@ class ListChunker:
         :return: generator that returns a list of strings
         """
         if not chunk_size:
-            yield [g for g in generator]
+            yield list(generator)
         else:
             chunk = []
             for item in generator:

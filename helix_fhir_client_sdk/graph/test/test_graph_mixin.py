@@ -1,7 +1,7 @@
-import aiohttp
-import pytest
 from unittest.mock import AsyncMock
 
+import aiohttp
+import pytest
 from aioresponses import aioresponses
 
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
@@ -99,7 +99,7 @@ class TestFhirGraphMixin:
             )
 
             with pytest.raises(FhirSenderException):
-                result = [
+                result = [  # noqa: F841
                     response
                     async for response in fhir_graph_mixin.graph_async(
                         id_="123",
@@ -133,9 +133,7 @@ class TestFhirGraphMixin:
         assert isinstance(result[0], FhirGetResponse)
 
     @pytest.mark.asyncio
-    async def test_graph(
-        self, fhir_graph_mixin: FhirGraphMixin, graph_definition: GraphDefinition
-    ) -> None:
+    async def test_graph(self, fhir_graph_mixin: FhirGraphMixin, graph_definition: GraphDefinition) -> None:
         """Test the graph method"""
         with aioresponses() as m:
             # Mocking the HTTP response for AsyncRunner.run

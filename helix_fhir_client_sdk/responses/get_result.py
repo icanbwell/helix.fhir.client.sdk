@@ -1,5 +1,6 @@
 import dataclasses
-from typing import List, Dict, Any, Optional, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any, Optional
 
 
 @dataclasses.dataclass(slots=True)
@@ -8,9 +9,9 @@ class GetResult:
     GetResult class for encapsulating the response from FHIR server when getting resources
     """
 
-    request_id: Optional[str]
-    resources: List[Dict[str, Any]]
-    response_headers: Optional[List[str]]
+    request_id: str | None
+    resources: list[dict[str, Any]]
+    response_headers: list[str] | None
 
     def append(self, other: Optional["GetResult"]) -> None:
         """
@@ -20,14 +21,10 @@ class GetResult:
         """
         if other:
             self.resources.extend(other.resources)
-            self.response_headers = (self.response_headers or []) + (
-                other.response_headers or []
-            )
+            self.response_headers = (self.response_headers or []) + (other.response_headers or [])
 
     @classmethod
-    async def from_async_generator(
-        cls, generator: AsyncGenerator["GetResult", None]
-    ) -> Optional["GetResult"]:
+    async def from_async_generator(cls, generator: AsyncGenerator["GetResult", None]) -> Optional["GetResult"]:
         """
         Reads a generator of GetResult and returns a single GetResult by appending all the GetResult
 

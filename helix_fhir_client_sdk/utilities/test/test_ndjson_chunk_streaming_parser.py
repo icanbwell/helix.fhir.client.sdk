@@ -1,5 +1,5 @@
 from logging import Logger
-from typing import Any, Dict, List
+from typing import Any
 
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
@@ -13,8 +13,8 @@ def test_ndjson_chunk_streaming_parser_single_line() -> None:
     data_chunks = ['{"name": "John", "age": 30}']
     parser = NdJsonChunkStreamingParser()
 
-    all_objects: List[Dict[str, Any]] = []
-    all_objects_by_chunk: List[List[Dict[str, Any]]] = []
+    all_objects: list[dict[str, Any]] = []
+    all_objects_by_chunk: list[list[dict[str, Any]]] = []
 
     chunk_number = 0
     for chunk in data_chunks:
@@ -39,8 +39,8 @@ def test_ndjson_chunk_streaming_parser() -> None:
 
     parser = NdJsonChunkStreamingParser()
 
-    all_objects: List[Dict[str, Any]] = []
-    all_objects_by_chunk: List[List[Dict[str, Any]]] = []
+    all_objects: list[dict[str, Any]] = []
+    all_objects_by_chunk: list[list[dict[str, Any]]] = []
 
     chunk_number = 0
     for chunk in data_chunks:
@@ -87,8 +87,8 @@ def test_add_chunk_multiple_complete_objects() -> None:
 def test_add_chunk_incomplete_object() -> None:
     parser = NdJsonChunkStreamingParser()
     chunk = '{"name": "John", "age": 30\n'
-    result: List[Dict[str, Any]] = parser.add_chunk(chunk, logger=None)
-    expected_result: List[Dict[str, Any]] = []
+    result: list[dict[str, Any]] = parser.add_chunk(chunk, logger=None)
+    expected_result: list[dict[str, Any]] = []
     assert result == expected_result
 
 
@@ -96,7 +96,7 @@ def test_add_chunk_complete_and_incomplete_objects() -> None:
     parser = NdJsonChunkStreamingParser()
     chunk = '{"name": "John", "age": 30}\n{"name": "Jane", "age": 25\n'
     result = parser.add_chunk(chunk, logger=None)
-    expected_result: List[Dict[str, Any]] = [{"name": "John", "age": 30}]
+    expected_result: list[dict[str, Any]] = [{"name": "John", "age": 30}]
     assert result == expected_result
 
 
@@ -106,7 +106,7 @@ def test_add_chunk_incomplete_then_complete_object() -> None:
     chunk2 = '}\n{"name": "Jane", "age": 25}\n'
     parser.add_chunk(chunk1, logger=None)
     result = parser.add_chunk(chunk2, logger=None)
-    expected_result: List[Dict[str, Any]] = [
+    expected_result: list[dict[str, Any]] = [
         {"name": "John", "age": 30},
         {"name": "Jane", "age": 25},
     ]
@@ -117,7 +117,7 @@ def test_add_chunk_empty_chunk() -> None:
     parser = NdJsonChunkStreamingParser()
     chunk = ""
     result = parser.add_chunk(chunk, logger=None)
-    expected_result: List[Dict[str, Any]] = []
+    expected_result: list[dict[str, Any]] = []
     assert result == expected_result
 
 
@@ -128,7 +128,7 @@ def test_add_chunk_mixed_complete_and_incomplete_objects() -> None:
     result = parser.add_chunk(chunk1, logger=None)
     assert result == [{"name": "John", "age": 30}]
     result = parser.add_chunk(chunk2, logger=None)
-    expected_result: List[Dict[str, Any]] = [
+    expected_result: list[dict[str, Any]] = [
         {"name": "Jane", "age": 25},
         {"name": "Doe", "age": 40},
     ]
@@ -139,7 +139,7 @@ def test_add_chunk_no_newline_at_the_end() -> None:
     parser = NdJsonChunkStreamingParser()
     chunk = '{"name": "John", "age": 30}\n{"name": "Jane", "age": 25}'
     result = parser.add_chunk(chunk, logger=None)
-    expected_result: List[Dict[str, Any]] = [
+    expected_result: list[dict[str, Any]] = [
         {"name": "John", "age": 30},
         {"name": "Jane", "age": 25},
     ]
