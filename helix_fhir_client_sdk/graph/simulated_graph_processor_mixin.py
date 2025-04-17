@@ -250,6 +250,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             parent_response = cast(
                 FhirGetBundleResponse, parent_response.extend(child_responses)
             )
+
+            if logger:
+                logger.info(
+                    f"Before removing duplicates: "
+                    f"resource size in mb: {sys.getsizeof(parent_response.get_response_text()) / 1024 / 1024}"
+                )
             parent_response = parent_response.remove_duplicates()
 
             # Optional resource sorting
