@@ -71,6 +71,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         assert self._url, "No FHIR server url was set"
         assert resource_type or self._resource, "No Resource was set"
         request_id: str | None = None
+        total_results = 0  # total number of resources returned so far
 
         # create url and query to request from FHIR server
         resources_json: str = ""
@@ -182,8 +183,22 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         storage_mode=self._storage_mode,
                         create_operation_outcome_for_error=self._create_operation_outcome_for_error,
                     ):
-                        next_url = r.next_url
                         yield r
+                        # https://icanbwell.atlassian.net/browse/RNGR-177
+                        # Count real resources returned in this page
+                        resource_count = r.get_resource_count()
+                        total_results += resource_count
+
+                        # Stop if limit reached
+                        if self._limit and total_results >= self._limit:
+                            self._internal_logger.info(
+                                f"Reached limit={self._limit} after collecting {total_results} "
+                                f"resources, stopping pagination"
+                            )
+                            return
+
+                        # Update next_url for the next loop iteration
+                        next_url = r.next_url
 
         except Exception as ex:
             raise FhirSenderException(
