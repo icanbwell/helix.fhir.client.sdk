@@ -831,8 +831,50 @@ class FhirClient(
         :return: cloned instance
         """
         fhir_client = FhirClient()
-        fhir_client.__dict__.update(self.__dict__)
-        fhir_client.page_number(0)  # reset page number to 1
+        fhir_client._url = self._url
+        fhir_client._resource = self._resource
+        fhir_client._id = self._id
+        fhir_client._obj_id = self._obj_id
+        fhir_client._action = self._action
+        fhir_client._accept = self._accept
+        fhir_client._content_type = self._content_type
+        fhir_client._accept_encoding = self._accept_encoding
+        fhir_client._page_size = self._page_size
+        fhir_client._page_number = 0  # reset page number to 1
+        fhir_client._limit = self._limit
+        fhir_client._sort_fields = self._sort_fields
+        fhir_client._filters = self._filters
+        fhir_client._last_updated_before = self._last_updated_before
+        fhir_client._last_updated_after = self._last_updated_after
+        fhir_client._include_only_properties = self._include_only_properties
+        fhir_client._include_total = self._include_total
+        fhir_client._additional_parameters = self._additional_parameters
+        fhir_client._additional_request_headers = self._additional_request_headers
+        fhir_client._action_payload = self._action_payload
+        fhir_client._logger = self._logger
+        fhir_client._internal_logger = self._internal_logger
+        fhir_client._log_level = self._log_level
+        fhir_client._auth_scopes = self._auth_scopes
+        fhir_client._client_id = self._client_id
+        fhir_client._auth_server_url = self._auth_server_url
+        fhir_client._login_token = self._login_token
+        fhir_client._refresh_token_function = self._refresh_token_function
+        fhir_client._exclude_status_codes_from_retry = (
+            self._exclude_status_codes_from_retry
+        )
+        fhir_client._chunk_size = self._chunk_size
+        fhir_client._expand_fhir_bundle = self._expand_fhir_bundle
+        fhir_client._separate_bundle_resources = self._separate_bundle_resources
+        fhir_client._use_data_streaming = self._use_data_streaming
+        fhir_client._extra_context_to_return = self._extra_context_to_return
+        fhir_client._well_known_configuration_cache = (
+            self._well_known_configuration_cache
+        )
+        fhir_client._auth_wellknown_url = self._auth_wellknown_url
+        fhir_client._time_to_live_in_secs_for_cache = (
+            self._time_to_live_in_secs_for_cache
+        )
+        fhir_client._validation_server_url = self._validation_server_url
         return fhir_client
 
     def set_log_all_response_urls(self, value: bool) -> "FhirClient":
