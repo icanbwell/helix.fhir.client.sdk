@@ -7,7 +7,7 @@ from tests.logger_for_test import LoggerForTest
 
 def test_limit_fhir_api() -> None:
     logger: Logger = LoggerForTest()
-    url = "https://hapi.fhir.org/baseR4"
+    url = "https://server.fire.ly"
     fhir_client = FhirClient()
     fhir_client = fhir_client.client_credentials(
         client_id="",
