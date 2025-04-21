@@ -1082,6 +1082,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     if result.resource_type == "OperationOutcome":
                         result = FhirGetErrorResponse.from_response(other_response=result)
 
+                    if not id_:
+                        # remove entries that we have in the cache
+                        await result.remove_entries_in_cache_async(request_cache=cache)
+
                     # append to the response
                     if all_result:
                         all_result = all_result.append(result)
