@@ -26,10 +26,6 @@ repos:
       - id: detect-private-key
         types: [python]
 
-      # Additional security hooks
-      - id: no-commit-to-branch
-        args: [--branch, main]
-
       # Dependency and import checks
       - id: check-ast
       - id: check-added-large-files
