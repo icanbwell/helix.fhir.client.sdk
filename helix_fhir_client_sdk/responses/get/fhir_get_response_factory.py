@@ -51,7 +51,7 @@ class FhirGetResponseFactory:
         create_operation_outcome_for_error: bool | None,
     ) -> FhirGetResponse:
         try:
-            if not error and response_text:
+            if not error:
                 # test if responses is valid json
                 try:
                     # Attempt to parse the JSON response
