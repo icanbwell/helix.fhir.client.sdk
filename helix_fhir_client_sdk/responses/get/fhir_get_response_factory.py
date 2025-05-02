@@ -52,12 +52,15 @@ class FhirGetResponseFactory:
     ) -> FhirGetResponse:
         try:
             if not error:
-                # test if responses is valid json
-                try:
-                    # Attempt to parse the JSON response
-                    json.loads(response_text)
-                except ValueError as e:
-                    error = f"Error parsing response: {response_text}: {e}"
+                if not response_text:
+                    error = "Empty response"
+                else:
+                    # test if responses is valid json
+                    try:
+                        # Attempt to parse the JSON response
+                        json.loads(response_text)
+                    except ValueError as e:
+                        error = f"Error parsing response: {response_text}: {e}"
 
             if status != 200 or error:
                 # If the status is not 200, return a single response with the error
