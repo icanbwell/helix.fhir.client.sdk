@@ -79,10 +79,8 @@ class RequestCache:
             cached_entry = self._cache.get(key)
 
             if cached_entry is not None:
-                self.cache_hits += 1
                 return cached_entry
 
-            self.cache_misses += 1
             return None
 
     async def add_async(
@@ -95,6 +93,7 @@ class RequestCache:
         last_modified: datetime | None,
         etag: str | None,
         from_input_cache: bool | None | None,
+        raw_hash: str | None,
     ) -> bool:
         """
         This method adds the given data to the cache.
@@ -124,6 +123,7 @@ class RequestCache:
                 last_modified=last_modified,
                 etag=etag,
                 from_input_cache=from_input_cache,
+                raw_hash=raw_hash
             )
 
             # Add to the weak value dictionary
@@ -163,3 +163,11 @@ class RequestCache:
         :return: A string representation of the cache.
         """
         return f"RequestCache(cache_size={len(self._cache)})"
+    
+    async def increase_cache_hit(self):
+        async with self._lock:
+            self.cache_hits+=1
+    
+    async def increase_cache_miss(self):
+        async with self._lock:
+            self.cache_misses+=1

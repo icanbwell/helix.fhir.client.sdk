@@ -17,7 +17,9 @@ class GraphLinkParameters:
 
     logger: Logger | None
 
-    cache: RequestCache
+    input_cache: RequestCache
+
+    new_cache: RequestCache
 
     scope_parser: FhirScopeParser
 

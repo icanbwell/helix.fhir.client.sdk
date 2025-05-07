@@ -1,9 +1,11 @@
+import json
 from collections.abc import AsyncGenerator, Generator
 from datetime import datetime
 from typing import (
     Any,
     cast,
     override,
+    List
 )
 
 from compressedfhir.fhir.fhir_bundle import FhirBundle
@@ -26,6 +28,7 @@ from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
+from helix_fhir_client_sdk.utilities.hash_util import ResourceHash
 
 
 class FhirGetBundleResponse(FhirGetResponse):
@@ -320,7 +323,9 @@ class FhirGetBundleResponse(FhirGetResponse):
                         and entry.resource.id is not None  # only remove if resource has an id
                         and entry.resource.id == cached_entry.id_
                         and entry.resource.resource_type == cached_entry.resource_type
+                        and ResourceHash().hash_value(json.dumps(json.loads(entry.resource.json()), sort_keys=True)) == cached_entry.raw_hash
                     ):
+                        self.removed_entries_id.append(entry.resource.id)
                         self._bundle_entries.remove(entry)
                         break
 
