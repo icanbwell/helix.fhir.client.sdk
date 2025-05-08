@@ -22,9 +22,7 @@ class GraphTargetParameters:
     logger: Logger | None
     """ logger """
 
-    input_cache: RequestCache | None
-
-    new_cache: RequestCache | None
+    cache: RequestCache
 
     scope_parser: FhirScopeParser
 

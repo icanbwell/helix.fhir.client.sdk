@@ -39,10 +39,9 @@ class MockSimulatedGraphProcessor(SimulatedGraphProcessorMixin):
 async def test_cache_hit() -> None:
     """Test that resources are retrieved from the cache when available."""
     processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
-    input_cache = RequestCache()
-    new_cache = RequestCache()
+    cache = RequestCache()
     mock_entry = FhirBundleEntry(resource=FhirResource({"id": "test-id", "resourceType": "Patient"}))
-    await input_cache.add_async(
+    await cache.add_async(
         resource_type="Patient",
         resource_id="test-id",
         bundle_entry=mock_entry,
@@ -59,8 +58,7 @@ async def test_cache_hit() -> None:
         id_="test-id",
         resource_type="Patient",
         parameters=None,
-        input_cache=input_cache,
-        new_cache=new_cache,
+        cache=cache,
         scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
         logger=None,
         id_search_unsupported_resources=[],
@@ -74,8 +72,7 @@ async def test_cache_hit() -> None:
 async def test_cache_miss() -> None:
     """Test that resources are fetched from the server when not in the cache."""
     processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
-    input_cache = RequestCache()
-    new_cache = RequestCache()
+    cache = RequestCache()
 
     # noinspection PyUnusedLocal
     async def mock_async_generator(
@@ -129,8 +126,7 @@ async def test_cache_miss() -> None:
         id_="test-id",
         resource_type="Patient",
         parameters=None,
-        input_cache=input_cache,
-        new_cache=new_cache,
+        cache=cache,
         scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
         logger=None,
         id_search_unsupported_resources=[],
@@ -150,10 +146,9 @@ async def test_cache_miss() -> None:
 async def test_partial_cache() -> None:
     """Test a scenario where some resources are in the cache and others are fetched."""
     processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
-    input_cache = RequestCache()
-    new_cache = RequestCache()
+    cache = RequestCache()
     mock_entry = FhirBundleEntry(resource=FhirResource({"id": "cached-id", "resourceType": "Patient"}))
-    await input_cache.add_async(
+    await cache.add_async(
         resource_type="Patient",
         resource_id="cached-id",
         bundle_entry=mock_entry,
@@ -200,8 +195,7 @@ async def test_partial_cache() -> None:
         id_=["cached-id", "non-cached-id"],
         resource_type="Patient",
         parameters=None,
-        input_cache=input_cache,
-        new_cache=new_cache,
+        cache=cache,
         scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
         logger=None,
         id_search_unsupported_resources=[],
@@ -217,10 +211,9 @@ async def test_partial_cache() -> None:
 async def test_partial_cache_with_null_bundle_entry() -> None:
     """Test a scenario where some resources are in the cache and others are fetched."""
     processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
-    input_cache = RequestCache()
-    new_cache = RequestCache()
+    cache = RequestCache()
 
-    await input_cache.add_async(
+    await cache.add_async(
         resource_type="Patient",
         resource_id="cached-id",
         bundle_entry=None,
@@ -265,8 +258,7 @@ async def test_partial_cache_with_null_bundle_entry() -> None:
         id_=["cached-id", "non-cached-id"],
         resource_type="Patient",
         parameters=None,
-        input_cache=input_cache,
-        new_cache=new_cache,
+        cache=cache,
         scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
         logger=None,
         id_search_unsupported_resources=[],
@@ -282,8 +274,7 @@ async def test_partial_cache_with_null_bundle_entry() -> None:
 async def test_cache_update() -> None:
     """Test that fetched resources are added to the cache."""
     processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
-    input_cache = RequestCache()
-    new_cache = RequestCache()
+    cache = RequestCache()
 
     # noinspection PyUnusedLocal
     async def mock_async_generator(
@@ -319,8 +310,7 @@ async def test_cache_update() -> None:
         id_="test-id",
         resource_type="Patient",
         parameters=None,
-        input_cache=input_cache,
-        new_cache=new_cache,
+        cache=cache,
         scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
         logger=None,
         id_search_unsupported_resources=[],
@@ -333,7 +323,7 @@ async def test_cache_update() -> None:
     assert resource.get("id") == "test-id"
 
     # Verify the resource is now in the cache
-    cache_entry = await new_cache.get_async(resource_type="Patient", resource_id="test-id")
+    cache_entry = await cache.get_async(resource_type="Patient", resource_id="test-id")
     assert cache_entry is not None
     bundle_entry = cache_entry.bundle_entry
     assert bundle_entry is not None
@@ -346,8 +336,7 @@ async def test_cache_update() -> None:
 async def test_empty_cache() -> None:
     """Test behavior when the cache is empty."""
     processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
-    input_cache = RequestCache()
-    new_cache = RequestCache()
+    cache = RequestCache()
 
     # noinspection PyUnusedLocal
     async def mock_async_generator(
@@ -383,8 +372,7 @@ async def test_empty_cache() -> None:
         id_="test-id",
         resource_type="Patient",
         parameters=None,
-        input_cache=input_cache,
-        new_cache=new_cache,
+        cache=cache,
         scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
         logger=None,
         id_search_unsupported_resources=[],
@@ -401,8 +389,7 @@ async def test_empty_cache() -> None:
 async def test_items_added_to_input_cache() -> None:
     """Test that items are appropriately added to the input cache."""
     processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
-    input_cache = RequestCache()
-    new_cache = RequestCache()
+    cache = RequestCache()
 
     # noinspection PyUnusedLocal
     async def mock_async_generator(
@@ -440,15 +427,14 @@ async def test_items_added_to_input_cache() -> None:
         id_="test-id",
         resource_type="Patient",
         parameters=None,
-        input_cache=input_cache,
-        new_cache=new_cache,
+        cache=cache,
         scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
         logger=None,
         id_search_unsupported_resources=[],
     )
 
     # Verify the resource is added to the input cache
-    cache_entry = await new_cache.get_async(resource_type="Patient", resource_id="test-id")
+    cache_entry = await cache.get_async(resource_type="Patient", resource_id="test-id")
     assert cache_entry is not None
     bundle_entry = cache_entry.bundle_entry
     assert bundle_entry is not None

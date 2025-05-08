@@ -49,7 +49,6 @@ class FhirGetResponse:
         "cache_hits",
         "results_by_url",
         "storage_mode",
-        "removed_entries_id",
     ]
 
     def __init__(
@@ -121,7 +120,6 @@ class FhirGetResponse:
         """ Count of errors in the response by status """
         self.storage_mode: CompressedDictStorageMode = storage_mode
         """ Storage mode for the response """
-        self.removed_entries_id: list[str] = []
 
     @abstractmethod
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse": ...

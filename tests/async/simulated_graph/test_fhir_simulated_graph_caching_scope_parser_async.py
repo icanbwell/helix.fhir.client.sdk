@@ -152,7 +152,7 @@ async def test_fhir_simulated_graph_caching_scope_parser_async() -> None:
     new_cache = RequestCache()
     response: FhirGetResponse | None = await FhirGetResponse.from_async_generator(
         fhir_client.simulate_graph_streaming_async(
-            id_="1", graph_json=graph_json, contained=False, separate_bundle_resources=False, new_cache=new_cache
+            id_="1", graph_json=graph_json, contained=False, separate_bundle_resources=False, input_cache=new_cache
         )
     )
     assert response is not None

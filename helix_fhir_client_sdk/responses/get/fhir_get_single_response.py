@@ -180,7 +180,6 @@ class FhirGetSingleResponse(FhirGetResponse):
         :param request_cache: The cache to remove the entries from
         :return: self
         """
-
         return self
 
     @classmethod

@@ -321,7 +321,6 @@ class FhirGetBundleResponse(FhirGetResponse):
                         and ResourceHash().hash_value(json.dumps(json.loads(entry.resource.json()), sort_keys=True))
                         == cached_entry.raw_hash
                     ):
-                        self.removed_entries_id.append(entry.resource.id)
                         self._bundle_entries.remove(entry)
                         break
 

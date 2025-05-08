@@ -79,8 +79,10 @@ class RequestCache:
             cached_entry = self._cache.get(key)
 
             if cached_entry is not None:
+                self.cache_hits += 1
                 return cached_entry
 
+            self.cache_misses += 1
             return None
 
     async def add_async(
@@ -163,11 +165,3 @@ class RequestCache:
         :return: A string representation of the cache.
         """
         return f"RequestCache(cache_size={len(self._cache)})"
-
-    async def increase_cache_hit(self) -> None:
-        async with self._lock:
-            self.cache_hits += 1
-
-    async def increase_cache_miss(self) -> None:
-        async with self._lock:
-            self.cache_misses += 1
