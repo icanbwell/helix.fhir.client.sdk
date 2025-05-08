@@ -163,7 +163,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 resource_type=start,
                 id_=id_,
                 cache=cache,
-                # new_cache=new_cache,
                 scope_parser=scope_parser,
                 logger=logger,
                 id_search_unsupported_resources=id_search_unsupported_resources,
@@ -1030,7 +1029,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # This list tracks the non-cached ids that were found
         found_non_cached_id_list: list[str] = []
         # Cache the fetched entries
-        # pdb.set_trace()
         if all_result:
             non_cached_bundle_entry: FhirBundleEntry
             for non_cached_bundle_entry in all_result.get_bundle_entries():
@@ -1078,7 +1076,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 if cache_updated and logger:
                     logger.info(f"Inserted 404 for {resource_type}/{non_cached_id} into cache (ByParam)")
 
-        # pdb.set_trace()
         bundle_response: FhirGetBundleResponse = (
             FhirGetBundleResponse.from_response(other_response=all_result)
             if all_result
