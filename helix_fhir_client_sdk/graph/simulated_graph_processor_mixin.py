@@ -1,17 +1,11 @@
 import json
-import logging
 from abc import ABC
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from logging import Logger
-from typing import (
-    Any,
-    cast,
-    Optional
-)
+from typing import Any, cast
 from urllib.parse import quote
 
-from compressedfhir.fhir.fhir_bundle import FhirBundle
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
 from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from compressedfhir.fhir.fhir_resource import FhirResource
@@ -128,6 +122,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         Yields:
             FhirGetResponse objects representing retrieved resources
         """
+        if not new_cache:
+            new_cache = RequestCache()
         # Validate graph definition input
         assert graph_json, "Graph JSON must be provided"
         graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
@@ -160,6 +156,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Track resources that don't support ID-based search
         id_search_unsupported_resources: list[str] = []
+        if not new_cache:
+            new_cache = RequestCache()
         cache: RequestCache = input_cache if input_cache is not None else new_cache
         async with cache:
             # Retrieve start resources based on graph definition
@@ -266,8 +264,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 logger.info(
                     f"Request Cache for: id_={id_}, "
                     f"start={graph_definition.start}, "
-                    f"hits: {cache.cache_hits}, "
-                    f"misses: {cache.cache_misses}"
+                    f"hits: {new_cache.cache_hits}, "
+                    f"misses: {new_cache.cache_misses}"
                 )
 
             # Yield the final response
@@ -375,8 +373,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         link: GraphDefinitionLink,
         parent_bundle_entries: FhirBundleEntryList | None,
         logger: Logger | None,
-        input_cache: RequestCache,
-        new_cache: RequestCache,
+        input_cache: RequestCache | None,
+        new_cache: RequestCache | None,
         scope_parser: FhirScopeParser,
         parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]],
         request_size: int,
@@ -536,8 +534,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         parent_resource_type: str,
         parameters: list[str] | None = None,
         path: str | None,
-        input_cache: RequestCache,
-        new_cache: RequestCache,
+        input_cache: RequestCache | None,
+        new_cache: RequestCache | None,
         scope_parser: FhirScopeParser,
         logger: Logger | None,
         id_search_unsupported_resources: list[str],
@@ -617,8 +615,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         path: str | None,
         parent_bundle_entries: FhirBundleEntryList | None,
         logger: Logger | None,
-        input_cache: RequestCache,
-        new_cache: RequestCache,
+        input_cache: RequestCache | None,
+        new_cache: RequestCache | None,
         scope_parser: FhirScopeParser,
         parent_link_map: list[tuple[list[GraphDefinitionLink], list[FhirBundleEntry]]],
         request_size: int,
@@ -857,15 +855,17 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         *,
         resource_type: str,
         ids: list[str],
-        input_cache: RequestCache,
-        new_cache: RequestCache,
+        input_cache: RequestCache | None,
+        new_cache: RequestCache | None,
         additional_parameters: list[str] | None,
         logger: Logger | None,
     ) -> FhirGetResponse | None:
         result: FhirGetResponse | None = None
         non_cached_id_list: list[str] = []
+        if not new_cache:
+            new_cache = RequestCache()
         # first check to see if we can find these in the cache
-        if ids:
+        if ids and input_cache:
             for resource_id in ids:
                 cache_entry: RequestCacheEntry | None = await input_cache.get_async(
                     resource_type=resource_type, resource_id=resource_id
@@ -874,14 +874,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     # if there is an entry then it means we tried to get it in the past
                     # so don't get it again whether we were successful or not
                     if logger:
-                        logger.info(
-                            f"{cache_entry.status} Returning {resource_type}/{resource_id} from cache (1by1)"
-                        )
+                        logger.info(f"{cache_entry.status} Returning {resource_type}/{resource_id} from cache (1by1)")
                 else:
                     if logger:
-                        logger.info(
-                            f"Cache entry not found for {resource_type}/{resource_id} (1by1)"
-                        )
+                        logger.info(f"Cache entry not found for {resource_type}/{resource_id} (1by1)")
                     non_cached_id_list.append(resource_id)
 
         for single_id in non_cached_id_list:
@@ -910,7 +906,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             last_modified=result2.lastModified,
                             etag=result2.etag,
                             from_input_cache=False,
-                            raw_hash=ResourceHash().hash_value(json.dumps(json.loads(entry._resource.json()), sort_keys=True))
+                            raw_hash=ResourceHash().hash_value(
+                                json.dumps(json.loads(entry._resource.json()), sort_keys=True)
+                            )
+                            if entry._resource
+                            else "",
                         )
                         await new_cache.increase_cache_miss()
                         if cache_updated and logger:
@@ -924,7 +924,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         last_modified=result2.lastModified,
                         etag=result2.etag,
                         from_input_cache=False,
-                        raw_hash=""
+                        raw_hash="",
                     )
                     if cache_updated and logger:
                         logger.info(f"Inserted {result2.status} for {resource_type}/{single_id} into cache (1by1)")
@@ -937,15 +937,16 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         id_: list[str] | str | None = None,
         resource_type: str,
         parameters: list[str] | None = None,
-        input_cache: Optional[RequestCache],
-        new_cache: RequestCache,
+        input_cache: RequestCache | None,
+        new_cache: RequestCache | None,
         scope_parser: FhirScopeParser,
         logger: Logger | None,
         id_search_unsupported_resources: list[str],
         add_cached_bundles_to_result: bool = True,
     ) -> tuple[FhirGetResponse, int]:
         assert resource_type
-
+        if not new_cache:
+            new_cache = RequestCache()
         if not scope_parser.scope_allows(resource_type=resource_type):
             if logger:
                 logger.debug(f"Skipping resource {resource_type} due to scope")
@@ -978,41 +979,36 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         non_cached_id_list: list[str] = []
         # get any cached resources
-        cached_bundle_entries: FhirBundleEntryList = FhirBundleEntryList()
-        cached_response: FhirGetResponse | None = None
-        cache_hits: int = 0
         if id_list:
-            async for entry in input_cache.get_entries_async():
-                print(f"input_cache: {entry}")
-            for resource_id in id_list:
-                cache_entry: RequestCacheEntry | None = await input_cache.get_async(
-                    resource_type=resource_type, resource_id=resource_id
-                )
-                print(f"cache_entry-->{cache_entry}, resource_id-->{resource_id}, resource_type->{resource_type}")
-                if cache_entry:
-                    # if there is an entry then it means we tried to get it in the past
-                    # so don't get it again whether we were successful or not
-                    if logger:
-                        logger.info(
-                            f"{cache_entry.status} Returning {resource_type}/{resource_id} from cache (ByParam)"
-                        )
-                    await new_cache.add_async(
-                        resource_type=cache_entry.resource_type,
-                        resource_id=cache_entry.id_,
-                        bundle_entry=cache_entry.bundle_entry,
-                        status=cache_entry.status,
-                        last_modified=cache_entry.last_modified,
-                        etag=cache_entry.etag,
-                        from_input_cache=True,
-                        raw_hash=cache_entry.raw_hash
+            if input_cache:
+                for resource_id in id_list:
+                    cache_entry: RequestCacheEntry | None = await input_cache.get_async(
+                        resource_type=resource_type, resource_id=resource_id
                     )
-                    await new_cache.increase_cache_hit()
-                else:
-                    if logger:
-                        logger.info(
-                            f"Cache entry not found for {resource_type}/{resource_id} (ByParam)"
+                    if cache_entry:
+                        # if there is an entry then it means we tried to get it in the past
+                        # so don't get it again whether we were successful or not
+                        if logger:
+                            logger.info(
+                                f"{cache_entry.status} Returning {resource_type}/{resource_id} from cache (ByParam)"
+                            )
+                        await new_cache.add_async(
+                            resource_type=cache_entry.resource_type,
+                            resource_id=cache_entry.id_,
+                            bundle_entry=cache_entry.bundle_entry,
+                            status=cache_entry.status,
+                            last_modified=cache_entry.last_modified,
+                            etag=cache_entry.etag,
+                            from_input_cache=True,
+                            raw_hash=cache_entry.raw_hash,
                         )
-                    non_cached_id_list.append(resource_id)
+                        await new_cache.increase_cache_hit()
+                    else:
+                        if logger:
+                            logger.info(f"Cache entry not found for {resource_type}/{resource_id} (ByParam)")
+                        non_cached_id_list.append(resource_id)
+            else:
+                non_cached_id_list.extend(id_list)
 
         all_result: FhirGetResponse | None = None
         # either we have non-cached ids or this is a query without id but has other parameters
@@ -1055,27 +1051,28 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     if result.resource_type == "OperationOutcome":
                         result = FhirGetErrorResponse.from_response(other_response=result)
 
-                    # remove entries that we have in the cache
-                    await result.remove_entries_in_cache_async(request_cache=input_cache)
-                    for id in result.removed_entries_id:
-                        cache_entry: RequestCacheEntry | None = await input_cache.get_async(
-                            resource_type=resource_type, resource_id=id
-                        )
-                        await new_cache.add_async(
-                            resource_type=cache_entry.resource_type,
-                            resource_id=cache_entry.id_,
-                            bundle_entry=cache_entry.bundle_entry,
-                            status=cache_entry.status,
-                            last_modified=cache_entry.last_modified,
-                            etag=cache_entry.etag,
-                            from_input_cache=True,
-                            # json.dumps(json.loads(non_cached_bundle_entry.resource.json()), sort_keys=True)
-                            raw_hash=cache_entry.raw_hash
-                        )
-                        await new_cache.increase_cache_hit()
+                    if input_cache:
+                        # remove entries that we have in the cache
+                        await result.remove_entries_in_cache_async(request_cache=input_cache)
+                        for resource_id in result.removed_entries_id:
+                            input_cache_entry: RequestCacheEntry | None = await input_cache.get_async(
+                                resource_type=resource_type, resource_id=resource_id
+                            )
+                            if input_cache_entry:
+                                await new_cache.add_async(
+                                    resource_type=input_cache_entry.resource_type,
+                                    resource_id=input_cache_entry.id_,
+                                    bundle_entry=input_cache_entry.bundle_entry,
+                                    status=input_cache_entry.status,
+                                    last_modified=input_cache_entry.last_modified,
+                                    etag=input_cache_entry.etag,
+                                    from_input_cache=True,
+                                    raw_hash=input_cache_entry.raw_hash,
+                                )
+                                await new_cache.increase_cache_hit()
 
-                        if id in non_cached_id_list:
-                            non_cached_id_list.remove(id)
+                            if resource_id in non_cached_id_list:
+                                non_cached_id_list.remove(resource_id)
 
                     # append to the response
                     if all_result:
@@ -1096,6 +1093,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # This list tracks the non-cached ids that were found
         found_non_cached_id_list: list[str] = []
         # Cache the fetched entries
+        # pdb.set_trace()
         if all_result:
             non_cached_bundle_entry: FhirBundleEntry
             for non_cached_bundle_entry in all_result.get_bundle_entries():
@@ -1119,7 +1117,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             ),
                             etag=(non_cached_bundle_entry.response.etag if non_cached_bundle_entry.response else None),
                             from_input_cache=False,
-                            raw_hash=ResourceHash().hash_value(json.dumps(json.loads(non_cached_bundle_entry.resource.json()), sort_keys=True))
+                            raw_hash=ResourceHash().hash_value(
+                                json.dumps(json.loads(non_cached_bundle_entry.resource.json()), sort_keys=True)
+                            ),
                         )
                         await new_cache.increase_cache_miss()
                         if cache_updated and logger:
@@ -1137,12 +1137,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     last_modified=datetime.now(UTC),
                     etag=None,
                     from_input_cache=False,
-                    raw_hash=""
+                    raw_hash="",
                 )
                 await new_cache.increase_cache_miss()
                 if cache_updated and logger:
                     logger.info(f"Inserted 404 for {resource_type}/{non_cached_id} into cache (ByParam)")
 
+        # pdb.set_trace()
         bundle_response: FhirGetBundleResponse = (
             FhirGetBundleResponse.from_response(other_response=all_result)
             if all_result
@@ -1167,8 +1168,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             )
         )
 
-        # print(f"bundle_response-->{bundle_response}")
-        return bundle_response, cache_hits
+        return bundle_response, new_cache.cache_hits
 
     # noinspection PyPep8Naming
     async def simulate_graph_async(
@@ -1264,6 +1264,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         max_concurrent_tasks: int | None = 1,
         sort_resources: bool | None = False,
         input_cache: RequestCache | None = None,
+        new_cache: RequestCache | None = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Simulates the $graph query on the FHIR server
@@ -1311,5 +1312,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             max_concurrent_tasks=max_concurrent_tasks,
             sort_resources=sort_resources,
             input_cache=input_cache,
+            new_cache=new_cache,
         ):
             yield r

@@ -17,7 +17,7 @@ class GraphLinkParameters:
 
     logger: Logger | None
 
-    input_cache: RequestCache
+    input_cache: RequestCache | None
 
     new_cache: RequestCache
 

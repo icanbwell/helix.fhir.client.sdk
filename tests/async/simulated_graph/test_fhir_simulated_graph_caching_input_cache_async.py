@@ -208,6 +208,7 @@ async def test_fhir_simulated_graph_caching_input_cache_async() -> None:
         fhir_client = fhir_client.set_access_token(auth_access_token)
 
     request_cache = RequestCache(clear_cache_at_the_end=False)
+    new_cache = RequestCache(clear_cache_at_the_end=False)
 
     await request_cache.add_async(
         resource_type="Encounter",
@@ -217,6 +218,7 @@ async def test_fhir_simulated_graph_caching_input_cache_async() -> None:
         status=200,
         last_modified=datetime.now(UTC),
         etag=None,
+        raw_hash="",
     )
 
     fhir_client = fhir_client.url(absolute_url).resource("Patient")
@@ -228,6 +230,7 @@ async def test_fhir_simulated_graph_caching_input_cache_async() -> None:
             separate_bundle_resources=False,
             request_size=2,
             input_cache=request_cache,
+            new_cache=new_cache,
         )
     )
     assert response is not None

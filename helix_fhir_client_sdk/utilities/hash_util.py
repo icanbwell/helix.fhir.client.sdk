@@ -2,7 +2,6 @@ import hashlib
 
 
 class ResourceHash:
-
     def __init__(self, hash_algorithm: str = "sha256") -> None:
         # Set the hash algorithm
         self.hash_algorithm = hash_algorithm.lower()

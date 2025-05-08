@@ -123,7 +123,7 @@ class RequestCache:
                 last_modified=last_modified,
                 etag=etag,
                 from_input_cache=from_input_cache,
-                raw_hash=raw_hash
+                raw_hash=raw_hash,
             )
 
             # Add to the weak value dictionary
@@ -163,11 +163,11 @@ class RequestCache:
         :return: A string representation of the cache.
         """
         return f"RequestCache(cache_size={len(self._cache)})"
-    
-    async def increase_cache_hit(self):
+
+    async def increase_cache_hit(self) -> None:
         async with self._lock:
-            self.cache_hits+=1
-    
-    async def increase_cache_miss(self):
+            self.cache_hits += 1
+
+    async def increase_cache_miss(self) -> None:
         async with self._lock:
-            self.cache_misses+=1
+            self.cache_misses += 1

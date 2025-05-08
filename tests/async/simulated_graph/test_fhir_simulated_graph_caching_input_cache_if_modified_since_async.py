@@ -219,6 +219,7 @@ async def test_fhir_simulated_graph_caching_input_cache_if_modified_since_async(
         status=200,
         last_modified=datetime.now(UTC),
         etag=None,
+        raw_hash="",
     )
 
     fhir_client = fhir_client.url(absolute_url).resource("Patient")

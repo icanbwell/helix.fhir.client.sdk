@@ -1,4 +1,3 @@
-import json
 from collections.abc import AsyncGenerator, Generator
 from typing import (
     Any,
@@ -26,7 +25,6 @@ from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
-from helix_fhir_client_sdk.utilities.hash_util import ResourceHash
 
 
 class FhirGetSingleResponse(FhirGetResponse):
@@ -182,20 +180,6 @@ class FhirGetSingleResponse(FhirGetResponse):
         :param request_cache: The cache to remove the entries from
         :return: self
         """
-        bundle_entry_list = self.get_bundle_entries()
-        async for cached_entry in request_cache.get_entries_async():
-            if cached_entry.from_input_cache:
-                for entry in bundle_entry_list:
-                    if (
-                        entry.resource
-                        and entry.resource.id is not None  # only remove if resource has an id
-                        and entry.resource.id == cached_entry.id_
-                        and entry.resource.resource_type == cached_entry.resource_type
-                        and ResourceHash().hash_value(json.dumps(json.loads(entry.resource.json()), sort_keys=True)) == cached_entry.raw_hash
-                    ):
-                        self.removed_entries_id.append(entry.resource.id)
-                        self._resource = None
-                        break
 
         return self
 
