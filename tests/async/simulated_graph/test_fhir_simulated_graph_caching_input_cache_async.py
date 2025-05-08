@@ -14,6 +14,7 @@ from mockserver_client.mockserver_client import (
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
+from helix_fhir_client_sdk.utilities.hash_util import ResourceHash
 from tests.logger_for_test import LoggerForTest
 
 
@@ -158,6 +159,11 @@ async def test_fhir_simulated_graph_caching_input_cache_async() -> None:
         timing=times(1),
     )
 
+    encounter_json = {
+        "resourceType": "Encounter",
+        "id": "10",
+        "participant": [{"individual": {"reference": "Practitioner/12345"}}],
+    }
     response_text = {
         "entry": [
             {
@@ -167,13 +173,7 @@ async def test_fhir_simulated_graph_caching_input_cache_async() -> None:
                     "participant": [{"individual": {"reference": "Practitioner/12345"}}],
                 }
             },
-            {
-                "resource": {
-                    "resourceType": "Encounter",
-                    "id": "10",
-                    "participant": [{"individual": {"reference": "Practitioner/12345"}}],
-                }
-            },
+            {"resource": encounter_json},
         ]
     }
     mock_client.expect(
@@ -217,7 +217,7 @@ async def test_fhir_simulated_graph_caching_input_cache_async() -> None:
         status=200,
         last_modified=datetime.now(UTC),
         etag=None,
-        raw_hash="",
+        raw_hash=ResourceHash().hash_value(json.dumps(encounter_json, sort_keys=True)),
     )
 
     fhir_client = fhir_client.url(absolute_url).resource("Patient")

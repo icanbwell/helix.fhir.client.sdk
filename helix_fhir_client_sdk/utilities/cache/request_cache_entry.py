@@ -12,7 +12,7 @@ class RequestCacheEntry:
 
     id_: str
     resource_type: str
-    status: int
+    status: int | None
     bundle_entry: FhirBundleEntry | None
     last_modified: datetime | None
     etag: str | None
