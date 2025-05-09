@@ -139,11 +139,9 @@ class RequestCache:
         :param resource_key: resource key contains both resourceType and resourceId. Eg: Patient/123
         """
         async with self._lock:
-            # Check if the key already exists
             if resource_key not in self._cache:
                 return False
 
-            # Add to the weak value dictionary
             del self._cache[resource_key]
 
             return True
@@ -159,7 +157,7 @@ class RequestCache:
         """
         This method returns the entries in the cache.
 
-        :return: The entries in the cache.
+        :return: The keys in the cache.
         """
         async with self._lock:
             for entry in self._cache.values():
