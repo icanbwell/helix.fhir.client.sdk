@@ -95,7 +95,7 @@ class RequestCache:
         last_modified: datetime | None,
         etag: str | None,
         from_input_cache: bool | None | None,
-        raw_hash: str | None,
+        raw_hash: str,
     ) -> bool:
         """
         This method adds the given data to the cache.
@@ -133,6 +133,19 @@ class RequestCache:
 
             return True
 
+    async def remove_async(self, *, resource_key: str) -> bool:
+        """
+        This method remove the given data from the cache.
+        :param resource_key: resource key contains both resourceType and resourceId. Eg: Patient/123
+        """
+        async with self._lock:
+            if resource_key not in self._cache:
+                return False
+
+            del self._cache[resource_key]
+
+            return True
+
     async def clear_async(self) -> None:
         """
         This method clears the cache.
@@ -144,11 +157,20 @@ class RequestCache:
         """
         This method returns the entries in the cache.
 
-        :return: The entries in the cache.
+        :return: The keys in the cache.
         """
         async with self._lock:
             for entry in self._cache.values():
                 yield entry
+
+    async def get_keys_async(self) -> list[str]:
+        """
+        This method returns the keys in the cache.
+
+        :return: The entries in the cache.
+        """
+        async with self._lock:
+            return list(self._cache.keys())
 
     def __len__(self) -> int:
         """

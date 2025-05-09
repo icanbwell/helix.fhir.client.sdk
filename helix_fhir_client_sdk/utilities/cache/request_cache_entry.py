@@ -17,4 +17,4 @@ class RequestCacheEntry:
     last_modified: datetime | None
     etag: str | None
     from_input_cache: bool | None | None
-    raw_hash: str | None
+    raw_hash: str
