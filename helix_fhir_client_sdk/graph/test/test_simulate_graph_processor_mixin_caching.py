@@ -18,6 +18,7 @@ from helix_fhir_client_sdk.responses.get.fhir_get_single_response import (
     FhirGetSingleResponse,
 )
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
+from helix_fhir_client_sdk.utilities.hash_util import ResourceHash
 
 
 class MockSimulatedGraphProcessor(SimulatedGraphProcessorMixin):
@@ -48,6 +49,9 @@ async def test_cache_hit() -> None:
         last_modified=None,
         etag=None,
         from_input_cache=False,
+        raw_hash=ResourceHash().hash_value(json.dumps(json.loads(mock_entry._resource.json()), sort_keys=True))
+        if mock_entry._resource
+        else "",
     )
 
     result, cache_hits = await processor._get_resources_by_parameters_async(
@@ -61,10 +65,7 @@ async def test_cache_hit() -> None:
     )
 
     assert cache_hits == 1
-    assert len(result.get_bundle_entries()) == 1
-    resource = result.get_bundle_entries()[0].resource
-    assert resource is not None
-    assert resource.get("id") == "test-id"
+    assert len(result.get_bundle_entries()) == 0
 
 
 @pytest.mark.asyncio
@@ -155,6 +156,9 @@ async def test_partial_cache() -> None:
         last_modified=None,
         etag=None,
         from_input_cache=False,
+        raw_hash=ResourceHash().hash_value(json.dumps(json.loads(mock_entry._resource.json()), sort_keys=True))
+        if mock_entry._resource
+        else "",
     )
 
     # noinspection PyUnusedLocal
@@ -198,9 +202,9 @@ async def test_partial_cache() -> None:
     )
 
     assert cache_hits == 1
-    assert len(result.get_bundle_entries()) == 2
+    assert len(result.get_bundle_entries()) == 1
     resource_ids = [entry.resource.get("id") for entry in result.get_bundle_entries() if entry.resource]
-    assert set(resource_ids) == {"cached-id", "non-cached-id"}
+    assert set(resource_ids) == {"non-cached-id"}
 
 
 @pytest.mark.asyncio
@@ -217,6 +221,7 @@ async def test_partial_cache_with_null_bundle_entry() -> None:
         last_modified=None,
         etag=None,
         from_input_cache=False,
+        raw_hash="",
     )
 
     # noinspection PyUnusedLocal
@@ -384,7 +389,7 @@ async def test_empty_cache() -> None:
 async def test_items_added_to_input_cache() -> None:
     """Test that items are appropriately added to the input cache."""
     processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
-    input_cache = RequestCache()
+    cache = RequestCache()
 
     # noinspection PyUnusedLocal
     async def mock_async_generator(
@@ -422,14 +427,14 @@ async def test_items_added_to_input_cache() -> None:
         id_="test-id",
         resource_type="Patient",
         parameters=None,
-        cache=input_cache,
+        cache=cache,
         scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
         logger=None,
         id_search_unsupported_resources=[],
     )
 
     # Verify the resource is added to the input cache
-    cache_entry = await input_cache.get_async(resource_type="Patient", resource_id="test-id")
+    cache_entry = await cache.get_async(resource_type="Patient", resource_id="test-id")
     assert cache_entry is not None
     bundle_entry = cache_entry.bundle_entry
     assert bundle_entry is not None

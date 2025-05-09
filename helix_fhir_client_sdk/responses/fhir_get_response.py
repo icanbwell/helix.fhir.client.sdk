@@ -2,11 +2,7 @@ import json
 from abc import abstractmethod
 from collections.abc import AsyncGenerator, Generator
 from datetime import UTC, datetime
-from typing import (
-    Any,
-    Optional,
-    cast,
-)
+from typing import Any, Optional, cast
 
 from compressedfhir.fhir.fhir_bundle_entry import (
     FhirBundleEntry,

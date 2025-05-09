@@ -95,6 +95,7 @@ class RequestCache:
         last_modified: datetime | None,
         etag: str | None,
         from_input_cache: bool | None | None,
+        raw_hash: str | None,
     ) -> bool:
         """
         This method adds the given data to the cache.
@@ -124,6 +125,7 @@ class RequestCache:
                 last_modified=last_modified,
                 etag=etag,
                 from_input_cache=from_input_cache,
+                raw_hash=raw_hash,
             )
 
             # Add to the weak value dictionary

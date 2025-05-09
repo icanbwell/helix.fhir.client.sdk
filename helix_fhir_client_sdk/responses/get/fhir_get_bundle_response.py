@@ -1,10 +1,7 @@
+import json
 from collections.abc import AsyncGenerator, Generator
 from datetime import datetime
-from typing import (
-    Any,
-    cast,
-    override,
-)
+from typing import Any, cast, override
 
 from compressedfhir.fhir.fhir_bundle import FhirBundle
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
@@ -23,6 +20,7 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
+from helix_fhir_client_sdk.utilities.hash_util import ResourceHash
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -320,6 +318,8 @@ class FhirGetBundleResponse(FhirGetResponse):
                         and entry.resource.id is not None  # only remove if resource has an id
                         and entry.resource.id == cached_entry.id_
                         and entry.resource.resource_type == cached_entry.resource_type
+                        and ResourceHash().hash_value(json.dumps(json.loads(entry.resource.json()), sort_keys=True))
+                        == cached_entry.raw_hash
                     ):
                         self._bundle_entries.remove(entry)
                         break
