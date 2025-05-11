@@ -1098,8 +1098,24 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     create_operation_outcome_for_error=self._create_operation_outcome_for_error,
                 )
             )
+            if non_cached_id_list
+            else FhirGetBundleResponse(
+                request_id=None,
+                url="",
+                id_=None,
+                resource_type=resource_type,
+                response_text="",
+                response_headers=None,
+                status=200,
+                access_token=self._access_token,
+                next_url=None,
+                total_count=0,
+                extra_context_to_return=None,
+                error=None,
+                results_by_url=[],
+                storage_mode=self._storage_mode,
+            )
         )
-
         return bundle_response, cache.cache_hits
 
     # noinspection PyPep8Naming
