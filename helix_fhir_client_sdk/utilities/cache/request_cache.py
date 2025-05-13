@@ -112,10 +112,6 @@ class RequestCache:
         key: str = f"{resource_type}/{resource_id}"
 
         async with self._lock:
-            # Check if the key already exists
-            if key in self._cache:
-                return False
-
             # Create the cache entry
             cache_entry = RequestCacheEntry(
                 id_=resource_id,
