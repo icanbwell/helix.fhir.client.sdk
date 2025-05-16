@@ -153,7 +153,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
             contained=False,
             separate_bundle_resources=False,
             request_size=10,
-            abort_fhir_calls_status_codes=[401]
+            abort_fhir_calls_status_codes=[401],
         )
     )
     assert response is not None
@@ -203,7 +203,7 @@ async def test_fhir_simulated_graph_multiple_graph_in_one_call_async() -> None:
                     "resourceType": "PractitionerRole",
                 },
                 "response": {"status": "200"},
-            }
+            },
         ],
     }
 

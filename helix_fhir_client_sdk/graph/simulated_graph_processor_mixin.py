@@ -342,7 +342,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 additional_parameters.get("add_cached_bundles_to_result", True) if additional_parameters else True
             ),
             ifModifiedSince=(additional_parameters.get("ifModifiedSince", None) if additional_parameters else None),
-            abort_fhir_calls_status_codes=(additional_parameters.get("abort_fhir_calls_status_codes") if additional_parameters else None),
+            abort_fhir_calls_status_codes=(
+                additional_parameters.get("abort_fhir_calls_status_codes") if additional_parameters else None
+            ),
         ):
             # Collect each link result
             result.append(link_result[0])
@@ -581,7 +583,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         (
             child_response,  # Retrieved child resources
             cache_hits,  # Number of cache hits during retrieval
-            abort
+            abort,
         ) = await self._get_resources_by_parameters_async(
             # Resource type to retrieve
             resource_type=resource_type,
@@ -981,7 +983,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     create_operation_outcome_for_error=self._create_operation_outcome_for_error,
                 ),
                 0,
-                abort_further_calls
+                abort_further_calls,
             )
 
         id_list: list[str] | None
@@ -1303,6 +1305,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             max_concurrent_tasks=max_concurrent_tasks,
             sort_resources=sort_resources,
             input_cache=input_cache,
-            abort_fhir_calls_status_codes=abort_fhir_calls_status_codes
+            abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
         ):
             yield r
