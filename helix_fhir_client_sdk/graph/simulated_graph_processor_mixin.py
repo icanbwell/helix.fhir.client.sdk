@@ -210,7 +210,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 # Parallel processing of links for each parent bundle
                 for link, parent_bundle_entries in parent_link_map:
                     link_responses: list[FhirGetResponse]
-                    async for link_responses in AsyncParallelProcessor(
+                    async for link_responses, abort_calls in AsyncParallelProcessor(
                         name="process_link_async_parallel_function",
                         max_concurrent_tasks=max_concurrent_tasks,
                     ).process_rows_in_parallel(
@@ -231,8 +231,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         ifModifiedSince=ifModifiedSince,
                         abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
                     ):
-                        child_responses.extend(link_responses[0])
-                        if link_responses[1]:
+                        child_responses.extend(link_responses)
+                        if abort_calls:
                             abort = True
                 # Update parent link map for next iteration
                 parent_link_map = new_parent_link_map
@@ -323,7 +323,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         abort: bool = False
         # Process the link asynchronously and collect responses
         link_result: FhirGetResponse
-        async for link_result in self._process_link_async(
+        async for link_result, abort_calls in self._process_link_async(
             link=row,
             parent_bundle_entries=parameters.parent_bundle_entries,
             logger=parameters.logger,
@@ -347,8 +347,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             ),
         ):
             # Collect each link result
-            result.append(link_result[0])
-            if link_result[1]:
+            result.append(link_result)
+            if abort_calls:
                 abort = True
 
         # Record end time for performance tracking
@@ -384,7 +384,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         add_cached_bundles_to_result: bool = True,
         ifModifiedSince: datetime | None,
         abort_fhir_calls_status_codes: list[int] | None = None,
-    ) -> tuple[AsyncGenerator[FhirGetResponse, None], bool]:
+    ) -> AsyncGenerator[tuple[FhirGetResponse, bool], None]:
         """
         Process a GraphDefinition link object with advanced traversal capabilities.
 
@@ -633,7 +633,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         add_cached_bundles_to_result: bool = True,
         ifModifiedSince: datetime | None = None,
         abort_fhir_calls_status_codes: list[int] | None = None,
-    ) -> tuple[AsyncGenerator[FhirGetResponse, None], bool]:
+    ) -> AsyncGenerator[tuple[FhirGetResponse, bool], None]:
         """
         Process a GraphDefinition target
 
