@@ -297,7 +297,7 @@ class FhirAuthMixin(FhirClientProtocol):
             expiry_time_in_seconds: int | None = token_json.get("expires_in")
 
             expiry_date: datetime | None = (
-                (datetime.now(UTC) + timedelta(expiry_time_in_seconds)) if expiry_time_in_seconds else None
+                (datetime.now(UTC) + timedelta(seconds=expiry_time_in_seconds)) if expiry_time_in_seconds else None
             )
 
             self.set_access_token_expiry_date(expiry_date)
