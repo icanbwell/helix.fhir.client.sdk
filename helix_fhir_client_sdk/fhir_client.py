@@ -648,7 +648,6 @@ class FhirClient(
         return result
 
     # noinspection PyProtocol
-    # noinspection PyProtocol
     async def build_url(
         self,
         *,
