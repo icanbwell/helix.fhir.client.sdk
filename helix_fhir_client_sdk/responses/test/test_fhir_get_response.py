@@ -133,11 +133,12 @@ class TestFhirGetResponse(FhirGetResponse):
         return self
 
     @override
-    async def remove_entries_in_cache_async(self, *, request_cache: RequestCache) -> "TestFhirGetResponse":
+    async def remove_entries_in_cache_async(self, *, request_cache: RequestCache, compare_hash: bool = True) -> "TestFhirGetResponse":
         """
         Removes the entries in the cache
 
         :param request_cache: The cache to remove the entries from
+        :param compare_hash: Whether to compare the hash of the entries
         :return: self
         """
         return self

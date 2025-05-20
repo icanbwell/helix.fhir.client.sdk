@@ -362,11 +362,12 @@ class FhirGetResponse:
         ...
 
     @abstractmethod
-    async def remove_entries_in_cache_async(self, *, request_cache: RequestCache) -> "FhirGetResponse":
+    async def remove_entries_in_cache_async(self, *, request_cache: RequestCache, compare_hash: bool = True) -> "FhirGetResponse":
         """
         removes entries in the cache for the given response
 
         :param request_cache: cache to remove entries from
+        :param compare_hash: whether to compare hash or not
         :return: FhirGetResponse
         """
         ...

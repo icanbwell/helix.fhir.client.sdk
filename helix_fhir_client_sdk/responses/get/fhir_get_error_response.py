@@ -178,11 +178,12 @@ class FhirGetErrorResponse(FhirGetResponse):
         return self  # nothing to do since this is a single resource
 
     @override
-    async def remove_entries_in_cache_async(self, *, request_cache: RequestCache) -> "FhirGetResponse":
+    async def remove_entries_in_cache_async(self, *, request_cache: RequestCache, compare_hash: bool= True) -> "FhirGetResponse":
         """
         Removes the entries in the cache
 
         :param request_cache: The cache to remove the entries from
+        :param compare_hash: If True, compare the hash of the resource with the cache entry
         :return: self
         """
         return self
