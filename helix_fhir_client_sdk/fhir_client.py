@@ -648,6 +648,7 @@ class FhirClient(
         return result
 
     # noinspection PyProtocol
+    # noinspection PyProtocol
     async def build_url(
         self,
         *,
@@ -657,57 +658,101 @@ class FhirClient(
         page_number: int | None,
         resource_type: str | None,
     ) -> str:
-        full_uri = furl(self._url)
+        full_uri: furl = furl(self._url)
         full_uri /= resource_type or self._resource
         if self._obj_id:
             full_uri /= parse.quote(str(self._obj_id), safe="")
-        if ids:
+        if ids is not None and len(ids) > 0:
             if self._filter_by_resource:
-                key = (
-                    f"{self._filter_parameter}:{self._filter_by_resource}"
-                    if self._filter_parameter
-                    else self._filter_by_resource.lower()
-                )
-                full_uri.args[key] = ",".join(sorted(ids))
+                if self._filter_parameter:
+                    # ?subject:Patient=27384972
+                    full_uri.args[f"{self._filter_parameter}:{self._filter_by_resource}"] = ",".join(sorted(ids))
+                else:
+                    # ?patient=27384972
+                    full_uri.args[self._filter_by_resource.lower()] = ",".join(sorted(ids))
             else:
                 if len(ids) == 1 and not self._obj_id:
                     full_uri /= ids
                 else:
                     full_uri.args["_id"] = ",".join(sorted(ids))
+        # add action to url
         if self._action:
             full_uri /= self._action
+        # add a query for just desired properties
         if self._include_only_properties:
             full_uri.args["_elements"] = ",".join(self._include_only_properties)
         if self._page_size and (self._page_number is not None or page_number is not None):
+            # noinspection SpellCheckingInspection
             full_uri.args["_count"] = self._page_size
+            # noinspection SpellCheckingInspection
             full_uri.args["_getpagesoffset"] = page_number or self._page_number
+        # replace _count if page_size is not provided but limit is there, should be used cautiously
         elif not self._obj_id and (ids is None or self._filter_by_resource) and self._limit and self._limit >= 0:
             full_uri.args["_count"] = self._limit
-        if self._sort_fields:
+        # add any sort fields
+        if self._sort_fields is not None:
             full_uri.args["_sort"] = ",".join([str(s) for s in self._sort_fields])
+        # create full url by adding on any query parameters
+        full_url: str = full_uri.url
+        query_param_exists: bool = True if len(full_uri.args) > 0 else False
         if additional_parameters:
-            for param in additional_parameters:
-                k, _, v = param.partition("=")
-                full_uri.args[k] = v
+            if query_param_exists:
+                full_url += "&"
+            else:
+                query_param_exists = True
+                full_url += "?"
+            full_url += "&".join(additional_parameters)
         elif self._additional_parameters:
-            for param in self._additional_parameters:
-                k, _, v = param.partition("=")
-                full_uri.args[k] = v
+            if query_param_exists:
+                full_url += "&"
+            else:
+                query_param_exists = True
+                full_url += "?"
+            full_url += "&".join(self._additional_parameters)
         if self._include_total:
-            full_uri.args["_total"] = "accurate"
-        if self._filters:
-            for f in {str(f) for f in self._filters}:
-                k, _, v = f.partition("=")
-                full_uri.args.addlist(k, v)
+            if query_param_exists:
+                full_url += "&"
+            else:
+                query_param_exists = True
+                full_url += "?"
+            full_url += "_total=accurate"
+        if self._filters and len(self._filters) > 0:
+            if query_param_exists:
+                full_url += "&"
+            else:
+                query_param_exists = True
+                full_url += "?"
+            full_url += "&".join({str(f) for f in self._filters})  # remove any duplicates
+        # have to be done here since this arg can be used twice
         if self._last_updated_before:
-            full_uri.args["_lastUpdated"] = f"lt{self._last_updated_before.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+            if query_param_exists:
+                full_url += "&"
+            else:
+                query_param_exists = True
+                full_url += "?"
+            full_url += f"_lastUpdated=lt{self._last_updated_before.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         if self._last_updated_after:
-            full_uri.args["_lastUpdated"] = f"ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+            if query_param_exists:
+                full_url += "&"
+            else:
+                query_param_exists = True
+                full_url += "?"
+            full_url += f"_lastUpdated=ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         if id_above is not None:
-            full_uri.args["id:above"] = str(id_above)
+            if query_param_exists:
+                full_url += "&"
+            else:
+                query_param_exists = True
+                full_url += "?"
+            full_url += f"id:above={id_above}"
         if self._smart_merge is not None:
-            full_uri.args["smartMerge"] = "true" if self._smart_merge else "false"
-        return full_uri.url
+            if query_param_exists:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += f"smartMerge={'true' if self._smart_merge else 'false'}"
+
+        return full_url
 
     def create_http_session(self) -> ClientSession:
         """
