@@ -698,7 +698,7 @@ class FhirClient(
         if self._filters:
             for f in {str(f) for f in self._filters}:
                 k, _, v = f.partition("=")
-                full_uri.args[k] = v
+                full_uri.args.addlist(k, v)
         if self._last_updated_before:
             full_uri.args["_lastUpdated"] = f"lt{self._last_updated_before.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         if self._last_updated_after:
