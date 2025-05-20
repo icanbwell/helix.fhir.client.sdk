@@ -704,7 +704,7 @@ class FhirClient(
         if self._last_updated_after:
             full_uri.args["_lastUpdated"] = f"ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         if id_above is not None:
-            full_uri.args["id:above"] = id_above
+            full_uri.args["id:above"] = str(id_above)
         if self._smart_merge is not None:
             full_uri.args["smartMerge"] = "true" if self._smart_merge else "false"
         return str(full_uri.url)
