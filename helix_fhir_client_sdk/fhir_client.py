@@ -101,6 +101,7 @@ class FhirClient(
         self._include_total: bool = False
         self._filters: list[BaseFilter] = []
         self._expand_fhir_bundle: bool = True
+        self._smart_merge: bool | None = None
 
         self._stop_processing: bool = False
         self._last_page: int | None = None
@@ -555,6 +556,15 @@ class FhirClient(
         self._expand_fhir_bundle = expand_fhir_bundle
         return self
 
+    def smart_merge(self, smart_merge: bool) -> FhirClient:
+        """
+        Sets the smartMerge query parameter
+
+        :param smart_merge: whether to enable smartMerge
+        """
+        self._smart_merge = smart_merge
+        return self
+
     async def get_async(
         self,
         data_chunk_handler: HandleStreamingChunkFunction | None = None,
@@ -647,93 +657,57 @@ class FhirClient(
         page_number: int | None,
         resource_type: str | None,
     ) -> str:
-        full_uri: furl = furl(self._url)
+        full_uri = furl(self._url)
         full_uri /= resource_type or self._resource
         if self._obj_id:
             full_uri /= parse.quote(str(self._obj_id), safe="")
-        if ids is not None and len(ids) > 0:
+        if ids:
             if self._filter_by_resource:
-                if self._filter_parameter:
-                    # ?subject:Patient=27384972
-                    full_uri.args[f"{self._filter_parameter}:{self._filter_by_resource}"] = ",".join(sorted(ids))
-                else:
-                    # ?patient=27384972
-                    full_uri.args[self._filter_by_resource.lower()] = ",".join(sorted(ids))
+                key = (
+                    f"{self._filter_parameter}:{self._filter_by_resource}"
+                    if self._filter_parameter
+                    else self._filter_by_resource.lower()
+                )
+                full_uri.args[key] = ",".join(sorted(ids))
             else:
                 if len(ids) == 1 and not self._obj_id:
                     full_uri /= ids
                 else:
                     full_uri.args["_id"] = ",".join(sorted(ids))
-        # add action to url
         if self._action:
             full_uri /= self._action
-        # add a query for just desired properties
         if self._include_only_properties:
             full_uri.args["_elements"] = ",".join(self._include_only_properties)
         if self._page_size and (self._page_number is not None or page_number is not None):
-            # noinspection SpellCheckingInspection
             full_uri.args["_count"] = self._page_size
-            # noinspection SpellCheckingInspection
             full_uri.args["_getpagesoffset"] = page_number or self._page_number
-        # replace _count if page_size is not provided but limit is there, should be used cautiously
         elif not self._obj_id and (ids is None or self._filter_by_resource) and self._limit and self._limit >= 0:
             full_uri.args["_count"] = self._limit
-        # add any sort fields
-        if self._sort_fields is not None:
+        if self._sort_fields:
             full_uri.args["_sort"] = ",".join([str(s) for s in self._sort_fields])
-        # create full url by adding on any query parameters
-        full_url: str = full_uri.url
-        query_param_exists: bool = True if len(full_uri.args) > 0 else False
         if additional_parameters:
-            if query_param_exists:
-                full_url += "&"
-            else:
-                query_param_exists = True
-                full_url += "?"
-            full_url += "&".join(additional_parameters)
+            for param in additional_parameters:
+                k, _, v = param.partition("=")
+                full_uri.args[k] = v
         elif self._additional_parameters:
-            if query_param_exists:
-                full_url += "&"
-            else:
-                query_param_exists = True
-                full_url += "?"
-            full_url += "&".join(self._additional_parameters)
+            for param in self._additional_parameters:
+                k, _, v = param.partition("=")
+                full_uri.args[k] = v
         if self._include_total:
-            if query_param_exists:
-                full_url += "&"
-            else:
-                query_param_exists = True
-                full_url += "?"
-            full_url += "_total=accurate"
-        if self._filters and len(self._filters) > 0:
-            if query_param_exists:
-                full_url += "&"
-            else:
-                query_param_exists = True
-                full_url += "?"
-            full_url += "&".join({str(f) for f in self._filters})  # remove any duplicates
-        # have to be done here since this arg can be used twice
+            full_uri.args["_total"] = "accurate"
+        if self._filters:
+            for f in {str(f) for f in self._filters}:
+                k, _, v = f.partition("=")
+                full_uri.args[k] = v
         if self._last_updated_before:
-            if query_param_exists:
-                full_url += "&"
-            else:
-                query_param_exists = True
-                full_url += "?"
-            full_url += f"_lastUpdated=lt{self._last_updated_before.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+            full_uri.args["_lastUpdated"] = f"lt{self._last_updated_before.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         if self._last_updated_after:
-            if query_param_exists:
-                full_url += "&"
-            else:
-                query_param_exists = True
-                full_url += "?"
-            full_url += f"_lastUpdated=ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+            full_uri.args["_lastUpdated"] = f"ge{self._last_updated_after.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         if id_above is not None:
-            if query_param_exists:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += f"id:above={id_above}"
-        return full_url
+            full_uri.args["id:above"] = id_above
+        if self._smart_merge is not None:
+            full_uri.args["smartMerge"] = "true" if self._smart_merge else "false"
+        return str(full_uri.url)
 
     def create_http_session(self) -> ClientSession:
         """
@@ -821,6 +795,7 @@ class FhirClient(
         fhir_client._auth_wellknown_url = self._auth_wellknown_url
         fhir_client._time_to_live_in_secs_for_cache = self._time_to_live_in_secs_for_cache
         fhir_client._validation_server_url = self._validation_server_url
+        fhir_client._smart_merge = self._smart_merge
         return fhir_client
 
     def set_log_all_response_urls(self, value: bool) -> FhirClient:
