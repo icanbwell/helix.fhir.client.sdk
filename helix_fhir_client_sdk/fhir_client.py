@@ -707,7 +707,7 @@ class FhirClient(
             full_uri.args["id:above"] = str(id_above)
         if self._smart_merge is not None:
             full_uri.args["smartMerge"] = "true" if self._smart_merge else "false"
-        return str(full_uri.url)
+        return full_uri.url
 
     def create_http_session(self) -> ClientSession:
         """
