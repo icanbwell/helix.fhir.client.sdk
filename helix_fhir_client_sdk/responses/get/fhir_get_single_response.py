@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator, Generator
+from logging import Logger
 from typing import (
     Any,
     override,
@@ -174,7 +175,7 @@ class FhirGetSingleResponse(FhirGetResponse):
 
     @override
     async def remove_entries_in_cache_async(
-        self, *, request_cache: RequestCache, compare_hash: bool = True
+        self, *, request_cache: RequestCache, compare_hash: bool = True, logger: Logger | None
     ) -> "FhirGetSingleResponse":
         """
         Removes the entries in the cache

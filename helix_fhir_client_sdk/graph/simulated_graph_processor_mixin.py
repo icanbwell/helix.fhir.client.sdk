@@ -1015,7 +1015,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
                     if not id_:
                         # remove entries that we have in the cache
-                        await result.remove_entries_in_cache_async(request_cache=cache)
+                        await result.remove_entries_in_cache_async(
+                            request_cache=cache, compare_hash=compare_hash, logger=logger
+                        )
 
                     # append to the response
                     if all_result:

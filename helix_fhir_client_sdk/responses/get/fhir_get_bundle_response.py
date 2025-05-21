@@ -1,6 +1,7 @@
 import json
 from collections.abc import AsyncGenerator, Generator
 from datetime import datetime
+from logging import Logger
 from typing import Any, cast, override
 
 from compressedfhir.fhir.fhir_bundle import FhirBundle
@@ -303,7 +304,7 @@ class FhirGetBundleResponse(FhirGetResponse):
 
     @override
     async def remove_entries_in_cache_async(
-        self, *, request_cache: RequestCache, compare_hash: bool = True
+        self, *, request_cache: RequestCache, compare_hash: bool = True, logger: Logger | None
     ) -> "FhirGetBundleResponse":
         """
         Removes the entries in the cache from the bundle
@@ -329,6 +330,11 @@ class FhirGetBundleResponse(FhirGetResponse):
                             )
                         )
                     ):
+                        if logger:
+                            logger.info(
+                                f"Removing entry from bundle with id {entry.resource.id} and resource "
+                                f"type {entry.resource.resource_type}"
+                            )
                         self._bundle_entries.remove(entry)
                         break
 

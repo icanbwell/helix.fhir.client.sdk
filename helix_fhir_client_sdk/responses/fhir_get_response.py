@@ -2,6 +2,7 @@ import json
 from abc import abstractmethod
 from collections.abc import AsyncGenerator, Generator
 from datetime import UTC, datetime
+from logging import Logger
 from typing import Any, Optional, cast
 
 from compressedfhir.fhir.fhir_bundle_entry import (
@@ -363,7 +364,7 @@ class FhirGetResponse:
 
     @abstractmethod
     async def remove_entries_in_cache_async(
-        self, *, request_cache: RequestCache, compare_hash: bool = True
+        self, *, request_cache: RequestCache, compare_hash: bool = True, logger: Logger | None
     ) -> "FhirGetResponse":
         """
         removes entries in the cache for the given response

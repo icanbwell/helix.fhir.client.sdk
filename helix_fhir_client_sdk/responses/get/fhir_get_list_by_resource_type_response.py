@@ -1,5 +1,6 @@
 import json
 from collections.abc import AsyncGenerator, Generator
+from logging import Logger
 from typing import (
     Any,
     override,
@@ -205,7 +206,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
     @override
     async def remove_entries_in_cache_async(
-        self, *, request_cache: RequestCache, compare_hash: bool = True
+        self, *, request_cache: RequestCache, compare_hash: bool = True, logger: Logger | None
     ) -> "FhirGetResponse":
         """
         Removes the entries in the cache
@@ -223,6 +224,11 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
                             and resource.id == cached_entry.id_
                             and resource.resource_type == cached_entry.resource_type
                         ):
+                            if logger:
+                                logger.info(
+                                    f"Removing entry from bundle with id {resource.id} and resource "
+                                    f"type {resource.resource_type}"
+                                )
                             resource_list.remove(resource)
                             break
 

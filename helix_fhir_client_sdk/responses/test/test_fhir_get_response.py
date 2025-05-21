@@ -1,6 +1,7 @@
 import json
 from collections.abc import AsyncGenerator, Generator
 from datetime import UTC, datetime
+from logging import Logger
 from typing import (
     Any,
     override,
@@ -134,7 +135,7 @@ class TestFhirGetResponse(FhirGetResponse):
 
     @override
     async def remove_entries_in_cache_async(
-        self, *, request_cache: RequestCache, compare_hash: bool = True
+        self, *, request_cache: RequestCache, compare_hash: bool = True, logger: Logger | None
     ) -> "TestFhirGetResponse":
         """
         Removes the entries in the cache
