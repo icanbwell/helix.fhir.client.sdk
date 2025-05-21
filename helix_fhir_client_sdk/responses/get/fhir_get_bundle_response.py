@@ -1,6 +1,7 @@
 import json
 from collections.abc import AsyncGenerator, Generator
 from datetime import datetime
+from logging import Logger
 from typing import Any, cast, override
 
 from compressedfhir.fhir.fhir_bundle import FhirBundle
@@ -302,11 +303,14 @@ class FhirGetBundleResponse(FhirGetResponse):
             raise Exception(f"Could not get parse json from: {bundle}") from e
 
     @override
-    async def remove_entries_in_cache_async(self, *, request_cache: RequestCache) -> "FhirGetBundleResponse":
+    async def remove_entries_in_cache_async(
+        self, *, request_cache: RequestCache, compare_hash: bool = True, logger: Logger | None
+    ) -> "FhirGetBundleResponse":
         """
         Removes the entries in the cache from the bundle
 
         :param request_cache: RequestCache object to remove the entries from
+        :param compare_hash: if True, compare the hash of the resource with the hash in the cache
         :return: self
         """
         # remove all entries in the cache from the bundle
@@ -318,9 +322,19 @@ class FhirGetBundleResponse(FhirGetResponse):
                         and entry.resource.id is not None  # only remove if resource has an id
                         and entry.resource.id == cached_entry.id_
                         and entry.resource.resource_type == cached_entry.resource_type
-                        and ResourceHash().hash_value(json.dumps(json.loads(entry.resource.json()), sort_keys=True))
-                        == cached_entry.raw_hash
+                        and (
+                            not compare_hash
+                            or (
+                                ResourceHash().hash_value(json.dumps(json.loads(entry.resource.json()), sort_keys=True))
+                                == cached_entry.raw_hash
+                            )
+                        )
                     ):
+                        if logger:
+                            logger.info(
+                                f"Removing entry from bundle with id {entry.resource.id} and resource "
+                                f"type {entry.resource.resource_type}"
+                            )
                         self._bundle_entries.remove(entry)
                         break
 
