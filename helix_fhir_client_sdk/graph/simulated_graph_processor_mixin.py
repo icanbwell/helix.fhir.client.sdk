@@ -841,10 +841,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         cache: RequestCache,
         additional_parameters: list[str] | None,
         logger: Logger | None,
+        compare_hash: bool = True,
     ) -> FhirGetResponse | None:
         result: FhirGetResponse | None = None
-        non_cached_id_list: list[str] = ([],)
-        compare_hash: bool = True
+        non_cached_id_list: list[str] = []
         # first check to see if we can find these in the cache
         if ids:
             for resource_id in ids:
@@ -1007,6 +1007,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         additional_parameters=parameters,
                         cache=cache,
                         logger=logger,
+                        compare_hash=compare_hash,
                     )
                 if result:
                     if result.resource_type == "OperationOutcome":
@@ -1029,6 +1030,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 additional_parameters=parameters,
                 cache=cache,
                 logger=logger,
+                compare_hash=compare_hash,
             )
 
         # This list tracks the non-cached ids that were found
