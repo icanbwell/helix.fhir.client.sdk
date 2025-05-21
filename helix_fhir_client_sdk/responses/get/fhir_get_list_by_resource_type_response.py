@@ -204,7 +204,9 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return self
 
     @override
-    async def remove_entries_in_cache_async(self, *, request_cache: RequestCache, compare_hash: bool = True) -> "FhirGetResponse":
+    async def remove_entries_in_cache_async(
+        self, *, request_cache: RequestCache, compare_hash: bool = True
+    ) -> "FhirGetResponse":
         """
         Removes the entries in the cache
 

@@ -79,7 +79,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         sort_resources: bool | None,
         add_cached_bundles_to_result: bool = True,
         input_cache: RequestCache | None = None,
-        compare_hash: bool = True
+        compare_hash: bool = True,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Asynchronously simulate a FHIR $graph query with advanced processing capabilities.
@@ -169,7 +169,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 logger=logger,
                 id_search_unsupported_resources=id_search_unsupported_resources,
                 add_cached_bundles_to_result=add_cached_bundles_to_result,
-                compare_hash=compare_hash
+                compare_hash=compare_hash,
             )
 
             # If no parent resources found, yield empty response and exit
@@ -843,7 +843,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         logger: Logger | None,
     ) -> FhirGetResponse | None:
         result: FhirGetResponse | None = None
-        non_cached_id_list: list[str] = [],
+        non_cached_id_list: list[str] = ([],)
         compare_hash: bool = True
         # first check to see if we can find these in the cache
         if ids:
@@ -1059,7 +1059,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             from_input_cache=False,
                             raw_hash=ResourceHash().hash_value(
                                 json.dumps(json.loads(non_cached_bundle_entry.resource.json()), sort_keys=True)
-                            ) if compare_hash else "",
+                            )
+                            if compare_hash
+                            else "",
                         )
                         if cache_updated and logger:
                             logger.debug(f"Inserted {resource_type}/{non_cached_resource_id} into cache (ByParam)")
@@ -1142,7 +1144,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         sort_resources: bool | None = False,
         add_cached_bundles_to_result: bool = True,
         input_cache: RequestCache | None = None,
-        compare_hash: bool = True
+        compare_hash: bool = True,
     ) -> FhirGetResponse:
         """
         Simulates the $graph query on the FHIR server
@@ -1194,7 +1196,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 sort_resources=sort_resources,
                 add_cached_bundles_to_result=add_cached_bundles_to_result,
                 input_cache=input_cache,
-                compare_hash=compare_hash
+                compare_hash=compare_hash,
             )
         )
         assert result, "No result returned from simulate_graph_async"
