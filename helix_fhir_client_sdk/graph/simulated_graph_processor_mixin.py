@@ -1184,6 +1184,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         sort_resources: bool | None = False,
         add_cached_bundles_to_result: bool = True,
         input_cache: RequestCache | None = None,
+        abort_fhir_calls_status_codes: list[int] | None = None,
     ) -> FhirGetResponse:
         """
         Simulates the $graph query on the FHIR server
@@ -1205,6 +1206,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param sort_resources: Optional flag to sort resources
         :param add_cached_bundles_to_result: Optional flag to add cached bundles to result
         :param input_cache: Optional cache to use for input
+        :param abort_fhir_calls_status_codes: list of status codes to abort fhir calls
         :return: FhirGetResponse
         """
         if contained:
@@ -1234,6 +1236,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 sort_resources=sort_resources,
                 add_cached_bundles_to_result=add_cached_bundles_to_result,
                 input_cache=input_cache,
+                abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
             )
         )
         assert result, "No result returned from simulate_graph_async"
