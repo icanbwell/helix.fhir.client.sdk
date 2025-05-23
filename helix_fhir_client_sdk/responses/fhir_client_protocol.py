@@ -80,6 +80,7 @@ class FhirClientProtocol(Protocol):
     _include_total: bool
     _filters: list[BaseFilter]
     _expand_fhir_bundle: bool
+    _smart_merge: bool | None
 
     _stop_processing: bool = False
     _last_page: int | None
