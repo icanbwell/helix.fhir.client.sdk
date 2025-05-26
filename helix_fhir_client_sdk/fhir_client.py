@@ -101,6 +101,7 @@ class FhirClient(
         self._include_total: bool = False
         self._filters: list[BaseFilter] = []
         self._expand_fhir_bundle: bool = True
+        self._smart_merge: bool | None = None
 
         self._stop_processing: bool = False
         self._last_page: int | None = None
@@ -555,6 +556,15 @@ class FhirClient(
         self._expand_fhir_bundle = expand_fhir_bundle
         return self
 
+    def smart_merge(self, smart_merge: bool) -> FhirClient:
+        """
+        Sets the smartMerge query parameter
+
+        :param smart_merge: whether to enable smartMerge
+        """
+        self._smart_merge = smart_merge
+        return self
+
     async def get_async(
         self,
         data_chunk_handler: HandleStreamingChunkFunction | None = None,
@@ -731,8 +741,16 @@ class FhirClient(
             if query_param_exists:
                 full_url += "&"
             else:
+                query_param_exists = True
                 full_url += "?"
             full_url += f"id:above={id_above}"
+        if self._smart_merge is not None:
+            if query_param_exists:
+                full_url += "&"
+            else:
+                full_url += "?"
+            full_url += f"smartMerge={'true' if self._smart_merge else 'false'}"
+
         return full_url
 
     def create_http_session(self) -> ClientSession:
@@ -821,6 +839,7 @@ class FhirClient(
         fhir_client._auth_wellknown_url = self._auth_wellknown_url
         fhir_client._time_to_live_in_secs_for_cache = self._time_to_live_in_secs_for_cache
         fhir_client._validation_server_url = self._validation_server_url
+        fhir_client._smart_merge = self._smart_merge
         return fhir_client
 
     def set_log_all_response_urls(self, value: bool) -> FhirClient:

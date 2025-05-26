@@ -80,6 +80,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         add_cached_bundles_to_result: bool = True,
         input_cache: RequestCache | None = None,
         abort_fhir_calls_status_codes: list[int] | None = None,
+        compare_hash: bool = True,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Asynchronously simulate a FHIR $graph query with advanced processing capabilities.
@@ -119,7 +120,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             add_cached_bundles_to_result: Optional flag to add cached bundles to result
             input_cache: Optional cache for resource retrieval
             abort_fhir_calls_status_codes: List of status codes for which to abort FHIR calls
-
+            compare_hash: Flag to compare resource hashes for changes
         Yields:
             FhirGetResponse objects representing retrieved resources
         """
@@ -170,6 +171,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 id_search_unsupported_resources=id_search_unsupported_resources,
                 add_cached_bundles_to_result=add_cached_bundles_to_result,
                 abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
+                compare_hash=compare_hash,
             )
 
             # If no parent resources found, yield empty response and exit
@@ -876,6 +878,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         abort_fhir_calls_status_codes: list[int] | None,
         additional_parameters: list[str] | None,
         logger: Logger | None,
+        compare_hash: bool = True,
     ) -> tuple[FhirGetResponse | None, bool]:
         result: FhirGetResponse | None = None
         non_cached_id_list: list[str] = []
@@ -923,7 +926,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             raw_hash=ResourceHash().hash_value(
                                 json.dumps(json.loads(entry._resource.json()), sort_keys=True)
                             )
-                            if entry._resource
+                            if compare_hash and entry._resource
                             else "",
                         )
                         if cache_updated and logger:
@@ -958,6 +961,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         id_search_unsupported_resources: list[str],
         add_cached_bundles_to_result: bool = True,
         abort_fhir_calls_status_codes: list[int] | None = None,
+        compare_hash: bool = True,
     ) -> tuple[FhirGetResponse, int, bool]:
         assert resource_type
         abort_further_calls = False
@@ -1047,6 +1051,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         cache=cache,
                         abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
                         logger=logger,
+                        compare_hash=compare_hash,
                     )
                 if result:
                     if result.resource_type == "OperationOutcome":
@@ -1054,7 +1059,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
                     if not id_:
                         # remove entries that we have in the cache
-                        await result.remove_entries_in_cache_async(request_cache=cache)
+                        await result.remove_entries_in_cache_async(request_cache=cache, compare_hash=compare_hash, logger=logger)
                     if abort_fhir_calls_status_codes and result.status in abort_fhir_calls_status_codes:
                         abort_further_calls = True
                     # append to the response
@@ -1071,6 +1076,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 cache=cache,
                 abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
                 logger=logger,
+                compare_hash=compare_hash,
             )
 
         # This list tracks the non-cached ids that were found
@@ -1101,7 +1107,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             from_input_cache=False,
                             raw_hash=ResourceHash().hash_value(
                                 json.dumps(json.loads(non_cached_bundle_entry.resource.json()), sort_keys=True)
-                            ),
+                            )
+                            if compare_hash
+                            else "",
                         )
                         if cache_updated and logger:
                             logger.debug(f"Inserted {resource_type}/{non_cached_resource_id} into cache (ByParam)")
@@ -1185,6 +1193,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         add_cached_bundles_to_result: bool = True,
         input_cache: RequestCache | None = None,
         abort_fhir_calls_status_codes: list[int] | None = None,
+        compare_hash: bool = True,
     ) -> FhirGetResponse:
         """
         Simulates the $graph query on the FHIR server
@@ -1207,6 +1216,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param add_cached_bundles_to_result: Optional flag to add cached bundles to result
         :param input_cache: Optional cache to use for input
         :param abort_fhir_calls_status_codes: list of status codes to abort fhir calls
+        :param compare_hash: Optional flag to compare hash of the resources
         :return: FhirGetResponse
         """
         if contained:
@@ -1237,6 +1247,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 add_cached_bundles_to_result=add_cached_bundles_to_result,
                 input_cache=input_cache,
                 abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
+                compare_hash=compare_hash,
             )
         )
         assert result, "No result returned from simulate_graph_async"
