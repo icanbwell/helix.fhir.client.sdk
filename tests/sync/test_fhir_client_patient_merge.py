@@ -61,8 +61,8 @@ def test_bulk_replace_with_smart_merge_false() -> None:
     mock_client.reset()
 
     # Fixtures
-    person1 = {"resourceType": "Person", "id": "abc", "telecom": [{"system": "phone", "value": "123"}]}
-    person1_updated = {"resourceType": "Person", "id": "abc", "telecom": [{"system": "phone", "value": "456"}]}
+    person1 = {"resourceType": "Person", "id": "1", "telecom": [{"system": "phone", "value": "123"}]}
+    person1_updated = {"resourceType": "Person", "id": "1", "telecom": [{"system": "phone", "value": "456"}]}
 
     # Expected server-side responses
     resp1 = [{"created": True, "updated": False}]
