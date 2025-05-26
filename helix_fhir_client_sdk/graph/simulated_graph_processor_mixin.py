@@ -946,6 +946,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         logger.info(f"Inserted {result2.status} for {resource_type}/{single_id} into cache (1by1)")
                     if abort_fhir_calls_status_codes and result2.status in abort_fhir_calls_status_codes:
                         abort_further_calls = True
+                        if logger:
+                            logger.info(
+                                f"Aborting further calls. Received {result2.status} for {resource_type}/{single_id}."
+                            )
                         break
         return result, abort_further_calls
 
@@ -1059,9 +1063,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
                     if not id_:
                         # remove entries that we have in the cache
-                        await result.remove_entries_in_cache_async(request_cache=cache, compare_hash=compare_hash, logger=logger)
+                        await result.remove_entries_in_cache_async(
+                            request_cache=cache, compare_hash=compare_hash, logger=logger
+                        )
                     if abort_fhir_calls_status_codes and result.status in abort_fhir_calls_status_codes:
                         abort_further_calls = True
+                        if logger:
+                            logger.info(f"Aborting further calls. Received {result.status} for {resource_type}/{id_}.")
                     # append to the response
                     if all_result:
                         all_result = all_result.append(result)
