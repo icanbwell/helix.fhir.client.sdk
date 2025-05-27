@@ -2,11 +2,13 @@ import json
 import uuid
 from logging import Logger
 
+import pytest
+
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from tests.logger_for_test import LoggerForTest
 
 
-# @pytest.mark.skip("for testing. You need real secret and client id")
+@pytest.mark.skip("for testing. You need real secret and client id")
 def test_merge_person_with_smart_merge_modes() -> None:
     logger: Logger = LoggerForTest()
 
@@ -37,7 +39,9 @@ def test_merge_person_with_smart_merge_modes() -> None:
     }
 
     # Authenticate
-    fhir_client = FhirClient().client_credentials(client_id="", client_secret="")
+    fhir_client = FhirClient().client_credentials(
+        client_id="9lps6g3aao8cdk7tul9d3g5en", client_secret="1vgev1pnq0ouemn4abagdvd4m66n9vihjttafkmogoqtncno66op"
+    )
     token = fhir_client.get_access_token()
     base_client = fhir_client.set_access_token(token.access_token).url(base_url)
 
@@ -67,6 +71,8 @@ def test_merge_person_with_smart_merge_modes() -> None:
         logger.info("After replace (smartMerge=false):")
         assert response3 is not None
         assert response3, response3.responses[0]["updated"]
+
+        # data = base_client.resource(resource_type).id_(person_id).get()
 
         # Step 4: Reset to original
         response4 = client_replace.merge(json_data_list=[json.dumps(original_person)])
