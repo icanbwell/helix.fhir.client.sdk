@@ -2,13 +2,11 @@ import json
 import uuid
 from logging import Logger
 
-import pytest
-
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from tests.logger_for_test import LoggerForTest
 
 
-@pytest.mark.skip("for testing. You need real secret and client id")
+# @pytest.mark.skip("for testing. You need real secret and client id")
 def test_merge_person_with_smart_merge_modes() -> None:
     logger: Logger = LoggerForTest()
 
@@ -44,9 +42,6 @@ def test_merge_person_with_smart_merge_modes() -> None:
     base_client = fhir_client.set_access_token(token.access_token).url(base_url)
 
     client_merge = base_client.smart_merge(True).resource(resource_type)
-    client_replace = base_client.smart_merge(False).resource(resource_type)
-    client_resource = base_client.resource(resource_type).id_(person_id)
-
     try:
         # Step 1: Initial create
         response1 = client_merge.merge(json_data_list=[json.dumps(original_person)])
@@ -67,6 +62,7 @@ def test_merge_person_with_smart_merge_modes() -> None:
         replaced_person = json.loads(json.dumps(original_person))
         replaced_person["telecom"] = [{"system": "phone", "value": "999-999-9999", "use": "work"}]
 
+        client_replace = base_client.smart_merge(False).resource(resource_type)
         response3 = client_replace.merge(json_data_list=[json.dumps(replaced_person)])
         logger.info("After replace (smartMerge=False):")
         assert response3 is not None
@@ -80,6 +76,7 @@ def test_merge_person_with_smart_merge_modes() -> None:
 
     finally:
         # Step 5: Clean up by deleting test resource
+        client_resource = base_client.resource(resource_type).id_(person_id)
         delete_response = client_resource.delete()
         logger.info(f"Deleted test person {person_id}: {delete_response.status}")
         assert delete_response.status in [200, 204]  # Deleted successfully

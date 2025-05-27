@@ -159,7 +159,10 @@ class FhirMergeMixin(FhirClientProtocol):
                     assert obj_id
 
                     resource_uri /= parse.quote(str(obj_id), safe="")
-                    resource_uri /= "$merge"
+                    if self._smart_merge is False:
+                        resource_uri /= "$merge?smartMerge=False"
+                    else:
+                        resource_uri /= "$merge"
                     response_text: str | None = None
                     try:
                         async with RetryableAioHttpClient(

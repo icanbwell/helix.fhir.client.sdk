@@ -556,7 +556,7 @@ class FhirClient(
         self._expand_fhir_bundle = expand_fhir_bundle
         return self
 
-    def smart_merge(self, smart_merge: bool) -> FhirClient:
+    def smart_merge(self, smart_merge: bool | None) -> FhirClient:
         """
         Sets the smartMerge query parameter
 
@@ -741,16 +741,8 @@ class FhirClient(
             if query_param_exists:
                 full_url += "&"
             else:
-                query_param_exists = True
                 full_url += "?"
             full_url += f"id:above={id_above}"
-        if self._smart_merge is not None:
-            if query_param_exists:
-                full_url += "&"
-            else:
-                full_url += "?"
-            full_url += f"smartMerge={'true' if self._smart_merge else 'false'}"
-
         return full_url
 
     def create_http_session(self) -> ClientSession:
