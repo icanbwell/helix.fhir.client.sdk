@@ -39,9 +39,7 @@ def test_merge_person_with_smart_merge_modes() -> None:
     }
 
     # Authenticate
-    fhir_client = FhirClient().client_credentials(
-        client_id="9lps6g3aao8cdk7tul9d3g5en", client_secret="1vgev1pnq0ouemn4abagdvd4m66n9vihjttafkmogoqtncno66op"
-    )
+    fhir_client = FhirClient().client_credentials(client_id="", client_secret="")
     token = fhir_client.get_access_token()
     base_client = fhir_client.set_access_token(token.access_token).url(base_url)
 
