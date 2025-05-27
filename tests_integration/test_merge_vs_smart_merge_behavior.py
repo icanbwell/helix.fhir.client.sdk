@@ -64,13 +64,13 @@ def test_merge_person_with_smart_merge_modes() -> None:
 
         client_replace = base_client.smart_merge(False).resource(resource_type)
         response3 = client_replace.merge(json_data_list=[json.dumps(replaced_person)])
-        logger.info("After replace (smartMerge=False):")
+        logger.info("After replace (smartMerge=false):")
         assert response3 is not None
         assert response3, response3.responses[0]["updated"]
 
         # Step 4: Reset to original
         response4 = client_replace.merge(json_data_list=[json.dumps(original_person)])
-        logger.info("Reset to original (smartMerge=False):")
+        logger.info("Reset to original (smartMerge=false):")
         assert response4 is not None
         assert response4, response4.responses[0]["updated"] or not response4.responses[0]["updated"]  # Allow no-op
 

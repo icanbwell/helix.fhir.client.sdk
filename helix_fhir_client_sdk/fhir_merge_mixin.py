@@ -160,7 +160,7 @@ class FhirMergeMixin(FhirClientProtocol):
 
                     resource_uri /= parse.quote(str(obj_id), safe="")
                     if self._smart_merge is False:
-                        resource_uri /= "$merge?smartMerge=False"
+                        resource_uri /= "$merge?smartMerge=false"
                     else:
                         resource_uri /= "$merge"
                     response_text: str | None = None
