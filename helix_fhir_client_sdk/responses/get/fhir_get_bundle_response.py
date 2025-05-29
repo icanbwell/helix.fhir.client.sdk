@@ -331,7 +331,7 @@ class FhirGetBundleResponse(FhirGetResponse):
                         )
                     ):
                         if logger:
-                            logger.info(
+                            logger.debug(
                                 f"Removing entry from bundle with id {entry.resource.id} and resource "
                                 f"type {entry.resource.resource_type}"
                             )
