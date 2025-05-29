@@ -223,7 +223,7 @@ class FhirGetListResponse(FhirGetResponse):
                         and resource.resource_type == cached_entry.resource_type
                     ):
                         if logger:
-                            logger.info(
+                            logger.debug(
                                 f"Removing entry from bundle with id {resource.id} and resource "
                                 f"type {resource.resource_type}"
                             )
