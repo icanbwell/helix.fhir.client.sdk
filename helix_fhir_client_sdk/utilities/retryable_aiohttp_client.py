@@ -297,7 +297,7 @@ class RetryableAioHttpClient:
                     else:
                         return RetryableAioHttpResponse(
                             ok=False,
-                            status=500,
+                            status=e.status if hasattr(e, "status") else 500,
                             response_headers={},
                             response_text=str(e),
                             content=None,

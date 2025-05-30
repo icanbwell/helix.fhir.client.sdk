@@ -79,6 +79,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         sort_resources: bool | None,
         add_cached_bundles_to_result: bool = True,
         input_cache: RequestCache | None = None,
+        abort_fhir_calls_status_codes: list[int] | None = None,
         compare_hash: bool = True,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -118,8 +119,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             contained: Flag to include contained resources
             add_cached_bundles_to_result: Optional flag to add cached bundles to result
             input_cache: Optional cache for resource retrieval
+            abort_fhir_calls_status_codes: List of status codes for which to abort FHIR calls
             compare_hash: Flag to compare resource hashes for changes
-
         Yields:
             FhirGetResponse objects representing retrieved resources
         """
@@ -161,7 +162,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             start: str = graph_definition.start
             parent_response: FhirGetResponse
             cache_hits: int
-            parent_response, cache_hits = await self._get_resources_by_parameters_async(
+            parent_response, cache_hits, abort = await self._get_resources_by_parameters_async(
                 resource_type=start,
                 id_=id_,
                 cache=cache,
@@ -169,12 +170,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 logger=logger,
                 id_search_unsupported_resources=id_search_unsupported_resources,
                 add_cached_bundles_to_result=add_cached_bundles_to_result,
+                abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
                 compare_hash=compare_hash,
             )
 
             # If no parent resources found, yield empty response and exit
             parent_response_resource_count = parent_response.get_resource_count()
-            if parent_response_resource_count == 0:
+            if parent_response_resource_count == 0 or abort:
                 yield parent_response
                 return  # no resources to process
 
@@ -204,13 +206,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 parent_link_map.append((graph_definition.link, parent_bundle_entries))
 
             # Process graph links in parallel
-            while len(parent_link_map):
+            while len(parent_link_map) and not abort:
                 new_parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
 
                 # Parallel processing of links for each parent bundle
                 for link, parent_bundle_entries in parent_link_map:
                     link_responses: list[FhirGetResponse]
-                    async for link_responses in AsyncParallelProcessor(
+                    async for link_responses, abort_calls in AsyncParallelProcessor(
                         name="process_link_async_parallel_function",
                         max_concurrent_tasks=max_concurrent_tasks,
                     ).process_rows_in_parallel(
@@ -229,9 +231,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         id_search_unsupported_resources=id_search_unsupported_resources,
                         add_cached_bundles_to_result=add_cached_bundles_to_result,
                         ifModifiedSince=ifModifiedSince,
+                        abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
                     ):
                         child_responses.extend(link_responses)
-
+                        if abort_calls:
+                            abort = True
                 # Update parent link map for next iteration
                 parent_link_map = new_parent_link_map
 
@@ -274,7 +278,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         row: GraphDefinitionLink,
         parameters: GraphLinkParameters | None,
         additional_parameters: dict[str, Any] | None,
-    ) -> list[FhirGetResponse]:
+    ) -> tuple[list[FhirGetResponse], bool]:
         """
         Parallel processing function for graph definition links.
 
@@ -318,10 +322,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Initialize result list to store retrieved responses
         result: list[FhirGetResponse] = []
-
+        abort: bool = False
         # Process the link asynchronously and collect responses
         link_result: FhirGetResponse
-        async for link_result in self._process_link_async(
+        async for link_result, abort_calls in self._process_link_async(
             link=row,
             parent_bundle_entries=parameters.parent_bundle_entries,
             logger=parameters.logger,
@@ -340,9 +344,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 additional_parameters.get("add_cached_bundles_to_result", True) if additional_parameters else True
             ),
             ifModifiedSince=(additional_parameters.get("ifModifiedSince", None) if additional_parameters else None),
+            abort_fhir_calls_status_codes=(
+                additional_parameters.get("abort_fhir_calls_status_codes") if additional_parameters else None
+            ),
         ):
             # Collect each link result
             result.append(link_result)
+            if abort_calls:
+                abort = True
 
         # Record end time for performance tracking
         end_time: datetime = datetime.now()
@@ -360,7 +369,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             )
 
         # Return the list of retrieved responses
-        return result
+        return result, abort
 
     async def _process_link_async(
         self,
@@ -376,7 +385,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         max_concurrent_tasks: int | None,
         add_cached_bundles_to_result: bool = True,
         ifModifiedSince: datetime | None,
-    ) -> AsyncGenerator[FhirGetResponse, None]:
+        abort_fhir_calls_status_codes: list[int] | None = None,
+    ) -> AsyncGenerator[tuple[FhirGetResponse, bool], None]:
         """
         Process a GraphDefinition link object with advanced traversal capabilities.
 
@@ -404,6 +414,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             max_concurrent_tasks: Maximum number of concurrent processing tasks
             add_cached_bundles_to_result: Flag to add cached bundles to result
             ifModifiedSince: Optional timestamp for conditional requests
+            abort_fhir_calls_status_codes: Optional list of status codes for which to abort FHIR calls
 
         Yields:
             FhirGetResponse objects for each processed target
@@ -417,7 +428,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # Extract targets from the link
         targets: list[GraphDefinitionTarget] = link.target
         target_responses: list[FhirGetResponse]
-        async for target_responses in AsyncParallelProcessor(
+        async for target_responses, abort in AsyncParallelProcessor(
             name="process_target_async",
             max_concurrent_tasks=max_concurrent_tasks,
         ).process_rows_in_parallel(
@@ -440,10 +451,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             id_search_unsupported_resources=id_search_unsupported_resources,
             add_cached_bundles_to_result=add_cached_bundles_to_result,
             ifModifiedSince=ifModifiedSince,
+            abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
         ):
             # Yield each target response individually
             for target_response in target_responses:
-                yield target_response
+                yield target_response, abort
 
     # noinspection PyUnusedLocal
     async def process_target_async_parallel_function(
@@ -452,7 +464,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         row: GraphDefinitionTarget,
         parameters: GraphTargetParameters | None,
         additional_parameters: dict[str, Any] | None,
-    ) -> list[FhirGetResponse]:
+    ) -> tuple[list[FhirGetResponse], bool]:
         """
         Parallel processing function for individual graph definition targets.
 
@@ -482,10 +494,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Initialize result list to store retrieved responses
         result: list[FhirGetResponse] = []
-
+        abort: bool = False
         # Process the target asynchronously and collect responses
         target_result: FhirGetResponse
-        async for target_result in self._process_target_async(
+        async for target_result, abort in self._process_target_async(
             # Target to process
             target=row,
             # Path from the parent link
@@ -510,12 +522,17 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 additional_parameters.get("add_cached_bundles_to_result", True) if additional_parameters else True
             ),
             ifModifiedSince=(additional_parameters.get("ifModifiedSince", None) if additional_parameters else None),
+            abort_fhir_calls_status_codes=(
+                additional_parameters.get("abort_fhir_calls_status_codes") if additional_parameters else None
+            ),
         ):
             # Collect each target result
             result.append(target_result)
+            if abort:
+                return result, abort
 
         # Return the list of retrieved responses
-        return result
+        return result, abort
 
     async def _process_child_group(
         self,
@@ -531,7 +548,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         logger: Logger | None,
         id_search_unsupported_resources: list[str],
         add_cached_bundles_to_result: bool = True,
-    ) -> FhirGetResponse:
+        abort_fhir_calls_status_codes: list[int] | None = None,
+    ) -> tuple[FhirGetResponse, bool]:
         """
         Retrieve a group of child resources with advanced retrieval and logging capabilities.
 
@@ -557,6 +575,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             scope_parser: Scope-based access control parser
             logger: Optional logger for debugging
             id_search_unsupported_resources: List of resources with limited ID search
+            add_cached_bundles_to_result: Flag to add cached bundles to result
+            abort_fhir_calls_status_codes: List of status codes for which to abort FHIR calls
 
         Returns:
             FhirGetResponse containing retrieved child resources
@@ -565,6 +585,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         (
             child_response,  # Retrieved child resources
             cache_hits,  # Number of cache hits during retrieval
+            abort,
         ) = await self._get_resources_by_parameters_async(
             # Resource type to retrieve
             resource_type=resource_type,
@@ -581,6 +602,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # Track resources with limited ID search
             id_search_unsupported_resources=id_search_unsupported_resources,
             add_cached_bundles_to_result=add_cached_bundles_to_result,
+            abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
         )
 
         # Log detailed retrieval information if logger is available
@@ -596,7 +618,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             )
 
         # Return the retrieved child resources
-        return child_response
+        return child_response, abort
 
     async def _process_target_async(
         self,
@@ -612,7 +634,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         id_search_unsupported_resources: list[str],
         add_cached_bundles_to_result: bool = True,
         ifModifiedSince: datetime | None = None,
-    ) -> AsyncGenerator[FhirGetResponse, None]:
+        abort_fhir_calls_status_codes: list[int] | None = None,
+    ) -> AsyncGenerator[tuple[FhirGetResponse, bool], None]:
         """
         Process a GraphDefinition target
 
@@ -627,6 +650,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param request_size: number of resources to request at once
         :param id_search_unsupported_resources: list of resources that do not support id search
         :param ifModifiedSince: ifModifiedSince to use
+        :param abort_fhir_calls_status_codes: list of status codes to abort fhir calls
         :return: list of FhirGetResponse objects
         """
         children: list[FhirBundleEntry] = []
@@ -679,7 +703,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 ):
                                     child_ids.append(reference_parts[-2])
                         if request_size and len(child_ids) == request_size:
-                            child_response = await self._process_child_group(
+                            child_response, abort = await self._process_child_group(
                                 resource_type=target_type,
                                 id_=child_ids,
                                 parent_ids=parent_ids,
@@ -690,13 +714,16 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 logger=logger,
                                 id_search_unsupported_resources=id_search_unsupported_resources,
                                 add_cached_bundles_to_result=add_cached_bundles_to_result,
+                                abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
                             )
-                            yield child_response
+                            yield child_response, abort
                             children.extend(child_response.get_bundle_entries())
                             child_ids = []
                             parent_ids = []
+                            if abort:
+                                break
             if child_ids:
-                child_response = await self._process_child_group(
+                child_response, abort = await self._process_child_group(
                     resource_type=target_type,
                     id_=child_ids,
                     parent_ids=parent_ids,
@@ -707,8 +734,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     logger=logger,
                     id_search_unsupported_resources=id_search_unsupported_resources,
                     add_cached_bundles_to_result=add_cached_bundles_to_result,
+                    abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
                 )
-                yield child_response
+                yield child_response, abort
                 children.extend(child_response.get_bundle_entries())
         elif path and parent_bundle_entries and target_type:
             child_ids = []
@@ -734,7 +762,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 ):
                                     child_ids.append(reference_parts[-2])
                             if request_size and len(child_ids) == request_size:
-                                child_response = await self._process_child_group(
+                                child_response, abort = await self._process_child_group(
                                     resource_type=target_type,
                                     id_=child_ids,
                                     parent_ids=parent_ids,
@@ -745,13 +773,16 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                     logger=logger,
                                     id_search_unsupported_resources=id_search_unsupported_resources,
                                     add_cached_bundles_to_result=add_cached_bundles_to_result,
+                                    abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
                                 )
-                                yield child_response
+                                yield child_response, abort
                                 children.extend(child_response.get_bundle_entries())
                                 child_ids = []
                                 parent_ids = []
+                                if abort:
+                                    break
             if child_ids:
-                child_response = await self._process_child_group(
+                child_response, abort = await self._process_child_group(
                     resource_type=target_type,
                     id_=child_ids,
                     parent_ids=parent_ids,
@@ -762,8 +793,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     logger=logger,
                     id_search_unsupported_resources=id_search_unsupported_resources,
                     add_cached_bundles_to_result=add_cached_bundles_to_result,
+                    abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
                 )
-                yield child_response
+                yield child_response, abort
                 children.extend(child_response.get_bundle_entries())
 
         elif target.params:  # reverse path
@@ -799,7 +831,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             parent_ids.append(parent_id)
                     if request_size and len(parent_ids) == request_size:
                         request_parameters = [f"{property_name}={','.join(parent_ids)}"] + additional_parameters
-                        child_response = await self._process_child_group(
+                        child_response, abort = await self._process_child_group(
                             resource_type=target_type,
                             parent_ids=parent_ids,
                             parent_resource_type=parent_resource_type,
@@ -810,13 +842,16 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             logger=logger,
                             id_search_unsupported_resources=id_search_unsupported_resources,
                             add_cached_bundles_to_result=add_cached_bundles_to_result,
+                            abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
                         )
-                        yield child_response
+                        yield child_response, abort
                         children.extend(child_response.get_bundle_entries())
                         parent_ids = []
+                        if abort:
+                            break
                 if parent_ids:
                     request_parameters = [f"{property_name}={','.join(parent_ids)}"] + additional_parameters
-                    child_response = await self._process_child_group(
+                    child_response, abort = await self._process_child_group(
                         resource_type=target_type,
                         parent_ids=parent_ids,
                         parent_resource_type=parent_resource_type,
@@ -827,8 +862,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         logger=logger,
                         id_search_unsupported_resources=id_search_unsupported_resources,
                         add_cached_bundles_to_result=add_cached_bundles_to_result,
+                        abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
                     )
-                    yield child_response
+                    yield child_response, abort
                     children.extend(child_response.get_bundle_entries())
         if target.link:
             parent_link_map.append((target.link, children))
@@ -839,12 +875,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         resource_type: str,
         ids: list[str],
         cache: RequestCache,
+        abort_fhir_calls_status_codes: list[int] | None,
         additional_parameters: list[str] | None,
         logger: Logger | None,
         compare_hash: bool = True,
-    ) -> FhirGetResponse | None:
+    ) -> tuple[FhirGetResponse | None, bool]:
         result: FhirGetResponse | None = None
         non_cached_id_list: list[str] = []
+        abort_further_calls: bool = False
         # first check to see if we can find these in the cache
         if ids:
             for resource_id in ids:
@@ -906,8 +944,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     )
                     if cache_updated and logger:
                         logger.info(f"Inserted {result2.status} for {resource_type}/{single_id} into cache (1by1)")
-
-        return result
+                    if abort_fhir_calls_status_codes and result2.status in abort_fhir_calls_status_codes:
+                        abort_further_calls = True
+                        if logger:
+                            logger.info(
+                                f"Aborting further calls. Received {result2.status} for {resource_type}/{single_id}."
+                            )
+                        break
+        return result, abort_further_calls
 
     async def _get_resources_by_parameters_async(
         self,
@@ -920,9 +964,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         logger: Logger | None,
         id_search_unsupported_resources: list[str],
         add_cached_bundles_to_result: bool = True,
+        abort_fhir_calls_status_codes: list[int] | None = None,
         compare_hash: bool = True,
-    ) -> tuple[FhirGetResponse, int]:
+    ) -> tuple[FhirGetResponse, int, bool]:
         assert resource_type
+        abort_further_calls = False
         if not scope_parser.scope_allows(resource_type=resource_type):
             if logger:
                 logger.debug(f"Skipping resource {resource_type} due to scope")
@@ -945,6 +991,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     create_operation_outcome_for_error=self._create_operation_outcome_for_error,
                 ),
                 0,
+                abort_further_calls,
             )
 
         id_list: list[str] | None
@@ -1001,11 +1048,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 f"_id is not supported for resource_type={resource_type}. Fetching one by one ids: {non_cached_id_list}."
                             )
                     # For some resources if search by _id doesn't work then fetch one by one.
-                    result = await self._get_resources_by_id_one_by_one_async(
+                    result, abort_further_calls = await self._get_resources_by_id_one_by_one_async(
                         resource_type=resource_type,
                         ids=non_cached_id_list,
                         additional_parameters=parameters,
                         cache=cache,
+                        abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
                         logger=logger,
                         compare_hash=compare_hash,
                     )
@@ -1018,7 +1066,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         await result.remove_entries_in_cache_async(
                             request_cache=cache, compare_hash=compare_hash, logger=logger
                         )
-
+                    if abort_fhir_calls_status_codes and result.status in abort_fhir_calls_status_codes:
+                        abort_further_calls = True
+                        if logger:
+                            logger.info(f"Aborting further calls. Received {result.status} for {resource_type}/{id_}.")
                     # append to the response
                     if all_result:
                         all_result = all_result.append(result)
@@ -1026,11 +1077,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         all_result = result
         # If non_cached_id_list is not empty and resource_type does not support ?_id search then fetch it one by one
         elif len(non_cached_id_list):
-            all_result = await self._get_resources_by_id_one_by_one_async(
+            all_result, abort_further_calls = await self._get_resources_by_id_one_by_one_async(
                 resource_type=resource_type,
                 ids=non_cached_id_list,
                 additional_parameters=parameters,
                 cache=cache,
+                abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
                 logger=logger,
                 compare_hash=compare_hash,
             )
@@ -1127,7 +1179,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 storage_mode=self._storage_mode,
             )
         )
-        return bundle_response, cache.cache_hits
+        return bundle_response, cache.cache_hits, abort_further_calls
 
     # noinspection PyPep8Naming
     async def simulate_graph_async(
@@ -1148,6 +1200,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         sort_resources: bool | None = False,
         add_cached_bundles_to_result: bool = True,
         input_cache: RequestCache | None = None,
+        abort_fhir_calls_status_codes: list[int] | None = None,
         compare_hash: bool = True,
     ) -> FhirGetResponse:
         """
@@ -1170,6 +1223,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param sort_resources: Optional flag to sort resources
         :param add_cached_bundles_to_result: Optional flag to add cached bundles to result
         :param input_cache: Optional cache to use for input
+        :param abort_fhir_calls_status_codes: list of status codes to abort fhir calls
         :param compare_hash: Optional flag to compare hash of the resources
         :return: FhirGetResponse
         """
@@ -1200,6 +1254,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 sort_resources=sort_resources,
                 add_cached_bundles_to_result=add_cached_bundles_to_result,
                 input_cache=input_cache,
+                abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
                 compare_hash=compare_hash,
             )
         )
@@ -1224,6 +1279,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         max_concurrent_tasks: int | None = 1,
         sort_resources: bool | None = False,
         input_cache: RequestCache | None = None,
+        abort_fhir_calls_status_codes: list[int] | None = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Simulates the $graph query on the FHIR server
@@ -1271,5 +1327,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             max_concurrent_tasks=max_concurrent_tasks,
             sort_resources=sort_resources,
             input_cache=input_cache,
+            abort_fhir_calls_status_codes=abort_fhir_calls_status_codes,
         ):
             yield r
