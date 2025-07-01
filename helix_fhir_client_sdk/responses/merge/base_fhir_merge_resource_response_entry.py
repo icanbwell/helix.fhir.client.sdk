@@ -79,6 +79,10 @@ class BaseFhirMergeResourceResponseEntry(ABC):
     def to_dict(self) -> dict[str, Any]:
         """Convert the entry to a dictionary representation."""
 
+    @abstractmethod
+    def get_created_updated(self) -> dict[str, Any]:
+        """Return a dict containing created updated stats for a resource type"""
+
     @classmethod
     @abstractmethod
     def from_dict(
