@@ -5,7 +5,6 @@ from typing import (
     Any,
     cast,
 )
-from urllib import parse
 
 import requests
 from furl import furl
@@ -158,8 +157,15 @@ class FhirMergeMixin(FhirClientProtocol):
                     obj_id = id_ or 1  # TODO: remove this once the node fhir accepts merge without a parameter
                     assert obj_id
 
-                    resource_uri /= parse.quote(str(obj_id), safe="")
-                    resource_uri /= "$merge"
+                    if obj_id is not None and str(obj_id).strip():
+                        resource_uri.path.segments.append(str(obj_id))
+                    # Always append $merge
+                    resource_uri.path.segments.append("$merge")
+
+                    # Conditionally add the query parameter
+                    if self._smart_merge is False:
+                        resource_uri.add({"smartMerge": "false"})
+
                     response_text: str | None = None
                     try:
                         async with RetryableAioHttpClient(
