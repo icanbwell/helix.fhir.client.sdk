@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import time
 from abc import ABC
@@ -56,6 +57,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
         additional_parameters: list[str] | None,
         resource_type: str | None,
+        get_raw_resources: bool = False,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         issues a GET call with the specified session, page_number and ids
@@ -97,6 +99,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         last_status_code: int | None = None
         last_response_text: str | None = None
         next_url: str | None = full_url
+        raw_resources_list: list[dict[str, Any]] = []
         try:
             await FhirResponseProcessor.log_request(
                 full_url=full_url,
@@ -162,43 +165,100 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                     request_id = response.response_headers.get("X-Request-ID", None)
                     self._internal_logger.info(f"X-Request-ID={request_id}")
 
-                    async for r in FhirResponseProcessor.handle_response(
-                        internal_logger=self._internal_logger,
-                        access_token=access_token,
-                        response_headers=response_headers,
-                        response=response,
-                        logger=self._logger,
-                        resources_json=resources_json,
-                        full_url=next_url,
-                        request_id=request_id,
-                        resource=resource_type or self._resource,
-                        id_=self._id,
-                        chunk_size=self._chunk_size,
-                        expand_fhir_bundle=self._expand_fhir_bundle,
-                        separate_bundle_resources=self._separate_bundle_resources,
-                        url=self._url,
-                        extra_context_to_return=self._extra_context_to_return,
-                        use_data_streaming=self._use_data_streaming,
-                        fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                        storage_mode=self._storage_mode,
-                        create_operation_outcome_for_error=self._create_operation_outcome_for_error,
-                    ):
-                        yield r
-                        # https://icanbwell.atlassian.net/browse/RNGR-177
-                        # Count real resources returned in this page
-                        resource_count = r.get_resource_count()
-                        total_results += resource_count
+                    if get_raw_resources:
+                        if response.status == 200:
+                            response_next_url = None
 
-                        # Stop if limit reached
-                        if self._limit and total_results >= self._limit:
-                            self._internal_logger.info(
-                                f"Reached limit={self._limit} after collecting {total_results} "
-                                f"resources, stopping pagination"
-                            )
-                            return
+                            response_text = await response.get_text_async()
+                            response_json = json.loads(response_text)
+                            
+                            if response_json.get("resourceType") == "Bundle":
+                                if not request_id:
+                                    request_id = response_json.get("id", None)
+                                # get next url if present
+                                if "link" in response_json:
+                                    links: list[dict[str, Any]] = response_json.get("link", [])
+                                    next_links = [link for link in links if link.get("relation") == "next"]
+                                    if len(next_links) > 0:
+                                        next_link: dict[str, Any] = next_links[0]
+                                        response_next_url = next_link.get("url")
 
-                        # Update next_url for the next loop iteration
-                        next_url = r.next_url
+                                if "entry" in response_json:
+                                    entries: list[dict[str, Any]] = response_json["entry"]
+                                    entry: dict[str, Any]
+                                    for entry in entries:
+                                        if "resource" in entry:
+                                            raw_resources_list.append(entry["resource"])
+                            else:
+                                raw_resources_list.append(response_json)
+
+                            next_url = response_next_url
+                            total_results = len(raw_resources_list)
+
+                            if self._limit and total_results >= self._limit:
+                                self._internal_logger.info(
+                                    f"Reached limit={self._limit} after collecting {total_results} "
+                                    f"resources, stopping pagination"
+                                )
+                                next_url = None
+                        else:
+                            next_url = None
+                    else:
+                        async for r in FhirResponseProcessor.handle_response(
+                            internal_logger=self._internal_logger,
+                            access_token=access_token,
+                            response_headers=response_headers,
+                            response=response,
+                            logger=self._logger,
+                            resources_json=resources_json,
+                            full_url=next_url,
+                            request_id=request_id,
+                            resource=resource_type or self._resource,
+                            id_=self._id,
+                            chunk_size=self._chunk_size,
+                            expand_fhir_bundle=self._expand_fhir_bundle,
+                            separate_bundle_resources=self._separate_bundle_resources,
+                            url=self._url,
+                            extra_context_to_return=self._extra_context_to_return,
+                            use_data_streaming=self._use_data_streaming,
+                            fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+                            storage_mode=self._storage_mode,
+                            create_operation_outcome_for_error=self._create_operation_outcome_for_error,
+                        ):
+                            yield r
+                            # https://icanbwell.atlassian.net/browse/RNGR-177
+                            # Count real resources returned in this page
+                            resource_count = r.get_resource_count()
+                            total_results += resource_count
+
+                            # Stop if limit reached
+                            if self._limit and total_results >= self._limit:
+                                self._internal_logger.info(
+                                    f"Reached limit={self._limit} after collecting {total_results} "
+                                    f"resources, stopping pagination"
+                                )
+                                return
+
+                            # Update next_url for the next loop iteration
+                            next_url = r.next_url
+                
+                if get_raw_resources:
+                    error = None
+                    if last_status_code != 200:
+                        error = {
+                            "status": last_status_code,
+                            "message": "Error occurred while fetching resources"
+                        }
+                    yield {
+                        "error": error,
+                        "_resources": raw_resources_list,
+                        "status": last_status_code,
+                        "request_id": request_id,
+                        "next_url": full_url,
+                        "total_results": total_results,
+                        "resource_type": resource_type or self._resource,
+                        "response_headers": response_headers,
+                    }
 
         except Exception as ex:
             raise FhirSenderException(
