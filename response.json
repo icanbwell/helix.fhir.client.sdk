@@ -1,0 +1,299 @@
+{
+  "request_id": null,
+  "url": "https://fhir.dev.icanbwell.com/4_0_0/Observation?_count=2&_includeHidden=true",
+  "_resources": [
+    {
+      "resourceType": "Observation",
+      "id": "000001ba-8e93-4dbc-9625-a0783e055916",
+      "meta": {
+        "versionId": "31",
+        "lastUpdated": "2025-06-03T06:52:15.834Z",
+        "source": "http://www.icanbwell.com/cql",
+        "security": [
+          {
+            "id": "70ae40c6-f2bd-54a0-aa66-656be4cce72b",
+            "system": "https://www.icanbwell.com/owner",
+            "code": "bwell"
+          },
+          {
+            "id": "2d1e0b6f-56fb-5dd9-bc38-f01b5902fde2",
+            "system": "https://www.icanbwell.com/access",
+            "code": "bwell"
+          },
+          {
+            "id": "33ced3c5-0807-582a-b03a-df7d6e95a41c",
+            "system": "https://www.icanbwell.com/sourceAssigningAuthority",
+            "code": "bwell"
+          }
+        ]
+      },
+      "extension": [
+        {
+          "url": "https://www.icanbwell.com/sourceType",
+          "valueString": "cql-engine"
+        }
+      ],
+      "identifier": [
+        {
+          "system": "https://www.icanbwell.com",
+          "value": "7782f0be-3355-4b20-a721-8904550c5178"
+        },
+        {
+          "id": "sourceId",
+          "system": "https://www.icanbwell.com/sourceId",
+          "value": "000001ba-8e93-4dbc-9625-a0783e055916"
+        },
+        {
+          "id": "uuid",
+          "system": "https://www.icanbwell.com/uuid",
+          "value": "000001ba-8e93-4dbc-9625-a0783e055916"
+        }
+      ],
+      "status": "final",
+      "code": {
+        "coding": [
+          {
+            "id": "795214ac-342d-51f7-8a48-9cf7903dcf7d",
+            "system": "http://www.icanbwell.com/cql/library",
+            "code": "Rx"
+          },
+          { "system": "http://www.icanbwell.com/cql/libraryVersion" },
+          {
+            "id": "b7ede5c0-4d0d-531c-867c-881dc8994a38",
+            "system": "http://www.icanbwell.com/cql/rule",
+            "code": "Splitter_ind_Output_Obs"
+          },
+          {
+            "id": "1",
+            "system": "http://www.icanbwell.com/cql/library",
+            "code": "Rx"
+          }
+        ]
+      },
+      "subject": {
+        "extension": [
+          {
+            "id": "sourceId",
+            "url": "https://www.icanbwell.com/sourceId",
+            "valueString": "Patient/00000632-18eb-525e-9f74-e3c9a5cd9c7a"
+          },
+          {
+            "id": "uuid",
+            "url": "https://www.icanbwell.com/uuid",
+            "valueString": "Patient/00000632-18eb-525e-9f74-e3c9a5cd9c7a"
+          },
+          {
+            "id": "sourceAssigningAuthority",
+            "url": "https://www.icanbwell.com/sourceAssigningAuthority",
+            "valueString": "lee_health"
+          }
+        ],
+        "reference": "Patient/00000632-18eb-525e-9f74-e3c9a5cd9c7a",
+        "display": "Patient"
+      },
+      "effectiveDateTime": "2023-04-20T17:24:30+00:00",
+      "valueQuantity": {
+        "value": 29,
+        "unit": "mg/dL",
+        "system": "http://unitsofmeasure.org",
+        "code": "mg/dL"
+      }
+    },
+    {
+      "code": {
+        "coding": [
+          {
+            "id": "51f12959-eab9-5413-98f8-d0ad613bd460",
+            "system": "http://loinc.org",
+            "code": "718-7",
+            "display": "Hemoglobin [Mass/volume] in Blood"
+          },
+          {
+            "id": "51f12959-eab9-5413-98f8-d0ad613bd460",
+            "system": "http://loinc.org",
+            "code": "718-7",
+            "display": "Hemoglobin"
+          },
+          {
+            "id": "51f12959-eab9-5413-98f8-d0ad613bd460",
+            "system": "http://loinc.org",
+            "code": "718-7",
+            "display": "in Blood"
+          },
+          {
+            "id": "51f12959-eab9-5413-98f8-d0ad613bd460",
+            "system": "http://loinc.org",
+            "code": "718-7",
+            "display": "Hemoglobin [Mass/volume] in Blood"
+          }
+        ],
+        "text": "Hello"
+      },
+      "effectivePeriod": {
+        "start": "2013-04-05T10:30:10+01:00",
+        "end": "2013-04-05T10:30:10+01:00"
+      },
+      "id": "0000454d-bd98-4bde-a117-0d039bdbe22b",
+      "identifier": [
+        {
+          "use": "official",
+          "system": "http://www.bmc.nl/zorgportal/identifiers/observations",
+          "value": "6327"
+        },
+        {
+          "id": "sourceId",
+          "system": "https://www.icanbwell.com/sourceId",
+          "value": "0000454d-bd98-4bde-a117-0d039bdbe22b"
+        },
+        {
+          "id": "uuid",
+          "system": "https://www.icanbwell.com/uuid",
+          "value": "0000454d-bd98-4bde-a117-0d039bdbe22b"
+        }
+      ],
+      "interpretation": [
+        {
+          "coding": [
+            {
+              "id": "724ce193-68e0-577c-af2c-bb30576762fe",
+              "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+              "code": "L",
+              "display": "Low"
+            }
+          ]
+        }
+      ],
+      "issued": "2013-04-05T14:30:10.000Z",
+      "meta": {
+        "versionId": "1",
+        "lastUpdated": "2025-03-05T14:23:16.796Z",
+        "source": "https://www.icanbwell.com",
+        "security": [
+          {
+            "id": "70ae40c6-f2bd-54a0-aa66-656be4cce72b",
+            "system": "https://www.icanbwell.com/owner",
+            "code": "bwell"
+          },
+          {
+            "id": "2d1e0b6f-56fb-5dd9-bc38-f01b5902fde2",
+            "system": "https://www.icanbwell.com/access",
+            "code": "bwell"
+          },
+          {
+            "id": "33ced3c5-0807-582a-b03a-df7d6e95a41c",
+            "system": "https://www.icanbwell.com/sourceAssigningAuthority",
+            "code": "bwell"
+          }
+        ]
+      },
+      "performer": [
+        {
+          "extension": [
+            {
+              "id": "sourceId",
+              "url": "https://www.icanbwell.com/sourceId",
+              "valueString": "Practitioner/f005"
+            },
+            {
+              "id": "uuid",
+              "url": "https://www.icanbwell.com/uuid",
+              "valueString": "Practitioner/11809d4e-2f15-566e-bb7e-64af2a9cfb74"
+            },
+            {
+              "id": "sourceAssigningAuthority",
+              "url": "https://www.icanbwell.com/sourceAssigningAuthority",
+              "valueString": "bwell"
+            }
+          ],
+          "reference": "Practitioner/f005",
+          "display": "A. Langeveld"
+        }
+      ],
+      "referenceRange": [
+        {
+          "low": {
+            "value": 7.5,
+            "unit": "g/dl",
+            "system": "http://unitsofmeasure.org",
+            "code": "g/dL"
+          },
+          "high": {
+            "value": 10,
+            "unit": "g/dl",
+            "system": "http://unitsofmeasure.org",
+            "code": "g/dL"
+          }
+        }
+      ],
+      "resourceType": "Observation",
+      "status": "final",
+      "subject": {
+        "extension": [
+          {
+            "id": "sourceId",
+            "url": "https://www.icanbwell.com/sourceId",
+            "valueString": "Patient/e65dbe8b-4022-542b-933a-e742ed1f186c"
+          },
+          {
+            "id": "uuid",
+            "url": "https://www.icanbwell.com/uuid",
+            "valueString": "Patient/e65dbe8b-4022-542b-933a-e742ed1f186c"
+          },
+          {
+            "id": "sourceAssigningAuthority",
+            "url": "https://www.icanbwell.com/sourceAssigningAuthority",
+            "valueString": "bwell"
+          }
+        ],
+        "reference": "Patient/e65dbe8b-4022-542b-933a-e742ed1f186c",
+        "display": "P. van de Heuvel"
+      },
+      "text": {
+        "status": "generated",
+        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><div style=\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"><p style=\"margin-bottom: 0px\">Resource &quot;f005&quot; </p></div><p><b>identifier</b>: id: 6327 (OFFICIAL)</p><p><b>status</b>: final</p><p><b>code</b>: Hemoglobin [Mass/volume] in Blood <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"https://loinc.org/\">LOINC</a>#718-7)</span></p><p><b>subject</b>: <a href=\"patient-f001.html\">Patient/f001: P. van de Heuvel</a> &quot;Pieter VAN DE HEUVEL&quot;</p><p><b>effective</b>: 2013-04-05T10:30:10+01:00 --&gt; 2013-04-05T10:30:10+01:00</p><p><b>issued</b>: 06/04/2013 1:30:10 AM</p><p><b>performer</b>: <a href=\"practitioner-f005.html\">Practitioner/f005: A. Langeveld</a> &quot;Langeveld ANNE&quot;</p><p><b>value</b>: 7.2 g/dl<span style=\"background: LightGoldenRodYellow\"> (Details: UCUM code g/dL = 'g/dL')</span></p><p><b>interpretation</b>: Low <span style=\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"> (<a href=\"http://terminology.hl7.org/3.1.0/CodeSystem-v3-ObservationInterpretation.html\">ObservationInterpretation</a>#L)</span></p><h3>ReferenceRanges</h3><table class=\"grid\"><tr><td>-</td><td><b>Low</b></td><td><b>High</b></td></tr><tr><td>*</td><td>7.5 g/dl<span style=\"background: LightGoldenRodYellow\"> (Details: UCUM code g/dL = 'g/dL')</span></td><td>10 g/dl<span style=\"background: LightGoldenRodYellow\"> (Details: UCUM code g/dL = 'g/dL')</span></td></tr></table></div>"
+      },
+      "valueQuantity": {
+        "value": 7.2,
+        "unit": "g/dl",
+        "system": "http://unitsofmeasure.org",
+        "code": "g/dL"
+      }
+    }
+  ],
+  "error": null,
+  "access_token": "<access_token>",
+  "total_count": 2,
+  "status": 200,
+  "next_url": "https://fhir.dev.icanbwell.com/4_0_0/Observation?_count=2&_includeHidden=true&id%3Aabove=0000454d-bd98-4bde-a117-0d039bdbe22b",
+  "extra_context_to_return": null,
+  "resource_type": "Observation",
+  "id_": null,
+  "response_headers": [
+    "Date:Tue, 01 Jul 2025 18:53:32 GMT",
+    "Content-Type:application/fhir+json",
+    "Transfer-Encoding:chunked",
+    "Connection:keep-alive",
+    "Access-Control-Allow-Origin:*",
+    "Cache-Control:no-store, no-cache",
+    "Content-Encoding:gzip",
+    "Content-Security-Policy:default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests",
+    "Cross-Origin-Opener-Policy:same-origin",
+    "Cross-Origin-Resource-Policy:same-origin",
+    "Origin-Agent-Cluster:?1",
+    "Pragma:no-cache",
+    "Referrer-Policy:no-referrer",
+    "Strict-Transport-Security:max-age=31536000; includeSubDomains",
+    "Vary:Accept-Encoding",
+    "X-Content-Type-Options:nosniff",
+    "X-Dns-Prefetch-Control:off",
+    "X-Download-Options:noopen",
+    "X-Frame-Options:SAMEORIGIN",
+    "X-Permitted-Cross-Domain-Policies:none",
+    "X-Request-Id:f4924add-46f2-4385-b037-6881cfdd32d6",
+    "X-Xss-Protection:0"
+  ],
+  "chunk_number": null,
+  "cache_hits": null,
+  "results_by_url": [],
+  "storage_type": "raw"
+}
