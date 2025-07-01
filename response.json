@@ -1,5 +1,5 @@
 {
-  "request_id": null,
+  "request_id": "41e5890d-eeb0-4bb2-b104-5115d03aa96f",
   "url": "https://fhir.dev.icanbwell.com/4_0_0/Observation?_count=2&_includeHidden=true",
   "_resources": [
     {
@@ -261,15 +261,11 @@
     }
   ],
   "error": null,
-  "access_token": "<access_token>",
   "total_count": 2,
   "status": 200,
-  "next_url": "https://fhir.dev.icanbwell.com/4_0_0/Observation?_count=2&_includeHidden=true&id%3Aabove=0000454d-bd98-4bde-a117-0d039bdbe22b",
-  "extra_context_to_return": null,
   "resource_type": "Observation",
-  "id_": null,
   "response_headers": [
-    "Date:Tue, 01 Jul 2025 18:53:32 GMT",
+    "Date:Tue, 01 Jul 2025 18:55:29 GMT",
     "Content-Type:application/fhir+json",
     "Transfer-Encoding:chunked",
     "Connection:keep-alive",
@@ -289,11 +285,7 @@
     "X-Download-Options:noopen",
     "X-Frame-Options:SAMEORIGIN",
     "X-Permitted-Cross-Domain-Policies:none",
-    "X-Request-Id:f4924add-46f2-4385-b037-6881cfdd32d6",
+    "X-Request-Id:41e5890d-eeb0-4bb2-b104-5115d03aa96f",
     "X-Xss-Protection:0"
-  ],
-  "chunk_number": null,
-  "cache_hits": null,
-  "results_by_url": [],
-  "storage_type": "raw"
+  ]
 }
