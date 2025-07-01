@@ -171,7 +171,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
 
                             response_text = await response.get_text_async()
                             response_json = json.loads(response_text)
-                            
+
                             if response_json.get("resourceType") == "Bundle":
                                 if not request_id:
                                     request_id = response_json.get("id", None)
@@ -241,21 +241,18 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
 
                             # Update next_url for the next loop iteration
                             next_url = r.next_url
-                
+
                 if get_raw_resources:
                     error = None
                     if last_status_code != 200:
-                        error = {
-                            "status": last_status_code,
-                            "message": "Error occurred while fetching resources"
-                        }
+                        error = {"status": last_status_code, "message": "Error occurred while fetching resources"}
                     yield {
                         "error": error,
                         "_resources": raw_resources_list,
                         "status": last_status_code,
                         "request_id": request_id,
-                        "next_url": full_url,
-                        "total_results": total_results,
+                        "url": full_url,
+                        "total_count": total_results,
                         "resource_type": resource_type or self._resource,
                         "response_headers": response_headers,
                     }

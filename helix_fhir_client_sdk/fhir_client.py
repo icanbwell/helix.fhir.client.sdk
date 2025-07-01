@@ -603,7 +603,7 @@ class FhirClient(
                     full_response = response
         assert full_response
         return full_response
-    
+
     async def get_raw_resources_async(
         self,
     ) -> list[dict[str, Any]]:
