@@ -46,6 +46,13 @@ class FhirMergeResourceResponseEntry(BaseFhirMergeResourceResponseEntry):
             "token": self.token,
         }
 
+    def get_created_updated(self) -> dict[str, Any]:
+        return {
+            "created": self.created,
+            "updated": self.updated,
+            "resourceType": self.resourceType,
+        }
+
     @classmethod
     @override
     def from_dict(
