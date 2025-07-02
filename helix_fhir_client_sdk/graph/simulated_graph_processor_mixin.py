@@ -998,7 +998,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             id_search_unsupported_resources.append(resource_type.lower())
                         if logger:
                             logger.info(
-                                f"_id is not supported for resource_type={resource_type}. Fetching one by one ids: {non_cached_id_list}."
+                                f"_id is not supported for resource_type={resource_type} for url {self._url}"
+                                f" Fetching one by one ids: {non_cached_id_list}"
                             )
                     # For some resources if search by _id doesn't work then fetch one by one.
                     result = await self._get_resources_by_id_one_by_one_async(
@@ -1009,6 +1010,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         logger=logger,
                         compare_hash=compare_hash,
                     )
+                else:
+                    if logger:
+                        logger.info(f"Fetched {resource_type} resources using _id for url {self._url}")
                 if result:
                     if result.resource_type == "OperationOutcome":
                         result = FhirGetErrorResponse.from_response(other_response=result)
