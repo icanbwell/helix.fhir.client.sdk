@@ -604,6 +604,33 @@ class FhirClient(
         assert full_response
         return full_response
 
+    async def get_raw_resources_async(
+        self,
+    ) -> dict[str, Any]:
+        """
+        Issues a GET call and returns the raw resources as a list of dictionaries.
+        While using this function, the page_size and limit parameters should be equal.
+
+        :return: response
+        """
+        instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
+        if self._logger:
+            # self._logger.info(f"LOGLEVEL: {self._log_level}")
+            self._logger.debug(f"parameters: {instance_variables_text}")
+        else:
+            self._internal_logger.debug(f"LOGLEVEL (InternalLogger): {self._log_level}")
+            self._internal_logger.debug(f"parameters: {instance_variables_text}")
+        ids: list[str] | None = None
+        if self._id:
+            ids = self._id if isinstance(self._id, list) else [self._id]
+        return await self._get_raw_with_session_async(
+            page_number=None,
+            ids=ids,
+            id_above=None,
+            additional_parameters=None,
+            resource_type=None,
+        )
+
     async def get_streaming_async(
         self,
         *,
