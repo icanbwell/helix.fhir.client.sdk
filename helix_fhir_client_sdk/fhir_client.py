@@ -606,7 +606,7 @@ class FhirClient(
 
     async def get_raw_resources_async(
         self,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """
         Issues a GET call and returns the raw resources as a list of dictionaries.
         While using this function, the page_size and limit parameters should be equal.
@@ -623,21 +623,13 @@ class FhirClient(
         ids: list[str] | None = None
         if self._id:
             ids = self._id if isinstance(self._id, list) else [self._id]
-        # actually make the request
-        full_response: list[dict[str, Any]] | None = None
-        async for response in self._get_with_session_async(
-            ids=ids,
-            fn_handle_streaming_chunk=None,
+        return await self._get_raw_with_session_async(
             page_number=None,
+            ids=ids,
             id_above=None,
             additional_parameters=None,
             resource_type=None,
-            get_raw_resources=True,
-        ):
-            if response:
-                full_response = response
-        assert full_response
-        return full_response
+        )
 
     async def get_streaming_async(
         self,
