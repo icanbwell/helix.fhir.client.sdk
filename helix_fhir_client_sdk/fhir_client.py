@@ -16,14 +16,17 @@ from urllib import parse
 import aiohttp
 from aiohttp import (
     ClientSession,
+    TCPConnector,
     TraceRequestEndParams,
     TraceResponseChunkReceivedParams,
 )
+import certifi
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 from furl import furl
 from requests.adapters import BaseAdapter
+import ssl
 
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.fhir_auth_mixin import FhirAuthMixin
@@ -783,8 +786,10 @@ class FhirClient(
             trace_config.on_request_end.append(FhirClient.on_request_end)
             trace_config.on_response_chunk_received.append(FhirClient.on_response_chunk_received)
         # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
+        ssl_context = ssl.create_default_context(cafile=certifi.where())
         timeout = aiohttp.ClientTimeout(total=60 * 60, sock_read=240)
         session: ClientSession = aiohttp.ClientSession(
+            connector=TCPConnector(ssl=ssl_context),
             trace_configs=[trace_config],
             headers={"Connection": "keep-alive"},
             timeout=timeout,
