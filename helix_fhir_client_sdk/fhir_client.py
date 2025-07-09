@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import ssl
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime
@@ -14,19 +15,18 @@ from typing import (
 from urllib import parse
 
 import aiohttp
+import certifi
 from aiohttp import (
     ClientSession,
     TCPConnector,
     TraceRequestEndParams,
     TraceResponseChunkReceivedParams,
 )
-import certifi
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
 from furl import furl
 from requests.adapters import BaseAdapter
-import ssl
 
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.fhir_auth_mixin import FhirAuthMixin
