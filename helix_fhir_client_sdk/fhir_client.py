@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import ssl
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime
@@ -14,8 +15,10 @@ from typing import (
 from urllib import parse
 
 import aiohttp
+import certifi
 from aiohttp import (
     ClientSession,
+    TCPConnector,
     TraceRequestEndParams,
     TraceResponseChunkReceivedParams,
 )
@@ -783,8 +786,10 @@ class FhirClient(
             trace_config.on_request_end.append(FhirClient.on_request_end)
             trace_config.on_response_chunk_received.append(FhirClient.on_response_chunk_received)
         # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
+        ssl_context = ssl.create_default_context(cafile=certifi.where())
         timeout = aiohttp.ClientTimeout(total=60 * 60, sock_read=240)
         session: ClientSession = aiohttp.ClientSession(
+            connector=TCPConnector(ssl=ssl_context),
             trace_configs=[trace_config],
             headers={"Connection": "keep-alive"},
             timeout=timeout,
