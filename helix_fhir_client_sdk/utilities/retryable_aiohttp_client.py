@@ -106,7 +106,7 @@ class RetryableAioHttpClient:
         expiry_date: datetime | None = self.access_token_expiry_date
 
         # run with retry
-        logging.info("[TEST - 763] - Number of retries: %s", self.retries)
+        logging.warning("[TEST - 763] - Number of retries: %s", self.retries)
         while retry_attempts < self.retries:
             retry_attempts += 1
             try:
@@ -294,7 +294,9 @@ class RetryableAioHttpClient:
                             )
             except (TimeoutError, ClientError, ClientResponseError) as e:
                 # Check for connection errors and recreate session for fresh connection
-                logging.info(f"[TEST - 763] - Inside except (TimeoutError, ClientError, ClientResponseError) as e: {e}")
+                logging.warning(
+                    f"[TEST - 763] - Inside except (TimeoutError, ClientError, ClientResponseError) as e: {e}"
+                )
                 if isinstance(e, ClientError):
                     logging.warning(
                         f"Connection reset/error detected: {e}. Attempt {retry_attempts + 1}/{self.retries}"
@@ -304,7 +306,7 @@ class RetryableAioHttpClient:
                         await self.session.close()
                     self.session = self.fn_get_session()
                 else:
-                    logging.info(
+                    logging.warning(
                         f"[TEST - 763] - Network error detected: {e}. Attempt {retry_attempts + 1}/{self.retries}"
                     )
 
@@ -326,7 +328,7 @@ class RetryableAioHttpClient:
                         )
                 await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
             except Exception as e:
-                logging.info(f"[TEST - 763] - Inside except except Exception as e: as {e}")
+                logging.warning(f"[TEST - 763] - Inside except except Exception as e: as {e}")
                 if self._throw_exception_on_error:
                     raise
                 else:
