@@ -296,13 +296,17 @@ class RetryableAioHttpClient:
                 # Check for connection errors and recreate session for fresh connection
                 logging.info(f"[TEST - 763] - Inside except (TimeoutError, ClientError, ClientResponseError) as e: {e}")
                 if isinstance(e, ClientError):
-                    logging.warning(f"Connection reset/error detected: {e}. Attempt {retry_attempts+1}/{self.retries}")
+                    logging.warning(
+                        f"Connection reset/error detected: {e}. Attempt {retry_attempts + 1}/{self.retries}"
+                    )
                     # Close existing session and create fresh one for new connection
                     if self.session:
                         await self.session.close()
                     self.session = self.fn_get_session()
                 else:
-                    logging.info(f"[TEST - 763] - Network error detected: {e}. Attempt {retry_attempts+1}/{self.retries}")
+                    logging.info(
+                        f"[TEST - 763] - Network error detected: {e}. Attempt {retry_attempts + 1}/{self.retries}"
+                    )
 
                 if retry_attempts >= self.retries:
                     if self._throw_exception_on_error:
