@@ -311,7 +311,9 @@ class RetryableAioHttpClient:
                     )
 
                 if retry_attempts >= self.retries:
+                    logging.warning("[TEST - 763] - Gonna raise an exception after retries exhausted")
                     if self._throw_exception_on_error:
+                        logging.warning("[TEST - 763] - Exception raised")
                         raise
                     else:
                         return RetryableAioHttpResponse(
