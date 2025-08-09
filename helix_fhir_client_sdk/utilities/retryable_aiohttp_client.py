@@ -107,7 +107,7 @@ class RetryableAioHttpClient:
 
         # run with retry
         while retry_attempts < self.retries:
-            logging.warning("[TEST - 763] - attempt/retries %s", retry_attempts / self.retries)
+            logging.warning(f"[TEST - 763] - attempt/retries {retry_attempts} / {self.retries}")
             logging.warning("[TEST - 763] - URL - %s", url)
             retry_attempts += 1
             try:
@@ -313,11 +313,11 @@ class RetryableAioHttpClient:
                 if isinstance(e, ClientError):
                     logging.warning(f"Connection reset/error detected: {e}. Attempt {retry_attempts}/{self.retries}")
                     # Close existing session and create fresh one for new connection
-                    if self.session:
-                        logging.warning("[TEST - 763] - Closing existing session")
-                        await self.session.close()
-                    self.session = self.fn_get_session()
-                    logging.warning("[TEST - 763] - New session created")
+                    # if self.session:
+                    #     logging.warning("[TEST - 763] - Closing existing session")
+                    #     await self.session.close()
+                    # self.session = self.fn_get_session()
+                    # logging.warning("[TEST - 763] - New session created")
                 else:
                     logging.warning(
                         f"[TEST - 763] - Network error detected: {e}. Attempt {retry_attempts}/{self.retries}"
