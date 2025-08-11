@@ -107,8 +107,7 @@ class RetryableAioHttpClient:
         error_message: list[str] = []
         # run with retry
         while retry_attempts < self.retries:
-            logging.warning(f"[TEST - 763] - attempt/retries {retry_attempts} / {self.retries}")
-            logging.warning("[TEST - 763] - URL - %s", url)
+            logging.warning(f"[TEST - 763] - attempt/retries {retry_attempts} / {self.retries} - URL: {url}")
             retry_attempts += 1
             try:
                 if headers:
@@ -170,9 +169,10 @@ class RetryableAioHttpClient:
                         if retry_attempts > 0:
                             error_faced = ", ".join(error_message)
                             logging.warning(
-                                "[TEST - 763] - Success after facing errors - %s retries: %s",
+                                "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s",
                                 retry_attempts,
                                 error_faced,
+                                url,
                             )
                         return RetryableAioHttpResponse(
                             ok=response.ok,
@@ -196,9 +196,10 @@ class RetryableAioHttpClient:
                         if retry_attempts > 0:
                             error_faced = ", ".join(error_message)
                             logging.warning(
-                                "[TEST - 763] - Success after facing errors - %s retries: %s",
+                                "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s",
                                 retry_attempts,
                                 error_faced,
+                                url,
                             )
                         return RetryableAioHttpResponse(
                             ok=response.ok,
@@ -216,9 +217,10 @@ class RetryableAioHttpClient:
                         if retry_attempts > 0:
                             error_faced = ", ".join(error_message)
                             logging.warning(
-                                "[TEST - 763] - Success after facing errors - %s retries: %s",
+                                "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s",
                                 retry_attempts,
                                 error_faced,
+                                url,
                             )
                         return RetryableAioHttpResponse(
                             ok=response.ok,
@@ -236,9 +238,10 @@ class RetryableAioHttpClient:
                         if retry_attempts > 0:
                             error_faced = ", ".join(error_message)
                             logging.warning(
-                                "[TEST - 763] - Success after facing errors - %s retries: %s",
+                                "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s",
                                 retry_attempts,
                                 error_faced,
+                                url,
                             )
                         return RetryableAioHttpResponse(
                             ok=response.ok,
@@ -275,9 +278,10 @@ class RetryableAioHttpClient:
                             if retry_attempts > 0:
                                 error_faced = ", ".join(error_message)
                                 logging.warning(
-                                    "[TEST - 763] - Success after facing errors - %s retries: %s",
+                                    "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s",
                                     retry_attempts,
                                     error_faced,
+                                    url,
                                 )
                             return RetryableAioHttpResponse(
                                 ok=False,
@@ -319,9 +323,10 @@ class RetryableAioHttpClient:
                             if retry_attempts > 0:
                                 error_faced = ", ".join(error_message)
                                 logging.warning(
-                                    "[TEST - 763] - Success after facing errors - %s retries: %s",
+                                    "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s",
                                     retry_attempts,
                                     error_faced,
+                                    url,
                                 )
                             return RetryableAioHttpResponse(
                                 ok=response.ok,
@@ -338,30 +343,34 @@ class RetryableAioHttpClient:
             except (TimeoutError, ClientError, ClientResponseError) as e:
                 # Check for connection errors and recreate session for fresh connection
                 logging.warning(
-                    f"[TEST - 763] - Inside except (TimeoutError, ClientError, ClientResponseError) as e: {e}"
+                    f"[TEST - 763] - Inside except (TimeoutError, ClientError, ClientResponseError) as e: {e} - URL: {url}"
                 )
                 if isinstance(e, ClientError):
-                    logging.warning(f"Connection reset/error detected: {e}. Attempt {retry_attempts}/{self.retries}")
+                    logging.warning(
+                        f"Connection reset/error detected: {e}. Attempt {retry_attempts}/{self.retries} - URL: {url}"
+                    )
                     error_message.append(str(e))
                     # Close existing session and create fresh one for new connection
                     if self.session:
-                        logging.warning("[TEST - 763] - Closing existing session")
+                        logging.warning("[TEST - 763] - Closing existing session - URL: %s", url)
                         await self.session.close()
                     self.session = self.fn_get_session()
-                    logging.warning("[TEST - 763] - New session created")
+                    logging.warning("[TEST - 763] - New session created - URL: %s", url)
                 else:
                     logging.warning(
-                        f"[TEST - 763] - Network error detected: {e}. Attempt {retry_attempts}/{self.retries}"
+                        f"[TEST - 763] - Network error detected: {e}. Attempt {retry_attempts}/{self.retries} - URL: {url}"
                     )
 
                 if retry_attempts >= self.retries:
-                    logging.warning("[TEST - 763] - Gonna raise an exception after retries exhausted")
+                    logging.warning("[TEST - 763] - Gonna raise an exception after retries exhausted - URL: %s", url)
                     if self._throw_exception_on_error:
-                        logging.warning("[TEST - 763] - Exception raised")
+                        logging.warning("[TEST - 763] - Exception raised - URL: %s", url)
                         raise
                     else:
                         if retry_attempts > 0:
-                            logging.warning("[TEST - 763] - Returning exception after %s retries", retry_attempts)
+                            logging.warning(
+                                "[TEST - 763] - Returning exception after %s retries - URL: %s", retry_attempts, url
+                            )
                         return RetryableAioHttpResponse(
                             ok=False,
                             status=500,
@@ -376,7 +385,7 @@ class RetryableAioHttpClient:
                         )
                 await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
             except Exception as e:
-                logging.warning(f"[TEST - 763] - Inside except except Exception as e: as {e}")
+                logging.warning(f"[TEST - 763] - Inside except except Exception as e: as {e} - URL: {url}")
                 if self._throw_exception_on_error:
                     raise
                 else:
