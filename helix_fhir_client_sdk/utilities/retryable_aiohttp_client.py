@@ -169,7 +169,7 @@ class RetryableAioHttpClient:
                         if retry_attempts > 0:
                             error_faced = ", ".join(error_message)
                             logging.warning(
-                                "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s",
+                                "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s, inside response.ok",
                                 retry_attempts,
                                 error_faced,
                                 url,
@@ -196,7 +196,7 @@ class RetryableAioHttpClient:
                         if retry_attempts > 0:
                             error_faced = ", ".join(error_message)
                             logging.warning(
-                                "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s",
+                                "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s, inside self.exclude_status_codes_from_retry and response.status in self.exclude_status_codes_from_retry",
                                 retry_attempts,
                                 error_faced,
                                 url,
@@ -217,7 +217,7 @@ class RetryableAioHttpClient:
                         if retry_attempts > 0:
                             error_faced = ", ".join(error_message)
                             logging.warning(
-                                "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s",
+                                "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s, inside response.status == 400",
                                 retry_attempts,
                                 error_faced,
                                 url,
@@ -238,7 +238,7 @@ class RetryableAioHttpClient:
                         if retry_attempts > 0:
                             error_faced = ", ".join(error_message)
                             logging.warning(
-                                "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s",
+                                "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s, insdide response.status in [403, 404]",
                                 retry_attempts,
                                 error_faced,
                                 url,
@@ -278,7 +278,7 @@ class RetryableAioHttpClient:
                             if retry_attempts > 0:
                                 error_faced = ", ".join(error_message)
                                 logging.warning(
-                                    "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s",
+                                    "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s, inide response.status == 401 and self.refresh_token_func_async",
                                     retry_attempts,
                                     error_faced,
                                     url,
@@ -323,7 +323,7 @@ class RetryableAioHttpClient:
                             if retry_attempts > 0:
                                 error_faced = ", ".join(error_message)
                                 logging.warning(
-                                    "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s",
+                                    "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s, inside else",
                                     retry_attempts,
                                     error_faced,
                                     url,
@@ -351,11 +351,11 @@ class RetryableAioHttpClient:
                     )
                     error_message.append(str(e))
                     # Close existing session and create fresh one for new connection
-                    if self.session:
-                        logging.warning("[TEST - 763] - Closing existing session - URL: %s", url)
-                        await self.session.close()
-                    self.session = self.fn_get_session()
-                    logging.warning("[TEST - 763] - New session created - URL: %s", url)
+                    # if self.session:
+                    #     logging.warning("[TEST - 763] - Closing existing session - URL: %s", url)
+                    #     await self.session.close()
+                    # self.session = self.fn_get_session()
+                    # logging.warning("[TEST - 763] - New session created - URL: %s", url)
                 else:
                     logging.warning(
                         f"[TEST - 763] - Network error detected: {e}. Attempt {retry_attempts}/{self.retries} - URL: {url}"
