@@ -54,7 +54,7 @@ async def test_cache_hit() -> None:
         else "",
     )
 
-    result, cache_hits = await processor._get_resources_by_parameters_async(
+    result, cache_hits, _ = await processor._get_resources_by_parameters_async(
         id_="test-id",
         resource_type="Patient",
         parameters=None,
@@ -122,7 +122,7 @@ async def test_cache_miss() -> None:
 
     processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
 
-    result, cache_hits = await processor._get_resources_by_parameters_async(
+    result, cache_hits, _ = await processor._get_resources_by_parameters_async(
         id_="test-id",
         resource_type="Patient",
         parameters=None,
@@ -191,7 +191,7 @@ async def test_partial_cache() -> None:
 
     processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
 
-    result, cache_hits = await processor._get_resources_by_parameters_async(
+    result, cache_hits, _ = await processor._get_resources_by_parameters_async(
         id_=["cached-id", "non-cached-id"],
         resource_type="Patient",
         parameters=None,
@@ -254,7 +254,7 @@ async def test_partial_cache_with_null_bundle_entry() -> None:
 
     processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
 
-    result, cache_hits = await processor._get_resources_by_parameters_async(
+    result, cache_hits, _ = await processor._get_resources_by_parameters_async(
         id_=["cached-id", "non-cached-id"],
         resource_type="Patient",
         parameters=None,
@@ -306,7 +306,7 @@ async def test_cache_update() -> None:
 
     processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
 
-    result, cache_hits = await processor._get_resources_by_parameters_async(
+    result, cache_hits, _ = await processor._get_resources_by_parameters_async(
         id_="test-id",
         resource_type="Patient",
         parameters=None,
@@ -368,7 +368,7 @@ async def test_empty_cache() -> None:
 
     processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
 
-    result, cache_hits = await processor._get_resources_by_parameters_async(
+    result, cache_hits, _ = await processor._get_resources_by_parameters_async(
         id_="test-id",
         resource_type="Patient",
         parameters=None,
@@ -423,7 +423,7 @@ async def test_items_added_to_input_cache() -> None:
     processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
 
     # Perform the operation
-    result, cache_hits = await processor._get_resources_by_parameters_async(
+    result, cache_hits, _ = await processor._get_resources_by_parameters_async(
         id_="test-id",
         resource_type="Patient",
         parameters=None,
