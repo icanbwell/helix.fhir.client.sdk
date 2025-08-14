@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -106,6 +107,7 @@ class RetryableAioHttpClient:
 
         # run with retry
         while retry_attempts < self.retries:
+            logging.warning(f"[TEST - 894] - Making call to URL: {url}")
             retry_attempts += 1
             try:
                 if headers:
