@@ -224,6 +224,7 @@ class RetryableAioHttpClient:
                             retry_count=retry_attempts,
                         )
                     elif response.status == 429:
+                        logging.warning(f"[TEST - 894] - Received 429 Too Many Requests for URL: {url}, Retry after {str(response.headers.get("Retry-After", ""))} seconds")
                         await self._handle_429(response=response, full_url=url)
                     elif self.retry_status_codes and response.status in self.retry_status_codes:
                         raise ClientResponseError(
