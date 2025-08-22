@@ -70,17 +70,46 @@ class FhirClient(
 ):
     """
     Class used to call FHIR server (uses async and parallel execution to speed up)
+    Implements Singleton pattern to ensure only one instance exists per process.
     """
 
+    _instance: FhirClient | None = None
+    _instance_lock: Lock = Lock()
     _internal_logger: Logger = logging.getLogger("FhirClient")
     # link handler to logger
     _internal_logger.addHandler(logging.StreamHandler())
     _internal_logger.setLevel(logging.INFO)
 
+    def __new__(cls) -> FhirClient:
+        """
+        Singleton implementation - ensures only one instance of FhirClient exists per process.
+        Thread-safe implementation using double-checked locking pattern.
+        """
+        if cls._instance is None:
+            with cls._instance_lock:
+                # Double-check pattern for thread safety
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
+
+    @classmethod
+    def reset_singleton(cls) -> None:
+        """
+        Resets the singleton instance. This should only be used for testing purposes.
+        This method is thread-safe.
+        """
+        with cls._instance_lock:
+            cls._instance = None
+
     def __init__(self) -> None:
         """
         Class used to call FHIR server (uses async and parallel execution to speed up)
         """
+        # Prevent re-initialization of singleton instance
+        if hasattr(self, '_initialized'):
+            return
+        # Initialize instance variables
+        self._initialized = True
         self._action: str | None = None
         self._action_payload: dict[str, Any] | None = None
         self._resource: str | None = None
@@ -819,52 +848,89 @@ class FhirClient(
 
     def clone(self) -> FhirClient:
         """
-        Clones the current instance
+        In a singleton pattern, cloning doesn't create a new instance.
+        Instead, this method resets the current instance to initial state and returns self.
+        This maintains the singleton pattern while providing clone-like functionality.
 
-
-        :return: cloned instance
+        :return: the same singleton instance with reset state
         """
-        fhir_client = FhirClient()
-        fhir_client._url = self._url
-        fhir_client._resource = self._resource
-        fhir_client._id = self._id
-        fhir_client._obj_id = self._obj_id
-        fhir_client._action = self._action
-        fhir_client._accept = self._accept
-        fhir_client._content_type = self._content_type
-        fhir_client._accept_encoding = self._accept_encoding
-        fhir_client._page_size = self._page_size
-        fhir_client._page_number = 0  # reset page number to 1
-        fhir_client._limit = self._limit
-        fhir_client._sort_fields = self._sort_fields
-        fhir_client._filters = self._filters
-        fhir_client._last_updated_before = self._last_updated_before
-        fhir_client._last_updated_after = self._last_updated_after
-        fhir_client._include_only_properties = self._include_only_properties
-        fhir_client._include_total = self._include_total
-        fhir_client._additional_parameters = self._additional_parameters
-        fhir_client._additional_request_headers = self._additional_request_headers
-        fhir_client._action_payload = self._action_payload
-        fhir_client._logger = self._logger
-        fhir_client._internal_logger = self._internal_logger
-        fhir_client._log_level = self._log_level
-        fhir_client._auth_scopes = self._auth_scopes
-        fhir_client._client_id = self._client_id
-        fhir_client._auth_server_url = self._auth_server_url
-        fhir_client._login_token = self._login_token
-        fhir_client._refresh_token_function = self._refresh_token_function
-        fhir_client._exclude_status_codes_from_retry = self._exclude_status_codes_from_retry
-        fhir_client._chunk_size = self._chunk_size
-        fhir_client._expand_fhir_bundle = self._expand_fhir_bundle
-        fhir_client._separate_bundle_resources = self._separate_bundle_resources
-        fhir_client._use_data_streaming = self._use_data_streaming
-        fhir_client._extra_context_to_return = self._extra_context_to_return
-        fhir_client._well_known_configuration_cache = self._well_known_configuration_cache
-        fhir_client._auth_wellknown_url = self._auth_wellknown_url
-        fhir_client._time_to_live_in_secs_for_cache = self._time_to_live_in_secs_for_cache
-        fhir_client._validation_server_url = self._validation_server_url
-        fhir_client._smart_merge = self._smart_merge
-        return fhir_client
+        # Store important persistent state that shouldn't be reset
+        saved_logger = self._logger
+        saved_internal_logger = self._internal_logger
+        saved_log_level = self._log_level
+        saved_auth_scopes = getattr(self, '_auth_scopes', None)
+        saved_client_id = getattr(self, '_client_id', None)
+        saved_auth_server_url = getattr(self, '_auth_server_url', None)
+        saved_login_token = getattr(self, '_login_token', None)
+        saved_refresh_token_function = self._refresh_token_function
+        saved_well_known_configuration_cache = getattr(self, '_well_known_configuration_cache', None)
+        saved_auth_wellknown_url = getattr(self, '_auth_wellknown_url', None)
+        saved_time_to_live_in_secs_for_cache = getattr(self, '_time_to_live_in_secs_for_cache', None)
+
+        # Reset most state to defaults (similar to __init__)
+        self._action = None
+        self._action_payload = None
+        self._resource = None
+        self._id = None
+        self._url = None
+        self._additional_parameters = None
+        self._filter_by_resource = None
+        self._filter_parameter = None
+        self._include_only_properties = None
+        self._page_number = None
+        self._page_size = None
+        self._last_updated_after = None
+        self._last_updated_before = None
+        self._sort_fields = None
+        self._limit = None
+        self._validation_server_url = None
+        self._separate_bundle_resources = False
+        self._obj_id = None
+        self._include_total = False
+        self._filters = []
+        self._expand_fhir_bundle = True
+        self._smart_merge = None
+        self._stop_processing = False
+        self._last_page = None
+        self._use_data_streaming = False
+        self._send_data_as_chunked = False
+        self._use_post_for_search = False
+        self._accept = "application/fhir+json"
+        self._content_type = "application/fhir+json"
+        self._additional_request_headers = {}
+        self._accept_encoding = "gzip,deflate"
+        self._maximum_time_to_retry_on_429 = 60 * 60
+        self._extra_context_to_return = None
+        self._retry_count = 2
+        self._exclude_status_codes_from_retry = None
+        self._chunk_size = 1024
+        self._compress = True
+        self._throw_exception_on_error = True
+        self._log_all_response_urls = False
+        self._storage_mode = CompressedDictStorageMode(storage_type="raw")
+        self._create_operation_outcome_for_error = False
+
+        # Restore persistent state
+        self._logger = saved_logger
+        self._internal_logger = saved_internal_logger
+        self._log_level = saved_log_level
+        if saved_auth_scopes is not None:
+            self._auth_scopes = saved_auth_scopes
+        if saved_client_id is not None:
+            self._client_id = saved_client_id
+        if saved_auth_server_url is not None:
+            self._auth_server_url = saved_auth_server_url
+        if saved_login_token is not None:
+            self._login_token = saved_login_token
+        self._refresh_token_function = saved_refresh_token_function
+        if saved_well_known_configuration_cache is not None:
+            self._well_known_configuration_cache = saved_well_known_configuration_cache
+        if saved_auth_wellknown_url is not None:
+            self._auth_wellknown_url = saved_auth_wellknown_url
+        if saved_time_to_live_in_secs_for_cache is not None:
+            self._time_to_live_in_secs_for_cache = saved_time_to_live_in_secs_for_cache
+
+        return self
 
     def set_log_all_response_urls(self, value: bool) -> FhirClient:
         """
