@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -103,9 +104,10 @@ class RetryableAioHttpClient:
         results_by_url: list[RetryableAioHttpUrlResult] = []
         access_token: str | None = self.access_token
         expiry_date: datetime | None = self.access_token_expiry_date
-
+        error_message: list[str] = []
         # run with retry
         while retry_attempts < self.retries:
+            logging.warning(f"[TEST - 763] - attempt/retries {retry_attempts} / {self.retries} - URL: {url}")
             retry_attempts += 1
             try:
                 if headers:
@@ -164,6 +166,14 @@ class RetryableAioHttpClient:
 
                     if response.ok:
                         # If the response is successful, return the response
+                        if retry_attempts > 0:
+                            error_faced = ", ".join(error_message)
+                            logging.warning(
+                                "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s, inside response.ok",
+                                retry_attempts,
+                                error_faced,
+                                url,
+                            )
                         return RetryableAioHttpResponse(
                             ok=response.ok,
                             status=response.status,
@@ -183,6 +193,14 @@ class RetryableAioHttpClient:
                     elif (
                         self.exclude_status_codes_from_retry and response.status in self.exclude_status_codes_from_retry
                     ):
+                        if retry_attempts > 0:
+                            error_faced = ", ".join(error_message)
+                            logging.warning(
+                                "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s, inside self.exclude_status_codes_from_retry and response.status in self.exclude_status_codes_from_retry",
+                                retry_attempts,
+                                error_faced,
+                                url,
+                            )
                         return RetryableAioHttpResponse(
                             ok=response.ok,
                             status=response.status,
@@ -196,6 +214,14 @@ class RetryableAioHttpClient:
                             retry_count=retry_attempts,
                         )
                     elif response.status == 400:
+                        if retry_attempts > 0:
+                            error_faced = ", ".join(error_message)
+                            logging.warning(
+                                "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s, inside response.status == 400",
+                                retry_attempts,
+                                error_faced,
+                                url,
+                            )
                         return RetryableAioHttpResponse(
                             ok=response.ok,
                             status=response.status,
@@ -209,6 +235,14 @@ class RetryableAioHttpClient:
                             retry_count=retry_attempts,
                         )
                     elif response.status in [403, 404]:
+                        if retry_attempts > 0:
+                            error_faced = ", ".join(error_message)
+                            logging.warning(
+                                "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s, insdide response.status in [403, 404]",
+                                retry_attempts,
+                                error_faced,
+                                url,
+                            )
                         return RetryableAioHttpResponse(
                             ok=response.ok,
                             status=response.status,
@@ -241,6 +275,14 @@ class RetryableAioHttpClient:
                             retry_count=retry_attempts,
                         )
                         if refresh_token_result.abort_request or refresh_token_result.access_token is None:
+                            if retry_attempts > 0:
+                                error_faced = ", ".join(error_message)
+                                logging.warning(
+                                    "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s, inide response.status == 401 and self.refresh_token_func_async",
+                                    retry_attempts,
+                                    error_faced,
+                                    url,
+                                )
                             return RetryableAioHttpResponse(
                                 ok=False,
                                 status=401,
@@ -278,6 +320,14 @@ class RetryableAioHttpClient:
                                 request_info=response.request_info,
                             )
                         else:
+                            if retry_attempts > 0:
+                                error_faced = ", ".join(error_message)
+                                logging.warning(
+                                    "[TEST - 763] - Success after facing errors - %s retries: %s - URL: %s, inside else",
+                                    retry_attempts,
+                                    error_faced,
+                                    url,
+                                )
                             return RetryableAioHttpResponse(
                                 ok=response.ok,
                                 status=response.status,
@@ -291,10 +341,36 @@ class RetryableAioHttpClient:
                                 retry_count=retry_attempts,
                             )
             except (TimeoutError, ClientError, ClientResponseError) as e:
+                # Check for connection errors and recreate session for fresh connection
+                logging.warning(
+                    f"[TEST - 763] - Inside except (TimeoutError, ClientError, ClientResponseError) as e: {e} - URL: {url}"
+                )
+                if isinstance(e, ClientError):
+                    logging.warning(
+                        f"Connection reset/error detected: {e}. Attempt {retry_attempts}/{self.retries} - URL: {url}"
+                    )
+                    error_message.append(str(e))
+                    # Close existing session and create fresh one for new connection
+                    # if self.session:
+                    #     logging.warning("[TEST - 763] - Closing existing session - URL: %s", url)
+                    #     await self.session.close()
+                    # self.session = self.fn_get_session()
+                    # logging.warning("[TEST - 763] - New session created - URL: %s", url)
+                else:
+                    logging.warning(
+                        f"[TEST - 763] - Network error detected: {e}. Attempt {retry_attempts}/{self.retries} - URL: {url}"
+                    )
+
                 if retry_attempts >= self.retries:
+                    logging.warning("[TEST - 763] - Gonna raise an exception after retries exhausted - URL: %s", url)
                     if self._throw_exception_on_error:
+                        logging.warning("[TEST - 763] - Exception raised - URL: %s", url)
                         raise
                     else:
+                        if retry_attempts > 0:
+                            logging.warning(
+                                "[TEST - 763] - Returning exception after %s retries - URL: %s", retry_attempts, url
+                            )
                         return RetryableAioHttpResponse(
                             ok=False,
                             status=500,
@@ -309,6 +385,7 @@ class RetryableAioHttpClient:
                         )
                 await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
             except Exception as e:
+                logging.warning(f"[TEST - 763] - Inside except except Exception as e: as {e} - URL: {url}")
                 if self._throw_exception_on_error:
                     raise
                 else:
