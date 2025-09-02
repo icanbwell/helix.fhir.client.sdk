@@ -454,7 +454,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
             logging.info(f"sending a post: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}")
             if payload:
                 async with client:
-                    return await client.post(url=full_url, headers=headers, json=payload)
+                    result =  await client.post(url=full_url, headers=headers, json=payload)
+                return result
             else:
                 raise Exception(
                     "$graph needs a payload to define the returning response (use action_payload parameter)"
@@ -472,4 +473,5 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         + f"and scopes={self._auth_scopes} instance_id={self._uuid}"
                     )
             async with client:
-                return await client.get(url=full_url, headers=headers, data=payload)
+                result =  await client.get(url=full_url, headers=headers, data=payload)
+            return result
