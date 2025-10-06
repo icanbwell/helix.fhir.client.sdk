@@ -7,8 +7,8 @@ class SortField:
         :param field: name of field
         :param ascending: whether to sort ascending
         """
-        assert field
-        assert ascending
+        if not field:
+            raise ValueError(field)
         self.field: str = field
         self.ascending: bool = ascending
 
