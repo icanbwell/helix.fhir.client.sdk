@@ -134,9 +134,6 @@ class FhirGetResponse:
         """
 
         result: FhirGetResponse = self._append(other_response=other_response)
-        print("This is inside append method of FhirGetResponse")
-        import pdb
-        pdb.set_trace()
 
         if other_response.chunk_number and (other_response.chunk_number or 0) > (result.chunk_number or 0):
             result.chunk_number = other_response.chunk_number
