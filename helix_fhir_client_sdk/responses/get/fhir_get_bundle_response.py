@@ -113,7 +113,8 @@ class FhirGetBundleResponse(FhirGetResponse):
         :param other_response: FhirGetResponse object to append to current one
         :return: self
         """
-
+        import pdb
+        pdb.set_trace()
         if self._bundle_entries is None:
             self._bundle_entries = other_response.get_bundle_entries()
 
