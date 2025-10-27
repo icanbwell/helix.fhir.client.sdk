@@ -116,7 +116,8 @@ class FhirGetBundleResponse(FhirGetResponse):
 
         if self._bundle_entries is None:
             self._bundle_entries = other_response.get_bundle_entries()
-        else:
+        elif len(other_response.get_bundle_entries()):
+            # only append if there are entries in the other response
             self._bundle_entries.extend(other_response.get_bundle_entries())
 
         return self
