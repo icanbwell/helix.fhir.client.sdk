@@ -90,6 +90,9 @@ class FhirGetSingleResponse(FhirGetResponse):
         :param other_response: FhirGetResponse object to append to current one
         :return: self
         """
+        print("This is append of FhirGetSingleResponse")
+        import pdb
+        pdb.set_trace()
         # if someone is trying to append to a single resource then we need to convert it to a bundle
         return FhirGetBundleResponse.from_response(other_response=self).append(other_response=other_response)
 
