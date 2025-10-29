@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 from datetime import UTC, datetime, timedelta
 from threading import Lock
 from typing import TYPE_CHECKING, Any, cast
@@ -97,8 +98,12 @@ class FhirAuthMixin(FhirClientProtocol):
         :return: auth server url
         """
         if not self._auth_server_url:
-            auth_server_url = await self._get_auth_server_url_from_well_known_configuration_async()
-            self.auth_server_url(auth_server_url)
+            auth_url = os.environ.get("FHIR_AUTH_SERVER_URL")
+            if auth_url:
+                self.auth_server_url(auth_url)
+            else:
+                auth_server_url = await self._get_auth_server_url_from_well_known_configuration_async()
+                self.auth_server_url(auth_server_url)
 
         return self._auth_server_url
 
