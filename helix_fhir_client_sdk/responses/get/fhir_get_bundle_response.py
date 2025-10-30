@@ -113,11 +113,13 @@ class FhirGetBundleResponse(FhirGetResponse):
         :param other_response: FhirGetResponse object to append to current one
         :return: self
         """
-
         if self._bundle_entries is None:
             self._bundle_entries = other_response.get_bundle_entries()
-        else:
-            self._bundle_entries.extend(other_response.get_bundle_entries())
+
+        other_response_entries: FhirBundleEntryList = other_response.get_bundle_entries()
+        if len(other_response_entries):
+            # only append if there are entries in the other response
+            self._bundle_entries.extend(other_response_entries)
 
         return self
 
