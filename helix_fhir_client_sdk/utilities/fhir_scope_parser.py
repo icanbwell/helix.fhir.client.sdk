@@ -33,14 +33,18 @@ class FhirScopeParser:
 
         for scope in scope_list:
             if "/" in scope:
-                resource, interaction = scope.split("/")
+                resource, interaction = scope.split("/", 1)  # Only split on first "/"
                 if "." in interaction:
-                    operation, permission = interaction.split(".")
+                    operation, permission = interaction.split(".", 1)  # Only split on first "."
+
+                    # Extract just the permission part (before any query parameters)
+                    permission_only = permission.split("?")[0] if "?" in permission else permission
+
                     parsed_scopes.append(
                         FhirScopeParserResult(
                             resource_type=resource.strip(" \n") if resource else None,
                             operation=operation.strip(" \n") if operation else None,
-                            interaction=(permission.strip(" \n").lower() if permission else None),
+                            interaction=(permission_only.strip(" \n").lower() if permission_only else None),
                         )
                     )
                 else:

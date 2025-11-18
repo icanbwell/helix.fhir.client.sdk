@@ -47,8 +47,24 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
             [True, False, False, True],
         ),
         ([], [True, True, True, True]),
+        (
+            [
+                (
+                    "patient/Observation.read?category=http://terminology.hl7.org/CodeSystem/observation-category|survey "
+                    "patient/Condition.read?category=http://hl7.org/fhir/us/core/CodeSystem/condition-category|health-concern "
+                    "patient/Patient.read"
+                )
+            ],
+            [True, True, False, False],
+        ),
     ],
-    ids=["Patient Scopes", "User Scopes", "System Scopes", "Non-SMART on FHIR Scopes"],
+    ids=[
+        "Patient Scopes",
+        "User Scopes",
+        "System Scopes",
+        "Non-SMART on FHIR Scopes",
+        "Patient Scopes with Query Parameters",
+    ],
 )
 def test_fhir_scope_parser_correct_allow(scopes: list[str], expected: list[bool]) -> None:
     scope_parser: FhirScopeParser = FhirScopeParser(scopes)
