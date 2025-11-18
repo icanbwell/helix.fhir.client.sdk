@@ -182,18 +182,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             if logger:
                 logger.info(
                     f"FhirClient.simulate_graph_async() "
+                    f"got parent resources: {id_} "
                     f"got parent resources: {parent_response_resource_count} "
                     f"cached:{cache_hits}"
                 )
 
             # Prepare parent bundle entries for further processing
             parent_bundle_entries: FhirBundleEntryList = parent_response.get_bundle_entries()
-
-            if logger:
-                logger.info(
-                    f"FhirClient.simulate_graph_async() got parent resources: {parent_response_resource_count} "
-                    + f"cached:{cache_hits}"
-                )
 
             # now process the graph links
             child_responses: list[FhirGetResponse] = []
