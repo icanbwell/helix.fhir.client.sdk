@@ -133,7 +133,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                         )
                         response_status = response.status
                         request_id = response.response_headers.get("X-Request-ID", None)
-                        self._internal_logger.info(f"X-Request-ID={request_id}")
+                        self._internal_logger.debug(f"X-Request-ID={request_id}")
                         if response and response.status == 200:
                             response_text = await response.get_text_async()
                             if response_text:
@@ -349,7 +349,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                             )
                             response_status = response.status
                             request_id = response.response_headers.get("X-Request-ID", None)
-                            self._internal_logger.info(f"X-Request-ID={request_id}")
+                            self._internal_logger.debug(f"X-Request-ID={request_id}")
                             if response and response.status == 200:
                                 response_text = await response.get_text_async()
                                 if response_text:
