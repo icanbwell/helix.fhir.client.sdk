@@ -109,7 +109,7 @@ class FhirUpdateMixin(FhirClientProtocol):
         ) as client:
             response = await client.put(url=full_uri.url, data=json_data, headers=headers)
             request_id = response.response_headers.get("X-Request-ID", None)
-            self._internal_logger.info(f"X-Request-ID={request_id}")
+            self._internal_logger.debug(f"X-Request-ID={request_id}")
             if response.status == 200:
                 if self._logger:
                     self._logger.info(f"Successfully updated: {full_uri}")

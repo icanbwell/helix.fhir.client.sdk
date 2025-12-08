@@ -161,7 +161,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                     )
 
                     request_id = response.response_headers.get("X-Request-ID", None)
-                    self._internal_logger.info(f"X-Request-ID={request_id}")
+                    self._internal_logger.debug(f"X-Request-ID={request_id}")
 
                     async for r in FhirResponseProcessor.handle_response(
                         internal_logger=self._internal_logger,
@@ -325,7 +325,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                     )
 
                     request_id = response.response_headers.get("X-Request-ID", None)
-                    self._internal_logger.info(f"X-Request-ID={request_id}")
+                    self._internal_logger.debug(f"X-Request-ID={request_id}")
 
                     if response.status == 200:
                         response_next_url = None
