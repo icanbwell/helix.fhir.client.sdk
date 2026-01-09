@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -410,14 +411,30 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         :param headers: headers to send
         :param payload: payload to send
         """
+        def log_running_tasks(prefix: str = "") -> int:
+            """Log currently running asyncio tasks"""
+            all_tasks = asyncio.all_tasks()
+            running_tasks = [t for t in all_tasks if not t.done()]
+            task_count = len(running_tasks)
+            
+            self._internal_logger.info(
+                f"{prefix} | ASYNC TASKS: Total Running={task_count} | "
+                f"all_tasks={len(all_tasks)} | "
+            )
+            
+            return task_count
+        
         if self._max_concurrent_requests_semaphore:
+            log_running_tasks(prefix="[BEFORE SEMAPHORE ACQUIRE]")
             async with self._max_concurrent_requests_semaphore:
-                return await self._send_fhir_request_internal_async(
+                log_running_tasks(prefix="[AFTER SEMAPHORE ACQUIRE]")
+                result = await self._send_fhir_request_internal_async(
                     client=client,
                     full_url=full_url,
                     headers=headers,
                     payload=payload,
                 )
+                return result
         else:
             return await self._send_fhir_request_internal_async(
                 client=client, full_url=full_url, headers=headers, payload=payload
