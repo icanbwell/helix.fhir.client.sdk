@@ -52,7 +52,11 @@ class DictionaryParser:
             # Iterate through the list, try a .get(part) on each iteration for part (remove the [x] first),
             # and create a new list of the values in result
             elif part.endswith("[x]") and isinstance(result, list):
-                result = [value for result_entry in result if (value := result_entry.get(part[:-3]))]
+                try:
+                    result = [value for result_entry in result if (value := result_entry.get(part[:-3]))]
+                except Exception as e:
+                    print(f"Exception getting repeating field {part} from list: {e}, parent: {parent}, result: {result}, path: {path}")
+                    raise e
 
             # part is looking for a repeating field, but result is currently a dict.
             # We have gotten a part of the dictionary that we want to return.
