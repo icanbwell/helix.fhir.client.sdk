@@ -52,7 +52,9 @@ class DictionaryParser:
             # Iterate through the list, try a .get(part) on each iteration for part (remove the [x] first),
             # and create a new list of the values in result
             elif part.endswith("[x]") and isinstance(result, list):
-                if isinstance(result[0], list):
+                if not result:
+                    return None
+                elif isinstance(result[0], list):
                     # result is a list of lists - flatten it first
                     flattened_result = DictionaryParser.flatten(result)
                     result = [value for result_entry in flattened_result if (value := result_entry.get(part[:-3]))]
