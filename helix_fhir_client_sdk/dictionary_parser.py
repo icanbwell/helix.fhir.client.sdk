@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 
@@ -55,7 +56,9 @@ class DictionaryParser:
                 try:
                     result = [value for result_entry in result if (value := result_entry.get(part[:-3]))]
                 except Exception as e:
-                    print(f"Exception getting repeating field {part} from list: {e}, parent: {parent}, result: {result}, path: {path}")
+                    print("parent received:", json.dumps(parent, indent=2, default=str))
+                    print("result was:", json.dumps(result, indent=2, default=str))
+                    
                     raise e
 
             # part is looking for a repeating field, but result is currently a dict.
