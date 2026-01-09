@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 
@@ -52,7 +53,13 @@ class DictionaryParser:
             # Iterate through the list, try a .get(part) on each iteration for part (remove the [x] first),
             # and create a new list of the values in result
             elif part.endswith("[x]") and isinstance(result, list):
-                result = [value for result_entry in result if (value := result_entry.get(part[:-3]))]
+                try:
+                    result = [value for result_entry in result if (value := result_entry.get(part[:-3]))]
+                except Exception as e:
+                    print("parent received:", json.dumps(parent, indent=2, default=str))
+                    print("result was:", json.dumps(result, indent=2, default=str))
+                    
+                    raise e
 
             # part is looking for a repeating field, but result is currently a dict.
             # We have gotten a part of the dictionary that we want to return.
