@@ -120,6 +120,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             add_cached_bundles_to_result: Optional flag to add cached bundles to result
             input_cache: Optional cache for resource retrieval
             compare_hash: Flag to compare resource hashes for changes
+            make_persistent_connection: Flag to make a persistent HTTP connection
 
         Yields:
             FhirGetResponse objects representing retrieved resources
@@ -137,6 +138,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         if make_persistent_connection:
             # Create a persistent HTTP session for reuse across all requests in this graph traversal
             persistent_session = self.create_http_session()
+
+            # Store the origninal create_http_session method
+            original_create_http_session = self.create_http_session
 
             # Override create_http_session to return the persistent session
             self.create_http_session = lambda: persistent_session  # type: ignore[method-assign]
@@ -276,9 +280,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # Yield the final response
             yield full_response
 
-            if persistent_session:
-                # Clean up: close the persistent session
-                await persistent_session.close()
+        if persistent_session:
+            # Clean up: close the persistent session
+            await persistent_session.close()
+
+        if make_persistent_connection:
+            self.create_http_session = original_create_http_session  # type: ignore[method-assign]
 
     # noinspection PyUnusedLocal
     async def process_link_async_parallel_function(
