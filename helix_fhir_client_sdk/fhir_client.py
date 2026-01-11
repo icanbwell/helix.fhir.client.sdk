@@ -466,6 +466,15 @@ class FhirClient(
         self._throw_exception_on_error = throw_exception_on_error
         return self
 
+    def close_session_after_request(self, value: bool) -> FhirClient:
+        """
+        Sets the _close_session flag (default is True)
+
+        :param value: whether to close the session after each request
+        """
+        self._close_session = value
+        return self
+
     # noinspection PyUnusedLocal
     @staticmethod
     async def on_request_end(

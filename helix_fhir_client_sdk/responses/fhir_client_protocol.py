@@ -89,6 +89,8 @@ class FhirClientProtocol(Protocol):
     _send_data_as_chunked: bool = False
     _last_page_lock: Lock
 
+    _close_session: bool = True
+
     _use_post_for_search: bool = False
 
     _accept: str
