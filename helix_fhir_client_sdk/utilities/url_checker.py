@@ -6,6 +6,52 @@ from furl import furl
 
 class UrlChecker:
     @staticmethod
+    def preserve_port_from_base_url(*, base_url: str, next_url: str) -> str:
+        """
+        INC-285: Preserve the port from the base URL when the next URL has the same host
+        but is missing the port.
+
+        This fixes an issue where FHIR servers generate pagination URLs without the port,
+        causing requests to go to the default port (80 for HTTP, 443 for HTTPS) instead
+        of the correct port.
+
+        Example:
+            base_url: http://fhir-server:3000/4_0_0/Observation
+            next_url: http://fhir-server/4_0_0/Observation?_count=10&_getpagesoffset=10
+            result:   http://fhir-server:3000/4_0_0/Observation?_count=10&_getpagesoffset=10
+
+        Args:
+            base_url (str): The original base URL with the correct port
+            next_url (str): The URL returned by the FHIR server (may be missing port)
+
+        Returns:
+            str: The next URL with the port preserved from the base URL if applicable
+        """
+        base_parsed = urlparse(base_url)
+        next_parsed = urlparse(next_url)
+
+        # Only apply fix if:
+        # 1. Both URLs have the same scheme
+        # 2. Both URLs have the same hostname (ignoring port)
+        # 3. Base URL has an explicit port
+        # 4. The next URL does NOT have an explicit port
+        base_hostname = base_parsed.hostname
+        next_hostname = next_parsed.hostname
+
+        if (
+            base_parsed.scheme == next_parsed.scheme
+            and base_hostname == next_hostname
+            and base_parsed.port is not None
+            and next_parsed.port is None
+        ):
+            # Reconstruct the next URL with the port from base URL
+            next_furl = furl(next_url)
+            next_furl.port = base_parsed.port
+            return str(next_furl)
+
+        return next_url
+
+    @staticmethod
     def is_absolute_url(*, url: str | furl) -> bool:
         """
         Determine if a URL is absolute or relative.
@@ -57,16 +103,4 @@ class UrlChecker:
 
         absolute_url = absolute_url.join(relative)
 
-        # # Update path
-        # if relative.path:
-        #     absolute_url.path.segments += relative.path.segments
-        #
-        # # Update query parameters
-        # if relative.query:
-        #     absolute_url.query.set(relative.query.params)
-        #
-        # # Update fragment if present
-        # if relative.fragment:
-        #     absolute_url.fragment = relative.fragment
-        #
         return cast(str, absolute_url.url)
