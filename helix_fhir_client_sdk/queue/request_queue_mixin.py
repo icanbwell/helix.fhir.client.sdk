@@ -133,6 +133,10 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         next_url = UrlChecker.convert_relative_url_to_absolute_url(
                             base_url=self._url, relative_url=next_url
                         )
+                    else:
+                        # INC-285: Preserve port from base URL when next_url is absolute
+                        # but missing the port (FHIR server bug workaround)
+                        next_url = UrlChecker.preserve_port_from_base_url(base_url=self._url, next_url=next_url)
                     response: RetryableAioHttpResponse = await self._send_fhir_request_async(
                         client=client,
                         full_url=next_url,
@@ -297,6 +301,10 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         next_url = UrlChecker.convert_relative_url_to_absolute_url(
                             base_url=self._url, relative_url=next_url
                         )
+                    else:
+                        # INC-285: Preserve port from base URL when next_url is absolute
+                        # but missing the port (FHIR server bug workaround)
+                        next_url = UrlChecker.preserve_port_from_base_url(base_url=self._url, next_url=next_url)
                     response: RetryableAioHttpResponse = await self._send_fhir_request_async(
                         client=client,
                         full_url=next_url,
