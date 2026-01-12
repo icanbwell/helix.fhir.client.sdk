@@ -52,6 +52,10 @@ class DictionaryParser:
             # Iterate through the list, try a .get(part) on each iteration for part (remove the [x] first),
             # and create a new list of the values in result
             elif part.endswith("[x]") and isinstance(result, list):
+                if result and isinstance(result[0], list):
+                    # result is a list of lists - flatten it first
+                    result = DictionaryParser.flatten(result)
+
                 result = [value for result_entry in result if (value := result_entry.get(part[:-3]))]
 
             # part is looking for a repeating field, but result is currently a dict.
