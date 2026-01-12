@@ -40,6 +40,8 @@ class RetryableAioHttpClient:
         log_all_url_results: bool = False,
         access_token: str | None,
         access_token_expiry_date: datetime | None,
+        persistent_session: ClientSession | None = None,
+        use_persistent_session: bool = False,
         close_session_on_exit: bool = True,
     ) -> None:
         """
@@ -67,9 +69,14 @@ class RetryableAioHttpClient:
         self.access_token: str | None = access_token
         self.access_token_expiry_date: datetime | None = access_token_expiry_date
         self.close_session_on_exit: bool = close_session_on_exit
+        self.persistent_session: ClientSession | None = persistent_session
+        self.use_persistent_session: bool = use_persistent_session
 
     async def __aenter__(self) -> "RetryableAioHttpClient":
-        self.session = self.fn_get_session()
+        if self.use_persistent_session and self.persistent_session is not None:
+            self.session = self.persistent_session
+        else:
+            self.session = self.fn_get_session()
         return self
 
     async def __aexit__(
@@ -225,14 +232,6 @@ class RetryableAioHttpClient:
                         )
                     elif response.status == 429:
                         await self._handle_429(response=response, full_url=url)
-                    elif self.retry_status_codes and response.status in self.retry_status_codes:
-                        raise ClientResponseError(
-                            status=response.status,
-                            message="Retryable status code received",
-                            headers=response_headers_multi_mapping,
-                            history=response.history,
-                            request_info=response.request_info,
-                        )
                     elif response.status == 401 and self.refresh_token_func_async:
                         # Call the token refresh function if status code is 401
                         refresh_token_result: RefreshTokenResult = await self.refresh_token_func_async(
@@ -270,6 +269,14 @@ class RetryableAioHttpClient:
                                     request_info=response.request_info,
                                 )
                             await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
+                    elif self.retry_status_codes and response.status in self.retry_status_codes:
+                        raise ClientResponseError(
+                            status=response.status,
+                            message="Retryable status code received",
+                            headers=response_headers_multi_mapping,
+                            history=response.history,
+                            request_info=response.request_info,
+                        )
                     else:
                         if self._throw_exception_on_error:
                             raise ClientResponseError(
