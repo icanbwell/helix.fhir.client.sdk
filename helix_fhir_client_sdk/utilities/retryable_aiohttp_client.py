@@ -122,7 +122,7 @@ class RetryableAioHttpClient:
                     if self.compress:
                         kwargs["compress"] = self.compress
                 assert self.session is not None
-                logging.info("Using session:", id(self.session))
+                logging.info(f"Using session: {id(self.session)}")
                 async with async_timeout.timeout(self.timeout_in_seconds):
                     start_time: float = time.time()
                     response: ClientResponse = await self.session.request(
