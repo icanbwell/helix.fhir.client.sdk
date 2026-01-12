@@ -3,7 +3,7 @@ import time
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, cast
-
+import logging
 import async_timeout
 from aiohttp import ClientError, ClientResponse, ClientResponseError, ClientSession
 from multidict import MultiMapping
@@ -122,6 +122,7 @@ class RetryableAioHttpClient:
                     if self.compress:
                         kwargs["compress"] = self.compress
                 assert self.session is not None
+                logging.info("Using session:", id(self.session))
                 async with async_timeout.timeout(self.timeout_in_seconds):
                     start_time: float = time.time()
                     response: ClientResponse = await self.session.request(
