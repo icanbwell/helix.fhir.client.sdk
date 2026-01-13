@@ -250,7 +250,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
             # Combine and process responses
             parent_response = cast(FhirGetBundleResponse, parent_response.extend(child_responses))
-            parent_response = parent_response.remove_duplicates()
 
             # Optional resource sorting
             if sort_resources:
