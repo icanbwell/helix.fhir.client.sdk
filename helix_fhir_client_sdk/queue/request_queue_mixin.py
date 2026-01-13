@@ -131,6 +131,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 log_all_url_results=self._log_all_response_urls,
                 access_token=self._access_token,
                 access_token_expiry_date=self._access_token_expiry_date,
+                close_session_on_exit=self._close_session,
             ) as client:
                 while next_url:
                     page_count += 1
@@ -146,6 +147,10 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         next_url = UrlChecker.convert_relative_url_to_absolute_url(
                             base_url=self._url, relative_url=next_url
                         )
+                    else:
+                        # INC-285: Preserve port from base URL when next_url is absolute
+                        # but missing the port (FHIR server bug workaround)
+                        next_url = UrlChecker.preserve_port_from_base_url(base_url=self._url, next_url=next_url)
                     
                     # TIME: Track HTTP request
                     http_request_start = time.time()
@@ -347,6 +352,10 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         next_url = UrlChecker.convert_relative_url_to_absolute_url(
                             base_url=self._url, relative_url=next_url
                         )
+                    else:
+                        # INC-285: Preserve port from base URL when next_url is absolute
+                        # but missing the port (FHIR server bug workaround)
+                        next_url = UrlChecker.preserve_port_from_base_url(base_url=self._url, next_url=next_url)
                     response: RetryableAioHttpResponse = await self._send_fhir_request_async(
                         client=client,
                         full_url=next_url,
