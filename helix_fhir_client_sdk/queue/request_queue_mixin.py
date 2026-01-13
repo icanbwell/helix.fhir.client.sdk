@@ -70,6 +70,9 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         :param additional_parameters: additional parameters to add to the request
         :return: response
         """
+        # TIME: Track overall method execution
+        method_start_time = time.time()
+        
         assert self._url, "No FHIR server url was set"
         assert resource_type or self._resource, "No Resource was set"
         request_id: str | None = None
@@ -77,6 +80,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
 
         # create url and query to request from FHIR server
         resources_json: str = ""
+        
+        # TIME: Track URL building
         full_url = await self.build_url(
             ids=ids,
             id_above=id_above,
@@ -99,6 +104,10 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         last_status_code: int | None = None
         last_response_text: str | None = None
         next_url: str | None = full_url
+        page_count = 0
+        total_http_time = 0.0
+        total_response_processing_time = 0.0
+        
         try:
             await FhirResponseProcessor.log_request(
                 full_url=full_url,
@@ -124,6 +133,9 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 access_token_expiry_date=self._access_token_expiry_date,
             ) as client:
                 while next_url:
+                    page_count += 1
+                    page_start_time = time.time()
+                    
                     # set access token in request if present
                     access_token_result: GetAccessTokenResult = await self.get_access_token_async()
                     access_token: str | None = access_token_result.access_token
@@ -134,12 +146,18 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         next_url = UrlChecker.convert_relative_url_to_absolute_url(
                             base_url=self._url, relative_url=next_url
                         )
+                    
+                    # TIME: Track HTTP request
+                    http_request_start = time.time()
                     response: RetryableAioHttpResponse = await self._send_fhir_request_async(
                         client=client,
                         full_url=next_url,
                         headers=headers,
                         payload=payload,
                     )
+                    http_request_duration = time.time() - http_request_start
+                    total_http_time += http_request_duration
+                    
                     assert isinstance(response, RetryableAioHttpResponse)
 
                     if response.access_token:
@@ -164,6 +182,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                     request_id = response.response_headers.get("X-Request-ID", None)
                     self._internal_logger.info(f"X-Request-ID={request_id}")
 
+                    # TIME: Track response processing
+                    response_processing_start = time.time()
                     async for r in FhirResponseProcessor.handle_response(
                         internal_logger=self._internal_logger,
                         access_token=access_token,
@@ -201,8 +221,37 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
 
                         # Update next_url for the next loop iteration
                         next_url = r.next_url
+                    
+                    response_processing_duration = time.time() - response_processing_start
+                    total_response_processing_time += response_processing_duration
+                    
+                    page_duration = time.time() - page_start_time
+                    self._internal_logger.info(
+                        f"[PERF] _get_with_session_async page {page_count} completed in {page_duration:.3f}s | "
+                        f"http_request={http_request_duration:.3f}s | "
+                        f"response_processing={response_processing_duration:.3f}s | "
+                        f"resources_in_page={resource_count} | "
+                        f"total_resources={total_results}"
+                    )
+
+            # Log overall method performance
+            method_total_duration = time.time() - method_start_time
+            self._internal_logger.info(
+                f"[PERF] _get_with_session_async TOTAL completed in {method_total_duration:.3f}s | "
+                f"resource_type={resource_type or self._resource} | "
+                f"total_http_time={total_http_time:.3f}s ({total_http_time/method_total_duration*100:.1f}%) | "
+                f"total_response_processing={total_response_processing_time:.3f}s ({total_response_processing_time/method_total_duration*100:.1f}%) | "
+                f"pages={page_count} | "
+                f"total_resources={total_results}"
+            )
 
         except Exception as ex:
+            method_duration = time.time() - method_start_time
+            self._internal_logger.error(
+                f"[PERF] _get_with_session_async FAILED after {method_duration:.3f}s | "
+                f"resource_type={resource_type or self._resource} | "
+                f"error={str(ex)}"
+            )
             raise FhirSenderException(
                 request_id=request_id,
                 exception=ex,
@@ -416,11 +465,13 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
             all_tasks = asyncio.all_tasks()
             running_tasks = [t for t in all_tasks if not t.done()]
             task_count = len(running_tasks)
+            waiting_tasks = [t for t in running_tasks if t._coro.cr_await is not None]
             
             self._internal_logger.info(
                 f"{prefix} | ASYNC TASKS: Total Running={task_count} | "
                 f"all_tasks={len(all_tasks)} | "
             )
+            print(f"{prefix} | ASYNC TASKS: Total Running={task_count} | all_tasks={len(all_tasks)} | waiting_tasks={len(waiting_tasks)}")
             
             return task_count
         
@@ -463,28 +514,52 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         if payload:
             assert isinstance(payload, dict)
 
-        if self._action == "$graph":
-            if self._logger:
-                self._logger.info(
-                    f"sending a post: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
-                )
-            logging.info(f"sending a post: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}")
-            if payload:
-                return await client.post(url=full_url, headers=headers, json=payload)
-            else:
-                raise Exception(
-                    "$graph needs a payload to define the returning response (use action_payload parameter)"
-                )
-        else:
-            if self._log_level == "DEBUG":
+        # Start timing the request
+        request_start_time = time.time()
+
+        try:
+            if self._action == "$graph":
                 if self._logger:
                     self._logger.info(
-                        f"sending a get: {full_url} with client_id={self._client_id} "
-                        + f"and scopes={self._auth_scopes} instance_id={self._uuid}"
+                        f"sending a post: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}"
                     )
+                logging.info(f"sending a post: {full_url} with client_id={self._client_id} and scopes={self._auth_scopes}")
+                if payload:
+                    response = await client.post(url=full_url, headers=headers, json=payload)
                 else:
-                    self._internal_logger.info(
-                        f"sending a get: {full_url} with client_id={self._client_id} "
-                        + f"and scopes={self._auth_scopes} instance_id={self._uuid}"
+                    raise Exception(
+                        "$graph needs a payload to define the returning response (use action_payload parameter)"
                     )
-            return await client.get(url=full_url, headers=headers, data=payload)
+            else:
+                if self._log_level == "DEBUG":
+                    if self._logger:
+                        self._logger.info(
+                            f"sending a get: {full_url} with client_id={self._client_id} "
+                            + f"and scopes={self._auth_scopes} instance_id={self._uuid}"
+                        )
+                    else:
+                        self._internal_logger.info(
+                            f"sending a get: {full_url} with client_id={self._client_id} "
+                            + f"and scopes={self._auth_scopes} instance_id={self._uuid}"
+                        )
+                response = await client.get(url=full_url, headers=headers, data=payload)
+            
+            # Log request duration
+            request_duration = time.time() - request_start_time
+            self._internal_logger.info(
+                f"Request completed in {request_duration:.3f}s | "
+                f"URL: {full_url} | "
+                f"Status: {response.status}"
+            )
+            
+            return response
+            
+        except Exception as e:
+            # Log request duration even on error
+            request_duration = time.time() - request_start_time
+            self._internal_logger.error(
+                f"Request failed after {request_duration:.3f}s | "
+                f"URL: {full_url} | "
+                f"Error: {str(e)}"
+            )
+            raise

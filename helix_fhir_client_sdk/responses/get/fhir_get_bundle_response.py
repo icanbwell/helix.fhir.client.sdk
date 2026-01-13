@@ -278,6 +278,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             resource_type_plus_id_seen: set[str] = set()
             entry_request_url_seen: set[str] = set()
             i = 0
+            print(f"Initial bundle entries count: {len(self._bundle_entries)}")
             while i < len(self._bundle_entries):
                 if self._bundle_entries[i] is not None:
                     # Create a tuple of values for specified keys
@@ -301,6 +302,7 @@ class FhirGetBundleResponse(FhirGetResponse):
                         else:
                             resource_type_plus_id_seen.add(resource_type_plus_id)
                 i += 1
+            print(f"Final bundle entries count: {len(self._bundle_entries)}")
             return self
         except Exception as e:
             raise Exception(f"Could not get parse json from: {bundle}") from e

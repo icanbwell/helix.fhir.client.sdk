@@ -118,12 +118,14 @@ class AsyncParallelProcessor:
                 all_tasks = asyncio.all_tasks()
                 running_tasks = [t for t in all_tasks if not t.done()]
                 task_count = len(running_tasks)
+                waiting_tasks = [t for t in running_tasks if t._coro.cr_await is not None]
                 
                 # Log using standard logging module
                 logger = logging.getLogger(__name__)
                 logger.info(
                     f"{prefix} | ASYNC TASKS: Total Running={task_count} | "
                     f"all_tasks={len(all_tasks)} | "
+                    f"waiting_tasks={len(waiting_tasks)}"
                 )
                 
                 return task_count
