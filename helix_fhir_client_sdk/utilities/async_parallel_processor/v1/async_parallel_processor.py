@@ -8,6 +8,8 @@ from typing import (
     runtime_checkable,
 )
 
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time_asyncgen
+
 
 @dataclass(slots=True)
 class ParallelFunctionContext:
@@ -69,6 +71,7 @@ class AsyncParallelProcessor:
             asyncio.Semaphore(max_concurrent_tasks) if max_concurrent_tasks else None
         )
 
+    @log_execution_time_asyncgen
     async def process_rows_in_parallel[
         TInput,
         TOutput,

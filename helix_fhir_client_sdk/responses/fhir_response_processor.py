@@ -30,6 +30,7 @@ from helix_fhir_client_sdk.responses.resource_separator import (
     ResourceSeparator,
     ResourceSeparatorResult,
 )
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time_asyncgen
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
 )
@@ -45,6 +46,7 @@ class FhirResponseProcessor:
     """
 
     @staticmethod
+    @log_execution_time_asyncgen
     async def handle_response(
         *,
         response: RetryableAioHttpResponse,
@@ -257,6 +259,7 @@ class FhirResponseProcessor:
         )
 
     @staticmethod
+    @log_execution_time_asyncgen
     async def _handle_response_200(
         *,
         access_token: str | None,

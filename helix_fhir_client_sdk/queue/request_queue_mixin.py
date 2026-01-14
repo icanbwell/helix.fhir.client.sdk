@@ -49,6 +49,9 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
             self._max_concurrent_requests_semaphore = Semaphore(max_concurrent_requests)
         return self
 
+    from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time_asyncgen
+
+    @log_execution_time_asyncgen
     async def _get_with_session_async(
         self,
         page_number: int | None,

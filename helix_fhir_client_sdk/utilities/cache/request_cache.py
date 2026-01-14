@@ -7,6 +7,11 @@ from typing import Any
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
 
 from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
+from helix_fhir_client_sdk.utilities.logging_decorators import (
+    log_execution_time,
+    log_execution_time_asyncgen,
+    log_execution_time_sync,
+)
 
 
 class RequestCache:
@@ -36,6 +41,7 @@ class RequestCache:
         self._lock: asyncio.Lock = asyncio.Lock()
         self._clear_cache_at_the_end: bool | None = clear_cache_at_the_end
 
+    @log_execution_time
     async def __aenter__(self) -> "RequestCache":
         """
         This method is called when the RequestCache is entered into a context manager.
@@ -46,6 +52,7 @@ class RequestCache:
                 self._cache.clear()
         return self
 
+    @log_execution_time
     async def __aexit__(
         self,
         exc_type: type[BaseException] | None,
@@ -65,6 +72,7 @@ class RequestCache:
 
         return True
 
+    @log_execution_time
     async def get_async(self, *, resource_type: str, resource_id: str) -> RequestCacheEntry | None:
         """
         This method returns the cached data for a given URL, or None if the URL is not in the cache.
@@ -85,6 +93,7 @@ class RequestCache:
             self.cache_misses += 1
             return None
 
+    @log_execution_time
     async def add_async(
         self,
         *,
@@ -129,6 +138,7 @@ class RequestCache:
 
             return True
 
+    @log_execution_time
     async def remove_async(self, *, resource_key: str) -> bool:
         """
         This method remove the given data from the cache.
@@ -142,6 +152,7 @@ class RequestCache:
 
             return True
 
+    @log_execution_time
     async def clear_async(self) -> None:
         """
         This method clears the cache.
@@ -149,6 +160,7 @@ class RequestCache:
         async with self._lock:
             self._cache.clear()
 
+    @log_execution_time_asyncgen
     async def get_entries_async(self) -> AsyncGenerator[RequestCacheEntry, None]:
         """
         This method returns the entries in the cache.
@@ -159,6 +171,7 @@ class RequestCache:
             for entry in self._cache.values():
                 yield entry
 
+    @log_execution_time
     async def get_keys_async(self) -> list[str]:
         """
         This method returns the keys in the cache.
@@ -168,6 +181,7 @@ class RequestCache:
         async with self._lock:
             return list(self._cache.keys())
 
+    @log_execution_time_sync
     def __len__(self) -> int:
         """
         This method returns the number of entries in the cache.
@@ -176,6 +190,7 @@ class RequestCache:
         """
         return len(self._cache)
 
+    @log_execution_time_sync
     def __repr__(self) -> str:
         """
         This method returns a string representation of the cache.

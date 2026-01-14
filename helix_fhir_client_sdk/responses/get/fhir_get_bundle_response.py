@@ -22,6 +22,7 @@ from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.hash_util import ResourceHash
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time_sync, log_execution_time_syncgen
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -345,6 +346,7 @@ class FhirGetBundleResponse(FhirGetResponse):
 
     @classmethod
     @override
+    @log_execution_time_sync
     def from_response(cls, other_response: "FhirGetResponse") -> "FhirGetBundleResponse":
         """
         Creates a new FhirGetBundleResponse from another FhirGetResponse
@@ -384,6 +386,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         return response
 
     @override
+    @log_execution_time_sync
     def get_response_text(self) -> str:
         """
         Gets the response text from the response
@@ -394,6 +397,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         return bundle.json()
 
     @override
+    @log_execution_time_sync
     def sort_resources(self) -> "FhirGetBundleResponse":
         bundle: FhirBundle = self.create_bundle()
         bundle = FhirBundleAppender.sort_resources(bundle=bundle)
@@ -401,6 +405,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         return self
 
     @override
+    @log_execution_time_syncgen
     async def consume_resource_async(
         self,
     ) -> AsyncGenerator[FhirResource, None]:
@@ -410,6 +415,7 @@ class FhirGetBundleResponse(FhirGetResponse):
                 yield entry.resource
 
     @override
+    @log_execution_time_syncgen
     def consume_resource(self) -> Generator[FhirResource, None, None]:
         while self._bundle_entries:
             entry: FhirBundleEntry = self._bundle_entries.popleft()
@@ -417,16 +423,19 @@ class FhirGetBundleResponse(FhirGetResponse):
                 yield entry.resource
 
     @override
+    @log_execution_time_syncgen
     async def consume_bundle_entry_async(self) -> AsyncGenerator[FhirBundleEntry, None]:
         while self._bundle_entries:
             yield self._bundle_entries.popleft()
 
     @override
+    @log_execution_time_syncgen
     def consume_bundle_entry(self) -> Generator[FhirBundleEntry, None, None]:
         while self._bundle_entries:
             yield self._bundle_entries.popleft()
 
     @override
+    @log_execution_time_sync
     def to_dict(self) -> dict[str, Any]:
         """
         Converts the object to a dictionary
@@ -453,6 +462,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         )
 
     @override
+    @log_execution_time_sync
     def get_resource_count(self) -> int:
         return len(self._bundle_entries)
 

@@ -18,6 +18,7 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
 from dateutil import parser
 
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -386,6 +387,7 @@ class FhirGetResponse:
             raise Exception(f"Could not get resourceType and id from resources: {resources.json()}") from e
 
     @classmethod
+    @log_execution_time
     async def from_async_generator(
         cls, generator: AsyncGenerator["FhirGetResponse", None]
     ) -> Optional["FhirGetResponse"]:

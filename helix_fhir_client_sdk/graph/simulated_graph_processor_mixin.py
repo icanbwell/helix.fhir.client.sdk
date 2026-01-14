@@ -43,6 +43,7 @@ from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.hash_util import ResourceHash
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time, log_execution_time_asyncgen
 
 
 class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
@@ -57,6 +58,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
     """
 
     # noinspection PyPep8Naming,PyUnusedLocal
+    @log_execution_time_asyncgen
     async def process_simulate_graph_async(
         self,
         *,
@@ -287,6 +289,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             self.create_http_session = original_create_http_session  # type: ignore[method-assign]
 
     # noinspection PyUnusedLocal
+    @log_execution_time
     async def process_link_async_parallel_function(
         self,
         context: ParallelFunctionContext,
@@ -381,6 +384,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # Return the list of retrieved responses
         return result
 
+    @log_execution_time_asyncgen
     async def _process_link_async(
         self,
         *,
@@ -465,6 +469,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 yield target_response
 
     # noinspection PyUnusedLocal
+    @log_execution_time
     async def process_target_async_parallel_function(
         self,
         context: ParallelFunctionContext,
@@ -536,6 +541,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # Return the list of retrieved responses
         return result
 
+    @log_execution_time
     async def _process_child_group(
         self,
         *,
@@ -617,6 +623,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # Return the retrieved child resources
         return child_response
 
+    @log_execution_time_asyncgen
     async def _process_target_async(
         self,
         *,
@@ -852,6 +859,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         if target.link:
             parent_link_map.append((target.link, children))
 
+    @log_execution_time
     async def _get_resources_by_id_one_by_one_async(
         self,
         *,
@@ -928,6 +936,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         return result
 
+    @log_execution_time
     async def _get_resources_by_parameters_async(
         self,
         *,
@@ -1153,6 +1162,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         return bundle_response, cache.cache_hits
 
     # noinspection PyPep8Naming
+    @log_execution_time
     async def simulate_graph_async(
         self,
         *,
@@ -1233,6 +1243,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         return result
 
     # noinspection PyPep8Naming
+    @log_execution_time_asyncgen
     async def simulate_graph_streaming_async(
         self,
         *,
