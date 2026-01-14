@@ -2,7 +2,7 @@
 import functools
 import logging
 
-logging.basicConfig(level=logging.INFO, format='%(message)s', force=True)
+logging.basicConfig(level=logging.INFO, format='[SDK] %(message)s', force=True)
 # Decorator to log start and end time for async functions (coroutine, not generator)
 def log_execution_time(func):
     @functools.wraps(func)
