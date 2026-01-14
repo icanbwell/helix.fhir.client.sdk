@@ -13,6 +13,7 @@ from helix_fhir_client_sdk.function_types import (
     RefreshTokenResult,
     TraceRequestFunction,
 )
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
@@ -93,6 +94,7 @@ class RetryableAioHttpClient:
         except Exception as e:
             return str(e)
 
+    @log_execution_time
     async def fetch(
         self,
         *,
@@ -129,6 +131,7 @@ class RetryableAioHttpClient:
                         url,
                         **kwargs,
                     )
+                    # response.json()
                     # Append the result to the list of results
                     if self.log_all_url_results:
                         results_by_url.append(
@@ -330,9 +333,11 @@ class RetryableAioHttpClient:
         # Raise an exception if all retries fail
         raise Exception("All retries failed")
 
+    @log_execution_time
     async def get(self, *, url: str, headers: dict[str, str] | None = None, **kwargs: Any) -> RetryableAioHttpResponse:
         return await self.fetch(url=url, method="GET", headers=headers, **kwargs)
 
+    @log_execution_time
     async def post(
         self,
         *,
@@ -348,6 +353,7 @@ class RetryableAioHttpClient:
             kwargs["json"] = json
         return await self.fetch(url=url, method="POST", headers=headers, **kwargs)
 
+    @log_execution_time
     async def patch(
         self,
         *,
@@ -363,6 +369,7 @@ class RetryableAioHttpClient:
             kwargs["json"] = json
         return await self.fetch(url=url, method="PATCH", headers=headers, **kwargs)
 
+    @log_execution_time
     async def put(
         self,
         *,
@@ -378,10 +385,12 @@ class RetryableAioHttpClient:
             kwargs["json"] = json
         return await self.fetch(url=url, method="PUT", headers=headers, **kwargs)
 
+    @log_execution_time
     async def delete(self, *, headers: dict[str, str] | None, url: str, **kwargs: Any) -> RetryableAioHttpResponse:
         return await self.fetch(url=url, headers=headers, method="DELETE", **kwargs)
 
     @staticmethod
+    @log_execution_time
     async def _handle_429(*, response: ClientResponse, full_url: str) -> None:
         # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
         # read the Retry-After header

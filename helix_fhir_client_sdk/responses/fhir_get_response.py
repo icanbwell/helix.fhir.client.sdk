@@ -18,7 +18,7 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
 from dateutil import parser
 
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
-from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time, log_execution_time_sync
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -126,6 +126,7 @@ class FhirGetResponse:
     @abstractmethod
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse": ...
 
+    @log_execution_time_sync
     def append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
         """
         Append the responses from other to self
@@ -162,6 +163,7 @@ class FhirGetResponse:
     @abstractmethod
     def _extend(self, others: list["FhirGetResponse"]) -> "FhirGetResponse": ...
 
+    @log_execution_time_sync
     def extend(self, others: list["FhirGetResponse"]) -> "FhirGetResponse":
         """
         Append the responses from other to self

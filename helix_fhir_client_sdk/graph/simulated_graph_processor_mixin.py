@@ -3,6 +3,7 @@ from abc import ABC
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from logging import Logger
+import logging
 from typing import Any, cast
 from urllib.parse import quote
 
@@ -249,26 +250,29 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
                 # Update parent link map for next iteration
                 parent_link_map = new_parent_link_map
-
+            logging.info(f"# Combine and process responses")
             # Combine and process responses
             parent_response = cast(FhirGetBundleResponse, parent_response.extend(child_responses))
-
+            logging.info(f"# if sort_resources:")
             # Optional resource sorting
             if sort_resources:
                 parent_response = parent_response.sort_resources()
-
+            logging.info(f"# full_response: FhirGetResponse")
             # Prepare final response based on bundling preferences
             full_response: FhirGetResponse
             if separate_bundle_resources:
+                logging.info(f"# if separate_bundle_resources:")
                 full_response = FhirGetListByResourceTypeResponse.from_response(other_response=parent_response)
             elif expand_fhir_bundle:
+                logging.info(f"# elif expand_fhir_bundle:")
                 full_response = FhirGetListResponse.from_response(other_response=parent_response)
             else:
+                logging.info(f"# else:")
                 full_response = parent_response
-
+            logging.info(f"full_response.url = url or parent_response.url")
             # Set response URL
             full_response.url = url or parent_response.url
-
+            logging.info(f"# Log cache performance")
             # Log cache performance
             if logger:
                 logger.info(

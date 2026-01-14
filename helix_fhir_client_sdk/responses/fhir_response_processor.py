@@ -30,7 +30,7 @@ from helix_fhir_client_sdk.responses.resource_separator import (
     ResourceSeparator,
     ResourceSeparatorResult,
 )
-from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time_asyncgen
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time, log_execution_time_asyncgen
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
 )
@@ -151,6 +151,7 @@ class FhirResponseProcessor:
                 yield r
 
     @staticmethod
+    @log_execution_time_asyncgen
     async def _handle_response_unknown(
         *,
         full_url: str,
@@ -209,6 +210,7 @@ class FhirResponseProcessor:
         )
 
     @staticmethod
+    @log_execution_time_asyncgen
     async def _handle_response_404(
         *,
         full_url: str,
@@ -259,6 +261,7 @@ class FhirResponseProcessor:
         )
 
     @staticmethod
+    @log_execution_time_asyncgen
     @log_execution_time_asyncgen
     async def _handle_response_200(
         *,
@@ -353,6 +356,7 @@ class FhirResponseProcessor:
                 yield r
 
     @staticmethod
+    @log_execution_time_asyncgen
     async def _handle_response_200_non_streaming(
         *,
         full_url: str,
@@ -463,6 +467,7 @@ class FhirResponseProcessor:
             )
 
     @staticmethod
+    @log_execution_time
     async def expand_or_separate_bundle_async(
         *,
         access_token: str | None,
@@ -512,6 +517,7 @@ class FhirResponseProcessor:
         return resources_json, total_count
 
     @staticmethod
+    @log_execution_time_asyncgen
     async def _handle_response_200_streaming(
         *,
         access_token: str | None,
@@ -703,6 +709,7 @@ class FhirResponseProcessor:
             )
 
     @staticmethod
+    @log_execution_time
     async def log_response(
         *,
         full_url: str,
@@ -743,6 +750,7 @@ class FhirResponseProcessor:
                 )
 
     @staticmethod
+    @log_execution_time
     async def log_request(
         *,
         full_url: str,

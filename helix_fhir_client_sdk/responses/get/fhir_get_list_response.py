@@ -22,6 +22,7 @@ from compressedfhir.utilities.fhir_json_encoder import FhirJSONEncoder
 
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time, log_execution_time_asyncgen, log_execution_time_sync, log_execution_time_syncgen
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -83,6 +84,7 @@ class FhirGetListResponse(FhirGetResponse):
         )
 
     @override
+    @log_execution_time_sync
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
         """
         Append the responses from other to self
@@ -99,6 +101,7 @@ class FhirGetListResponse(FhirGetResponse):
         return self
 
     @override
+    @log_execution_time_sync
     def _extend(self, others: list["FhirGetResponse"]) -> "FhirGetResponse":
         """
         Append the responses from other to self
@@ -111,10 +114,12 @@ class FhirGetListResponse(FhirGetResponse):
 
         return self
 
+    @log_execution_time_sync
     def get_resources(self) -> FhirResourceList:
         return self._resources if self._resources else FhirResourceList()
 
     @override
+    @log_execution_time_sync
     def get_resource_map(self) -> FhirResourceMap:
         """
         Gets the resources from the response as a map
@@ -132,6 +137,7 @@ class FhirGetListResponse(FhirGetResponse):
         )
 
     @classmethod
+    @log_execution_time_sync
     def _parse_resources(cls, *, response_text: str, storage_mode: CompressedDictStorageMode) -> FhirResourceList:
         """
         Gets the resources from the response
@@ -152,6 +158,7 @@ class FhirGetListResponse(FhirGetResponse):
         except Exception as e:
             raise Exception(f"Could not get resources from: {response_text}") from e
 
+    @log_execution_time_sync
     def get_bundle_entries(self) -> FhirBundleEntryList:
         """
         Gets the Bundle entries from the response
@@ -172,6 +179,7 @@ class FhirGetListResponse(FhirGetResponse):
         except Exception as e:
             raise Exception(f"Could not get bundle entries from: {self._resources}") from e
 
+    @log_execution_time_sync
     def _create_bundle_entry(self, *, resource: FhirResource) -> FhirBundleEntry:
         # use these if the bundle entry does not have them
         request: FhirBundleEntryRequest = FhirBundleEntryRequest(url=self.url)
@@ -188,6 +196,7 @@ class FhirGetListResponse(FhirGetResponse):
         )
         return entry
 
+    @log_execution_time_sync
     def remove_duplicates(self) -> FhirGetResponse:
         """
         removes duplicate resources from the response i.e., resources with same resourceType and id
@@ -200,6 +209,7 @@ class FhirGetListResponse(FhirGetResponse):
         return self
 
     @override
+    @log_execution_time
     async def remove_entries_in_cache_async(
         self, *, request_cache: RequestCache, compare_hash: bool = True, logger: Logger | None
     ) -> "FhirGetListResponse":
@@ -234,6 +244,7 @@ class FhirGetListResponse(FhirGetResponse):
 
     @classmethod
     @override
+    @log_execution_time_sync
     def from_response(cls, other_response: "FhirGetResponse") -> "FhirGetResponse":
         if isinstance(other_response, FhirGetListResponse):
             return other_response
@@ -261,6 +272,7 @@ class FhirGetListResponse(FhirGetResponse):
         return response
 
     @override
+    @log_execution_time_sync
     def get_response_text(self) -> str:
         """
         Gets the response text from the response
@@ -270,12 +282,14 @@ class FhirGetListResponse(FhirGetResponse):
         return json.dumps([r.dict() for r in self._resources], cls=FhirJSONEncoder) if self._resources else "[]"
 
     @override
+    @log_execution_time_sync
     def sort_resources(self) -> "FhirGetListResponse":
         if self._resources:
             self._resources = FhirBundleAppender.sort_resources_in_list(resources=self._resources)
         return self
 
     @override
+    @log_execution_time_asyncgen
     async def consume_resource_async(
         self,
     ) -> AsyncGenerator[FhirResource, None]:
@@ -283,23 +297,27 @@ class FhirGetListResponse(FhirGetResponse):
             yield self._resources.popleft()
 
     @override
+    @log_execution_time_syncgen
     def consume_resource(self) -> Generator[FhirResource, None, None]:
         while self._resources:
             yield self._resources.popleft()
 
     @override
+    @log_execution_time_asyncgen
     async def consume_bundle_entry_async(self) -> AsyncGenerator[FhirBundleEntry, None]:
         while self._resources:
             resource: FhirResource = self._resources.popleft()
             yield self._create_bundle_entry(resource=resource)
 
     @override
+    @log_execution_time_syncgen
     def consume_bundle_entry(self) -> Generator[FhirBundleEntry, None, None]:
         while self._resources:
             resource: FhirResource = self._resources.popleft()
             yield self._create_bundle_entry(resource=resource)
 
     @override
+    @log_execution_time_sync
     def to_dict(self) -> dict[str, Any]:
         """
         Converts the object to a dictionary
@@ -326,5 +344,6 @@ class FhirGetListResponse(FhirGetResponse):
         )
 
     @override
+    @log_execution_time_sync
     def get_resource_count(self) -> int:
         return len(self._resources) if self._resources else 0

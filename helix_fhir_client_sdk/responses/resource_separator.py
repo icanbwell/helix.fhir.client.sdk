@@ -41,7 +41,7 @@ class ResourceSeparator:
         resource: dict[str, Any]
         for resource in resources:
             # make a copy so we are not changing the original resource
-            cloned_resource: dict[str, Any] = deepcopy(resource)
+            cloned_resource: dict[str, Any] = deepcopy(resource) # deepcopy 
             # This dict will hold the separated resources where the key is resourceType
             # have to split these here otherwise when Spark loads them
             # it can't handle that items in the entry array can have different schemas

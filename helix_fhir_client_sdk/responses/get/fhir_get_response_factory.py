@@ -19,6 +19,7 @@ from helix_fhir_client_sdk.responses.get.fhir_get_list_response import (
 from helix_fhir_client_sdk.responses.get.fhir_get_single_response import (
     FhirGetSingleResponse,
 )
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time_sync
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -30,6 +31,7 @@ class FhirGetResponseFactory:
     """
 
     @staticmethod
+    @log_execution_time_sync
     def create(
         *,
         request_id: str | None,

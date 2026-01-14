@@ -27,6 +27,7 @@ from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time_sync
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -111,6 +112,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         return FhirGetBundleResponse.from_response(other_response=self).append(other_response=other_response)
 
     @override
+    @log_execution_time_sync
     def _extend(self, others: list["FhirGetResponse"]) -> "FhirGetResponse":
         """
         Append the responses from other to self

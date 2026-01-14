@@ -4,6 +4,7 @@ from typing import Any, cast
 
 from aiohttp import StreamReader
 
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time, log_execution_time_sync
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -80,6 +81,7 @@ class RetryableAioHttpResponse:
         self.retry_count: int | None = retry_count
         """ retry count """
 
+    @log_execution_time
     async def get_text_async(self) -> str:
         if self.content is None:
             return self._response_text
@@ -91,10 +93,12 @@ class RetryableAioHttpResponse:
         else:
             return self._response_text
 
+    @log_execution_time
     async def json(self) -> dict[str, str] | list[dict[str, str]]:
         text = await self.get_text_async()
         return cast(dict[str, str] | list[dict[str, str]], json.loads(text))
 
+    @log_execution_time_sync
     def to_dict(self) -> dict[str, Any]:
         """
         Converts the object to a dictionary

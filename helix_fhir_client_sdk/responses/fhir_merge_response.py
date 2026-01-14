@@ -1,6 +1,8 @@
 from collections.abc import AsyncGenerator
 from typing import Any, Optional
 
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time, log_execution_time_sync
+
 
 class FhirMergeResponse:
     """
@@ -46,6 +48,7 @@ class FhirMergeResponse:
         self.data: str = json_data
         self.successful: bool = status != 200
 
+    @log_execution_time_sync
     def append(self, other: Optional["FhirMergeResponse"]) -> None:
         """
         Appends another FhirMergeResponse to this one
@@ -58,6 +61,7 @@ class FhirMergeResponse:
             self.successful = self.successful and other.successful
 
     @classmethod
+    @log_execution_time
     async def from_async_generator(
         cls, generator: AsyncGenerator["FhirMergeResponse", None]
     ) -> Optional["FhirMergeResponse"]:
@@ -77,6 +81,7 @@ class FhirMergeResponse:
         assert result
         return result
 
+    @log_execution_time_sync
     def to_dict(self) -> dict[str, Any]:
         """
         Converts the FhirMergeResponse to a dictionary

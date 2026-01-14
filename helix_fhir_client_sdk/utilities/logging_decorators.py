@@ -1,9 +1,8 @@
-# Standard library imports
 import functools
 import logging
 
 logging.basicConfig(level=logging.INFO, format='[SDK] %(message)s', force=True)
-# Decorator to log start and end time for async functions (coroutine, not generator)
+
 def log_execution_time(func):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
@@ -32,7 +31,6 @@ def log_execution_time_sync(func):
         return result
     return wrapper
 
-# Decorator to log start and end time for async generator functions
 def log_execution_time_asyncgen(func):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
@@ -49,7 +47,6 @@ def log_execution_time_asyncgen(func):
             logger.info(f"[END] {func_name} - Duration: {end_time - start_time:.3f}s")
     return wrapper
 
-# Decorator to log start and end time for async generator functions
 def log_execution_time_syncgen(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):

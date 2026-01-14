@@ -2,6 +2,8 @@ import dataclasses
 from collections.abc import AsyncGenerator
 from typing import Any, Optional
 
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time, log_execution_time_sync
+
 
 @dataclasses.dataclass(slots=True)
 class GetResult:
@@ -13,6 +15,7 @@ class GetResult:
     resources: list[dict[str, Any]]
     response_headers: list[str] | None
 
+    @log_execution_time_sync
     def append(self, other: Optional["GetResult"]) -> None:
         """
         Appends another GetResult to this one
@@ -24,6 +27,7 @@ class GetResult:
             self.response_headers = (self.response_headers or []) + (other.response_headers or [])
 
     @classmethod
+    @log_execution_time
     async def from_async_generator(cls, generator: AsyncGenerator["GetResult", None]) -> Optional["GetResult"]:
         """
         Reads a generator of GetResult and returns a single GetResult by appending all the GetResult

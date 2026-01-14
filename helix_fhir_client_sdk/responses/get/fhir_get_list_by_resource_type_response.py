@@ -20,6 +20,7 @@ from compressedfhir.utilities.fhir_json_encoder import FhirJSONEncoder
 
 from helix_fhir_client_sdk.exceptions.fhir_get_exception import FhirGetException
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time, log_execution_time_asyncgen, log_execution_time_sync, log_execution_time_syncgen
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
@@ -82,6 +83,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         self._resource_map: FhirResourceMap = resource_map
 
     @override
+    @log_execution_time_sync
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
         """
         Append the responses from other to self
@@ -115,6 +117,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return self
 
     @override
+    @log_execution_time_sync
     def _extend(self, others: list["FhirGetResponse"]) -> "FhirGetResponse":
         """
         Append the responses from other to self
@@ -128,6 +131,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return self
 
     @override
+    @log_execution_time_sync
     def get_resources(self) -> FhirResourceList:
         """
         Gets the resources from the response
@@ -145,6 +149,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         )
 
     @override
+    @log_execution_time_sync
     def get_resource_map(self) -> FhirResourceMap:
         """
         Gets the resources from the response
@@ -155,6 +160,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return self._resource_map
 
     @override
+    @log_execution_time_sync
     def get_bundle_entries(self) -> FhirBundleEntryList:
         raise NotImplementedError(
             self.get_bundle_entries.__name__
@@ -166,6 +172,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         )
 
     @classmethod
+    @log_execution_time_sync
     def _parse_resources(cls, *, responses: str) -> list[dict[str, Any]]:
         """
         Gets the resources from the response
@@ -195,6 +202,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
             ) from e
 
     @override
+    @log_execution_time_sync
     def remove_duplicates(self) -> FhirGetResponse:
         """
         removes duplicate resources from the response i.e., resources with same resourceType and id
@@ -205,6 +213,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return self
 
     @override
+    @log_execution_time
     async def remove_entries_in_cache_async(
         self, *, request_cache: RequestCache, compare_hash: bool = True, logger: Logger | None
     ) -> "FhirGetResponse":
@@ -240,6 +249,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
     @classmethod
     @override
+    @log_execution_time_sync
     def from_response(cls, other_response: "FhirGetResponse") -> "FhirGetResponse":
         if isinstance(other_response, FhirGetListByResourceTypeResponse):
             return other_response
@@ -265,6 +275,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return response
 
     @override
+    @log_execution_time_sync
     def get_response_text(self) -> str:
         """
         Gets the response text from the response
@@ -274,6 +285,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return json.dumps(self._resource_map.dict(), cls=FhirJSONEncoder)
 
     @classmethod
+    @log_execution_time_sync
     def _parse_into_resource_map(cls, resources: FhirResourceList) -> tuple[int, FhirResourceMap]:
         if isinstance(resources, FhirResourceMap):
             return resources.get_resource_count(), resources
@@ -293,10 +305,12 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         return count, resource_map
 
     @override
+    @log_execution_time_sync
     def sort_resources(self) -> "FhirGetListByResourceTypeResponse":
         return self
 
     @override
+    @log_execution_time_asyncgen
     async def consume_resource_async(
         self,
     ) -> AsyncGenerator[FhirResource, None]:
@@ -313,6 +327,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         yield None
 
     @override
+    @log_execution_time_syncgen
     def consume_resource(self) -> Generator[FhirResource, None, None]:
         raise NotImplementedError(
             self.consume_resource.__name__
@@ -327,6 +342,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         yield None
 
     @override
+    @log_execution_time_asyncgen
     async def consume_resource_map_async(
         self,
     ) -> AsyncGenerator[FhirResourceMap, None]:
@@ -334,11 +350,13 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         self._resource_map = FhirResourceMap()
 
     @override
+    @log_execution_time_syncgen
     def consume_resource_map(self) -> Generator[FhirResourceMap, None, None]:
         yield self._resource_map
         self._resource_map = FhirResourceMap()
 
     @override
+    @log_execution_time_asyncgen
     async def consume_bundle_entry_async(self) -> AsyncGenerator[FhirBundleEntry, None]:
         raise NotImplementedError(
             "get_bundle_entries_generator is not implemented for FhirGetListByResourceTypeResponse."
@@ -347,6 +365,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         yield None
 
     @override
+    @log_execution_time_syncgen
     def consume_bundle_entry(self) -> Generator[FhirBundleEntry, None, None]:
         raise NotImplementedError(
             "get_bundle_entries_generator is not implemented for FhirGetListByResourceTypeResponse."
@@ -355,6 +374,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         yield None
 
     @override
+    @log_execution_time_sync
     def to_dict(self) -> dict[str, Any]:
         """
         Converts the object to a dictionary
@@ -381,6 +401,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         )
 
     @override
+    @log_execution_time_sync
     def get_resource_count(self) -> int:
         return self._resource_map.get_resource_count()
 

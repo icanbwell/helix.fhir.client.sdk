@@ -1,6 +1,8 @@
 import dataclasses
 from typing import Any
 
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time
+
 
 @dataclasses.dataclass(slots=True)
 class BundleExpanderResult:
@@ -10,6 +12,7 @@ class BundleExpanderResult:
 
 class BundleExpander:
     @staticmethod
+    @log_execution_time
     async def expand_bundle_async(
         *,
         bundle: dict[str, Any],
