@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import AsyncGenerator
 from datetime import datetime
 from types import TracebackType
@@ -11,7 +10,7 @@ from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCac
 
 class RequestCache:
     """
-    This is a class that caches requests to the FHIR server using a weak value dictionary.
+    This is a class that caches requests to the FHIR server.
     It is used to avoid multiple requests to the FHIR server when doing a large number
     of requests for the same resource.
     """
@@ -20,7 +19,6 @@ class RequestCache:
         "cache_hits",
         "cache_misses",
         "_cache",
-        "_lock",
         "_clear_cache_at_the_end",
     ]
 
@@ -33,7 +31,6 @@ class RequestCache:
         self.cache_hits: int = 0
         self.cache_misses: int = 0
         self._cache: dict[str, RequestCacheEntry] = initial_dict or {}
-        self._lock: asyncio.Lock = asyncio.Lock()
         self._clear_cache_at_the_end: bool | None = clear_cache_at_the_end
 
     async def __aenter__(self) -> "RequestCache":
@@ -42,8 +39,7 @@ class RequestCache:
         It returns the RequestCache instance.
         """
         if self._clear_cache_at_the_end:
-            async with self._lock:
-                self._cache.clear()
+            self._cache.clear()
         return self
 
     async def __aexit__(
@@ -57,8 +53,7 @@ class RequestCache:
         It clears the cache.
         """
         if self._clear_cache_at_the_end:
-            async with self._lock:
-                self._cache.clear()
+            self._cache.clear()
 
         if exc_value is not None:
             raise exc_value.with_traceback(traceback)
@@ -75,15 +70,14 @@ class RequestCache:
         """
         key: str = f"{resource_type}/{resource_id}"
 
-        async with self._lock:
-            cached_entry = self._cache.get(key)
+        cached_entry = self._cache.get(key)
 
-            if cached_entry is not None:
-                self.cache_hits += 1
-                return cached_entry
+        if cached_entry is not None:
+            self.cache_hits += 1
+            return cached_entry
 
-            self.cache_misses += 1
-            return None
+        self.cache_misses += 1
+        return None
 
     async def add_async(
         self,
@@ -111,43 +105,40 @@ class RequestCache:
         """
         key: str = f"{resource_type}/{resource_id}"
 
-        async with self._lock:
-            # Create the cache entry
-            cache_entry = RequestCacheEntry(
-                id_=resource_id,
-                resource_type=resource_type,
-                status=status,
-                bundle_entry=bundle_entry,
-                last_modified=last_modified,
-                etag=etag,
-                from_input_cache=from_input_cache,
-                raw_hash=raw_hash,
-            )
+        # Create the cache entry
+        cache_entry = RequestCacheEntry(
+            id_=resource_id,
+            resource_type=resource_type,
+            status=status,
+            bundle_entry=bundle_entry,
+            last_modified=last_modified,
+            etag=etag,
+            from_input_cache=from_input_cache,
+            raw_hash=raw_hash,
+        )
 
-            # Add to the weak value dictionary
-            self._cache[key] = cache_entry
+        # Add to the dictionary
+        self._cache[key] = cache_entry
 
-            return True
+        return True
 
     async def remove_async(self, *, resource_key: str) -> bool:
         """
         This method remove the given data from the cache.
         :param resource_key: resource key contains both resourceType and resourceId. Eg: Patient/123
         """
-        async with self._lock:
-            if resource_key not in self._cache:
-                return False
+        if resource_key not in self._cache:
+            return False
 
-            del self._cache[resource_key]
+        del self._cache[resource_key]
 
-            return True
+        return True
 
     async def clear_async(self) -> None:
         """
         This method clears the cache.
         """
-        async with self._lock:
-            self._cache.clear()
+        self._cache.clear()
 
     async def get_entries_async(self) -> AsyncGenerator[RequestCacheEntry, None]:
         """
@@ -155,9 +146,8 @@ class RequestCache:
 
         :return: The keys in the cache.
         """
-        async with self._lock:
-            for entry in self._cache.values():
-                yield entry
+        for entry in self._cache.values():
+            yield entry
 
     async def get_keys_async(self) -> list[str]:
         """
@@ -165,8 +155,7 @@ class RequestCache:
 
         :return: The entries in the cache.
         """
-        async with self._lock:
-            return list(self._cache.keys())
+        return list(self._cache.keys())
 
     def __len__(self) -> int:
         """
