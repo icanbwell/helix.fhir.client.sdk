@@ -609,7 +609,7 @@ class FhirClient(
         :return: response
         """
         tracer = get_tracer(__name__)
-        with tracer.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.GET_ASYNC):
+        with tracer.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.GET):
             instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
             if self._logger:
                 # self._logger.info(f"LOGLEVEL: {self._log_level}")
@@ -677,27 +677,29 @@ class FhirClient(
 
         :return: async generator of responses
         """
-        instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
-        if self._logger:
-            # self._logger.info(f"LOGLEVEL: {self._log_level}")
-            self._logger.info(f"parameters: {instance_variables_text}")
-        else:
-            self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
-            self._internal_logger.info(f"parameters: {instance_variables_text}")
-        ids: list[str] | None = None
-        if self._id:
-            ids = self._id if isinstance(self._id, list) else [self._id]
-        # actually make the request
-        response: FhirGetResponse | None
-        async for response in self._get_with_session_async(
-            ids=ids,
-            fn_handle_streaming_chunk=data_chunk_handler,
-            page_number=None,
-            id_above=None,
-            additional_parameters=None,
-            resource_type=None,
-        ):
-            yield response
+        tracer = get_tracer(__name__)
+        with tracer.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.GET_STREAMING):
+            instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
+            if self._logger:
+                # self._logger.info(f"LOGLEVEL: {self._log_level}")
+                self._logger.info(f"parameters: {instance_variables_text}")
+            else:
+                self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
+                self._internal_logger.info(f"parameters: {instance_variables_text}")
+            ids: list[str] | None = None
+            if self._id:
+                ids = self._id if isinstance(self._id, list) else [self._id]
+            # actually make the request
+            response: FhirGetResponse | None
+            async for response in self._get_with_session_async(
+                ids=ids,
+                fn_handle_streaming_chunk=data_chunk_handler,
+                page_number=None,
+                id_above=None,
+                additional_parameters=None,
+                resource_type=None,
+            ):
+                yield response
 
     def get(self) -> FhirGetResponse:
         """
