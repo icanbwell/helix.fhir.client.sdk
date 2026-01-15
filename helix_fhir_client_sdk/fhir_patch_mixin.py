@@ -82,7 +82,7 @@ class FhirPatchMixin(FhirClientProtocol):
                 response_status = response.status
                 response_text = await response.get_text_async()
                 request_id = response.response_headers.get("X-Request-ID", None)
-                self._internal_logger.info(f"X-Request-ID={request_id}")
+                self._internal_logger.debug(f"X-Request-ID={request_id}")
 
                 if response_status == 200:
                     if self._logger:

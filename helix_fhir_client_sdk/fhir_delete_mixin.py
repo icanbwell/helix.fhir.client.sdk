@@ -62,7 +62,7 @@ class FhirDeleteMixin(FhirClientProtocol):
         ) as client:
             response: RetryableAioHttpResponse = await client.delete(url=full_uri.tostr(), headers=headers)
             request_id = response.response_headers.get("X-Request-ID", None)
-            self._internal_logger.info(f"X-Request-ID={request_id}")
+            self._internal_logger.debug(f"X-Request-ID={request_id}")
             if response.status == 200:
                 if self._logger:
                     self._logger.info(f"Successfully deleted: {full_uri}")
@@ -131,7 +131,7 @@ class FhirDeleteMixin(FhirClientProtocol):
         ) as client:
             response: RetryableAioHttpResponse = await client.delete(url=full_url, headers=headers)
             request_id = response.response_headers.get("X-Request-ID", None)
-            self._internal_logger.info(f"X-Request-ID={request_id}")
+            self._internal_logger.debug(f"X-Request-ID={request_id}")
             if response.status == 200:
                 if self._logger:
                     self._logger.info(f"Successfully deleted: {full_uri}")
