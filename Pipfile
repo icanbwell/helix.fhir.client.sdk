@@ -24,6 +24,8 @@ compressedfhir = ">=1.0.3"
 certifi = ">=2025.1.31"
 # opentelemetry-api is the OpenTelemetry API
 opentelemetry-api = ">=1.39.1"
+# multidict is needed for handling multidict data structures
+multidict = ">=6.7.0"
 
 [dev-packages]
 packaging = "*"  # packaging is needed for version parsing

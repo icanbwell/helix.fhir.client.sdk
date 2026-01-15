@@ -26,7 +26,8 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
     CompressedDictStorageMode,
 )
 from furl import furl
-from opentelemetry.trace import Status, StatusCode, get_tracer
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 from requests.adapters import BaseAdapter
 
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
@@ -57,7 +58,7 @@ from helix_fhir_client_sdk.structures.get_access_token_result import (
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 
-TRACER = get_tracer(__name__)
+TRACER = trace.get_tracer(__name__)
 
 
 class FhirClient(

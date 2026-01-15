@@ -7,7 +7,7 @@ from typing import Any, cast
 import async_timeout
 from aiohttp import ClientError, ClientResponse, ClientResponseError, ClientSession
 from multidict import MultiMapping
-from opentelemetry.trace import get_tracer
+from opentelemetry import trace
 
 from helix_fhir_client_sdk.function_types import (
     RefreshTokenFunction,
@@ -23,7 +23,7 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
 
-TRACER = get_tracer(__name__)
+TRACER = trace.get_tracer(__name__)
 
 
 class RetryableAioHttpClient:

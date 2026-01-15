@@ -8,7 +8,7 @@ from threading import Lock
 from typing import TYPE_CHECKING, Any, cast
 
 from furl import furl
-from opentelemetry.trace import get_tracer
+from opentelemetry import trace
 
 from helix_fhir_client_sdk.function_types import (
     RefreshTokenFunction,
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from helix_fhir_client_sdk.fhir_client import FhirClient
 
 
-TRACER = get_tracer(__name__)
+TRACER = trace.get_tracer(__name__)
 
 
 class FhirAuthMixin(FhirClientProtocol):

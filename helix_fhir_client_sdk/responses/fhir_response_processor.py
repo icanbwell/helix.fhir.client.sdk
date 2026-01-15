@@ -11,7 +11,8 @@ from aiohttp.streams import AsyncStreamIterator
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
-from opentelemetry.trace import Status, StatusCode, get_tracer
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
@@ -39,7 +40,7 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
 
-TRACER = get_tracer(__name__)
+TRACER = trace.get_tracer(__name__)
 
 
 class FhirResponseProcessor:
