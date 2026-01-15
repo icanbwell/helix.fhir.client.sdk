@@ -74,6 +74,15 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         request_id: str | None = None
         total_results = 0  # total number of resources returned so far
 
+        limit_count: int | None = self._limit
+
+        # if _count parameter is present in additional_parameters then set limit_count to it
+        if additional_parameters:
+            for param in additional_parameters:
+                if self._limit is None:
+                    if param.startswith("_count="):
+                        limit_count = int(param.split("=")[1])
+
         # create url and query to request from FHIR server
         resources_json: str = ""
         full_url = await self.build_url(
@@ -198,9 +207,9 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         total_results += resource_count
 
                         # Stop if limit reached
-                        if self._limit and total_results >= self._limit:
+                        if limit_count and total_results >= limit_count:
                             self._internal_logger.info(
-                                f"Reached limit={self._limit} after collecting {total_results} "
+                                f"Reached limit={limit_count} after collecting {total_results} "
                                 f"resources, stopping pagination"
                             )
                             return
