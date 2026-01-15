@@ -59,7 +59,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         chunk_number: int | None = None,
         cache_hits: int | None = None,
         results_by_url: list[RetryableAioHttpUrlResult],
-        storage_mode: CompressedDictStorageMode,
+        storage_mode: CompressedDictStorageMode = CompressedDictStorageMode.raw(),
     ) -> None:
         super().__init__(
             request_id=request_id,

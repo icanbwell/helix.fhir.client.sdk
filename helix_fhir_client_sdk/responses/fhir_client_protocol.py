@@ -124,7 +124,7 @@ class FhirClientProtocol(Protocol):
 
     _log_all_response_urls: bool
 
-    _storage_mode: CompressedDictStorageMode
+    _storage_mode: CompressedDictStorageMode = CompressedDictStorageMode.raw()
     """ storage mode to store the responses """
 
     _create_operation_outcome_for_error: bool | None
