@@ -1013,9 +1013,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 # If we got forbidden error then we don't need to call it one by one
                 if result and result.status == 403:
                     if logger:
-                        logger.info(
-                            f"Received 403 for {resource_type} for url {result.url}"
-                        )
+                        logger.info(f"Received 403 for {resource_type} for url {result.url}")
                     result = None
                 # if we got a failure then check if we can get it one by one
                 elif (not result or result.status != 200) and len(non_cached_id_list) > 1:
