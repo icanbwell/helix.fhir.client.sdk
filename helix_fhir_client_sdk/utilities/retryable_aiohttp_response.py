@@ -3,8 +3,8 @@ from datetime import datetime
 from typing import Any, cast
 
 from aiohttp import StreamReader
+from multidict import CIMultiDict
 
-from helix_fhir_client_sdk.utilities.case_insensitive_dict.case_insensitive_dict import CaseInsensitiveDict
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -54,7 +54,7 @@ class RetryableAioHttpResponse:
         self.status: int = status
         """ Status code of the response """
 
-        self.response_headers: CaseInsensitiveDict = CaseInsensitiveDict(response_headers)
+        self.response_headers: CIMultiDict[str] = CIMultiDict(response_headers)
         """ Headers of the response """
 
         self._response_text: str = response_text
