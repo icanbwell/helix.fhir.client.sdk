@@ -11,10 +11,13 @@ from aiohttp.streams import AsyncStreamIterator
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
 )
+from helix_fhir_client_sdk.open_telemetry.span_names import FhirClientSdkOpenTelemetrySpanNames
 from helix_fhir_client_sdk.responses.bundle_expander import (
     BundleExpander,
     BundleExpanderResult,
@@ -36,6 +39,8 @@ from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
+
+TRACER = trace.get_tracer(__name__)
 
 
 class FhirResponseProcessor:
@@ -93,60 +98,74 @@ class FhirResponseProcessor:
 
         :return: An async generator of FhirGetResponse objects.
         """
-        # if request is ok (200) then return the data
-        if response.ok:
-            async for r in FhirResponseProcessor._handle_response_200(
-                full_url=full_url,
-                request_id=request_id,
-                response=response,
-                response_headers=response_headers,
-                fn_handle_streaming_chunk=fn_handle_streaming_chunk,
-                access_token=access_token,
-                resources_json=resources_json,
-                resource=resource,
-                id_=id_,
-                logger=logger,
-                use_data_streaming=use_data_streaming,
-                chunk_size=chunk_size,
-                extra_context_to_return=extra_context_to_return,
-                expand_fhir_bundle=expand_fhir_bundle,
-                url=url,
-                separate_bundle_resources=separate_bundle_resources,
-                storage_mode=storage_mode,
-                create_operation_outcome_for_error=create_operation_outcome_for_error,
-            ):
-                yield r
-        elif response.status == 404:  # not found
-            async for r in FhirResponseProcessor._handle_response_404(
-                full_url=full_url,
-                request_id=request_id,
-                response=response,
-                response_headers=response_headers,
-                extra_context_to_return=extra_context_to_return,
-                resource=resource,
-                logger=logger,
-                id_=id_,
-                access_token=access_token,
-                storage_mode=storage_mode,
-                create_operation_outcome_for_error=create_operation_outcome_for_error,
-            ):
-                yield r
-        else:  # unknown response
-            async for r in FhirResponseProcessor._handle_response_unknown(
-                full_url=full_url,
-                request_id=request_id,
-                response=response,
-                response_headers=response_headers,
-                resource=resource,
-                logger=logger,
-                access_token=access_token,
-                extra_context_to_return=extra_context_to_return,
-                id_=id_,
-                internal_logger=internal_logger,
-                storage_mode=storage_mode,
-                create_operation_outcome_for_error=create_operation_outcome_for_error,
-            ):
-                yield r
+        span = TRACER.start_span(FhirClientSdkOpenTelemetrySpanNames.HANDLE_RESPONSE)
+        try:
+            # if request is ok (200) then return the data
+            if response.ok:
+                async for r in FhirResponseProcessor._handle_response_200(
+                    full_url=full_url,
+                    request_id=request_id,
+                    response=response,
+                    response_headers=response_headers,
+                    fn_handle_streaming_chunk=fn_handle_streaming_chunk,
+                    access_token=access_token,
+                    resources_json=resources_json,
+                    resource=resource,
+                    id_=id_,
+                    logger=logger,
+                    use_data_streaming=use_data_streaming,
+                    chunk_size=chunk_size,
+                    extra_context_to_return=extra_context_to_return,
+                    expand_fhir_bundle=expand_fhir_bundle,
+                    url=url,
+                    separate_bundle_resources=separate_bundle_resources,
+                    storage_mode=storage_mode,
+                    create_operation_outcome_for_error=create_operation_outcome_for_error,
+                ):
+                    yield r
+            elif response.status == 404:  # not found
+                async for r in FhirResponseProcessor._handle_response_404(
+                    full_url=full_url,
+                    request_id=request_id,
+                    response=response,
+                    response_headers=response_headers,
+                    extra_context_to_return=extra_context_to_return,
+                    resource=resource,
+                    logger=logger,
+                    id_=id_,
+                    access_token=access_token,
+                    storage_mode=storage_mode,
+                    create_operation_outcome_for_error=create_operation_outcome_for_error,
+                ):
+                    yield r
+            else:  # unknown response
+                async for r in FhirResponseProcessor._handle_response_unknown(
+                    full_url=full_url,
+                    request_id=request_id,
+                    response=response,
+                    response_headers=response_headers,
+                    resource=resource,
+                    logger=logger,
+                    access_token=access_token,
+                    extra_context_to_return=extra_context_to_return,
+                    id_=id_,
+                    internal_logger=internal_logger,
+                    storage_mode=storage_mode,
+                    create_operation_outcome_for_error=create_operation_outcome_for_error,
+                ):
+                    yield r
+            # Mark span as successful
+            span.set_status(Status(StatusCode.OK))
+
+        except Exception as e:
+            # Record exception in span
+            span.record_exception(e)
+            span.set_status(Status(StatusCode.ERROR, str(e)))
+            raise
+
+        finally:
+            # Ensure span is ended after generator is exhausted or error occurs
+            span.end()
 
     @staticmethod
     async def _handle_response_unknown(
