@@ -23,6 +23,7 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
 
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time_sync
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -82,6 +83,7 @@ class TestFhirGetResponse(FhirGetResponse):
         return self
 
     @override
+    @log_execution_time_sync
     def get_resources(self) -> FhirResourceList:
         return self._resources
 
@@ -178,6 +180,7 @@ class TestFhirGetResponse(FhirGetResponse):
     def get_resource_count(self) -> int:
         return len(self._resources)
 
+    @log_execution_time_sync
     def _create_bundle_entry(self, *, resource: FhirResource) -> FhirBundleEntry:
         # use these if the bundle entry does not have them
         request: FhirBundleEntryRequest = FhirBundleEntryRequest(url=self.url)

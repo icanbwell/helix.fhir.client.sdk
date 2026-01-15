@@ -1,6 +1,8 @@
 from collections.abc import AsyncGenerator
 from typing import Any, Optional
 
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time_sync
+
 
 class FhirUpdateResponse:
     """
@@ -45,6 +47,7 @@ class FhirUpdateResponse:
         self.status: int = status
         self.resource_type: str | None = resource_type
 
+    @log_execution_time_sync
     def append(self, other: Optional["FhirUpdateResponse"]) -> None:
         """
         Appends another FhirUpdateResponse to this one

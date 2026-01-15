@@ -252,6 +252,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 parent_link_map = new_parent_link_map
             logging.info(f"# Combine and process responses")
             # Combine and process responses
+
             parent_response = cast(FhirGetBundleResponse, parent_response.extend(child_responses))
             logging.info(f"# if sort_resources:")
             # Optional resource sorting

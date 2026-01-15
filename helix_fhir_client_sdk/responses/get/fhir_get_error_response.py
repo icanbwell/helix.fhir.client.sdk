@@ -101,6 +101,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         )
 
     @override
+    @log_execution_time_sync
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
         """
         Append the responses from other to self
@@ -124,6 +125,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         return FhirGetBundleResponse.from_response(other_response=self).extend(others=others)
 
     @override
+    @log_execution_time_sync
     def get_resources(self) -> FhirResourceList:
         """
         Gets the resources from the response
@@ -151,6 +153,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         )
 
     @override
+    @log_execution_time_sync
     def get_bundle_entries(self) -> FhirBundleEntryList:
         """
         Gets the Bundle entries from the response
@@ -160,6 +163,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         """
         return FhirBundleEntryList([self._create_bundle_entry(resource=self._resource)] if self._resource else [])
 
+    @log_execution_time_sync
     def _create_bundle_entry(self, *, resource: FhirResource) -> FhirBundleEntry:
         return FhirBundleEntry(
             resource=resource,  # This will be the OperationOutcome or the resource itself

@@ -5,6 +5,7 @@ from typing import Any, Optional
 from helix_fhir_client_sdk.responses.merge.base_fhir_merge_resource_response_entry import (
     BaseFhirMergeResourceResponseEntry,
 )
+from helix_fhir_client_sdk.utilities.logging_decorators import log_execution_time_sync
 
 
 class FhirMergeResourceResponse:
@@ -51,6 +52,7 @@ class FhirMergeResourceResponse:
         self.successful: bool = status == 200
         self.response_text: str | None = response_text
 
+    @log_execution_time_sync
     def append(self, other: Optional["FhirMergeResourceResponse"]) -> None:
         """
         Appends another FhirMergeResponse to this one
