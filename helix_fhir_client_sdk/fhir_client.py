@@ -26,6 +26,7 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
     CompressedDictStorageMode,
 )
 from furl import furl
+from opentelemetry.trace import get_tracer
 from requests.adapters import BaseAdapter
 
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
@@ -46,6 +47,7 @@ from helix_fhir_client_sdk.graph.fhir_graph_mixin import FhirGraphMixin
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
     SimulatedGraphProcessorMixin,
 )
+from helix_fhir_client_sdk.open_telemetry.span_names import FhirClientSdkOpenTelemetrySpanNames
 from helix_fhir_client_sdk.queue.request_queue_mixin import RequestQueueMixin
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -606,33 +608,35 @@ class FhirClient(
 
         :return: response
         """
-        instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
-        if self._logger:
-            # self._logger.info(f"LOGLEVEL: {self._log_level}")
-            self._logger.debug(f"parameters: {instance_variables_text}")
-        else:
-            self._internal_logger.debug(f"LOGLEVEL (InternalLogger): {self._log_level}")
-            self._internal_logger.debug(f"parameters: {instance_variables_text}")
-        ids: list[str] | None = None
-        if self._id:
-            ids = self._id if isinstance(self._id, list) else [self._id]
-        # actually make the request
-        full_response: FhirGetResponse | None = None
-        async for response in self._get_with_session_async(
-            ids=ids,
-            fn_handle_streaming_chunk=data_chunk_handler,
-            page_number=None,
-            id_above=None,
-            additional_parameters=None,
-            resource_type=None,
-        ):
-            if response:
-                if full_response:
-                    full_response = full_response.append(response)
-                else:
-                    full_response = response
-        assert full_response
-        return full_response
+        tracer = get_tracer(__name__)
+        with tracer.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.GET_ASYNC):
+            instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
+            if self._logger:
+                # self._logger.info(f"LOGLEVEL: {self._log_level}")
+                self._logger.debug(f"parameters: {instance_variables_text}")
+            else:
+                self._internal_logger.debug(f"LOGLEVEL (InternalLogger): {self._log_level}")
+                self._internal_logger.debug(f"parameters: {instance_variables_text}")
+            ids: list[str] | None = None
+            if self._id:
+                ids = self._id if isinstance(self._id, list) else [self._id]
+            # actually make the request
+            full_response: FhirGetResponse | None = None
+            async for response in self._get_with_session_async(
+                ids=ids,
+                fn_handle_streaming_chunk=data_chunk_handler,
+                page_number=None,
+                id_above=None,
+                additional_parameters=None,
+                resource_type=None,
+            ):
+                if response:
+                    if full_response:
+                        full_response = full_response.append(response)
+                    else:
+                        full_response = response
+            assert full_response
+            return full_response
 
     async def get_raw_resources_async(
         self,

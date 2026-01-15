@@ -41,6 +41,8 @@ setup(
         "async-timeout>=4.0.3",
         "python-dateutil",
         "compressedfhir>=1.0.3",
+        "certifi>=2025.1.31",
+        "opentelemetry-api>=1.39.1",
     ],
     classifiers=[
         "Development Status :: 4 - Beta",
