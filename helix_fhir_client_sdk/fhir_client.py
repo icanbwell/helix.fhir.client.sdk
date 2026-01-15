@@ -57,6 +57,8 @@ from helix_fhir_client_sdk.structures.get_access_token_result import (
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 
+TRACER = get_tracer(__name__)
+
 
 class FhirClient(
     SimulatedGraphProcessorMixin,
@@ -608,8 +610,7 @@ class FhirClient(
 
         :return: response
         """
-        tracer = get_tracer(__name__)
-        with tracer.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.GET):
+        with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.GET):
             instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
             if self._logger:
                 # self._logger.info(f"LOGLEVEL: {self._log_level}")
@@ -677,8 +678,7 @@ class FhirClient(
 
         :return: async generator of responses
         """
-        tracer = get_tracer(__name__)
-        with tracer.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.GET_STREAMING):
+        with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.GET_STREAMING):
             instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
             if self._logger:
                 # self._logger.info(f"LOGLEVEL: {self._log_level}")

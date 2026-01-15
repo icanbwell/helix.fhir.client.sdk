@@ -33,6 +33,9 @@ if TYPE_CHECKING:
     from helix_fhir_client_sdk.fhir_client import FhirClient
 
 
+TRACER = get_tracer(__name__)
+
+
 class FhirAuthMixin(FhirClientProtocol):
     _time_to_live_in_secs_for_cache: int = 10 * 60
 
@@ -121,8 +124,7 @@ class FhirAuthMixin(FhirClientProtocol):
                 access_token=self._access_token,
                 expiry_date=self._access_token_expiry_date,
             )
-        tracer = get_tracer(__name__)
-        with tracer.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.GET_ACCESS_TOKEN):
+        with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.GET_ACCESS_TOKEN):
             refresh_token_result: RefreshTokenResult = await self._refresh_token_function(
                 url=None, status_code=0, current_token=None, expiry_date=None, retry_count=0
             )
