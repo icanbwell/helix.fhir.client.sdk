@@ -23,6 +23,8 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
 
+TRACER = get_tracer(__name__)
+
 
 class RetryableAioHttpClient:
     def __init__(
@@ -115,7 +117,6 @@ class RetryableAioHttpClient:
         results_by_url: list[RetryableAioHttpUrlResult] = []
         access_token: str | None = self.access_token
         expiry_date: datetime | None = self.access_token_expiry_date
-        tracer = get_tracer(__name__)
 
         # run with retry
         while retry_attempts < self.retries:
@@ -133,7 +134,7 @@ class RetryableAioHttpClient:
                     if self.compress:
                         kwargs["compress"] = self.compress
                 assert self.session is not None
-                with tracer.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.HTTP_GET) as span:
+                with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.HTTP_GET) as span:
                     span.set_attribute(
                         FhirClientSdkOpenTelemetryAttributeNames.URL,
                         url,

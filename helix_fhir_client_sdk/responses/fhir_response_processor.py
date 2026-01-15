@@ -11,7 +11,7 @@ from aiohttp.streams import AsyncStreamIterator
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
-from opentelemetry.trace import get_tracer
+from opentelemetry.trace import Status, StatusCode, get_tracer
 
 from helix_fhir_client_sdk.function_types import (
     HandleStreamingChunkFunction,
@@ -38,6 +38,8 @@ from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
+
+TRACER = get_tracer(__name__)
 
 
 class FhirResponseProcessor:
@@ -95,8 +97,8 @@ class FhirResponseProcessor:
 
         :return: An async generator of FhirGetResponse objects.
         """
-        tracer = get_tracer(__name__)
-        with tracer.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.HANDLE_RESPONSE):
+        span = TRACER.start_span(FhirClientSdkOpenTelemetrySpanNames.HANDLE_RESPONSE)
+        try:
             # if request is ok (200) then return the data
             if response.ok:
                 async for r in FhirResponseProcessor._handle_response_200(
@@ -151,6 +153,18 @@ class FhirResponseProcessor:
                     create_operation_outcome_for_error=create_operation_outcome_for_error,
                 ):
                     yield r
+            # Mark span as successful
+            span.set_status(Status(StatusCode.OK))
+
+        except Exception as e:
+            # Record exception in span
+            span.record_exception(e)
+            span.set_status(Status(StatusCode.ERROR, str(e)))
+            raise
+
+        finally:
+            # Ensure span is ended after generator is exhausted or error occurs
+            span.end()
 
     @staticmethod
     async def _handle_response_unknown(

@@ -26,7 +26,7 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
     CompressedDictStorageMode,
 )
 from furl import furl
-from opentelemetry.trace import get_tracer
+from opentelemetry.trace import Status, StatusCode, get_tracer
 from requests.adapters import BaseAdapter
 
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
@@ -678,7 +678,8 @@ class FhirClient(
 
         :return: async generator of responses
         """
-        with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.GET_STREAMING):
+        span = TRACER.start_span(FhirClientSdkOpenTelemetrySpanNames.GET_STREAMING)
+        try:
             instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
             if self._logger:
                 # self._logger.info(f"LOGLEVEL: {self._log_level}")
@@ -700,6 +701,14 @@ class FhirClient(
                 resource_type=None,
             ):
                 yield response
+        except BaseException as exc:  # propagate cancellation/errors but keep span informative
+            # Record exception in span
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, str(exc)))
+            raise
+        finally:
+            # Ensure span is ended after generator is exhausted or error occurs
+            span.end()
 
     def get(self) -> FhirGetResponse:
         """
