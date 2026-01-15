@@ -68,6 +68,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         storage_mode: CompressedDictStorageMode,
         create_operation_outcome_for_error: bool | None,
     ) -> None:
+        storage_mode or CompressedDictStorageMode.raw()
         super().__init__(
             request_id=request_id,
             url=url,

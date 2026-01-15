@@ -120,7 +120,7 @@ class FhirGetResponse:
         """ Count of cache hits """
         self.results_by_url: list[RetryableAioHttpUrlResult] = results_by_url
         """ Count of errors in the response by status """
-        self.storage_mode: CompressedDictStorageMode = storage_mode
+        self.storage_mode: CompressedDictStorageMode = CompressedDictStorageMode.raw()
         """ Storage mode for the response """
 
     @abstractmethod
