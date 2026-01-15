@@ -466,6 +466,24 @@ class FhirClient(
         self._throw_exception_on_error = throw_exception_on_error
         return self
 
+    def set_persistent_session(self, session: ClientSession | None) -> FhirClient:
+        """
+        Sets the persistent session to use for requests
+
+        :param session: persistent session
+        """
+        self._persistent_session = session
+        return self
+
+    def use_persistent_session(self, value: bool) -> FhirClient:
+        """
+        Sets the use_persistent_session flag
+
+        :param value: whether to use the persistent session
+        """
+        self._use_persistent_session = value
+        return self
+
     def close_session_after_request(self, value: bool) -> FhirClient:
         """
         Sets the _close_session flag (default is True)
