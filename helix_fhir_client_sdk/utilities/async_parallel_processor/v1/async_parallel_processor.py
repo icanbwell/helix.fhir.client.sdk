@@ -107,13 +107,16 @@ class AsyncParallelProcessor:
                     additional_parameters=kwargs,
                 )
             return
+        abort_event = asyncio.Event()
 
         # noinspection PyShadowingNames
         async def process_with_semaphore_async(
             *, name: str, row1: TInput, task_index: int, total_task_count: int
         ) -> TOutput:
+            if abort_event.is_set():  # Check if abort is triggered
+                raise asyncio.CancelledError("Processing aborted")
             if self.semaphore is None:
-                return await process_row_fn(
+                result = await process_row_fn(
                     context=ParallelFunctionContext(
                         name=name,
                         log_level=log_level,
@@ -126,7 +129,7 @@ class AsyncParallelProcessor:
                 )
             else:
                 async with self.semaphore:
-                    return await process_row_fn(
+                    result = await process_row_fn(
                         context=ParallelFunctionContext(
                             name=name,
                             log_level=log_level,
@@ -137,6 +140,9 @@ class AsyncParallelProcessor:
                         parameters=parameters,
                         additional_parameters=kwargs,
                     )
+            if isinstance(result, tuple) and len(result) == 2 and result[1]:
+                abort_event.set()
+            return result
 
         total_task_count: int = len(rows)
 
@@ -156,6 +162,10 @@ class AsyncParallelProcessor:
 
         try:
             while pending:
+                if abort_event.is_set():
+                    for task in pending:
+                        task.cancel()
+                    return
                 done: set[Task[TOutput]]
                 done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
 
@@ -163,6 +173,8 @@ class AsyncParallelProcessor:
                 for task in done:
                     try:
                         yield await task
+                    except asyncio.CancelledError:
+                        return
                     except Exception:
                         # Handle or re-raise error
                         # logger.error(f"Error processing row: {e}")
