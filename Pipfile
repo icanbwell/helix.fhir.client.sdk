@@ -12,7 +12,7 @@ aiohttp = "*"
 async_timeout = ">=4.0.3"
 python-dateutil = "*"
 # compressedfhir is needed for compressing and decompressing FHIR resources
-compressedfhir = ">=1.0.13"
+compressedfhir = ">=1.0.13,<3.0.0"
 # certifi is needed for SSL certificate verification
 certifi = ">=2025.1.31"
 # opentelemetry-api is the OpenTelemetry API
