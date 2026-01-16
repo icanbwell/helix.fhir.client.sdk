@@ -90,8 +90,6 @@ class FhirClientProtocol(Protocol):
     _last_page_lock: Lock
 
     _persistent_session: ClientSession | None = None
-    _use_persistent_session: bool = False
-    _close_session: bool = True
 
     _use_post_for_search: bool = False
 
