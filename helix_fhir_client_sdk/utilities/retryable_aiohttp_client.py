@@ -8,7 +8,7 @@ import async_timeout
 from aiohttp import ClientError, ClientResponse, ClientResponseError, ClientSession
 from multidict import MultiMapping
 from opentelemetry import trace
-
+import logging
 from helix_fhir_client_sdk.function_types import (
     RefreshTokenFunction,
     RefreshTokenResult,
@@ -130,6 +130,7 @@ class RetryableAioHttpClient:
                     if self.compress:
                         kwargs["compress"] = self.compress
                 assert self.session is not None
+                logging.info(f"Using Session ID: {id(self.session)} for URL: {url}")
                 with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.HTTP_GET) as span:
                     span.set_attribute(
                         FhirClientSdkOpenTelemetryAttributeNames.URL,
