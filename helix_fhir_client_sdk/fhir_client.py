@@ -480,24 +480,6 @@ class FhirClient(
         self._persistent_session = session
         return self
 
-    def use_persistent_session(self, value: bool) -> FhirClient:
-        """
-        Sets the use_persistent_session flag
-
-        :param value: whether to use the persistent session
-        """
-        self._use_persistent_session = value
-        return self
-
-    def close_session_after_request(self, value: bool) -> FhirClient:
-        """
-        Sets the _close_session flag (default is True)
-
-        :param value: whether to close the session after each request
-        """
-        self._close_session = value
-        return self
-
     # noinspection PyUnusedLocal
     @staticmethod
     async def on_request_end(

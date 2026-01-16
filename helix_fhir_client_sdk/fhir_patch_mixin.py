@@ -73,8 +73,6 @@ class FhirPatchMixin(FhirClientProtocol):
                 access_token=self._access_token,
                 access_token_expiry_date=self._access_token_expiry_date,
                 persistent_session=self._persistent_session,
-                use_persistent_session=self._use_persistent_session,
-                close_session_on_exit=self._close_session,
             ) as client:
                 response: RetryableAioHttpResponse = await client.patch(
                     url=full_uri.url, json=deserialized_data, headers=headers
