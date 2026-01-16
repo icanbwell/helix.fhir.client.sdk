@@ -2,9 +2,7 @@ import json
 import time
 from collections import deque
 from collections.abc import AsyncGenerator
-from typing import (
-    cast, Any
-)
+from typing import Any, cast
 from urllib import parse
 
 import requests
@@ -45,15 +43,14 @@ from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValid
 
 
 class FhirMergeResourcesMixin(FhirClientProtocol):
-    async def merge_bundle_without_storage(
+    async def merge_bundle_uncompressed(
         self,
         id_: str | None,
         bundle: FhirBundle,
     ) -> FhirMergeResourceResponse:
         """
-        Optimized version of merge_bundle_async without storage_mode overhead.
-        Calls $merge function on FHIR server with minimal processing.
-
+        Optimized variant of :meth:`merge_bundle_async` that bypasses storage-mode handling.
+        Use this method when you do not need storage-mode behavior, or features such as request/response compression.
         :param id_: id of the resource to merge
         :param bundle: FHIR Bundle to merge
         :return: FhirMergeResourceResponse
@@ -68,27 +65,22 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
             "parse_response": 0.0,
             "create_response_objects": 0.0,
         }
-        
+
         merge_start_time = time.time()
-        
-        assert self._url, "No FHIR server url was set"
-        assert isinstance(bundle, FhirBundle), f"Expected FhirBundle, got {type(bundle)}"
-        assert len(bundle.entry) > 0, "Bundle must have at least one entry"
 
         request_id: str | None = None
         response_status: int = 500
-        
+
         # Build URL
         build_url_start = time.time()
         full_uri: furl = furl(self._url)
-        assert self._resource
         full_uri /= self._resource
-        
+
         # Prepare headers
         headers = {"Content-Type": "application/fhir+json"}
         headers.update(self._additional_request_headers)
         profiling["build_url"] = time.time() - build_url_start
-        
+
         # Get access token
         get_token_start = time.time()
         access_token_result: GetAccessTokenResult = await self.get_access_token_async()
@@ -102,19 +94,19 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
         first_resource: FhirResource | None = bundle.entry[0].resource
         assert first_resource is not None
         json_payload: str = first_resource.json() if len(bundle.entry) == 1 else bundle.json()
-        
+
         # Build merge URL
         obj_id: str = id_ or "1"
         resource_uri: furl = full_uri / parse.quote(str(obj_id), safe="") / "$merge"
         profiling["prepare_payload"] = time.time() - prepare_payload_start
-        
+
         response_text: str | None = None
         responses: list[dict[str, Any]] = []
         errors: list[dict[str, Any]] = []
-        
+
         try:
             async with RetryableAioHttpClient(
-                fn_get_session=lambda: self.create_http_session(),
+                fn_get_session=self.create_http_session,
                 refresh_token_func=self._refresh_token_function,
                 tracer_request_func=self._trace_request_function,
                 retries=self._retry_count,
@@ -137,10 +129,10 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                     headers=headers,
                 )
                 profiling["http_post"] = time.time() - http_post_start
-                
+
                 response_status = response.status
                 request_id = response.response_headers.get("X-Request-ID", None)
-                
+
                 parse_response_start = time.time()
                 if response.status == 200:
                     response_text = await response.get_text_async()
@@ -153,25 +145,33 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                             else:
                                 responses = [parsed_response]
                         except (ValueError, json.JSONDecodeError) as e:
-                            errors.append({
-                                "issue": [{
-                                    "severity": "error",
-                                    "code": "exception",
-                                    "diagnostics": f"Failed to parse response: {str(e)}"
-                                }]
-                            })
+                            errors.append(
+                                {
+                                    "issue": [
+                                        {
+                                            "severity": "error",
+                                            "code": "exception",
+                                            "diagnostics": f"Failed to parse response: {str(e)}",
+                                        }
+                                    ]
+                                }
+                            )
                 else:
                     # HTTP error
                     response_text = await response.get_text_async()
-                    errors.append({
-                        "issue": [{
-                            "severity": "error",
-                            "code": "exception",
-                            "diagnostics": response_text or f"HTTP {response.status}"
-                        }]
-                    })
+                    errors.append(
+                        {
+                            "issue": [
+                                {
+                                    "severity": "error",
+                                    "code": "exception",
+                                    "diagnostics": response_text or f"HTTP {response.status}",
+                                }
+                            ]
+                        }
+                    )
                 profiling["parse_response"] = time.time() - parse_response_start
-                    
+
         except requests.exceptions.HTTPError as e:
             raise FhirSenderException(
                 request_id=request_id,
@@ -198,27 +198,23 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                 message=f"Unknown Error: {e}",
                 elapsed_time=time.time() - merge_start_time,
             ) from e
-        
+
         # Convert dict responses to proper objects using fast method
         create_objects_start = time.time()
         response_entries: deque[BaseFhirMergeResourceResponseEntry] = deque()
-        
+
         for resp_dict in responses:
-            response_entries.append(
-                FhirMergeResourceResponseEntry.from_dict_without_storage(resp_dict)
-            )
-        
+            response_entries.append(FhirMergeResourceResponseEntry.from_dict_uncompressed(resp_dict))
+
         for error_dict in errors:
-            response_entries.append(
-                FhirMergeResponseEntryError.from_dict(error_dict)
-            )
+            response_entries.append(FhirMergeResponseEntryError.from_dict(error_dict, storage_mode=self._storage_mode))
         profiling["create_response_objects"] = time.time() - create_objects_start
-        
+
         profiling["total_time"] = time.time() - merge_start_time
-        
+
         # Log profiling information if logger is available
         if self._logger:
-            self._logger.info(
+            self._logger.debug(
                 f"merge_bundle_without_storage profiling: "
                 f"total={profiling['total_time']:.3f}s, "
                 f"build_url={profiling['build_url']:.3f}s, "
@@ -228,7 +224,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                 f"parse_response={profiling['parse_response']:.3f}s, "
                 f"create_objects={profiling['create_response_objects']:.3f}s"
             )
-        
+
         return FhirMergeResourceResponse(
             request_id=request_id,
             url=resource_uri.url,

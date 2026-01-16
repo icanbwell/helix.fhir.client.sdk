@@ -76,16 +76,18 @@ class FhirMergeResourceResponseEntry(BaseFhirMergeResourceResponseEntry):
         )
 
     @classmethod
-    def from_dict_without_storage(
-        cls, data: dict[str, Any]
-    ) -> "FhirMergeResourceResponseEntry":
+    def from_dict_uncompressed(cls, data: dict[str, Any]) -> "FhirMergeResourceResponseEntry":
         """
         Creates a FhirMergeResourceResponseEntry from a dictionary without storage_mode overhead.
         Uses FhirResource.construct for faster object creation.
-        
+
         :param data: Dictionary containing the response entry data
         :return: FhirMergeResourceResponseEntry instance
         """
+        resource_payload = data.get("resource")
+        resource_obj: FhirResource | None = (
+            FhirResource.construct(**resource_payload) if isinstance(resource_payload, dict) else None
+        )
         return FhirMergeResourceResponseEntry(
             created=data.get("created"),
             updated=data.get("updated"),
@@ -99,7 +101,7 @@ class FhirMergeResourceResponseEntry(BaseFhirMergeResourceResponseEntry):
             issue=data.get("issue"),
             error=data.get("error"),
             token=data.get("token"),
-            resource=(FhirResource.construct(**data.get("resource")) if data.get("resource") else None),
+            resource=resource_obj,
             status=data.get("status"),
         )
 
