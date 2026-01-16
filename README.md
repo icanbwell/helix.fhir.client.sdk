@@ -79,4 +79,49 @@ For FHIR servers that support data streaming (e.g., b.well FHIR server), you can
 The data will be streamed in AsyncGenerators as described above.
 
 # Storage Compression
-The FHIR client SDK natively stores the FHIR resources compressed in memory.  This allows use in environments where you are processing large number of FHIR resources.
+The FHIR client SDK supports two types of compression:
+
+1. **HTTP Compression** (`compress`): Compresses HTTP request body when sending data to the server. Default: **enabled**
+2. **In-Memory Storage** (`storage_mode`): Controls how FHIR resources are stored in memory. Default: **raw (no compression)**
+
+## Disabling HTTP Compression
+HTTP compression (gzip) is enabled by default for request bodies. To disable it:
+
+```python
+from helix_fhir_client_sdk.fhir_client import FhirClient
+
+# Disable HTTP compression for requests
+fhir_client = FhirClient().url("https://fhir.example.com").compress(False)
+```
+
+## In-Memory Storage Modes
+The SDK supports different storage modes for FHIR resources through the `set_storage_mode()` method.
+By default, resources are stored as raw Python dictionaries (no compression).
+
+```python
+from helix_fhir_client_sdk.fhir_client import FhirClient
+from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import CompressedDictStorageMode
+
+# Use raw storage (default) - no compression, resources stored as plain Python dicts
+fhir_client = FhirClient().set_storage_mode(CompressedDictStorageMode(storage_type="raw"))
+
+# Use msgpack storage - stores resources in msgpack format
+fhir_client = FhirClient().set_storage_mode(CompressedDictStorageMode(storage_type="msgpack"))
+
+# Use compressed msgpack storage - stores resources in compressed msgpack format
+fhir_client = FhirClient().set_storage_mode(CompressedDictStorageMode(storage_type="compressed_msgpack"))
+```
+
+Available storage types:
+- `raw`: Default. Resources are stored as standard Python dictionaries (no compression)
+- `msgpack`: Resources are serialized using MessagePack for efficient storage
+- `compressed_msgpack`: Resources are serialized using MessagePack and then compressed
+
+## Getting Raw Python Dictionaries
+To completely bypass the `compressedfhir` library and get plain Python dictionaries:
+
+```python
+# Returns plain Python dicts, not FhirResource objects
+result = await fhir_client.get_raw_resources_async()
+resources = result["_resources"]  # list[dict[str, Any]]
+```

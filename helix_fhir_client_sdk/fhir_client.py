@@ -150,9 +150,10 @@ class FhirClient(
         self._log_all_response_urls: bool = False
         """ If True, logs all response URLs and status codes.  Can take a lot of memory for when there are many responses. """
 
-        self._storage_mode = CompressedDictStorageMode(storage_type="raw")
+        # Default to "raw" storage mode - no in-memory compression, resources stored as plain Python dicts
+        self._storage_mode: CompressedDictStorageMode = CompressedDictStorageMode(storage_type="raw")
 
-        self._create_operation_outcome_for_error = False
+        self._create_operation_outcome_for_error: bool | None = False
 
     def action(self, action: str) -> FhirClient:
         """
@@ -455,9 +456,14 @@ class FhirClient(
 
     def compress(self, compress: bool) -> FhirClient:
         """
-        Sets the compress flag
+        Sets whether to use HTTP compression (gzip) when sending request data to the server.
 
-        :param compress: whether to compress the response
+        This controls compression of the HTTP request body only, not in-memory storage.
+        Default is True (compression enabled).
+
+        To disable all compression, call: .compress(False)
+
+        :param compress: whether to compress HTTP request body (default: True)
         """
         self._compress = compress
         return self
@@ -844,17 +850,17 @@ class FhirClient(
         Whether to ask the server to include the total count in the result
 
 
-        :param include_total: whether to include total count
+        :param include_total: whether to include the total count
         """
         self._include_total = include_total
         return self
 
     def filter(self, filter_: list[BaseFilter]) -> FhirClient:
         """
-        Allows adding in a custom filters that derives from BaseFilter
+        Allows adding in custom filters that derive from BaseFilter
 
 
-        :param filter_: list of custom filter instances that derives from BaseFilter.
+        :param filter_: list of custom filter instances that derive from BaseFilter.
         """
         assert isinstance(filter_, list), "This function requires a list"
         self._filters.extend(filter_)
@@ -907,6 +913,16 @@ class FhirClient(
         fhir_client._time_to_live_in_secs_for_cache = self._time_to_live_in_secs_for_cache
         fhir_client._validation_server_url = self._validation_server_url
         fhir_client._smart_merge = self._smart_merge
+        fhir_client._compress = self._compress
+        fhir_client._storage_mode = self._storage_mode
+        fhir_client._send_data_as_chunked = self._send_data_as_chunked
+        fhir_client._use_post_for_search = self._use_post_for_search
+        fhir_client._maximum_time_to_retry_on_429 = self._maximum_time_to_retry_on_429
+        fhir_client._retry_count = self._retry_count
+        fhir_client._throw_exception_on_error = self._throw_exception_on_error
+        fhir_client._trace_request_function = self._trace_request_function
+        fhir_client._log_all_response_urls = self._log_all_response_urls
+        fhir_client._create_operation_outcome_for_error = self._create_operation_outcome_for_error
         return fhir_client
 
     def set_log_all_response_urls(self, value: bool) -> FhirClient:
@@ -929,18 +945,30 @@ class FhirClient(
 
     def set_storage_mode(self, value: CompressedDictStorageMode) -> FhirClient:
         """
-        Sets the storage mode
+        Sets the in-memory storage mode for FHIR resources.
 
-        :param value: storage mode
+        This controls how FHIR resources are stored in memory after being received.
+        The default is "raw" (no compression - resources stored as plain Python dicts).
+
+        Available storage types:
+        - "raw": No compression, standard Python dictionaries (default)
+        - "compressed": Zlib/gzip compression in memory
+        - "msgpack": MessagePack binary serialization
+        - "compressed_msgpack": MessagePack + compression
+
+        Note: This is separate from HTTP compression (controlled by .compress()).
+        With default settings, no in-memory compression is applied.
+
+        :param value: storage mode (default: raw)
         """
         self._storage_mode = value
         return self
 
-    def set_create_operation_outcome_for_error(self, value: bool) -> FhirClient:
+    def set_create_operation_outcome_for_error(self, value: bool | None) -> FhirClient:
         """
         Sets the create_operation_outcome_for_error flag
 
-        :param value: whether to create operation outcome for error
+        :param value: whether to create an operation outcome for error (True, False, or None)
         """
         self._create_operation_outcome_for_error = value
         return self

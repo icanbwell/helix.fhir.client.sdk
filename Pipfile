@@ -65,7 +65,9 @@ httpx=">=0.23.3"
 aioresponses=">=0.7.6"
 # deepdiff is a Python library for comparing objects
 deepdiff = { version = ">=8.6.1" }
-# msgpack-types provides type hints for msgpack
+# pytest-benchmark is needed for running benchmark tests
+pytest-benchmark = ">=4.0.0"
+# msgpack-types provide type hints for msgpack
 msgpack-types = { version = ">=0.5.0" }
 # objsize is needed for getting the size of objects in bytes
 objsize = ">=0.7.1"
