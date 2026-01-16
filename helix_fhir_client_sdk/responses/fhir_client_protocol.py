@@ -128,6 +128,9 @@ class FhirClientProtocol(Protocol):
     _create_operation_outcome_for_error: bool | None
     """ whether to create OperationOutcome resource for errors """
 
+    _max_concurrent_requests: int | None
+    """ maximum number of concurrent requests to make to the FHIR server """
+
     async def get_access_token_async(self) -> GetAccessTokenResult: ...
 
     async def _send_fhir_request_async(
