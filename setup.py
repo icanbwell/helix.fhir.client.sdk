@@ -40,7 +40,7 @@ setup(
         "aiohttp",
         "async-timeout>=4.0.3",
         "python-dateutil",
-        "compressedfhir>=1.0.13",
+        "compressedfhir>=1.0.13,<3",
         "certifi>=2025.1.31",
         "opentelemetry-api>=1.39",
         "multidict>=6",
