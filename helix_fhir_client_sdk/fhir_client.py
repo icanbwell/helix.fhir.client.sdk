@@ -883,6 +883,8 @@ class FhirClient(
         fhir_client._client_id = self._client_id
         fhir_client._auth_server_url = self._auth_server_url
         fhir_client._login_token = self._login_token
+        fhir_client._access_token = self._access_token
+        fhir_client._access_token_expiry_date = self._access_token_expiry_date
         fhir_client._refresh_token_function = self._refresh_token_function
         fhir_client._exclude_status_codes_from_retry = self._exclude_status_codes_from_retry
         fhir_client._chunk_size = self._chunk_size
@@ -905,6 +907,8 @@ class FhirClient(
         fhir_client._trace_request_function = self._trace_request_function
         fhir_client._log_all_response_urls = self._log_all_response_urls
         fhir_client._create_operation_outcome_for_error = self._create_operation_outcome_for_error
+        if self._max_concurrent_requests is not None:
+            fhir_client.set_max_concurrent_requests(self._max_concurrent_requests)
         return fhir_client
 
     def set_log_all_response_urls(self, value: bool) -> FhirClient:

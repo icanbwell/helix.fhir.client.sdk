@@ -2,6 +2,8 @@
 Tests for FhirClient.clone() method to ensure all properties are properly copied.
 """
 
+from datetime import UTC, datetime, timedelta
+
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
@@ -76,3 +78,35 @@ def test_default_storage_mode_is_raw() -> None:
     """Test that the default storage mode is 'raw'"""
     fhir_client = FhirClient()
     assert fhir_client._storage_mode.storage_type == "raw"
+
+
+def test_clone_preserves_access_token() -> None:
+    """Test that clone() preserves access token and expiry date"""
+    expiry_date = datetime.now(UTC) + timedelta(hours=1)
+    fhir_client = (
+        FhirClient()
+        .url("http://example.com")
+        .set_access_token("test-access-token-12345")
+        .set_access_token_expiry_date(expiry_date)
+    )
+
+    assert fhir_client._access_token == "test-access-token-12345"
+    assert fhir_client._access_token_expiry_date == expiry_date
+
+    # Clone and verify access token is preserved
+    cloned_client = fhir_client.clone()
+
+    assert cloned_client._access_token == "test-access-token-12345"
+    assert cloned_client._access_token_expiry_date == expiry_date
+
+
+def test_clone_preserves_max_concurrent_requests() -> None:
+    """Test that clone() preserves max_concurrent_requests setting"""
+    fhir_client = FhirClient().url("http://example.com").set_max_concurrent_requests(10)
+
+    assert fhir_client._max_concurrent_requests == 10
+
+    # Clone and verify max_concurrent_requests is preserved
+    cloned_client = fhir_client.clone()
+
+    assert cloned_client._max_concurrent_requests == 10
