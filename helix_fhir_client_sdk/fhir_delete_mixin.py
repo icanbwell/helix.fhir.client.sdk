@@ -56,7 +56,6 @@ class FhirDeleteMixin(FhirClientProtocol):
             access_token=self._access_token,
             access_token_expiry_date=self._access_token_expiry_date,
             tracer_request_func=self._trace_request_function,
-            persistent_session=self._persistent_session,
         ) as client:
             response: RetryableAioHttpResponse = await client.delete(url=full_uri.tostr(), headers=headers)
             request_id = response.response_headers.get("X-Request-ID", None)
@@ -126,7 +125,6 @@ class FhirDeleteMixin(FhirClientProtocol):
             access_token=self._access_token,
             access_token_expiry_date=self._access_token_expiry_date,
             tracer_request_func=self._trace_request_function,
-            persistent_session=self._persistent_session,
         ) as client:
             response: RetryableAioHttpResponse = await client.delete(url=full_url, headers=headers)
             request_id = response.response_headers.get("X-Request-ID", None)

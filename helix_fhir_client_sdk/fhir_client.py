@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import ssl
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from datetime import datetime
 from logging import Logger
 from os import environ
@@ -154,6 +154,9 @@ class FhirClient(
         self._storage_mode: CompressedDictStorageMode = CompressedDictStorageMode(storage_type="raw")
 
         self._create_operation_outcome_for_error: bool | None = False
+
+        # Optional callable to create HTTP sessions. When set, create_http_session() will use this.
+        self._fn_create_http_session: Callable[[], ClientSession] | None = None
 
     def action(self, action: str) -> FhirClient:
         """
@@ -477,13 +480,17 @@ class FhirClient(
         self._throw_exception_on_error = throw_exception_on_error
         return self
 
-    def set_persistent_session(self, session: ClientSession | None) -> FhirClient:
+    def use_http_session(self, fn_create_http_session: Callable[[], ClientSession] | None) -> FhirClient:
         """
-        Sets the persistent session to use for requests
+        Sets a custom callable to create HTTP sessions.
 
-        :param session: persistent session
+        When set, create_http_session() will use this callable instead of the default
+        implementation. This allows for custom session management, connection pooling,
+        or persistent session support.
+
+        :param fn_create_http_session: callable that returns a ClientSession, or None to use default
         """
-        self._persistent_session = session
+        self._fn_create_http_session = fn_create_http_session
         return self
 
     # noinspection PyUnusedLocal
@@ -808,9 +815,16 @@ class FhirClient(
 
     def create_http_session(self) -> ClientSession:
         """
-        Creates an HTTP Session
+        Creates an HTTP Session.
 
+        If a custom session factory was set via use_http_session(), it will be used.
+        Otherwise, creates a default aiohttp ClientSession with standard configuration.
         """
+        # Use a custom session factory if provided
+        if self._fn_create_http_session is not None:
+            return self._fn_create_http_session()
+
+        # Default implementation
         trace_config = aiohttp.TraceConfig()
         # trace_config.on_request_start.append(on_request_start)
         if self._log_level == "DEBUG":
@@ -907,6 +921,7 @@ class FhirClient(
         fhir_client._trace_request_function = self._trace_request_function
         fhir_client._log_all_response_urls = self._log_all_response_urls
         fhir_client._create_operation_outcome_for_error = self._create_operation_outcome_for_error
+        fhir_client._fn_create_http_session = self._fn_create_http_session
         if self._max_concurrent_requests is not None:
             fhir_client.set_max_concurrent_requests(self._max_concurrent_requests)
         return fhir_client

@@ -110,3 +110,46 @@ def test_clone_preserves_max_concurrent_requests() -> None:
     cloned_client = fhir_client.clone()
 
     assert cloned_client._max_concurrent_requests == 10
+
+
+def test_use_http_session() -> None:
+    """Test that use_http_session sets the callable correctly"""
+    from aiohttp import ClientSession
+
+    def custom_session_factory() -> ClientSession:
+        return ClientSession()
+
+    fhir_client = FhirClient().url("http://example.com")
+
+    # Initially None
+    assert fhir_client._fn_create_http_session is None
+
+    # Set the callable
+    result = fhir_client.use_http_session(custom_session_factory)
+
+    # Returns self for chaining
+    assert result is fhir_client
+
+    # Callable is stored
+    assert fhir_client._fn_create_http_session is custom_session_factory
+
+    # Can set to None
+    fhir_client.use_http_session(None)
+    assert fhir_client._fn_create_http_session is None
+
+
+def test_clone_preserves_fn_create_http_session() -> None:
+    """Test that clone() preserves the _fn_create_http_session callable"""
+    from aiohttp import ClientSession
+
+    def custom_session_factory() -> ClientSession:
+        return ClientSession()
+
+    fhir_client = FhirClient().url("http://example.com").use_http_session(custom_session_factory)
+
+    assert fhir_client._fn_create_http_session is custom_session_factory
+
+    # Clone and verify fn_create_http_session is preserved
+    cloned_client = fhir_client.clone()
+
+    assert cloned_client._fn_create_http_session is custom_session_factory
