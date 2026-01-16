@@ -907,7 +907,8 @@ class FhirClient(
         fhir_client._trace_request_function = self._trace_request_function
         fhir_client._log_all_response_urls = self._log_all_response_urls
         fhir_client._create_operation_outcome_for_error = self._create_operation_outcome_for_error
-        fhir_client._max_concurrent_requests = self._max_concurrent_requests
+        if self._max_concurrent_requests is not None:
+            fhir_client.set_max_concurrent_requests(self._max_concurrent_requests)
         return fhir_client
 
     def set_log_all_response_urls(self, value: bool) -> FhirClient:
