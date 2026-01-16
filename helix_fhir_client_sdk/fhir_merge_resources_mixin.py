@@ -118,7 +118,6 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                 log_all_url_results=self._log_all_response_urls,
                 access_token=self._access_token,
                 access_token_expiry_date=self._access_token_expiry_date,
-                persistent_session=self._persistent_session,
             ) as client:
                 http_post_start = time.time()
                 response: RetryableAioHttpResponse = await client.post(
@@ -312,7 +311,6 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                         log_all_url_results=self._log_all_response_urls,
                         access_token=self._access_token,
                         access_token_expiry_date=self._access_token_expiry_date,
-                        persistent_session=self._persistent_session,
                     ) as client:
                         # should we check if it exists and do a POST then?
                         response: RetryableAioHttpResponse = await client.post(
@@ -529,7 +527,6 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                             log_all_url_results=self._log_all_response_urls,
                             access_token=self._access_token,
                             access_token_expiry_date=self._access_token_expiry_date,
-                            persistent_session=self._persistent_session,
                         ) as client:
                             # should we check if it exists and do a POST then?
                             response: RetryableAioHttpResponse = await client.post(

@@ -106,7 +106,6 @@ class FhirUpdateMixin(FhirClientProtocol):
             log_all_url_results=self._log_all_response_urls,
             access_token=self._access_token,
             access_token_expiry_date=self._access_token_expiry_date,
-            persistent_session=self._persistent_session,
         ) as client:
             response = await client.put(url=full_uri.url, data=json_data, headers=headers)
             request_id = response.response_headers.get("X-Request-ID", None)

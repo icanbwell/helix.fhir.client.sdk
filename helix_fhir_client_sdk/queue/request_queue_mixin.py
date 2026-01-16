@@ -130,7 +130,6 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 log_all_url_results=self._log_all_response_urls,
                 access_token=self._access_token,
                 access_token_expiry_date=self._access_token_expiry_date,
-                persistent_session=self._persistent_session,
             ) as client:
                 while next_url:
                     # set access token in request if present
@@ -299,7 +298,6 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 log_all_url_results=self._log_all_response_urls,
                 access_token=self._access_token,
                 access_token_expiry_date=self._access_token_expiry_date,
-                persistent_session=self._persistent_session,
             ) as client:
                 while next_url:
                     # set access token in request if present

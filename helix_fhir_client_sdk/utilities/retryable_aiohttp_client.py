@@ -45,7 +45,6 @@ class RetryableAioHttpClient:
         log_all_url_results: bool = False,
         access_token: str | None,
         access_token_expiry_date: datetime | None,
-        persistent_session: ClientSession | None = None,
     ) -> None:
         """
         RetryableClient provides a way to make HTTP calls with automatic retry and automatic refreshing of access tokens
@@ -71,16 +70,9 @@ class RetryableAioHttpClient:
         self.log_all_url_results: bool = log_all_url_results
         self.access_token: str | None = access_token
         self.access_token_expiry_date: datetime | None = access_token_expiry_date
-        self.persistent_session: ClientSession | None = persistent_session
 
     async def __aenter__(self) -> "RetryableAioHttpClient":
-        # Clear a stale persistent session if closed
-        if self.persistent_session is not None and self.persistent_session.closed:
-            self.persistent_session = None
-
-        # Use an existing persistent session or create a new one
-        self.session = self.persistent_session if self.persistent_session is not None else self.fn_get_session()
-
+        self.session = self.fn_get_session()
         return self
 
     async def __aexit__(
@@ -89,7 +81,7 @@ class RetryableAioHttpClient:
         exc_val: BaseException | None,
         exc_tb: type[BaseException] | None | None,
     ) -> None:
-        if not self.persistent_session and self.session is not None:
+        if self.session is not None:
             await self.session.close()
 
     @staticmethod
