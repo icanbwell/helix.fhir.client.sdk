@@ -68,18 +68,19 @@ class FhirUpdateMixin(FhirClientProtocol):
         :param id_: ID of the resource to update
         :return: FhirUpdateResponse object
         """
+        assert self._url, "No FHIR server url was set"
+        assert json_data, "Empty string was passed"
+        if not id_ and not self._id:
+            raise ValueError("update requires the ID of FHIR object to update")
+        if not isinstance(self._id, str):
+            raise ValueError("update should have only one id")
+        if not self._resource:
+            raise ValueError("update requires a FHIR resource type")
+
         with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.UPDATE) as span:
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.URL, self._url or "")
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.RESOURCE, self._resource or "")
             try:
-                assert self._url, "No FHIR server url was set"
-                assert json_data, "Empty string was passed"
-                if not id_ and not self._id:
-                    raise ValueError("update requires the ID of FHIR object to update")
-                if not isinstance(self._id, str):
-                    raise ValueError("update should have only one id")
-                if not self._resource:
-                    raise ValueError("update requires a FHIR resource type")
                 full_uri: furl = furl(self._url)
                 full_uri /= self._resource
                 full_uri /= id_ or self._id

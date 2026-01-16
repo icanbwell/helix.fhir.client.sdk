@@ -30,18 +30,19 @@ class FhirPatchMixin(FhirClientProtocol):
         Update the resource.  This will partially update an existing resource with changes specified in the request.
         :param data: data to update the resource with
         """
+        assert self._url, "No FHIR server url was set"
+        assert data, "Empty string was passed"
+        if not self._id:
+            raise ValueError("update requires the ID of FHIR object to update")
+        if not isinstance(self._id, str):
+            raise ValueError("update should have only one id")
+        if not self._resource:
+            raise ValueError("update requires a FHIR resource type")
+
         with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.PATCH) as span:
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.URL, self._url or "")
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.RESOURCE, self._resource or "")
             try:
-                assert self._url, "No FHIR server url was set"
-                assert data, "Empty string was passed"
-                if not self._id:
-                    raise ValueError("update requires the ID of FHIR object to update")
-                if not isinstance(self._id, str):
-                    raise ValueError("update should have only one id")
-                if not self._resource:
-                    raise ValueError("update requires a FHIR resource type")
                 self._internal_logger.debug(
                     f"Calling patch method on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
                 )

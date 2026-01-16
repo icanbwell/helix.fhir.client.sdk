@@ -107,15 +107,15 @@ class FhirMergeMixin(FhirClientProtocol):
         :param batch_size: size of each batch
         :return: response
         """
+        assert self._url, "No FHIR server url was set"
+        assert isinstance(json_data_list, list), "This function requires a list"
+
         with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.MERGE) as span:
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.URL, self._url or "")
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.RESOURCE, self._resource or "")
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.BATCH_SIZE, batch_size or 0)
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.JSON_DATA_COUNT, len(json_data_list))
             try:
-                assert self._url, "No FHIR server url was set"
-                assert isinstance(json_data_list, list), "This function requires a list"
-
                 self._internal_logger.debug(
                     f"Calling $merge on {self._url} with client_id={self._client_id} and scopes={self._auth_scopes}"
                 )
