@@ -74,14 +74,13 @@ class RetryableAioHttpClient:
         self.persistent_session: ClientSession | None = persistent_session
 
     async def __aenter__(self) -> "RetryableAioHttpClient":
-        # Check if a persistent session exists AND is not closed
-        if self.persistent_session is not None and not self.persistent_session.closed:
-            self.session = self.persistent_session
-        else:
-            # Clear a stale persistent session reference if it was closed
-            if self.persistent_session is not None and self.persistent_session.closed:
-                self.persistent_session = None
-            self.session = self.fn_get_session()
+        # Clear a stale persistent session if closed
+        if self.persistent_session is not None and self.persistent_session.closed:
+            self.persistent_session = None
+
+        # Use an existing persistent session or create a new one
+        self.session = self.persistent_session if self.persistent_session is not None else self.fn_get_session()
+
         return self
 
     async def __aexit__(
