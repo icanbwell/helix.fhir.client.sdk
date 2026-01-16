@@ -7,6 +7,7 @@ from typing import (
     Protocol,
     runtime_checkable,
 )
+import logging
 
 
 @dataclass(slots=True)
@@ -112,7 +113,25 @@ class AsyncParallelProcessor:
         async def process_with_semaphore_async(
             *, name: str, row1: TInput, task_index: int, total_task_count: int
         ) -> TOutput:
+            def log_tasks(prefix: str = "") -> int:
+                """Log currently running asyncio tasks"""
+                all_tasks = asyncio.all_tasks()
+                running_tasks = [t for t in all_tasks if not t.done()]
+                task_count = len(running_tasks)
+                waiting_tasks = [t for t in running_tasks if t._coro.cr_await is not None]
+                
+                # Log using standard logging module
+                logger = logging.getLogger(__name__)
+                logger.info(
+                    f"{prefix} | ASYNC TASKS: Total Running={task_count} | "
+                    f"all_tasks={len(all_tasks)} | "
+                    f"waiting_tasks={len(waiting_tasks)}"
+                )
+                
+                return task_count
+            
             if self.semaphore is None:
+                log_tasks(prefix="[NO SEMAPHORE IN PROCESSOR]")
                 return await process_row_fn(
                     context=ParallelFunctionContext(
                         name=name,
@@ -125,8 +144,10 @@ class AsyncParallelProcessor:
                     additional_parameters=kwargs,
                 )
             else:
+                log_tasks(prefix="[BEFORE PROCESSOR SEMAPHORE ACQUIRE]")
                 async with self.semaphore:
-                    return await process_row_fn(
+                    log_tasks(prefix="[AFTER PROCESSOR SEMAPHORE ACQUIRE]")
+                    result = await process_row_fn(
                         context=ParallelFunctionContext(
                             name=name,
                             log_level=log_level,
@@ -137,6 +158,8 @@ class AsyncParallelProcessor:
                         parameters=parameters,
                         additional_parameters=kwargs,
                     )
+                    log_tasks(prefix="[BEFORE PROCESSOR SEMAPHORE RELEASE]")
+                    return result
 
         total_task_count: int = len(rows)
 

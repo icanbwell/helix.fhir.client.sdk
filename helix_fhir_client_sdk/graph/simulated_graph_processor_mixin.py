@@ -1,3 +1,4 @@
+import asyncio
 import json
 from abc import ABC
 from collections.abc import AsyncGenerator
@@ -123,6 +124,23 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         Yields:
             FhirGetResponse objects representing retrieved resources
         """
+        def log_running_tasks(prefix: str = "") -> int:
+            """Log currently running asyncio tasks"""
+            all_tasks = asyncio.all_tasks()
+            running_tasks = [t for t in all_tasks if not t.done()]
+            task_count = len(running_tasks)
+            waiting_tasks = [t for t in running_tasks if t._coro.cr_await is not None]
+            
+            self._internal_logger.info(
+                f"{prefix} | ASYNC TASKS: Total Running={task_count} | "
+                f"all_tasks={len(all_tasks)} | "
+            )
+            print(f"{prefix} | ASYNC TASKS: Total Running={task_count} | all_tasks={len(all_tasks)} | waiting_tasks={len(waiting_tasks)}")
+            
+            return task_count
+        
+        log_running_tasks(prefix="[PROCESS_SIMULATE_GRAPH START]")
+        
         # Validate graph definition input
         assert graph_json, "Graph JSON must be provided"
         graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
@@ -135,6 +153,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # Ensure bundle resources are not separated by default
         self.separate_bundle_resources(False)
 
+        start_time = datetime.now()
         # Log initial query parameters for debugging
         if logger:
             logger.info(
@@ -152,6 +171,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # Normalize input to a list of IDs, handling comma-separated strings
         if not isinstance(id_, list):
             id_ = id_.split(",")
+
+        log_running_tasks(prefix="[BEFORE GRAPH PROCESSING]")
 
         # Track resources that don't support ID-based search
         id_search_unsupported_resources: list[str] = []
@@ -171,6 +192,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 add_cached_bundles_to_result=add_cached_bundles_to_result,
                 compare_hash=compare_hash,
             )
+
+            log_running_tasks(prefix="[AFTER PARENT GET]")
 
             # If no parent resources found, yield empty response and exit
             parent_response_resource_count = parent_response.get_resource_count()
@@ -207,6 +230,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             while len(parent_link_map):
                 new_parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
 
+                log_running_tasks(prefix="[BEFORE PROCESSING LINKS BATCH]")
+
                 # Parallel processing of links for each parent bundle
                 for link, parent_bundle_entries in parent_link_map:
                     link_responses: list[FhirGetResponse]
@@ -232,6 +257,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     ):
                         child_responses.extend(link_responses)
 
+                log_running_tasks(prefix="[AFTER PROCESSING LINKS BATCH]")
+
                 # Update parent link map for next iteration
                 parent_link_map = new_parent_link_map
 
@@ -241,7 +268,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # Optional resource sorting
             if sort_resources:
                 parent_response = parent_response.sort_resources()
-
             # Prepare final response based on bundling preferences
             full_response: FhirGetResponse
             if separate_bundle_resources:
@@ -261,8 +287,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     f"start={graph_definition.start}, "
                     f"hits: {cache.cache_hits}, "
                     f"misses: {cache.cache_misses}"
+                    f"total_time: {datetime.now() - start_time} in process simulate graph async"
                 )
-
             # Yield the final response
             yield full_response
 
@@ -349,11 +375,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # Log detailed processing information
         if parameters.logger:
             parameters.logger.debug(
-                "Finished Processing link"
+                "Finished Processing link parallel function"
                 + f" | task_index: {context.task_index}/{context.total_task_count}"
                 + (f" | path: {row.path}" if row.path else f" | target: {target_resource_type}")
                 + f" | parallel_processor: {context.name}"
-                + f" | end_time: {end_time}"
                 + f" | duration: {end_time - start_time}"
                 + f" | resource_count: {len(result)}"
             )
@@ -407,11 +432,29 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         Yields:
             FhirGetResponse objects for each processed target
         """
+        def log_running_tasks(prefix: str = "") -> int:
+            """Log currently running asyncio tasks"""
+            all_tasks = asyncio.all_tasks()
+            running_tasks = [t for t in all_tasks if not t.done()]
+            task_count = len(running_tasks)
+            waiting_tasks = [t for t in running_tasks if t._coro.cr_await is not None]
+            
+            self._internal_logger.info(
+                f"{prefix} | ASYNC TASKS: Total Running={task_count} | "
+                f"all_tasks={len(all_tasks)} | waiting_tasks={len(waiting_tasks)}"
+            )
+            print(f"{prefix} | ASYNC TASKS: Total Running={task_count} | all_tasks={len(all_tasks)} | waiting_tasks={len(waiting_tasks)}")
+            
+            return task_count
+        
         # Validate input link
         assert link, "GraphDefinitionLink must be provided"
 
         if self._logger:
             self._logger.debug(f"Processing link: {link.path} ")
+
+        log_running_tasks(prefix="[PROCESS_LINK START]")
+        start_time: datetime = datetime.now()
 
         # Extract targets from the link
         targets: list[GraphDefinitionTarget] = link.target
@@ -443,6 +486,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # Yield each target response individually
             for target_response in target_responses:
                 yield target_response
+
+        end_time: datetime = datetime.now()
+        if logger:
+            logger.debug(
+                f"Finished Processing link async in {end_time - start_time} for path: {link.path}"
+            )
+        log_running_tasks(prefix="[PROCESS_LINK END]")
 
     # noinspection PyUnusedLocal
     async def process_target_async_parallel_function(
@@ -484,6 +534,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Process the target asynchronously and collect responses
         target_result: FhirGetResponse
+        start_time: datetime = datetime.now()
         async for target_result in self._process_target_async(
             # Target to process
             target=row,
@@ -513,6 +564,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # Collect each target result
             result.append(target_result)
 
+        end_time: datetime = datetime.now()
+        if parameters.logger:
+            parameters.logger.debug(f"Completed process_target_async_parallel_function for target for {row} in {end_time - start_time}")
         # Return the list of retrieved responses
         return result
 
@@ -560,6 +614,24 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         Returns:
             FhirGetResponse containing retrieved child resources
         """
+        def log_running_tasks(prefix: str = "") -> int:
+            """Log currently running asyncio tasks"""
+            all_tasks = asyncio.all_tasks()
+            running_tasks = [t for t in all_tasks if not t.done()]
+            task_count = len(running_tasks)
+            waiting_tasks = [t for t in running_tasks if t._coro.cr_await is not None]
+            
+            self._internal_logger.info(
+                f"{prefix} | ASYNC TASKS: Total Running={task_count} | "
+                f"all_tasks={len(all_tasks)} | waiting_tasks={len(waiting_tasks)}"
+            )
+            print(f"{prefix} | ASYNC TASKS: Total Running={task_count} | all_tasks={len(all_tasks)} | waiting_tasks={len(waiting_tasks)}")
+            
+            return task_count
+        
+        log_running_tasks(prefix="[PROCESS_CHILD_GROUP START]")
+
+        start_time: datetime = datetime.now()
         # Retrieve resources using async method with parameters
         (
             child_response,  # Retrieved child resources
@@ -582,6 +654,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             add_cached_bundles_to_result=add_cached_bundles_to_result,
         )
 
+        log_running_tasks(prefix="[PROCESS_CHILD_GROUP END]")
+
+        end_time: datetime = datetime.now()
         # Log detailed retrieval information if logger is available
         if logger:
             logger.info(
@@ -592,6 +667,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 + f", count:{len(child_response.get_resource_type_and_ids())}"
                 + f", cached:{cache_hits}"
                 + f", {','.join(child_response.get_resource_type_and_ids())}"
+                + f", duration:{end_time - start_time}"
             )
 
         # Return the retrieved child resources
@@ -628,6 +704,22 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param ifModifiedSince: ifModifiedSince to use
         :return: list of FhirGetResponse objects
         """
+        def log_running_tasks(prefix: str = "") -> int:
+            """Log currently running asyncio tasks"""
+            all_tasks = asyncio.all_tasks()
+            running_tasks = [t for t in all_tasks if not t.done()]
+            task_count = len(running_tasks)
+            waiting_tasks = [t for t in running_tasks if t._coro.cr_await is not None]
+            
+            self._internal_logger.info(
+                f"{prefix} | ASYNC TASKS: Total Running={task_count} | "
+                f"all_tasks={len(all_tasks)} | waiting_tasks={len(waiting_tasks)}"
+            )
+            print(f"{prefix} | ASYNC TASKS: Total Running={task_count} | all_tasks={len(all_tasks)} | waiting_tasks={len(waiting_tasks)}")
+            
+            return task_count
+        
+        start_time: datetime = datetime.now() 
         children: list[FhirBundleEntry] = []
         child_response: FhirGetResponse
         target_type: str | None = target.type_
@@ -642,6 +734,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 f" path:[{path}]"
                 f"params: {target.params}"
             )
+
+        log_running_tasks(prefix="[PROCESS_TARGET START]")
 
         # forward link and iterate over list
         if path and "[x]" in path and parent_bundle_entries:
@@ -678,6 +772,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 ):
                                     child_ids.append(reference_parts[-2])
                         if request_size and len(child_ids) == request_size:
+                            log_running_tasks(prefix="[BEFORE PROCESS_CHILD_GROUP]")
                             child_response = await self._process_child_group(
                                 resource_type=target_type,
                                 id_=child_ids,
@@ -690,11 +785,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 id_search_unsupported_resources=id_search_unsupported_resources,
                                 add_cached_bundles_to_result=add_cached_bundles_to_result,
                             )
+                            log_running_tasks(prefix="[AFTER PROCESS_CHILD_GROUP]")
                             yield child_response
                             children.extend(child_response.get_bundle_entries())
                             child_ids = []
                             parent_ids = []
             if child_ids:
+                log_running_tasks(prefix="[BEFORE FINAL_PROCESS_CHILD_GROUP]")
                 child_response = await self._process_child_group(
                     resource_type=target_type,
                     id_=child_ids,
@@ -707,6 +804,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     id_search_unsupported_resources=id_search_unsupported_resources,
                     add_cached_bundles_to_result=add_cached_bundles_to_result,
                 )
+                log_running_tasks(prefix="[AFTER FINAL_PROCESS_CHILD_GROUP]")
                 yield child_response
                 children.extend(child_response.get_bundle_entries())
         elif path and parent_bundle_entries and target_type:
@@ -733,6 +831,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 ):
                                     child_ids.append(reference_parts[-2])
                             if request_size and len(child_ids) == request_size:
+                                log_running_tasks(prefix="[BEFORE PROCESS_CHILD_GROUP]")
                                 child_response = await self._process_child_group(
                                     resource_type=target_type,
                                     id_=child_ids,
@@ -745,11 +844,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                     id_search_unsupported_resources=id_search_unsupported_resources,
                                     add_cached_bundles_to_result=add_cached_bundles_to_result,
                                 )
+                                log_running_tasks(prefix="[AFTER PROCESS_CHILD_GROUP]")
                                 yield child_response
                                 children.extend(child_response.get_bundle_entries())
                                 child_ids = []
                                 parent_ids = []
             if child_ids:
+                log_running_tasks(prefix="[BEFORE FINAL_PROCESS_CHILD_GROUP]")
                 child_response = await self._process_child_group(
                     resource_type=target_type,
                     id_=child_ids,
@@ -762,6 +863,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     id_search_unsupported_resources=id_search_unsupported_resources,
                     add_cached_bundles_to_result=add_cached_bundles_to_result,
                 )
+                log_running_tasks(prefix="[AFTER FINAL_PROCESS_CHILD_GROUP]")
                 yield child_response
                 children.extend(child_response.get_bundle_entries())
 
@@ -798,6 +900,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             parent_ids.append(parent_id)
                     if request_size and len(parent_ids) == request_size:
                         request_parameters = [f"{property_name}={','.join(parent_ids)}"] + additional_parameters
+                        log_running_tasks(prefix="[BEFORE PROCESS_CHILD_GROUP]")
                         child_response = await self._process_child_group(
                             resource_type=target_type,
                             parent_ids=parent_ids,
@@ -810,11 +913,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             id_search_unsupported_resources=id_search_unsupported_resources,
                             add_cached_bundles_to_result=add_cached_bundles_to_result,
                         )
+                        log_running_tasks(prefix="[AFTER PROCESS_CHILD_GROUP]")
                         yield child_response
                         children.extend(child_response.get_bundle_entries())
                         parent_ids = []
                 if parent_ids:
                     request_parameters = [f"{property_name}={','.join(parent_ids)}"] + additional_parameters
+                    log_running_tasks(prefix="[BEFORE FINAL_PROCESS_CHILD_GROUP]")
                     child_response = await self._process_child_group(
                         resource_type=target_type,
                         parent_ids=parent_ids,
@@ -827,10 +932,24 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         id_search_unsupported_resources=id_search_unsupported_resources,
                         add_cached_bundles_to_result=add_cached_bundles_to_result,
                     )
+                    log_running_tasks(prefix="[AFTER FINAL_PROCESS_CHILD_GROUP]")
                     yield child_response
                     children.extend(child_response.get_bundle_entries())
         if target.link:
             parent_link_map.append((target.link, children))
+
+        log_running_tasks(prefix="[PROCESS_TARGET END]")
+        end_time: datetime = datetime.now()
+        if logger:  
+            logger.debug(
+                "Finished Processing target"
+                + f" | target_type: {target_type}"
+                + f" | path: {path}"
+                + f" | start_time: {start_time}"
+                + f" | end_time: {end_time}"
+                + f" | duration: {end_time - start_time}"
+                + f" | resource_count: {len(children)}"
+            )
 
     async def _get_resources_by_id_one_by_one_async(
         self,
@@ -845,6 +964,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         result: FhirGetResponse | None = None
         non_cached_id_list: list[str] = []
         # first check to see if we can find these in the cache
+        start_time = datetime.now() 
         if ids:
             for resource_id in ids:
                 cache_entry: RequestCacheEntry | None = await cache.get_async(
@@ -905,7 +1025,17 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     )
                     if cache_updated and logger:
                         logger.info(f"Inserted {result2.status} for {resource_type}/{single_id} into cache (1by1)")
-
+        end_time = datetime.now()
+        if logger:
+            logger.info(
+                "Completed fetching resources one by one"
+                + f" | resource_type: {resource_type}"
+                + f" | ids: {ids}"
+                + f" | fetched_count: {len(non_cached_id_list)}"
+                + f" | start_time: {start_time}"
+                + f" | end_time: {end_time}"
+                + f" | duration: {end_time - start_time}"
+            )
         return result
 
     async def _get_resources_by_parameters_async(
@@ -921,7 +1051,26 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         add_cached_bundles_to_result: bool = True,
         compare_hash: bool = True,
     ) -> tuple[FhirGetResponse, int]:
+        def log_running_tasks(prefix: str = "") -> int:
+            """Log currently running asyncio tasks"""
+            all_tasks = asyncio.all_tasks()
+            running_tasks = [t for t in all_tasks if not t.done()]
+            task_count = len(running_tasks)
+            waiting_tasks = [t for t in running_tasks if t._coro.cr_await is not None]
+            
+            self._internal_logger.info(
+                f"{prefix} | ASYNC TASKS: Total Running={task_count} | "
+                f"all_tasks={len(all_tasks)} | waiting_tasks={len(waiting_tasks)}"
+            )
+            print(f"{prefix} | ASYNC TASKS: Total Running={task_count} | all_tasks={len(all_tasks)} | waiting_tasks={len(waiting_tasks)}")
+            
+            return task_count
+        
         assert resource_type
+        
+        log_running_tasks(prefix="[GET_RESOURCES_BY_PARAMS START]")
+        
+        start_time = datetime.now() 
         if not scope_parser.scope_allows(resource_type=resource_type):
             if logger:
                 logger.debug(f"Skipping resource {resource_type} due to scope")
@@ -972,6 +1121,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     non_cached_id_list.append(resource_id)
 
         all_result: FhirGetResponse | None = None
+        
+        log_running_tasks(prefix="[BEFORE HTTP FETCH]")
+        
         # either we have non-cached ids or this is a query without id but has other parameters
         if (
             (len(non_cached_id_list) > 1 and resource_type.lower() not in id_search_unsupported_resources)
@@ -1037,6 +1189,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 logger=logger,
                 compare_hash=compare_hash,
             )
+
+        log_running_tasks(prefix="[AFTER HTTP FETCH]")
 
         # This list tracks the non-cached ids that were found
         found_non_cached_id_list: list[str] = []
@@ -1130,6 +1284,20 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 storage_mode=self._storage_mode,
             )
         )
+        
+        log_running_tasks(prefix="[GET_RESOURCES_BY_PARAMS END]")
+        
+        end_time = datetime.now()
+        if logger:
+            logger.info(
+                "Completed fetching resources by parameters"
+                + f" | resource_type: {resource_type}"
+                + f" | ids: {id_}"
+                + f" | fetched_count: {len(found_non_cached_id_list)}"
+                + f" | start_time: {start_time}"
+                + f" | end_time: {end_time}"
+                + f" | duration: {end_time - start_time}"
+            )
         return bundle_response, cache.cache_hits
 
     # noinspection PyPep8Naming
