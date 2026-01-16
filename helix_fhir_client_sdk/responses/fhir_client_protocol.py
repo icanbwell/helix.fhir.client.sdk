@@ -210,3 +210,5 @@ class FhirClientProtocol(Protocol):
     ) -> AsyncGenerator[FhirMergeResourceResponse, None]:
         # this is just here to tell Python this returns a generator
         yield None  # type: ignore[misc]
+
+    def set_persistent_session(self, session: ClientSession | None) -> "FhirClientProtocol": ...
