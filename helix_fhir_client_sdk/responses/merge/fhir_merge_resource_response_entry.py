@@ -76,6 +76,36 @@ class FhirMergeResourceResponseEntry(BaseFhirMergeResourceResponseEntry):
         )
 
     @classmethod
+    def from_dict_uncompressed(cls, data: dict[str, Any]) -> "FhirMergeResourceResponseEntry":
+        """
+        Creates a FhirMergeResourceResponseEntry from a dictionary without storage_mode overhead.
+        Uses FhirResource.construct for faster object creation.
+
+        :param data: Dictionary containing the response entry data
+        :return: FhirMergeResourceResponseEntry instance
+        """
+        resource_payload = data.get("resource")
+        resource_obj: FhirResource | None = (
+            FhirResource.construct(**resource_payload) if isinstance(resource_payload, dict) else None
+        )
+        return FhirMergeResourceResponseEntry(
+            created=data.get("created"),
+            updated=data.get("updated"),
+            deleted=data.get("deleted"),
+            id_=data.get("id"),
+            uuid=data.get("uuid"),
+            resource_type=data.get("resourceType"),
+            source_assigning_authority=data.get("source_assigning_authority"),
+            resource_version=data.get("resource_version"),
+            message=data.get("message"),
+            issue=data.get("issue"),
+            error=data.get("error"),
+            token=data.get("token"),
+            resource=resource_obj,
+            status=data.get("status"),
+        )
+
+    @classmethod
     @override
     def from_json(
         cls, data: str, *, storage_mode: CompressedDictStorageMode
