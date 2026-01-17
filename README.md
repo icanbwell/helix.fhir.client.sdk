@@ -75,8 +75,45 @@ response: Optional[FhirGetResponse] = await FhirGetResponse.from_async_generator
 ```
 
 # Data Streaming
-For FHIR servers that support data streaming (e.g., b.well FHIR server), you can just set the `use_data_streaming` parameter to stream the data as it i received.
+For FHIR servers that support data streaming (e.g., b.well FHIR server), you can just set the `use_data_streaming` parameter to stream the data as it is received.
 The data will be streamed in AsyncGenerators as described above.
+
+# Persistent Sessions (Connection Reuse)
+By default, the SDK creates a new HTTP session for each request. For better performance (~4× faster), 
+you can use persistent sessions to reuse connections across multiple requests.
+
+**Important**: When you provide a custom session factory using `use_http_session()`, YOU are responsible 
+for managing the session lifecycle, including closing it when done. The SDK will NOT automatically close 
+user-provided sessions.
+
+```python
+import aiohttp
+from helix_fhir_client_sdk.fhir_client import FhirClient
+
+# Create a persistent session for connection reuse
+session = aiohttp.ClientSession()
+
+try:
+    # Configure FhirClient to use persistent session
+    fhir_client = (
+        FhirClient()
+        .url("https://fhir.example.com")
+        .resource("Patient")
+        .use_http_session(lambda: session)  # User provides session factory
+    )
+    
+    # Multiple requests reuse the same connection (~4× performance boost)
+    response1 = await fhir_client.get_async()
+    response2 = await fhir_client.clone().resource("Observation").get_async()
+    
+finally:
+    # User must close the session when done
+    await session.close()
+```
+
+**Session Lifecycle Rules**:
+- **No custom factory** (default): SDK creates and closes the session automatically
+- **Custom factory provided**: User is responsible for closing the session
 
 # Storage Compression
 The FHIR client SDK supports two types of compression:

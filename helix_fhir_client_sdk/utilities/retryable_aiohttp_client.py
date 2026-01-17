@@ -47,8 +47,30 @@ class RetryableAioHttpClient:
         access_token_expiry_date: datetime | None,
     ) -> None:
         """
-        RetryableClient provides a way to make HTTP calls with automatic retry and automatic refreshing of access tokens
+        RetryableClient provides a way to make HTTP calls with automatic retry and automatic refreshing of access tokens.
 
+        Session Lifecycle Management:
+        - If fn_get_session is None (default): The SDK creates and manages the session lifecycle.
+          The session will be automatically closed when exiting the context manager.
+        - If fn_get_session is provided: The user is responsible for managing the session lifecycle.
+          The SDK will NOT close user-provided sessions - you must close them yourself.
+
+        :param retries: Number of retry attempts for failed requests
+        :param timeout_in_seconds: Timeout for HTTP requests
+        :param backoff_factor: Factor for exponential backoff between retries
+        :param retry_status_codes: HTTP status codes that trigger a retry
+        :param refresh_token_func: Function to refresh authentication tokens
+        :param tracer_request_func: Function to trace/log requests
+        :param fn_get_session: Optional callable that returns a ClientSession. If provided,
+                               YOU are responsible for closing the session when done.
+        :param exclude_status_codes_from_retry: Status codes to exclude from retry logic
+        :param use_data_streaming: Whether to stream response data
+        :param compress: Whether to compress request data
+        :param send_data_as_chunked: Whether to use chunked transfer encoding
+        :param throw_exception_on_error: Whether to raise exceptions on HTTP errors
+        :param log_all_url_results: Whether to log all URL results
+        :param access_token: Access token for authentication
+        :param access_token_expiry_date: Expiry date of the access token
         """
         self.retries: int = retries
         self.timeout_in_seconds: float | None = timeout_in_seconds
@@ -58,6 +80,7 @@ class RetryableAioHttpClient:
         )
         self.refresh_token_func_async: RefreshTokenFunction | None = refresh_token_func
         self.trace_function_async: TraceRequestFunction | None = tracer_request_func
+        self._user_provided_session_factory: bool = fn_get_session is not None
         self.fn_get_session: Callable[[], ClientSession] = (
             fn_get_session if fn_get_session is not None else lambda: ClientSession()
         )
@@ -81,7 +104,9 @@ class RetryableAioHttpClient:
         exc_val: BaseException | None,
         exc_tb: type[BaseException] | None | None,
     ) -> None:
-        if self.session is not None:
+        # Only close the session if we created it internally (user didn't provide a factory)
+        # If the user provided fn_get_session, they are responsible for the session lifecycle
+        if not self._user_provided_session_factory and self.session is not None:
             await self.session.close()
 
     @staticmethod

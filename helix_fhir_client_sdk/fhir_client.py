@@ -488,6 +488,37 @@ class FhirClient(
         implementation. This allows for custom session management, connection pooling,
         or persistent session support.
 
+        **Important**: When you provide a custom session factory, YOU are responsible
+        for managing the session lifecycle, including closing it when done. The SDK
+        will NOT automatically close user-provided sessions.
+
+        Example with a persistent session for connection reuse (~4× performance boost):
+
+        .. code-block:: python
+
+            import aiohttp
+            from helix_fhir_client_sdk.fhir_client import FhirClient
+
+            # Create persistent session
+            session = aiohttp.ClientSession()
+
+            try:
+                # Configure FhirClient to use persistent session
+                fhir_client = (
+                    FhirClient()
+                    .url("http://fhir.example.com")
+                    .resource("Patient")
+                    .use_http_session(lambda: session)  # User provides session
+                )
+
+                # Multiple requests reuse the same connection
+                response1 = await fhir_client.get_async()
+                response2 = await fhir_client.clone().resource("Observation").get_async()
+
+            finally:
+                # User must close the session when done
+                await session.close()
+
         :param fn_create_http_session: callable that returns a ClientSession, or None to use default
         """
         self._fn_create_http_session = fn_create_http_session
