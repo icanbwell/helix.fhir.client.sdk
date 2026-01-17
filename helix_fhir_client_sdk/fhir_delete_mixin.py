@@ -21,6 +21,7 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
 
 TRACER = trace.get_tracer(__name__)
 
+
 class FhirDeleteMixin(FhirClientProtocol):
     async def delete_async(self) -> FhirDeleteResponse:
         """
@@ -87,7 +88,6 @@ class FhirDeleteMixin(FhirClientProtocol):
                 span.record_exception(e)
                 span.set_status(Status(StatusCode.ERROR, str(e)))
                 raise
-
 
     def delete(self) -> FhirDeleteResponse:
         """

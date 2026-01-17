@@ -24,6 +24,7 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
 
 TRACER = trace.get_tracer(__name__)
 
+
 class FhirPatchMixin(FhirClientProtocol):
     async def send_patch_request_async(self, data: str) -> FhirUpdateResponse:
         """

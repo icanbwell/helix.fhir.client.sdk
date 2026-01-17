@@ -36,6 +36,7 @@ from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValid
 
 TRACER = trace.get_tracer(__name__)
 
+
 class FhirMergeMixin(FhirClientProtocol):
     async def validate_content(
         self,
@@ -144,7 +145,9 @@ class FhirMergeMixin(FhirClientProtocol):
                     headers["Authorization"] = f"Bearer {access_token}"
 
                 try:
-                    resource_json_list_incoming: list[dict[str, Any]] = [json.loads(json_data) for json_data in json_data_list]
+                    resource_json_list_incoming: list[dict[str, Any]] = [
+                        json.loads(json_data) for json_data in json_data_list
+                    ]
                     resource_json_list_clean: list[dict[str, Any]]
                     errors: list[dict[str, Any]] = []
                     if self._validation_server_url:
@@ -206,7 +209,9 @@ class FhirMergeMixin(FhirClientProtocol):
                                         response_text = await response.get_text_async()
                                         if response_text:
                                             try:
-                                                raw_response: list[dict[str, Any]] | dict[str, Any] = json.loads(response_text)
+                                                raw_response: list[dict[str, Any]] | dict[str, Any] = json.loads(
+                                                    response_text
+                                                )
                                                 if isinstance(raw_response, list):
                                                     responses = raw_response
                                                 else:
@@ -225,7 +230,9 @@ class FhirMergeMixin(FhirClientProtocol):
                                             json_data=json_payload,
                                         )
                                     else:  # other HTTP errors
-                                        self._internal_logger.info(f"POST response for {resource_uri.url}: {response.status}")
+                                        self._internal_logger.info(
+                                            f"POST response for {resource_uri.url}: {response.status}"
+                                        )
                                         response_text = await response.get_text_async()
                                         yield FhirMergeResponse(
                                             request_id=request_id,
