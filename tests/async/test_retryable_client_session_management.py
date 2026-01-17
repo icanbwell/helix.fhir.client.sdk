@@ -114,7 +114,7 @@ async def test_multiple_clients_can_share_user_session() -> None:
 
 @pytest.mark.asyncio
 async def test_user_can_recreate_closed_session_via_factory() -> None:
-    """Test that user's factory can be called multiple times if session gets closed"""
+    """Test that a user's factory can be called multiple times if session gets closed"""
     call_count = 0
 
     def session_factory() -> aiohttp.ClientSession:
