@@ -3,7 +3,11 @@ from collections.abc import AsyncGenerator
 from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from furl import furl
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
+from helix_fhir_client_sdk.open_telemetry.attribute_names import FhirClientSdkOpenTelemetryAttributeNames
+from helix_fhir_client_sdk.open_telemetry.span_names import FhirClientSdkOpenTelemetrySpanNames
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_update_response import FhirUpdateResponse
 from helix_fhir_client_sdk.structures.get_access_token_result import (
@@ -14,6 +18,8 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
 )
 from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValidator
+
+TRACER = trace.get_tracer(__name__)
 
 
 class FhirUpdateMixin(FhirClientProtocol):
@@ -69,60 +75,69 @@ class FhirUpdateMixin(FhirClientProtocol):
             raise ValueError("update should have only one id")
         if not self._resource:
             raise ValueError("update requires a FHIR resource type")
-        full_uri: furl = furl(self._url)
-        full_uri /= self._resource
-        full_uri /= id_ or self._id
-        # set up headers
-        headers = {"Content-Type": "application/fhir+json"}
-        headers.update(self._additional_request_headers)
-        self._internal_logger.debug(f"Request headers: {headers}")
 
-        access_token_result: GetAccessTokenResult = await self.get_access_token_async()
-        access_token: str | None = access_token_result.access_token
-        # set access token in request if present
-        if access_token:
-            headers["Authorization"] = f"Bearer {access_token}"
+        with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.UPDATE) as span:
+            span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.URL, self._url or "")
+            span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.RESOURCE, self._resource or "")
+            try:
+                full_uri: furl = furl(self._url)
+                full_uri /= self._resource
+                full_uri /= id_ or self._id
+                # set up headers
+                headers = {"Content-Type": "application/fhir+json"}
+                headers.update(self._additional_request_headers)
+                self._internal_logger.debug(f"Request headers: {headers}")
 
-        if self._validation_server_url:
-            await AsyncFhirValidator.validate_fhir_resource(
-                fn_get_session=lambda: self.create_http_session(),
-                json_data=json_data,
-                resource_name=self._resource,
-                validation_server_url=self._validation_server_url,
-                access_token=access_token,
-            )
+                access_token_result: GetAccessTokenResult = await self.get_access_token_async()
+                access_token: str | None = access_token_result.access_token
+                # set access token in request if present
+                if access_token:
+                    headers["Authorization"] = f"Bearer {access_token}"
 
-        # actually make the request
-        async with RetryableAioHttpClient(
-            fn_get_session=lambda: self.create_http_session(),
-            refresh_token_func=self._refresh_token_function,
-            tracer_request_func=self._trace_request_function,
-            retries=self._retry_count,
-            exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
-            use_data_streaming=self._use_data_streaming,
-            send_data_as_chunked=self._send_data_as_chunked,
-            compress=self._compress,
-            throw_exception_on_error=self._throw_exception_on_error,
-            log_all_url_results=self._log_all_response_urls,
-            access_token=self._access_token,
-            access_token_expiry_date=self._access_token_expiry_date,
-        ) as client:
-            response = await client.put(url=full_uri.url, data=json_data, headers=headers)
-            request_id = response.response_headers.get("X-Request-ID", None)
-            self._internal_logger.debug(f"X-Request-ID={request_id}")
-            if response.status == 200:
-                if self._logger:
-                    self._logger.info(f"Successfully updated: {full_uri}")
+                if self._validation_server_url:
+                    await AsyncFhirValidator.validate_fhir_resource(
+                        fn_get_session=lambda: self.create_http_session(),
+                        json_data=json_data,
+                        resource_name=self._resource,
+                        validation_server_url=self._validation_server_url,
+                        access_token=access_token,
+                    )
 
-            return FhirUpdateResponse(
-                request_id=request_id,
-                url=full_uri.tostr(),
-                responses=await response.get_text_async(),
-                error=f"{response.status}" if not response.status == 200 else None,
-                access_token=access_token,
-                status=response.status,
-                resource_type=self._resource,
-            )
+                # actually make the request
+                async with RetryableAioHttpClient(
+                    fn_get_session=lambda: self.create_http_session(),
+                    refresh_token_func=self._refresh_token_function,
+                    tracer_request_func=self._trace_request_function,
+                    retries=self._retry_count,
+                    exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
+                    use_data_streaming=self._use_data_streaming,
+                    send_data_as_chunked=self._send_data_as_chunked,
+                    compress=self._compress,
+                    throw_exception_on_error=self._throw_exception_on_error,
+                    log_all_url_results=self._log_all_response_urls,
+                    access_token=self._access_token,
+                    access_token_expiry_date=self._access_token_expiry_date,
+                ) as client:
+                    response = await client.put(url=full_uri.url, data=json_data, headers=headers)
+                    request_id = response.response_headers.get("X-Request-ID", None)
+                    self._internal_logger.debug(f"X-Request-ID={request_id}")
+                    if response.status == 200:
+                        if self._logger:
+                            self._logger.info(f"Successfully updated: {full_uri}")
+
+                    return FhirUpdateResponse(
+                        request_id=request_id,
+                        url=full_uri.tostr(),
+                        responses=await response.get_text_async(),
+                        error=f"{response.status}" if not response.status == 200 else None,
+                        access_token=access_token,
+                        status=response.status,
+                        resource_type=self._resource,
+                    )
+            except Exception as e:
+                span.record_exception(e)
+                span.set_status(Status(StatusCode.ERROR, str(e)))
+                raise
 
     def update(self, json_data: str) -> FhirUpdateResponse:
         """
