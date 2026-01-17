@@ -2,6 +2,8 @@ import json
 import time
 
 from furl import furl
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.open_telemetry.attribute_names import FhirClientSdkOpenTelemetryAttributeNames
@@ -19,8 +21,6 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
-from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
 
 TRACER = trace.get_tracer(__name__)
 

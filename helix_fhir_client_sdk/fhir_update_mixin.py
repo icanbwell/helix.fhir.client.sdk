@@ -3,6 +3,8 @@ from collections.abc import AsyncGenerator
 from compressedfhir.fhir.fhir_resource import FhirResource
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from furl import furl
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 from helix_fhir_client_sdk.open_telemetry.attribute_names import FhirClientSdkOpenTelemetryAttributeNames
 from helix_fhir_client_sdk.open_telemetry.span_names import FhirClientSdkOpenTelemetrySpanNames
@@ -16,8 +18,6 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
 )
 from helix_fhir_client_sdk.validators.async_fhir_validator import AsyncFhirValidator
-from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
 
 TRACER = trace.get_tracer(__name__)
 

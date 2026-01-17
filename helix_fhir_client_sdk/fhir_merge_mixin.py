@@ -1,7 +1,5 @@
 import json
 import time
-from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
 from collections.abc import AsyncGenerator, Generator
 from typing import (
     Any,
@@ -10,6 +8,8 @@ from typing import (
 
 import requests
 from furl import furl
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
