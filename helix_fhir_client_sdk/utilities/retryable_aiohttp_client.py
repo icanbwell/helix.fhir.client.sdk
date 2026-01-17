@@ -52,8 +52,8 @@ class RetryableAioHttpClient:
         Session Lifecycle Management:
         - If fn_get_session is None (default): The SDK creates and manages the session lifecycle.
           The session will be automatically closed when exiting the context manager.
-        - If fn_get_session is provided: The user is responsible for managing the session lifecycle.
-          The SDK will NOT close user-provided sessions - you must close them yourself.
+        - If fn_get_session is provided: The caller is responsible for managing the session lifecycle.
+          The SDK will NOT close the session - the caller must close it themselves.
 
         :param retries: Number of retry attempts for failed requests
         :param timeout_in_seconds: Timeout for HTTP requests
@@ -62,7 +62,7 @@ class RetryableAioHttpClient:
         :param refresh_token_func: Function to refresh authentication tokens
         :param tracer_request_func: Function to trace/log requests
         :param fn_get_session: Optional callable that returns a ClientSession. If provided,
-                               YOU are responsible for closing the session when done.
+                               the caller is responsible for closing the session.
         :param exclude_status_codes_from_retry: Status codes to exclude from retry logic
         :param use_data_streaming: Whether to stream response data
         :param compress: Whether to compress request data
@@ -80,7 +80,8 @@ class RetryableAioHttpClient:
         )
         self.refresh_token_func_async: RefreshTokenFunction | None = refresh_token_func
         self.trace_function_async: TraceRequestFunction | None = tracer_request_func
-        self._user_provided_session_factory: bool = fn_get_session is not None
+        # Automatically determine if a session is caller-managed based on whether fn_get_session is provided
+        self._caller_managed_session: bool = fn_get_session is not None
         self.fn_get_session: Callable[[], ClientSession] = (
             fn_get_session if fn_get_session is not None else lambda: ClientSession()
         )
@@ -104,9 +105,9 @@ class RetryableAioHttpClient:
         exc_val: BaseException | None,
         exc_tb: type[BaseException] | None | None,
     ) -> None:
-        # Only close the session if we created it internally (user didn't provide a factory)
-        # If the user provided fn_get_session, they are responsible for the session lifecycle
-        if not self._user_provided_session_factory and self.session is not None:
+        # Only close the session if SDK created it (fn_get_session was not provided)
+        # If the caller provided fn_get_session, they are responsible for closing the session
+        if not self._caller_managed_session and self.session is not None:
             await self.session.close()
 
     @staticmethod
@@ -140,7 +141,7 @@ class RetryableAioHttpClient:
             try:
                 if headers:
                     kwargs["headers"] = headers
-                # if there is no data then remove from kwargs so as not to confuse aiohttp
+                # if there is no data, then remove from kwargs so as not to confuse aiohttp
                 if "data" in kwargs and kwargs["data"] is None:
                     del kwargs["data"]
                 # compression and chunked can only be enabled if there is content sent
@@ -424,7 +425,7 @@ class RetryableAioHttpClient:
         if retry_after_text:
             # noinspection PyBroadException
             try:
-                if retry_after_text.isnumeric():  # it is number of seconds
+                if retry_after_text.isnumeric():  # it is a number of seconds
                     await asyncio.sleep(int(retry_after_text))
                 else:
                     wait_till: datetime = datetime.strptime(retry_after_text, "%a, %d %b %Y %H:%M:%S GMT")
@@ -438,7 +439,7 @@ class RetryableAioHttpClient:
                     if time_diff > 0:
                         await asyncio.sleep(time_diff)
             except Exception:
-                # if there was some exception parsing the Retry-After header, sleep for 60 seconds
+                # if there was some exception, parsing the Retry-After header, sleep for 60 seconds
                 await asyncio.sleep(60)
         else:
             await asyncio.sleep(60)
