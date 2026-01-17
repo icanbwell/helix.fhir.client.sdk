@@ -299,7 +299,8 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                 response_text: str | None = None
                 try:
                     async with RetryableAioHttpClient(
-                        fn_get_session=lambda: self.create_http_session(),
+                        fn_get_session=self._fn_create_http_session or self.create_http_session,
+                        caller_managed_session=self._fn_create_http_session is not None,
                         refresh_token_func=self._refresh_token_function,
                         tracer_request_func=self._trace_request_function,
                         retries=self._retry_count,
@@ -515,7 +516,8 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                     response_text: str | None = None
                     try:
                         async with RetryableAioHttpClient(
-                            fn_get_session=lambda: self.create_http_session(),
+                            fn_get_session=self._fn_create_http_session or self.create_http_session,
+                            caller_managed_session=self._fn_create_http_session is not None,
                             refresh_token_func=self._refresh_token_function,
                             tracer_request_func=self._trace_request_function,
                             retries=self._retry_count,
@@ -675,11 +677,12 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                     access_token: str | None = access_token_result.access_token
 
                     await AsyncFhirValidator.validate_fhir_resource(
-                        fn_get_session=lambda: self.create_http_session(),
+                        fn_get_session=self._fn_create_http_session or self.create_http_session,
                         json_data=resource.json(),
                         resource_name=cast(str | None, resource.get("resourceType")) or self._resource or "",
                         validation_server_url=self._validation_server_url,
                         access_token=access_token,
+                        caller_managed_session=self._fn_create_http_session is not None,
                     )
                     resource_json_list_clean.append(resource)
             except FhirValidationException as e:
@@ -700,11 +703,12 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                 try:
                     with resource.transaction():
                         await AsyncFhirValidator.validate_fhir_resource(
-                            fn_get_session=lambda: self.create_http_session(),
+                            fn_get_session=self._fn_create_http_session or self.create_http_session,
                             json_data=resource.json(),
                             resource_name=resource.get("resourceType") or self._resource or "",
                             validation_server_url=self._validation_server_url,
                             access_token=access_token1,
+                            caller_managed_session=self._fn_create_http_session is not None,
                         )
                         resource_json_list_clean.append(resource)
                 except FhirValidationException as e:

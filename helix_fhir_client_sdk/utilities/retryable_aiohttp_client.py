@@ -37,6 +37,7 @@ class RetryableAioHttpClient:
         refresh_token_func: RefreshTokenFunction | None,
         tracer_request_func: TraceRequestFunction | None,
         fn_get_session: Callable[[], ClientSession] | None = None,
+        caller_managed_session: bool = False,
         exclude_status_codes_from_retry: list[int] | None = None,
         use_data_streaming: bool | None,
         compress: bool | None = False,
@@ -50,9 +51,9 @@ class RetryableAioHttpClient:
         RetryableClient provides a way to make HTTP calls with automatic retry and automatic refreshing of access tokens.
 
         Session Lifecycle Management:
-        - If fn_get_session is None (default): The SDK creates and manages the session lifecycle.
+        - If caller_managed_session is False (default): The SDK manages the session lifecycle.
           The session will be automatically closed when exiting the context manager.
-        - If fn_get_session is provided: The caller is responsible for managing the session lifecycle.
+        - If caller_managed_session is True: The caller is responsible for managing the session lifecycle.
           The SDK will NOT close the session - the caller must close it themselves.
 
         :param retries: Number of retry attempts for failed requests
@@ -61,8 +62,10 @@ class RetryableAioHttpClient:
         :param retry_status_codes: HTTP status codes that trigger a retry
         :param refresh_token_func: Function to refresh authentication tokens
         :param tracer_request_func: Function to trace/log requests
-        :param fn_get_session: Optional callable that returns a ClientSession. If provided,
-                               the caller is responsible for closing the session.
+        :param fn_get_session: Optional callable that returns a ClientSession. If None, a basic
+                               ClientSession will be created internally.
+        :param caller_managed_session: If True, the caller is responsible for closing the session.
+                                       If False (default), the SDK will close the session on exit.
         :param exclude_status_codes_from_retry: Status codes to exclude from retry logic
         :param use_data_streaming: Whether to stream response data
         :param compress: Whether to compress request data
@@ -80,8 +83,8 @@ class RetryableAioHttpClient:
         )
         self.refresh_token_func_async: RefreshTokenFunction | None = refresh_token_func
         self.trace_function_async: TraceRequestFunction | None = tracer_request_func
-        # Automatically determine if a session is caller-managed based on whether fn_get_session is provided
-        self._caller_managed_session: bool = fn_get_session is not None
+        self._caller_managed_session: bool = caller_managed_session
+        # If no session factory provided, use a default one that creates a basic ClientSession
         self.fn_get_session: Callable[[], ClientSession] = (
             fn_get_session if fn_get_session is not None else lambda: ClientSession()
         )

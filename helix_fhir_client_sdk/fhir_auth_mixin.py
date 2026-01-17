@@ -170,7 +170,8 @@ class FhirAuthMixin(FhirClientProtocol):
         :return: auth server url or None
         """
         async with RetryableAioHttpClient(
-            fn_get_session=lambda: self.create_http_session(),
+            fn_get_session=self._fn_create_http_session or self.create_http_session,
+            caller_managed_session=self._fn_create_http_session is not None,
             exclude_status_codes_from_retry=[404],
             throw_exception_on_error=False,
             use_data_streaming=False,
@@ -272,7 +273,8 @@ class FhirAuthMixin(FhirClientProtocol):
         }
 
         async with RetryableAioHttpClient(
-            fn_get_session=lambda: self.create_http_session(),
+            fn_get_session=self._fn_create_http_session or self.create_http_session,
+            caller_managed_session=self._fn_create_http_session is not None,
             use_data_streaming=False,
             compress=False,
             exclude_status_codes_from_retry=None,

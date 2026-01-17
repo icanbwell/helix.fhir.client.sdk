@@ -42,12 +42,13 @@ async def test_user_provided_session_is_not_closed_after_exit() -> None:
 
     try:
         # Provide a factory that returns the user's session
-        # Since fn_get_session is provided, SDK will NOT close the session
+        # Set caller_managed_session=True so SDK will NOT close the session
         client = RetryableAioHttpClient(
             retries=1,
             refresh_token_func=None,
             tracer_request_func=None,
             fn_get_session=lambda: user_session,  # User provides a custom factory
+            caller_managed_session=True,  # User manages session lifecycle
             use_data_streaming=False,
             access_token=None,
             access_token_expiry_date=None,
@@ -59,7 +60,7 @@ async def test_user_provided_session_is_not_closed_after_exit() -> None:
             assert not client.session.closed
 
         # After exiting context, the user's session should still be open
-        # because fn_get_session was provided (caller manages session lifecycle)
+        # because caller_managed_session=True (caller manages session lifecycle)
         assert not user_session.closed
 
     finally:
@@ -81,6 +82,7 @@ async def test_multiple_clients_can_share_user_session() -> None:
             refresh_token_func=None,
             tracer_request_func=None,
             fn_get_session=lambda: shared_session,
+            caller_managed_session=True,  # User manages session lifecycle
             use_data_streaming=False,
             access_token=None,
             access_token_expiry_date=None,
@@ -97,6 +99,7 @@ async def test_multiple_clients_can_share_user_session() -> None:
             refresh_token_func=None,
             tracer_request_func=None,
             fn_get_session=lambda: shared_session,
+            caller_managed_session=True,  # User manages session lifecycle
             use_data_streaming=False,
             access_token=None,
             access_token_expiry_date=None,
@@ -132,6 +135,7 @@ async def test_user_can_recreate_closed_session_via_factory() -> None:
             refresh_token_func=None,
             tracer_request_func=None,
             fn_get_session=session_factory,
+            caller_managed_session=True,  # User manages session lifecycle
             use_data_streaming=False,
             access_token=None,
             access_token_expiry_date=None,
@@ -140,7 +144,7 @@ async def test_user_can_recreate_closed_session_via_factory() -> None:
             created_sessions.append(client1.session)
             assert call_count == 1  # Factory called once in __aenter__
 
-        # SDK doesn't close session (caller provided fn_get_session)
+        # SDK doesn't close session (caller_managed_session=True)
         assert created_sessions[0] is not None
         assert not created_sessions[0].closed
 

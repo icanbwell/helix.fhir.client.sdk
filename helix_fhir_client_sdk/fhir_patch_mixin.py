@@ -71,7 +71,8 @@ class FhirPatchMixin(FhirClientProtocol):
                     deserialized_data = json.loads(data)
                     # actually make the request
                     async with RetryableAioHttpClient(
-                        fn_get_session=lambda: self.create_http_session(),
+                        fn_get_session=self._fn_create_http_session or self.create_http_session,
+                        caller_managed_session=self._fn_create_http_session is not None,
                         refresh_token_func=self._refresh_token_function,
                         tracer_request_func=self._trace_request_function,
                         retries=self._retry_count,
