@@ -846,16 +846,13 @@ class FhirClient(
 
     def create_http_session(self) -> ClientSession:
         """
-        Creates an HTTP Session.
+        Creates the SDK's default HTTP Session.
 
-        If a custom session factory was set via use_http_session(), it will be used.
-        Otherwise, creates a default aiohttp ClientSession with standard configuration.
+        This method always creates a new aiohttp ClientSession with standard configuration.
+        The SDK manages the lifecycle of sessions created by this method.
+
+        Note: If you want to provide your own session factory, use use_http_session() instead.
         """
-        # Use a custom session factory if provided
-        if self._fn_create_http_session is not None:
-            return self._fn_create_http_session()
-
-        # Default implementation
         trace_config = aiohttp.TraceConfig()
         # trace_config.on_request_start.append(on_request_start)
         if self._log_level == "DEBUG":

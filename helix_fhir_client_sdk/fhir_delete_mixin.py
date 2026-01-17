@@ -56,7 +56,8 @@ class FhirDeleteMixin(FhirClientProtocol):
                     headers["Authorization"] = f"Bearer {access_token}"
 
                 async with RetryableAioHttpClient(
-                    fn_get_session=lambda: self.create_http_session(),
+                    fn_get_session=self._fn_create_http_session or self.create_http_session,
+                    caller_managed_session=self._fn_create_http_session is not None,
                     refresh_token_func=self._refresh_token_function,
                     retries=self._retry_count,
                     exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
@@ -129,7 +130,8 @@ class FhirDeleteMixin(FhirClientProtocol):
             headers["Authorization"] = f"Bearer {access_token}"
 
         async with RetryableAioHttpClient(
-            fn_get_session=lambda: self.create_http_session(),
+            fn_get_session=self._fn_create_http_session or self.create_http_session,
+            caller_managed_session=self._fn_create_http_session is not None,
             refresh_token_func=self._refresh_token_function,
             retries=self._retry_count,
             exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,

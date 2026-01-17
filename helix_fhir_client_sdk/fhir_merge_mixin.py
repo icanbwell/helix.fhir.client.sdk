@@ -54,7 +54,7 @@ class FhirMergeMixin(FhirClientProtocol):
                 access_token: str | None = access_token_result.access_token
 
                 await AsyncFhirValidator.validate_fhir_resource(
-                    fn_get_session=lambda: self.create_http_session(),
+                    fn_get_session=self._fn_create_http_session or self.create_http_session,
                     json_data=json.dumps(resource_json),
                     resource_name=cast(str | None, resource_json.get("resourceType")) or self._resource or "",
                     validation_server_url=self._validation_server_url,
@@ -75,7 +75,7 @@ class FhirMergeMixin(FhirClientProtocol):
                     access_token_result1: GetAccessTokenResult = await self.get_access_token_async()
                     access_token1: str | None = access_token_result1.access_token
                     await AsyncFhirValidator.validate_fhir_resource(
-                        fn_get_session=lambda: self.create_http_session(),
+                        fn_get_session=self._fn_create_http_session or self.create_http_session,
                         json_data=json.dumps(resource_json),
                         resource_name=resource_json.get("resourceType") or self._resource or "",
                         validation_server_url=self._validation_server_url,
@@ -183,7 +183,8 @@ class FhirMergeMixin(FhirClientProtocol):
                             response_text: str | None = None
                             try:
                                 async with RetryableAioHttpClient(
-                                    fn_get_session=lambda: self.create_http_session(),
+                                    fn_get_session=self._fn_create_http_session or self.create_http_session,
+                                    caller_managed_session=self._fn_create_http_session is not None,
                                     refresh_token_func=self._refresh_token_function,
                                     tracer_request_func=self._trace_request_function,
                                     retries=self._retry_count,
