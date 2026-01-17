@@ -682,6 +682,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                         resource_name=cast(str | None, resource.get("resourceType")) or self._resource or "",
                         validation_server_url=self._validation_server_url,
                         access_token=access_token,
+                        caller_managed_session=self._fn_create_http_session is not None,
                     )
                     resource_json_list_clean.append(resource)
             except FhirValidationException as e:
@@ -707,6 +708,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                             resource_name=resource.get("resourceType") or self._resource or "",
                             validation_server_url=self._validation_server_url,
                             access_token=access_token1,
+                            caller_managed_session=self._fn_create_http_session is not None,
                         )
                         resource_json_list_clean.append(resource)
                 except FhirValidationException as e:

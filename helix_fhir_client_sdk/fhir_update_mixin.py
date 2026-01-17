@@ -101,6 +101,7 @@ class FhirUpdateMixin(FhirClientProtocol):
                         resource_name=self._resource,
                         validation_server_url=self._validation_server_url,
                         access_token=access_token,
+                        caller_managed_session=self._fn_create_http_session is not None,
                     )
 
                 # actually make the request
