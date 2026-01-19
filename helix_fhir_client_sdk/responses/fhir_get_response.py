@@ -170,9 +170,8 @@ class FhirGetResponse:
         """
         result: FhirGetResponse = self._extend(others=others)
 
-        latest_chunk_number: list[int] = sorted([o.chunk_number for o in others if o.chunk_number], reverse=True)
-        if len(latest_chunk_number) > 0:
-            result.chunk_number = latest_chunk_number[0]
+        if others and others[-1].chunk_number:
+            result.chunk_number = others[-1].chunk_number
         return result
 
     @abstractmethod

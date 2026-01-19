@@ -1,4 +1,5 @@
 import json
+import time
 from abc import ABC
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
@@ -123,6 +124,15 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         Yields:
             FhirGetResponse objects representing retrieved resources
         """
+
+        profiling: dict[str, Any] = {
+            "function": "process_simulate_graph_async",
+            "start_time": time.perf_counter(),
+            "steps": {},
+            "extend_calls": [],
+            "append_calls": [],
+        }
+
         # Validate graph definition input
         assert graph_json, "Graph JSON must be provided"
         graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
@@ -158,6 +168,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         cache: RequestCache = input_cache if input_cache is not None else RequestCache()
         async with cache:
             # Retrieve start resources based on graph definition
+            step_start = time.perf_counter()
             start: str = graph_definition.start
             parent_response: FhirGetResponse
             cache_hits: int
@@ -171,10 +182,18 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 add_cached_bundles_to_result=add_cached_bundles_to_result,
                 compare_hash=compare_hash,
             )
+            profiling["steps"]["get_start_resources"] = time.perf_counter() - step_start
 
             # If no parent resources found, yield empty response and exit
             parent_response_resource_count = parent_response.get_resource_count()
             if parent_response_resource_count == 0:
+                profiling["total_time"] = time.perf_counter() - profiling["start_time"]
+                if logger:
+                    logger.info(
+                        f"[PROFILING] process_simulate_graph_async: total={profiling['total_time']:.3f}s, "
+                        f"get_start_resources={profiling['steps'].get('get_start_resources', 0):.3f}s, "
+                        f"no parent resources found"
+                    )
                 yield parent_response
                 return  # no resources to process
 
@@ -196,6 +215,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 )
 
             # now process the graph links
+            step_start = time.perf_counter()
             child_responses: list[FhirGetResponse] = []
             parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
 
@@ -204,6 +224,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 parent_link_map.append((graph_definition.link, parent_bundle_entries))
 
             # Process graph links in parallel
+            link_processing_count = 0
             while len(parent_link_map):
                 new_parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
 
@@ -230,19 +251,38 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         add_cached_bundles_to_result=add_cached_bundles_to_result,
                         ifModifiedSince=ifModifiedSince,
                     ):
+                        # Track extend operation
+                        extend_start = time.perf_counter()
                         child_responses.extend(link_responses)
+                        extend_time = time.perf_counter() - extend_start
+                        profiling["extend_calls"].append(
+                            {"location": "child_responses.extend", "count": len(link_responses), "time": extend_time}
+                        )
+                        link_processing_count += 1
 
                 # Update parent link map for next iteration
                 parent_link_map = new_parent_link_map
 
+            profiling["steps"]["process_graph_links"] = time.perf_counter() - step_start
+            profiling["steps"]["link_processing_iterations"] = link_processing_count
+
             # Combine and process responses
+            step_start = time.perf_counter()
             parent_response = cast(FhirGetBundleResponse, parent_response.extend(child_responses))
+            extend_time = time.perf_counter() - step_start
+            profiling["steps"]["parent_response.extend"] = extend_time
+            profiling["extend_calls"].append(
+                {"location": "parent_response.extend", "count": len(child_responses), "time": extend_time}
+            )
 
             # Optional resource sorting
             if sort_resources:
+                step_start = time.perf_counter()
                 parent_response = parent_response.sort_resources()
+                profiling["steps"]["sort_resources"] = time.perf_counter() - step_start
 
             # Prepare final response based on bundling preferences
+            step_start = time.perf_counter()
             full_response: FhirGetResponse
             if separate_bundle_resources:
                 full_response = FhirGetListByResourceTypeResponse.from_response(other_response=parent_response)
@@ -250,9 +290,37 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 full_response = FhirGetListResponse.from_response(other_response=parent_response)
             else:
                 full_response = parent_response
+            profiling["steps"]["prepare_final_response"] = time.perf_counter() - step_start
 
             # Set response URL
             full_response.url = url or parent_response.url
+
+            # Calculate profiling summary
+            profiling["total_time"] = time.perf_counter() - profiling["start_time"]
+            total_extend_time = sum(call["time"] for call in profiling["extend_calls"])
+            total_extend_count = sum(call["count"] for call in profiling["extend_calls"])
+
+            # Log profiling information
+            if logger:
+                logger.info(
+                    f"[PROFILING] process_simulate_graph_async for id={id_}: "
+                    f"total={profiling['total_time']:.3f}s, "
+                    f"get_start_resources={profiling['steps'].get('get_start_resources', 0):.3f}s, "
+                    f"process_graph_links={profiling['steps'].get('process_graph_links', 0):.3f}s, "
+                    f"parent_response.extend={profiling['steps'].get('parent_response.extend', 0):.3f}s, "
+                    f"sort_resources={profiling['steps'].get('sort_resources', 0):.3f}s, "
+                    f"prepare_final_response={profiling['steps'].get('prepare_final_response', 0):.3f}s"
+                )
+                logger.info(
+                    f"[PROFILING] process_simulate_graph_async extend operations: "
+                    f"total_calls={len(profiling['extend_calls'])}, "
+                    f"total_items={total_extend_count}, "
+                    f"total_time={total_extend_time:.3f}s"
+                )
+                for call in profiling["extend_calls"]:
+                    logger.info(
+                        f"[PROFILING]   extend at {call['location']}: items={call['count']}, time={call['time']:.3f}s"
+                    )
 
             # Log cache performance
             if logger:
@@ -276,26 +344,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
     ) -> list[FhirGetResponse]:
         """
         Parallel processing function for graph definition links.
-
-        This method is designed to be used with AsyncParallelProcessor to process
-        graph links concurrently, improving performance for complex FHIR resource
-        graph traversals.
-
-        Key Responsibilities:
-        - Process individual graph links in parallel
-        - Track and log processing details
-        - Handle resource retrieval for each link
-        - Manage parallel processing context
-
-        Args:
-            context: Parallel processing context information
-            row: Current GraphDefinitionLink being processed
-            parameters: Parameters for link processing
-            additional_parameters: Extra parameters for extended processing
-
-        Returns:
-            List of FhirGetResponse objects retrieved during link processing
         """
+        profiling_start = time.perf_counter()
+
         # Record the start time for performance tracking
         start_time: datetime = datetime.now()
 
@@ -326,11 +377,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             logger=parameters.logger,
             cache=parameters.cache,
             scope_parser=parameters.scope_parser,
-            # Handle parent link map from additional parameters
             parent_link_map=(additional_parameters["parent_link_map"] if additional_parameters else []),
-            # Determine request size, default to 1 if not specified
             request_size=(additional_parameters["request_size"] if additional_parameters else 1),
-            # Track unsupported resources for ID-based search
             id_search_unsupported_resources=(
                 additional_parameters["id_search_unsupported_resources"] if additional_parameters else []
             ),
@@ -346,6 +394,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # Record end time for performance tracking
         end_time: datetime = datetime.now()
 
+        total_time = time.perf_counter() - profiling_start
+
         # Log detailed processing information
         if parameters.logger:
             parameters.logger.debug(
@@ -356,6 +406,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 + f" | end_time: {end_time}"
                 + f" | duration: {end_time - start_time}"
                 + f" | resource_count: {len(result)}"
+            )
+            parameters.logger.info(
+                f"[PROFILING] process_link_async_parallel_function for path={row.path}: "
+                f"total={total_time:.3f}s, "
+                f"results={len(result)}"
             )
 
         # Return the list of retrieved responses
@@ -842,9 +897,18 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         logger: Logger | None,
         compare_hash: bool = True,
     ) -> FhirGetResponse | None:
+        profiling_start = time.perf_counter()
+        http_request_time = 0.0
+        http_request_count = 0
+        cache_check_time = 0.0
+        cache_update_time = 0.0
+        append_time = 0.0
+
         result: FhirGetResponse | None = None
         non_cached_id_list: list[str] = []
+
         # first check to see if we can find these in the cache
+        cache_check_start = time.perf_counter()
         if ids:
             for resource_id in ids:
                 cache_entry: RequestCacheEntry | None = await cache.get_async(
@@ -857,9 +921,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     if logger:
                         logger.info(f"Cache entry not found for {resource_type}/{resource_id} (1by1)")
                     non_cached_id_list.append(resource_id)
+        cache_check_time = time.perf_counter() - cache_check_start
 
+        cache_update_start = time.perf_counter()
         for single_id in non_cached_id_list:
             result2: FhirGetResponse
+            http_start = time.perf_counter()
             async for result2 in self._get_with_session_async(
                 page_number=None,
                 ids=[single_id],
@@ -868,10 +935,15 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 fn_handle_streaming_chunk=None,
                 resource_type=resource_type,
             ):
+                http_request_time += time.perf_counter() - http_start
+                http_request_count += 1
+
                 if result2.resource_type == "OperationOutcome":
                     result2 = FhirGetErrorResponse.from_response(other_response=result2)
                 if result:
+                    append_start = time.perf_counter()
                     result = result.append(result2)
+                    append_time += time.perf_counter() - append_start
                 else:
                     result = result2
                 if result2.successful:
@@ -905,6 +977,21 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     )
                     if cache_updated and logger:
                         logger.info(f"Inserted {result2.status} for {resource_type}/{single_id} into cache (1by1)")
+        cache_update_time = time.perf_counter() - cache_update_start - http_request_time - append_time
+
+        total_time = time.perf_counter() - profiling_start
+        processing_time = total_time - http_request_time - cache_check_time - cache_update_time - append_time
+
+        if logger and http_request_count > 0:
+            logger.info(
+                f"[PROFILING] _get_resources_by_id_one_by_one_async for {resource_type}: "
+                f"total={total_time:.3f}s, "
+                f"http_requests={http_request_time:.3f}s ({http_request_count} calls), "
+                f"cache_check={cache_check_time:.3f}s, "
+                f"cache_update={cache_update_time:.3f}s, "
+                f"append={append_time:.3f}s, "
+                f"processing={processing_time:.3f}s"
+            )
 
         return result
 
@@ -921,6 +1008,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         add_cached_bundles_to_result: bool = True,
         compare_hash: bool = True,
     ) -> tuple[FhirGetResponse, int]:
+        profiling_start = time.perf_counter()
+        http_request_time = 0.0
+        http_request_count = 0
+        cache_check_time = 0.0
+        cache_update_time = 0.0
+        append_time = 0.0
+
         assert resource_type
         if not scope_parser.scope_allows(resource_type=resource_type):
             if logger:
@@ -954,14 +1048,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         non_cached_id_list: list[str] = []
         # get any cached resources
+        cache_check_start = time.perf_counter()
         if id_list:
             for resource_id in id_list:
                 cache_entry: RequestCacheEntry | None = await cache.get_async(
                     resource_type=resource_type, resource_id=resource_id
                 )
                 if cache_entry:
-                    # if there is an entry then it means we tried to get it in the past
-                    # so don't get it again whether we were successful or not
                     if logger:
                         logger.info(
                             f"{cache_entry.status} Returning {resource_type}/{resource_id} from cache (ByParam)"
@@ -970,6 +1063,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     if logger:
                         logger.info(f"Cache entry not found for {resource_type}/{resource_id} (ByParam)")
                     non_cached_id_list.append(resource_id)
+        cache_check_time = time.perf_counter() - cache_check_start
 
         all_result: FhirGetResponse | None = None
         # either we have non-cached ids or this is a query without id but has other parameters
@@ -981,6 +1075,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # call the server to get the resources
             result1: FhirGetResponse
             result: FhirGetResponse | None
+            http_start = time.perf_counter()
             async for result1 in self._get_with_session_async(
                 page_number=None,
                 ids=non_cached_id_list,
@@ -989,6 +1084,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 fn_handle_streaming_chunk=None,
                 resource_type=resource_type,
             ):
+                http_request_time += time.perf_counter() - http_start
+                http_request_count += 1
                 result = result1
                 # if we got a failure then check if we can get it one by one
                 if (not result or result.status != 200) and len(non_cached_id_list) > 1:
@@ -1001,6 +1098,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 f" Fetching one by one ids: {non_cached_id_list}"
                             )
                     # For some resources if search by _id doesn't work then fetch one by one.
+                    one_by_one_start = time.perf_counter()
                     result = await self._get_resources_by_id_one_by_one_async(
                         resource_type=resource_type,
                         ids=non_cached_id_list,
@@ -1009,6 +1107,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         logger=logger,
                         compare_hash=compare_hash,
                     )
+                    one_by_one_time = time.perf_counter() - one_by_one_start
+                    http_request_time += one_by_one_time
+                    http_request_count += len(non_cached_id_list)
                 else:
                     if logger:
                         logger.info(f"Fetched {resource_type} resources using _id for url {self._url}")
@@ -1024,11 +1125,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
                     # append to the response
                     if all_result:
+                        append_start = time.perf_counter()
                         all_result = all_result.append(result)
+                        append_time += time.perf_counter() - append_start
                     else:
                         all_result = result
         # If non_cached_id_list is not empty and resource_type does not support ?_id search then fetch it one by one
         elif len(non_cached_id_list):
+            one_by_one_start = time.perf_counter()
             all_result = await self._get_resources_by_id_one_by_one_async(
                 resource_type=resource_type,
                 ids=non_cached_id_list,
@@ -1037,10 +1141,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 logger=logger,
                 compare_hash=compare_hash,
             )
+            http_request_time += time.perf_counter() - one_by_one_start
+            http_request_count += len(non_cached_id_list)
 
         # This list tracks the non-cached ids that were found
         found_non_cached_id_list: list[str] = []
         # Cache the fetched entries
+        cache_update_start = time.perf_counter()
         if all_result:
             non_cached_bundle_entry: FhirBundleEntry
             for non_cached_bundle_entry in all_result.get_bundle_entries():
@@ -1074,7 +1181,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             logger.debug(f"Inserted {resource_type}/{non_cached_resource_id} into cache (ByParam)")
                         found_non_cached_id_list.append(non_cached_resource_id)
 
-        # now add all the non-cached ids that were NOT found to the cache too so we don't look for them again
         for non_cached_id in non_cached_id_list:
             if non_cached_id not in found_non_cached_id_list:
                 cache_updated = await cache.add_async(
@@ -1089,6 +1195,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 )
                 if cache_updated and logger:
                     logger.info(f"Inserted 404 for {resource_type}/{non_cached_id} into cache (ByParam)")
+        cache_update_time = time.perf_counter() - cache_update_start
 
         bundle_response: FhirGetBundleResponse = (
             FhirGetBundleResponse.from_response(other_response=all_result)
@@ -1130,6 +1237,21 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 storage_mode=self._storage_mode,
             )
         )
+
+        total_time = time.perf_counter() - profiling_start
+        processing_time = total_time - http_request_time - cache_check_time - cache_update_time - append_time
+
+        if logger and http_request_count > 0:
+            logger.info(
+                f"[PROFILING] _get_resources_by_parameters_async for {resource_type}: "
+                f"total={total_time:.3f}s, "
+                f"http_requests={http_request_time:.3f}s ({http_request_count} calls), "
+                f"cache_check={cache_check_time:.3f}s, "
+                f"cache_update={cache_update_time:.3f}s, "
+                f"append={append_time:.3f}s, "
+                f"processing={processing_time:.3f}s"
+            )
+
         return bundle_response, cache.cache_hits
 
     # noinspection PyPep8Naming
