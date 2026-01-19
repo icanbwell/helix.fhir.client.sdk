@@ -133,8 +133,21 @@ class FhirGetBundleResponse(FhirGetResponse):
         :param others: list of FhirGetResponse objects
         :return: self
         """
+        if not others:
+            return self
+
+        all_entries: list[FhirBundleEntry] = []
         for other_response in others:
-            self.append(other_response=other_response)
+            other_response_entries: FhirBundleEntryList = other_response.get_bundle_entries()
+            if len(other_response_entries) > 0:
+                all_entries.extend(other_response_entries)
+
+        # Now extend with all entries at once instead of one response at a time
+        if all_entries:
+            if self._bundle_entries is None:
+                self._bundle_entries = FhirBundleEntryList(all_entries)
+            else:
+                self._bundle_entries.extend(all_entries)
 
         return self
 
