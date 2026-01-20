@@ -1,4 +1,5 @@
 import dataclasses
+from copy import deepcopy
 from typing import Any, cast
 
 
@@ -26,42 +27,46 @@ class ResourceSeparator:
         extra_context_to_return: dict[str, Any] | None,
     ) -> ResourceSeparatorResult:
         """
-        Separate contained resources without copying or mutating input resources.
+        Given a list of resources, return a list of resources with the contained resources separated out.
+
+        :param resources: The resources list.
+        :param access_token: The access token.
+        :param url: The URL.
+        :param extra_context_to_return: The extra context to return.
+
+        :return: None
         """
         resources_dicts: list[dict[str, str | None | list[dict[str, Any]]]] = []
-        total_resource_count: int = 0
-
-        for parent_resource in resources:
-            resource_type_value = parent_resource.get("resourceType")
-            if not resource_type_value:
-                continue
-
-            resource_type_key = str(resource_type_value).lower()
-            resource_map: dict[str, str | None | list[dict[str, Any]]] = {}
-
-            # Add parent resource
-            parent_list = cast(list[dict[str, Any]], resource_map.setdefault(resource_type_key, []))
-            parent_list.append(parent_resource)
-            total_resource_count += 1
-
-            # Add contained resources (if present) without mutating parent
-            contained_list = parent_resource.get("contained")
-            if isinstance(contained_list, list) and contained_list:
-                total_resource_count += len(contained_list)
-                for contained_resource in contained_list:
-                    contained_type_value = contained_resource.get("resourceType")
-                    if not contained_type_value:
-                        continue
-                    contained_type_key = str(contained_type_value).lower()
-                    contained_list_out = cast(list[dict[str, Any]], resource_map.setdefault(contained_type_key, []))
-                    contained_list_out.append(contained_resource)
-
-            # Context
-            resource_map["token"] = access_token
-            resource_map["url"] = url
+        resource_count: int = 0
+        resource: dict[str, Any]
+        for resource in resources:
+            # make a copy so we are not changing the original resource
+            cloned_resource: dict[str, Any] = deepcopy(resource)
+            # This dict will hold the separated resources where the key is resourceType
+            # have to split these here otherwise when Spark loads them
+            # it can't handle that items in the entry array can have different schemas
+            resources_dict: dict[str, str | None | list[dict[str, Any]]] = {}
+            # add the parent resource to the resources_dict
+            resource_type = str(cloned_resource["resourceType"]).lower()
+            if resource_type not in resources_dict:
+                resources_dict[resource_type] = []
+            if isinstance(resources_dict[resource_type], list):
+                cast(list[dict[str, Any]], resources_dict[resource_type]).append(cloned_resource)
+                resource_count += 1
+            # now see if this resource has a contained array and if so, add those to the resources_dict
+            if "contained" in cloned_resource:
+                contained_resources = cloned_resource.pop("contained")
+                for contained_resource in contained_resources:
+                    resource_type = str(contained_resource["resourceType"]).lower()
+                    if resource_type not in resources_dict:
+                        resources_dict[resource_type] = []
+                    if isinstance(resources_dict[resource_type], list):
+                        cast(list[dict[str, Any]], resources_dict[resource_type]).append(contained_resource)
+                        resource_count += 1
+            resources_dict["token"] = access_token
+            resources_dict["url"] = url
             if extra_context_to_return:
-                resource_map.update(extra_context_to_return)
+                resources_dict.update(extra_context_to_return)
+            resources_dicts.append(resources_dict)
 
-            resources_dicts.append(resource_map)
-
-        return ResourceSeparatorResult(resources_dicts=resources_dicts, total_count=total_resource_count)
+        return ResourceSeparatorResult(resources_dicts=resources_dicts, total_count=resource_count)

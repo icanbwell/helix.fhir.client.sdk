@@ -1,5 +1,4 @@
 import json
-import logging
 from collections.abc import AsyncGenerator, Generator
 from datetime import datetime
 from logging import Logger
@@ -27,7 +26,7 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
 
-logger = logging.getLogger(__name__)
+
 class FhirGetBundleResponse(FhirGetResponse):
     """
     This class represents a response from a FHIR server.
@@ -136,30 +135,18 @@ class FhirGetBundleResponse(FhirGetResponse):
         if not others:
             return self
 
-        # Optimization: Since duplicates are already filtered by cache,
-        # we can bypass ALL duplicate checking and directly extend the deque
-        import time
-        collect_start = time.perf_counter()
         all_entries: list[FhirBundleEntry] = []
         for other_response in others:
-            get_start = time.perf_counter()
             other_response_entries: FhirBundleEntryList = other_response.get_bundle_entries()
-            get_time = time.perf_counter() - get_start
-            logger.info(f"[DEBUG] get_bundle_entries took {get_time:.3f}s for response with {len(other_response_entries)} entries")
             if len(other_response_entries) > 0:
                 all_entries.extend(other_response_entries)
-        collect_time = time.perf_counter() - collect_start
-        print(f"[DEBUG] Collecting all entries from {len(others)} responses took {collect_time:.3f}s")
 
         if all_entries:
             if self._bundle_entries is None:
                 self._bundle_entries = FhirBundleEntryList()
-
-            extend_start = time.perf_counter()
             from collections import deque
+
             deque.extend(self._bundle_entries, all_entries)
-            extend_time = time.perf_counter() - extend_start
-            logger.info(f"[DEBUG] deque.extend of {len(all_entries)} entries took {extend_time:.3f}s")
 
         return self
 
@@ -337,6 +324,9 @@ class FhirGetBundleResponse(FhirGetResponse):
     ) -> "FhirGetBundleResponse":
         """
         Removes the entries in the cache from the bundle
+        :param request_cache: RequestCache object to remove the entries from
+        :param compare_hash: if True, compare the hash of the resource with the hash in the cache
+        :return: self
         """
         # Build a lookup of cache entries by (resource_type, id)
         cache_map: dict[tuple[str, str], str | None] = {}
@@ -377,14 +367,6 @@ class FhirGetBundleResponse(FhirGetResponse):
                 removed_entries.append(entry)
             else:
                 kept.append(entry)
-
-        if logger and removed_entries and logger.isEnabledFor(logging.DEBUG):
-            for entry in removed_entries:
-                if entry.resource:
-                    logger.debug(
-                        f"Removing entry from bundle with id {entry.resource.id} and resource "
-                        f"type {entry.resource.resource_type}"
-                    )
 
         self._bundle_entries = FhirBundleEntryList(kept)
         return self
