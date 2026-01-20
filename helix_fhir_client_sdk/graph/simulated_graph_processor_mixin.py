@@ -188,8 +188,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
             # Prepare parent bundle entries for further processing
             parent_bundle_entries: FhirBundleEntryList = parent_response.get_bundle_entries()
-            for entry in parent_bundle_entries:
-                print(f"entry.storage: {entry.storage_mode} ")
             if logger:
                 logger.info(
                     f"FhirClient.simulate_graph_async() got parent resources: {parent_response_resource_count} "
@@ -205,7 +203,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 parent_link_map.append((graph_definition.link, parent_bundle_entries))
 
             # Process graph links in parallel
-            link_processing_count = 0
             while len(parent_link_map):
                 new_parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
 
@@ -233,11 +230,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         ifModifiedSince=ifModifiedSince,
                     ):
                         child_responses.extend(link_responses)
-                        link_processing_count += 1
 
                 # Update parent link map for next iteration
                 parent_link_map = new_parent_link_map
 
+            # Combine and process responses
             parent_response = cast(FhirGetBundleResponse, parent_response.extend(child_responses))
 
             # Optional resource sorting
@@ -282,16 +279,19 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         This method is designed to be used with AsyncParallelProcessor to process
         graph links concurrently, improving performance for complex FHIR resource
         graph traversals.
+
         Key Responsibilities:
         - Process individual graph links in parallel
         - Track and log processing details
         - Handle resource retrieval for each link
         - Manage parallel processing context
+
         Args:
             context: Parallel processing context information
             row: Current GraphDefinitionLink being processed
             parameters: Parameters for link processing
             additional_parameters: Extra parameters for extended processing
+
         Returns:
             List of FhirGetResponse objects retrieved during link processing
         """
@@ -959,6 +959,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     resource_type=resource_type, resource_id=resource_id
                 )
                 if cache_entry:
+                    # if there is an entry then it means we tried to get it in the past
+                    # so don't get it again whether we were successful or not
                     if logger:
                         logger.info(
                             f"{cache_entry.status} Returning {resource_type}/{resource_id} from cache (ByParam)"
@@ -1070,6 +1072,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             logger.debug(f"Inserted {resource_type}/{non_cached_resource_id} into cache (ByParam)")
                         found_non_cached_id_list.append(non_cached_resource_id)
 
+        # now add all the non-cached ids that were NOT found to the cache too so we don't look for them again
         for non_cached_id in non_cached_id_list:
             if non_cached_id not in found_non_cached_id_list:
                 cache_updated = await cache.add_async(
