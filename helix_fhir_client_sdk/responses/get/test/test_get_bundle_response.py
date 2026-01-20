@@ -113,6 +113,7 @@ class TestFhirGetBundleResponse:
 
         first_response.append(second_response)
 
+        # Updating it to 4 since we have integrated cache and do not do same lookups again so we do not need to remove duplicates here.
         assert len(first_response.get_bundle_entries()) == 4
 
     def test_get_resources(self, sample_bundle_response: dict[str, Any]) -> None:
