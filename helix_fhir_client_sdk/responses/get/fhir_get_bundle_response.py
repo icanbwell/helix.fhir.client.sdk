@@ -115,12 +115,13 @@ class FhirGetBundleResponse(FhirGetResponse):
         """
         other_response_entries: FhirBundleEntryList = other_response.get_bundle_entries()
 
-        if len(other_response_entries):
+        if len(other_response_entries) > 0:
             # only append if there are entries in the other response
             if self._bundle_entries is None:
-                self._bundle_entries = other_response_entries
-            else:
-                self._bundle_entries.extend(other_response_entries)
+                self._bundle_entries = FhirBundleEntryList()
+            from collections import deque
+
+            deque.extend(self._bundle_entries, other_response_entries)
 
         return self
 
@@ -134,7 +135,6 @@ class FhirGetBundleResponse(FhirGetResponse):
         """
         for other_response in others:
             self.append(other_response=other_response)
-
         return self
 
     @override
@@ -311,36 +311,51 @@ class FhirGetBundleResponse(FhirGetResponse):
     ) -> "FhirGetBundleResponse":
         """
         Removes the entries in the cache from the bundle
-
         :param request_cache: RequestCache object to remove the entries from
         :param compare_hash: if True, compare the hash of the resource with the hash in the cache
         :return: self
         """
-        # remove all entries in the cache from the bundle
+        # Build a lookup of cache entries by (resource_type, id)
+        cache_map: dict[tuple[str, str], str | None] = {}
         async for cached_entry in request_cache.get_entries_async():
-            if cached_entry.from_input_cache:
-                for entry in self._bundle_entries:
-                    if (
-                        entry.resource
-                        and entry.resource.id is not None  # only remove if resource has an id
-                        and entry.resource.id == cached_entry.id_
-                        and entry.resource.resource_type == cached_entry.resource_type
-                        and (
-                            not compare_hash
-                            or (
-                                ResourceHash().hash_value(json.dumps(json.loads(entry.resource.json()), sort_keys=True))
-                                == cached_entry.raw_hash
-                            )
-                        )
-                    ):
-                        if logger:
-                            logger.debug(
-                                f"Removing entry from bundle with id {entry.resource.id} and resource "
-                                f"type {entry.resource.resource_type}"
-                            )
-                        self._bundle_entries.remove(entry)
-                        break
+            if cached_entry.from_input_cache and cached_entry.resource_type and cached_entry.id_:
+                cache_map[(cached_entry.resource_type, cached_entry.id_)] = (
+                    cached_entry.raw_hash if compare_hash else None
+                )
 
+        if not cache_map:
+            return self
+
+        resource_hash = ResourceHash() if compare_hash else None
+        removed_entries: list[FhirBundleEntry] = []
+
+        def should_remove(entry: FhirBundleEntry) -> bool:
+            resource = entry.resource
+            if not resource or resource.id is None or resource.resource_type is None:
+                return False
+            key = (resource.resource_type, resource.id)
+            if key not in cache_map:
+                return False
+            if not compare_hash:
+                return True
+            # Compare normalized JSON hash
+            if resource_hash is None:
+                return False
+            try:
+                entry_hash = resource_hash.hash_value(json.dumps(json.loads(resource.json()), sort_keys=True))
+                return entry_hash == cache_map[key]
+            except Exception:
+                return False
+
+        # One pass filter; rebuild list to avoid many deque.remove calls
+        kept: list[FhirBundleEntry] = []
+        for entry in self._bundle_entries:
+            if should_remove(entry):
+                removed_entries.append(entry)
+            else:
+                kept.append(entry)
+
+        self._bundle_entries = FhirBundleEntryList(kept)
         return self
 
     @classmethod

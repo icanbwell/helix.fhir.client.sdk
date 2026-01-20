@@ -1,4 +1,5 @@
 import json
+import time
 from abc import ABC
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
@@ -188,7 +189,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
             # Prepare parent bundle entries for further processing
             parent_bundle_entries: FhirBundleEntryList = parent_response.get_bundle_entries()
-
             if logger:
                 logger.info(
                     f"FhirClient.simulate_graph_async() got parent resources: {parent_response_resource_count} "
@@ -235,8 +235,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 # Update parent link map for next iteration
                 parent_link_map = new_parent_link_map
 
+            start_time = time.time()
             # Combine and process responses
             parent_response = cast(FhirGetBundleResponse, parent_response.extend(child_responses))
+            if logger:
+                logger.info(f"Parent_response.extend time: {time.time() - start_time}")
 
             # Optional resource sorting
             if sort_resources:
@@ -844,6 +847,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
     ) -> FhirGetResponse | None:
         result: FhirGetResponse | None = None
         non_cached_id_list: list[str] = []
+
         # first check to see if we can find these in the cache
         if ids:
             for resource_id in ids:
@@ -905,7 +909,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     )
                     if cache_updated and logger:
                         logger.info(f"Inserted {result2.status} for {resource_type}/{single_id} into cache (1by1)")
-
         return result
 
     async def _get_resources_by_parameters_async(
@@ -970,7 +973,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     if logger:
                         logger.info(f"Cache entry not found for {resource_type}/{resource_id} (ByParam)")
                     non_cached_id_list.append(resource_id)
-
         all_result: FhirGetResponse | None = None
         # either we have non-cached ids or this is a query without id but has other parameters
         if (

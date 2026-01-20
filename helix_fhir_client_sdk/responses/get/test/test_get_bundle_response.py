@@ -73,7 +73,7 @@ class TestFhirGetBundleResponse:
         assert response._bundle_metadata.id_ == "test-bundle-id"
         assert response._bundle_metadata.type_ == "searchset"
 
-    def test_append_unique(self, sample_bundle_response: dict[str, Any]) -> None:
+    def test_append(self, sample_bundle_response: dict[str, Any]) -> None:
         """Test appending another response."""
         results_by_url: list[RetryableAioHttpUrlResult] = []
 
@@ -113,7 +113,8 @@ class TestFhirGetBundleResponse:
 
         first_response.append(second_response)
 
-        assert len(first_response.get_bundle_entries()) == 2
+        # Updating it to 4 since we have integrated cache and do not do same lookups again so we do not need to remove duplicates here.
+        assert len(first_response.get_bundle_entries()) == 4
 
     def test_get_resources(self, sample_bundle_response: dict[str, Any]) -> None:
         """Test getting resources from the response."""
