@@ -1,4 +1,5 @@
 import json
+import time
 from abc import ABC
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
@@ -234,8 +235,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 # Update parent link map for next iteration
                 parent_link_map = new_parent_link_map
 
+            start_time = time.time()
             # Combine and process responses
             parent_response = cast(FhirGetBundleResponse, parent_response.extend(child_responses))
+            if logger:
+                logger.info(f"Parent_response.extend time: {time.time() - start_time}")
 
             # Optional resource sorting
             if sort_resources:

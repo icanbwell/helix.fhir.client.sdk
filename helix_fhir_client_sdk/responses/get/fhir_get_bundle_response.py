@@ -115,12 +115,13 @@ class FhirGetBundleResponse(FhirGetResponse):
         """
         other_response_entries: FhirBundleEntryList = other_response.get_bundle_entries()
 
-        if len(other_response_entries):
+        if len(other_response_entries) > 0:
             # only append if there are entries in the other response
             if self._bundle_entries is None:
-                self._bundle_entries = other_response_entries
-            else:
-                self._bundle_entries.extend(other_response_entries)
+                self._bundle_entries = FhirBundleEntryList()
+            from collections import deque
+
+            deque.extend(self._bundle_entries, other_response_entries)
 
         return self
 
@@ -132,22 +133,8 @@ class FhirGetBundleResponse(FhirGetResponse):
         :param others: list of FhirGetResponse objects
         :return: self
         """
-        if not others:
-            return self
-
-        all_entries: list[FhirBundleEntry] = []
         for other_response in others:
-            other_response_entries: FhirBundleEntryList = other_response.get_bundle_entries()
-            if len(other_response_entries) > 0:
-                all_entries.extend(other_response_entries)
-
-        if all_entries:
-            if self._bundle_entries is None:
-                self._bundle_entries = FhirBundleEntryList()
-            from collections import deque
-
-            deque.extend(self._bundle_entries, all_entries)
-
+            self.append(other_response=other_response)
         return self
 
     @override
