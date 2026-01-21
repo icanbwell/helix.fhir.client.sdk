@@ -115,13 +115,32 @@ class FhirGetBundleResponse(FhirGetResponse):
         """
         other_response_entries: FhirBundleEntryList = other_response.get_bundle_entries()
 
-        if len(other_response_entries) > 0:
+        if len(other_response_entries):
             # only append if there are entries in the other response
             if self._bundle_entries is None:
-                self._bundle_entries = FhirBundleEntryList()
-            from collections import deque
+                self._bundle_entries = other_response_entries
+            else:
+                self._bundle_entries.extend(other_response_entries)
 
-            deque.extend(self._bundle_entries, other_response_entries)
+        return self
+
+    def _append_without_duplicate_removal(self, others: list["FhirGetResponse"]) -> "FhirGetResponse":
+        """
+        Append the responses from other to self without duplicate removal
+
+        :param others: list of FhirGetResponse objects to append to current one
+        :return: self
+        """
+        if self._bundle_entries is None:
+            self._bundle_entries = FhirBundleEntryList()
+
+        from collections import deque
+
+        for other_response in others:
+            other_response_entries: FhirBundleEntryList = other_response.get_bundle_entries()
+            if len(other_response_entries) > 0:
+                # only append if there are entries in the other response
+                deque.extend(self._bundle_entries, other_response_entries)
 
         return self
 

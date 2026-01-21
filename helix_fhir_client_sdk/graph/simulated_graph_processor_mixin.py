@@ -81,6 +81,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         add_cached_bundles_to_result: bool = True,
         input_cache: RequestCache | None = None,
         compare_hash: bool = True,
+        append_without_duplicate_removal: bool = False,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Asynchronously simulate a FHIR $graph query with advanced processing capabilities.
@@ -237,7 +238,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
             start_time = time.time()
             # Combine and process responses
-            parent_response = cast(FhirGetBundleResponse, parent_response.extend(child_responses))
+            if not append_without_duplicate_removal:
+                parent_response = cast(FhirGetBundleResponse, parent_response.extend(child_responses))
+            else:
+                parent_response = cast(
+                    FhirGetBundleResponse,
+                    parent_response._append_without_duplicate_removal(child_responses),
+                )
             if logger:
                 logger.info(f"Parent_response.extend time: {time.time() - start_time}")
 
@@ -1154,6 +1161,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         add_cached_bundles_to_result: bool = True,
         input_cache: RequestCache | None = None,
         compare_hash: bool = True,
+        append_without_duplicate_removal: bool = False,
     ) -> FhirGetResponse:
         """
         Simulates the $graph query on the FHIR server
@@ -1206,6 +1214,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 add_cached_bundles_to_result=add_cached_bundles_to_result,
                 input_cache=input_cache,
                 compare_hash=compare_hash,
+                append_without_duplicate_removal=append_without_duplicate_removal,
             )
         )
         assert result, "No result returned from simulate_graph_async"

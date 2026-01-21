@@ -125,6 +125,15 @@ class FhirGetResponse:
     @abstractmethod
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse": ...
 
+    def _append_without_duplicate_removal(self, others: list["FhirGetResponse"]) -> "FhirGetResponse":
+        """
+        Append the responses from others to self without duplicate removal.
+
+        :param others: list of FhirGetResponse objects to append to current one
+        :return: self
+        """
+        return self._extend(others=others)
+
     def append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
         """
         Append the responses from other to self
