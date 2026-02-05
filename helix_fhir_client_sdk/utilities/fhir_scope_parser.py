@@ -120,7 +120,7 @@ class FhirScopeParser:
             #   - "r"  = read
             #   - "rs" = read + search
             # Include all equivalent read/search interaction values for compatibility with v2 scopes.
-            interactions_list = ["read", "r", "rs", "search"]
+            interactions_list = ["read", "r", "rs"]
         else:
             interactions_list = [interaction]
 
