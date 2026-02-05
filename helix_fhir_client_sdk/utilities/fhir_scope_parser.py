@@ -113,6 +113,17 @@ class FhirScopeParser:
         assert resource_type
         assert interaction
 
+        interaction = interaction.lower()
+        interactions_list: list[str]
+        if interaction == "read":
+            # SMART on FHIR v2 defines shorthand interaction codes:
+            #   - "r"  = read
+            #   - "rs" = read + search
+            # Include all equivalent read/search interaction values for compatibility with v2 scopes.
+            interactions_list = ["read", "r", "rs"]
+        else:
+            interactions_list = [interaction]
+
         # note that resource_type is actually called Operation in SMART on FHIR scopes:
         # A SMART on FHIR scope string is constructed as resourceType.operation.permission.
         # For example, the scope string patient/*.read requests read-only access to all patient-related resources.
@@ -122,7 +133,7 @@ class FhirScopeParser:
                 scope.operation
                 and scope.interaction
                 and (scope.operation == "*" or scope.operation.lower() == resource_type.lower())
-                and (scope.interaction == "*" or scope.interaction.lower() == interaction.lower())
+                and (scope.interaction == "*" or scope.interaction.lower() in interactions_list)
             ):
                 return True
         return False
