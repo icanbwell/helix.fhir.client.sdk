@@ -116,7 +116,7 @@ class FhirScopeParser:
         interaction = interaction.lower()
         interactions_list: list[str]
         if interaction == "read":
-            interactions_list = ["read", "r", "rs", ""]
+            interactions_list = ["read", "r", "rs", "search"]
         else:
             interactions_list = [interaction]
 
