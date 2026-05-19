@@ -2,12 +2,18 @@ LANG=en_US.utf-8
 
 export LANG
 
+ECR_REGISTRY=856965016623.dkr.ecr.us-east-1.amazonaws.com
+
+.PHONY:ecr-login
+ecr-login: ## Login to ECR for root-mirror base images
+	aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $(ECR_REGISTRY)
+
 .PHONY: Pipfile.lock
 Pipfile.lock: build
 	docker compose run --rm --name helix_fhir_sdk dev sh -c "rm -f Pipfile.lock && pipenv lock --dev --verbose"
 
 .PHONY:devdocker
-devdocker: ## Builds the docker for dev
+devdocker: ecr-login ## Builds the docker for dev
 	docker compose build
 
 .PHONY:init
@@ -63,7 +69,7 @@ shell:devdocker ## Brings up the bash shell in dev docker
 	docker compose run -it --rm --name helix.fhir.client.sdk dev /bin/sh
 
 .PHONY:build
-build: ## Builds the docker for dev
+build: ecr-login ## Builds the docker for dev
 	docker compose build --progress=plain --parallel
 
 .PHONY:testpackage

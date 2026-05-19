@@ -2,4 +2,7 @@
 
 GIT_PROJECT_ROOT=$(git rev-parse --show-toplevel)
 cd "$($GIT_PROJECT_ROOT "$0")"
-docker build -f ./pre-commit.Dockerfile -t pre-commit-fhir-sdk . && docker run --rm --name pre-commit-fhir-sdk-run -v $(pwd)/:/sourcecode pre-commit-fhir-sdk
+docker build -f ./pre-commit.Dockerfile \
+  --secret id=jfrog_user,env=JFROG_READ_USER \
+  --secret id=jfrog_token,env=JFROG_READ_TOKEN \
+  -t pre-commit-fhir-sdk . && docker run --rm --name pre-commit-fhir-sdk-run -v $(pwd)/:/sourcecode pre-commit-fhir-sdk

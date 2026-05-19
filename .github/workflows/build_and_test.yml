@@ -8,6 +8,10 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  JFROG_READ_USER: ${{ secrets.JFROG_READ_USER }}
+  JFROG_READ_TOKEN: ${{ secrets.JFROG_READ_TOKEN }}
+
 jobs:
   build_and_test:
     # The type of runner that the job will run on
@@ -21,10 +25,16 @@ jobs:
         with:
           python-version: '3.12'
 
-#      - name: Docker Compose Setup
-#        run: |
-#          sudo apt-get install docker-compose-plugin
-#          docker compose version
+      - name: AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::856965016623:role/services-k8s-service-account-github-actions-runner
+          role-session-name: ${{ github.run_id }}-rootio
+          role-duration-seconds: 3600
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: pre-commit
         run: make run-pre-commit
