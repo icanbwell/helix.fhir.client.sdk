@@ -1,7 +1,7 @@
 name: Build and Test
 
 # Controls when the action will run. Triggers the workflow on push or pull request
-# events but only for the master branch
+# events but only for the main branch
 on:
   push:
     branches: [ main ]
@@ -14,24 +14,30 @@ env:
 
 jobs:
   build_and_test:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+    runs-on: main
 
     steps:
-      # Checks-out your repository
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y make
+
+      - name: Install Docker Compose v2 plugin
+        run: |
+          DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker}
+          mkdir -p $DOCKER_CONFIG/cli-plugins
+          curl -SL "https://github.com/docker/compose/releases/download/v2.36.2/docker-compose-$(uname -s)-$(uname -m)" -o $DOCKER_CONFIG/cli-plugins/docker-compose
+          chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
+          docker compose version
+
       - name: AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: us-east-1
-          role-to-assume: arn:aws:iam::856965016623:role/services-k8s-service-account-github-actions-runner
-          role-session-name: ${{ github.run_id }}-rootio
-          role-duration-seconds: 3600
 
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
@@ -39,7 +45,6 @@ jobs:
       - name: pre-commit
         run: make run-pre-commit
 
-      # setup and install everything and run tests
       - name: up
         run: make up
 
@@ -56,32 +61,18 @@ jobs:
         with:
           name: pytest-results
           path: /home/runner/work/${{ github.repository }}/reports/**/*.xml
-        # Use always() to always run this step to publish test results when there are test failures
         if: ${{ always() }}
 
       - name: Verify reports are generated
         if: ${{ always() }}
         run: ls -halt /home/runner/work/${{ github.repository }}/reports/
 
-      # Publish all test results in the GitHub UI
       - name: Surface failing tests
         if: always()
-        uses: pmeier/pytest-results-action@fc6576eced1f411ea48ab10e917d9cfce2960e29 # https://github.com/pmeier/pytest-results-action
+        uses: pmeier/pytest-results-action@fc6576eced1f411ea48ab10e917d9cfce2960e29
         with:
-          # A list of JUnit XML files, directories containing the former, and wildcard
-          # patterns to process.
-          # See @actions/glob for supported patterns.
           path: /home/runner/work/${{ github.repository }}/reports/*.xml
-
-          # (Optional) Add a summary of the results at the top of the report
           summary: true
-
-          # (Optional) Select which results should be included in the report.
-          # Follows the same syntax as `pytest -r`
           display-options: fEX
-
-          # (Optional) Fail the workflow if no JUnit XML was found.
           fail-on-empty: true
-
-          # (Optional) Title of the test results section in the workflow summary
           title: Test results
