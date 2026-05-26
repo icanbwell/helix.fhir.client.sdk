@@ -1287,3 +1287,213 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             input_cache=input_cache,
         ):
             yield r
+
+    # noinspection PyPep8Naming
+    async def simulate_graph_by_resource_type_async(
+        self,
+        *,
+        id_: list[str] | str,
+        graph_json: dict[str, Any],
+        contained: bool,
+        separate_bundle_resources: bool = False,
+        restrict_to_scope: str | None = None,
+        restrict_to_resources: list[str] | None = None,
+        restrict_to_capability_statement: str | None = None,
+        retrieve_and_restrict_to_capability_statement: bool | None = None,
+        ifModifiedSince: datetime | None = None,
+        eTag: str | None = None,
+        request_size: int | None = 1,
+        max_concurrent_tasks: int | None = 1,
+        sort_resources: bool | None = False,
+        add_cached_bundles_to_result: bool = True,
+        input_cache: RequestCache | None = None,
+        compare_hash: bool = True,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        """
+        Simulates the $graph query yielding results per graph link (resource type) instead
+        of accumulating all resources into a single response. This allows callers to process
+        each resource type's data and release it from memory before fetching the next.
+
+        The start resource (e.g. Patient) is always yielded first, followed by each linked
+        resource type as a separate FhirGetResponse.
+
+        :param id_: single id or list of ids (ids can be comma separated too)
+        :param graph_json: definition of a graph to execute
+        :param contained: whether we should return the related resources as top level list or nest them inside their
+                            parent resources in a contained property
+        :param restrict_to_scope: Optional scope to restrict to
+        :param restrict_to_resources: Optional list of resources to restrict to
+        :param restrict_to_capability_statement: Optional capability statement to restrict to
+        :param retrieve_and_restrict_to_capability_statement: Optional capability statement to retrieve and restrict to
+        :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
+        :param eTag: Optional ETag to use for If-None-Match header
+        :param request_size: Optional Count of resources to request in one request
+        :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially.
+        :param sort_resources: Optional flag to sort resources
+        :param add_cached_bundles_to_result: Optional flag to add cached bundles to result
+        :param input_cache: Optional cache to use for input
+        :param compare_hash: Optional flag to compare hash of the resources
+        :return: AsyncGenerator yielding FhirGetResponse per resource type
+        """
+        if contained:
+            if not self._additional_parameters:
+                self.additional_parameters([])
+            assert self._additional_parameters is not None
+            self._additional_parameters.append("contained=true")
+
+        async for r in self._process_simulate_graph_by_resource_type_async(
+            id_=id_,
+            graph_json=graph_json,
+            contained=contained,
+            separate_bundle_resources=separate_bundle_resources,
+            restrict_to_scope=restrict_to_scope,
+            restrict_to_resources=restrict_to_resources,
+            restrict_to_capability_statement=restrict_to_capability_statement,
+            retrieve_and_restrict_to_capability_statement=retrieve_and_restrict_to_capability_statement,
+            ifModifiedSince=ifModifiedSince,
+            eTag=eTag,
+            url=self._url,
+            expand_fhir_bundle=self._expand_fhir_bundle,
+            logger=self._logger,
+            auth_scopes=self._auth_scopes,
+            request_size=request_size,
+            max_concurrent_tasks=max_concurrent_tasks,
+            sort_resources=sort_resources,
+            add_cached_bundles_to_result=add_cached_bundles_to_result,
+            input_cache=input_cache,
+            compare_hash=compare_hash,
+        ):
+            yield r
+
+    # noinspection PyPep8Naming
+    async def _process_simulate_graph_by_resource_type_async(
+        self,
+        *,
+        id_: list[str] | str,
+        graph_json: dict[str, Any],
+        contained: bool,
+        separate_bundle_resources: bool = False,
+        restrict_to_scope: str | None = None,
+        restrict_to_resources: list[str] | None = None,
+        restrict_to_capability_statement: str | None = None,
+        retrieve_and_restrict_to_capability_statement: bool | None = None,
+        ifModifiedSince: datetime | None = None,
+        eTag: str | None = None,
+        logger: Logger | None,
+        url: str | None,
+        expand_fhir_bundle: bool | None,
+        auth_scopes: list[str] | None,
+        request_size: int | None = 1,
+        max_concurrent_tasks: int | None,
+        sort_resources: bool | None,
+        add_cached_bundles_to_result: bool = True,
+        input_cache: RequestCache | None = None,
+        compare_hash: bool = True,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        """
+        Core implementation that yields per graph link instead of accumulating all responses.
+        Each yield contains the resources for one link traversal (typically one resource type).
+        """
+        assert graph_json, "Graph JSON must be provided"
+        graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
+        assert isinstance(graph_definition, GraphDefinition)
+        assert graph_definition.start, "Graph definition must have a start resource"
+
+        scope_parser: FhirScopeParser = FhirScopeParser(scopes=auth_scopes)
+        self.separate_bundle_resources(False)
+
+        if logger:
+            logger.info(
+                f"FhirClient.simulate_graph_by_resource_type_async() "
+                f"id_={id_}, "
+                f"contained={contained}, "
+                f"separate_bundle_resources={separate_bundle_resources}, "
+                f"request_size={request_size}, "
+                f"max_concurrent_tasks={max_concurrent_tasks}, "
+                f"expand_fhir_bundle={expand_fhir_bundle}, "
+                f"ifModifiedSince={ifModifiedSince.isoformat() if ifModifiedSince else None}, "
+                f"eTag={eTag}, "
+            )
+
+        if not isinstance(id_, list):
+            id_ = id_.split(",")
+
+        id_search_unsupported_resources: list[str] = []
+        cache: RequestCache = input_cache if input_cache is not None else RequestCache()
+        async with cache:
+            start: str = graph_definition.start
+            parent_response: FhirGetResponse
+            cache_hits: int
+            parent_response, cache_hits = await self._get_resources_by_parameters_async(
+                resource_type=start,
+                id_=id_,
+                cache=cache,
+                scope_parser=scope_parser,
+                logger=logger,
+                id_search_unsupported_resources=id_search_unsupported_resources,
+                add_cached_bundles_to_result=add_cached_bundles_to_result,
+                compare_hash=compare_hash,
+            )
+
+            parent_response_resource_count = parent_response.get_resource_count()
+            if parent_response_resource_count == 0:
+                yield parent_response
+                return
+
+            if logger:
+                logger.info(
+                    f"FhirClient.simulate_graph_by_resource_type_async() "
+                    f"got parent resources: {parent_response_resource_count} "
+                    f"cached:{cache_hits}"
+                )
+
+            # Yield the start resource (Patient) first
+            parent_response.url = url or parent_response.url
+            yield parent_response
+
+            parent_bundle_entries: FhirBundleEntryList = parent_response.get_bundle_entries()
+
+            parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
+            if graph_definition.link and parent_bundle_entries:
+                parent_link_map.append((graph_definition.link, parent_bundle_entries))
+
+            # Process graph links one at a time and yield each link's response
+            while len(parent_link_map):
+                new_parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
+
+                for links, current_parent_bundle_entries in parent_link_map:
+                    link_responses: list[FhirGetResponse]
+                    async for link_responses in AsyncParallelProcessor(
+                        name="process_link_async_parallel_function",
+                        max_concurrent_tasks=max_concurrent_tasks,
+                    ).process_rows_in_parallel(
+                        rows=links,
+                        process_row_fn=self.process_link_async_parallel_function,
+                        parameters=GraphLinkParameters(
+                            parent_bundle_entries=current_parent_bundle_entries,
+                            logger=logger,
+                            cache=cache,
+                            scope_parser=scope_parser,
+                            max_concurrent_tasks=max_concurrent_tasks,
+                        ),
+                        log_level=self._log_level,
+                        parent_link_map=new_parent_link_map,
+                        request_size=request_size,
+                        id_search_unsupported_resources=id_search_unsupported_resources,
+                        add_cached_bundles_to_result=add_cached_bundles_to_result,
+                        ifModifiedSince=ifModifiedSince,
+                    ):
+                        # Yield each link's responses individually instead of accumulating
+                        for link_response in link_responses:
+                            link_response.url = url or link_response.url
+                            yield link_response
+
+                parent_link_map = new_parent_link_map
+
+            if logger:
+                logger.info(
+                    f"Request Cache for: id_={id_}, "
+                    f"start={graph_definition.start}, "
+                    f"hits: {cache.cache_hits}, "
+                    f"misses: {cache.cache_misses}"
+                )
