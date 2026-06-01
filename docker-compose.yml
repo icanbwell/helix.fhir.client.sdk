@@ -1,3 +1,9 @@
+secrets:
+  jfrog_user:
+    environment: JFROG_READ_USER
+  jfrog_token:
+    environment: JFROG_READ_TOKEN
+
 services:
   dev:
     user: root
@@ -8,6 +14,9 @@ services:
     build:
       dockerfile: Dockerfile
       context: .
+      secrets:
+        - jfrog_user
+        - jfrog_token
     volumes:
       - ./:/src/
     #      - ../mockserver_client/mockserver_client:/usr/local/lib/python3.12/site-packages/mockserver_client
