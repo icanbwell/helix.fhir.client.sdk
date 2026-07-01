@@ -15,20 +15,12 @@ requires-python = ">=3.12"
 dependencies = [
     "furl",
     "requests",
-    "urllib3",
-    "chardet",
     "aiohttp",
     "async-timeout>=4.0.3",
     "python-dateutil",
     "compressedfhir>=1.0.13,<3",
     "certifi>=2025.1.31",
     "opentelemetry-api>=1.39",
-    "opentelemetry-distro[otlp]>=0.60b0",
-    "opentelemetry-sdk>=1.39.1",
-    "opentelemetry-instrumentation-httpx>=0.60b0",
-    "opentelemetry-instrumentation-requests>=0.60b0",
-    "opentelemetry-instrumentation-aiohttp-client>=0.60b0",
-    "opentelemetry-instrumentation-asyncio>=0.60b0",
     "multidict>=6",
 ]
 
@@ -43,7 +35,6 @@ helix_fhir_client_sdk = ["py.typed"]
 
 [dependency-groups]
 dev = [
-    "packaging",
     "wheel>=0.43.0",
     "twine>=5.1.1",
     "pre-commit>=4.0.1",
@@ -60,14 +51,15 @@ dev = [
     "helix-mockserver-client>=2.0.4",
     "httpx>=0.23.3",
     "aioresponses>=0.7.6",
-    "deepdiff>=8.6.1",
     "pytest-benchmark>=4.0.0",
-    "msgpack>=1.2.1",
     "objsize>=0.7.1",
     "types-orjson>=3.6.2",
     "bandit>=1.8.3",
     "ruff>=0.11.5",
 ]
+
+[tool.uv]
+constraint-dependencies = ["msgpack>=1.2.1"]
 
 [tool.ruff]
 line-length = 120
