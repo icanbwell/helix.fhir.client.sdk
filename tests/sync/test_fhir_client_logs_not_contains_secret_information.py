@@ -14,7 +14,7 @@ from mockserver_client.mockserver_client import (
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 
-log_output = []
+log_output: list[str] = []
 
 
 class TestLoggerLogs(Logger):
@@ -34,7 +34,7 @@ class TestLoggerLogs(Logger):
         """
         Handle messages at INFO level
         """
-        log_output.append(msg)
+        log_output.append(str(msg))
 
 
 class TestRemoveSecretInformationFromLogs(unittest.TestCase):
