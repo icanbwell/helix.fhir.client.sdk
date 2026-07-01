@@ -142,3 +142,4 @@ docsrc/_build/
 /venv_fhir_client_sdk
 /test_scripts/client_payload_error.py
 /helix_fhir_client_sdk/graph/.idea/
+/helix_fhir_client_sdk/fixers/fixed.json
