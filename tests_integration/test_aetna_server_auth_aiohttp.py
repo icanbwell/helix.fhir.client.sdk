@@ -34,7 +34,7 @@ async def test_aetna_server_auth_aiohttp() -> None:
 
     trace_config = aiohttp.TraceConfig()
     # trace_config.on_request_start.append(on_request_start)
-    trace_config.on_request_end.append(on_request_end)  # type: ignore[arg-type]
+    trace_config.on_request_end.append(on_request_end)
     # trace_config.on_response_chunk_received
     session: ClientSession = aiohttp.ClientSession(trace_configs=[trace_config])
 

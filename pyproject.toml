@@ -65,7 +65,7 @@ dev = [
 ]
 
 [tool.uv]
-constraint-dependencies = ["msgpack>=1.2.1", "aiohttp<3.12"]
+constraint-dependencies = ["msgpack>=1.2.1"]
 
 [tool.ruff]
 line-length = 120

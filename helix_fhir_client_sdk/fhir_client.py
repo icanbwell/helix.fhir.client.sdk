@@ -856,8 +856,8 @@ class FhirClient(
         trace_config = aiohttp.TraceConfig()
         # trace_config.on_request_start.append(on_request_start)
         if self._log_level == "DEBUG":
-            trace_config.on_request_end.append(FhirClient.on_request_end)  # type: ignore[arg-type]
-            trace_config.on_response_chunk_received.append(FhirClient.on_response_chunk_received)  # type: ignore[arg-type]
+            trace_config.on_request_end.append(FhirClient.on_request_end)
+            trace_config.on_response_chunk_received.append(FhirClient.on_response_chunk_received)
         # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
         ssl_context = ssl.create_default_context(cafile=certifi.where())
         timeout = aiohttp.ClientTimeout(total=60 * 60, sock_read=240)
