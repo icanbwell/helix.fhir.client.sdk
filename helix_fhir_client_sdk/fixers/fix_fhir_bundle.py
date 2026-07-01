@@ -142,7 +142,46 @@ class FhirBundleFixer:
             return len(ref) > 1
         if ref.startswith("http://") or ref.startswith("https://"):
             return True
+        if ref.startswith("urn:uuid:") or ref.startswith("urn:oid:"):
+            return True
         return bool(_RELATIVE_REF_RE.match(ref))
+
+    @staticmethod
+    def _build_urn_ref_map(payload: dict[str, Any]) -> dict[str, str]:
+        """
+        Build a map from urn:uuid: fullUrls to ResourceType/id references.
+
+        Called after all resources have been fixed so that generated ids are
+        already in place.
+        """
+        ref_map: dict[str, str] = {}
+        for entry in payload.get("entry", []):
+            full_url = entry.get("fullUrl", "")
+            resource = entry.get("resource", {})
+            resource_type = resource.get("resourceType")
+            resource_id = resource.get("id")
+            if full_url.startswith("urn:uuid:") and resource_type and resource_id:
+                ref_map[full_url] = f"{resource_type}/{resource_id}"
+        return ref_map
+
+    @staticmethod
+    def _fix_references(obj: Any, ref_map: dict[str, str]) -> int:
+        """
+        Recursively walk a JSON object and replace urn:uuid: references using
+        *ref_map*.  Returns the number of replacements made.
+        """
+        count = 0
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                if key == "reference" and isinstance(value, str) and value in ref_map:
+                    obj[key] = ref_map[value]
+                    count += 1
+                else:
+                    count += FhirBundleFixer._fix_references(value, ref_map)
+        elif isinstance(obj, list):
+            for item in obj:
+                count += FhirBundleFixer._fix_references(item, ref_map)
+        return count
 
     @staticmethod
     def _replace_patient_references(obj: Any, old_id: str, new_id: str) -> int:
@@ -444,6 +483,16 @@ class FhirBundleFixer:
                     fixed, changes, errors = self._fix_resource(r)
                     entry["resource"] = fixed
                     results.append((label, changes, errors))
+
+            ref_map = self._build_urn_ref_map(payload)
+            if ref_map:
+                replaced = self._fix_references(payload, ref_map)
+                if replaced:
+                    bundle_label = results[0][0]
+                    results[0][1].append(
+                        f"{bundle_label}: rewrote {replaced} urn:uuid: reference(s) to ResourceType/id"
+                    )
+
             return payload, results
 
         if resource_type == "Parameters":
