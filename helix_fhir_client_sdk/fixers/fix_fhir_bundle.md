@@ -22,6 +22,7 @@ python tools/fix_fhir_bundle.py \
     [--owner <CODE>] \
     [--access <CODE>] \
     [--source-assigning-authority <CODE>] \
+    [--patient-id <ID>] \
     [--dry-run]
 ```
 
@@ -35,6 +36,7 @@ python tools/fix_fhir_bundle.py \
 | `--owner` | `-o` | Recommended | Code for the owner security tag (`https://www.icanbwell.com/owner`). Also used as the default value for `--access` and `--source-assigning-authority`. |
 | `--access` | `-c` | No | Code for the access security tag (`https://www.icanbwell.com/access`). Defaults to `--owner` if not specified. |
 | `--source-assigning-authority` | `-a` | No | Code for the sourceAssigningAuthority tag (`https://www.icanbwell.com/sourceAssigningAuthority`). Added to every top-level resource. For non-UUID ids, satisfies the id-format requirement. Defaults to `--owner` when needed. |
+| `--patient-id` | `-p` | No | New ID to assign to the Patient resource. The Patient resource's `id` field is set to this value and all `Patient/<old-id>` references throughout the payload are rewritten to `Patient/<new-id>`. Applied before other fixes so the updated references are validated correctly. |
 | `--dry-run` | | No | Print changes and errors to stderr without writing any output. Exit code is still 0 (success) or 1 (unfixable issues). |
 
 ## What the script fixes

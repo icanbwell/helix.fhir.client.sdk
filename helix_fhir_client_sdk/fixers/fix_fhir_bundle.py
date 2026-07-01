@@ -91,6 +91,74 @@ def is_valid_reference(ref: str) -> bool:
     return bool(_RELATIVE_REF_RE.match(ref))
 
 
+def _replace_patient_references(obj: Any, old_id: str, new_id: str) -> int:
+    """
+    Recursively replace all Patient/<old_id> references with Patient/<new_id>.
+
+    Returns the number of replacements made.
+    """
+    count = 0
+    if isinstance(obj, dict):
+        if isinstance(obj.get("reference"), str):
+            target = f"Patient/{old_id}"
+            if obj["reference"] == target:
+                obj["reference"] = f"Patient/{new_id}"
+                count += 1
+        for value in obj.values():
+            count += _replace_patient_references(value, old_id, new_id)
+    elif isinstance(obj, list):
+        for item in obj:
+            count += _replace_patient_references(item, old_id, new_id)
+    return count
+
+
+def apply_patient_id(payload: dict[str, Any], new_patient_id: str) -> tuple[int, int]:
+    """
+    Find the Patient resource in the payload, set its id to new_patient_id, and
+    replace all Patient/<old-id> references throughout the payload.
+
+    Returns (references_replaced, patient_id_changed) — patient_id_changed is 1
+    if the Patient resource's id was actually different from new_patient_id, else 0.
+    """
+    old_id: str | None = None
+
+    def _find_patient(resources: list[dict[str, Any]]) -> str | None:
+        for r in resources:
+            if r.get("resourceType") == "Patient":
+                return str(r.get("id", "")) or None
+        return None
+
+    resource_type = payload.get("resourceType")
+    if resource_type == "Bundle":
+        resources = [e["resource"] for e in payload.get("entry", []) if "resource" in e]
+        old_id = _find_patient(resources)
+    elif resource_type == "Parameters":
+        resources = [p["resource"] for p in payload.get("parameter", []) if "resource" in p]
+        old_id = _find_patient(resources)
+    elif resource_type == "Patient":
+        old_id = str(payload.get("id", "")) or None
+    else:
+        old_id = None
+
+    if old_id is None or old_id == new_patient_id:
+        return 0, 0
+
+    # Update the Patient resource id
+    def _set_patient_id(obj: Any) -> None:
+        if isinstance(obj, dict):
+            if obj.get("resourceType") == "Patient":
+                obj["id"] = new_patient_id
+            for value in obj.values():
+                _set_patient_id(value)
+        elif isinstance(obj, list):
+            for item in obj:
+                _set_patient_id(item)
+
+    _set_patient_id(payload)
+    refs_replaced = _replace_patient_references(payload, old_id, new_patient_id)
+    return refs_replaced, 1
+
+
 def _collect_invalid_references(obj: Any, path: str) -> list[str]:
     issues = []
     if isinstance(obj, dict):
@@ -366,6 +434,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--patient-id",
+        "-p",
+        metavar="ID",
+        help=(
+            "New patient ID to use. The Patient resource's id is set to this value "
+            "and all Patient/<old-id> references throughout the payload are updated to "
+            "Patient/<new-id>. Has no effect if no Patient resource is found."
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Report changes and errors without writing any output.",
@@ -387,6 +465,20 @@ def main() -> int:
     except json.JSONDecodeError as exc:
         print(f"ERROR: invalid JSON — {exc}", file=sys.stderr)
         return 1
+
+    if args.patient_id:
+        refs_replaced, id_changed = apply_patient_id(payload, args.patient_id)
+        if id_changed:
+            print(
+                f"Patient id set to {args.patient_id!r}; {refs_replaced} Patient reference(s) updated.",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"--patient-id specified but no Patient resource found or id already matches; "
+                f"{refs_replaced} Patient reference(s) updated.",
+                file=sys.stderr,
+            )
 
     fixed_payload, results = fix_payload(payload, args)
 
