@@ -1,4 +1,5 @@
 import json
+from logging import Logger
 from os import environ
 from typing import Any
 
@@ -6,6 +7,7 @@ from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.fixers.fix_fhir_bundle import FhirBundleFixer
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
 from helix_fhir_client_sdk.utilities.fhir_server_helpers import FhirServerHelpers
+from tests.logger_for_test import LoggerForTest
 
 
 async def test_fhir_bundle_fixer_fixes_and_merges_async() -> None:
@@ -56,11 +58,21 @@ async def test_fhir_bundle_fixer_fixes_and_merges_async() -> None:
         ],
     }
 
+    logger: Logger = LoggerForTest()
+
     fixer = FhirBundleFixer(
         meta_source="http://www.icanbwell.com",
         owner="bwell",
     )
     fixed_bundle, results = fixer.fix(broken_bundle)
+
+    logger.info("=== FhirBundleFixer results ===")
+    for label, changes, errors in results:
+        logger.info(f"[{label}]")
+        for c in changes:
+            logger.info(f"  + {c}")
+        for e in errors:
+            logger.info(f"  ! {e}")
 
     # ── assert fixer reported the expected changes ────────────────────────────
     # results[0] = Bundle container, results[1] = Patient, results[2] = Observation
@@ -120,18 +132,24 @@ async def test_fhir_bundle_fixer_fixes_and_merges_async() -> None:
         client = client.auth_wellknown_url(auth_well_known_url)
         return client
 
+    logger.info("=== Merging Patient ===")
     patient_merge: FhirMergeResponse | None = await FhirMergeResponse.from_async_generator(
         make_client("Patient").merge_async(json_data_list=[json.dumps(patient_resource)])
     )
     assert patient_merge is not None
+    logger.info(f"Patient merge status: {patient_merge.status}")
+    logger.info(f"Patient merge response: {patient_merge.responses}")
     assert patient_merge.status == 200, patient_merge.responses
     assert len(patient_merge.responses) == 1, patient_merge.responses
     assert patient_merge.responses[0].get("created") is True, patient_merge.responses
 
+    logger.info("=== Merging Observation ===")
     obs_merge: FhirMergeResponse | None = await FhirMergeResponse.from_async_generator(
         make_client("Observation").merge_async(json_data_list=[json.dumps(obs_resource)])
     )
     assert obs_merge is not None
+    logger.info(f"Observation merge status: {obs_merge.status}")
+    logger.info(f"Observation merge response: {obs_merge.responses}")
     assert obs_merge.status == 200, obs_merge.responses
     assert len(obs_merge.responses) == 1, obs_merge.responses
     assert obs_merge.responses[0].get("created") is True, obs_merge.responses
