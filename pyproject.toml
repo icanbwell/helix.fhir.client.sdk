@@ -11,6 +11,12 @@ license = { text = "Apache-2.0" }
 authors = [
     { name = "Imran Qureshi", email = "imran@icanbwell.com" }
 ]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
 requires-python = ">=3.12"
 dependencies = [
     "furl",
@@ -59,7 +65,7 @@ dev = [
 ]
 
 [tool.uv]
-constraint-dependencies = ["msgpack>=1.2.1"]
+constraint-dependencies = ["msgpack>=1.2.1", "aiohttp<3.12"]
 
 [tool.ruff]
 line-length = 120
