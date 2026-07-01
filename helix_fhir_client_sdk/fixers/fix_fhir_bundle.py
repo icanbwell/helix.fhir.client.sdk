@@ -74,173 +74,216 @@ except ImportError:
     _FHIR_SCHEMA_AVAILABLE = False
 
 
-def is_uuid(value: str) -> bool:
-    return bool(_UUID_RE.match(value))
-
-
-def deterministic_uuid(resource_id: str, source_assigning_authority: str) -> str:
-    """Reproduce the server's UUIDv5 for a non-UUID id."""
-    return str(uuid.uuid5(_OID_NAMESPACE, f"{resource_id}|{source_assigning_authority}"))
-
-
-def is_valid_reference(ref: str) -> bool:
-    if ref.startswith("#"):
-        return len(ref) > 1
-    if ref.startswith("http://") or ref.startswith("https://"):
-        return True
-    return bool(_RELATIVE_REF_RE.match(ref))
-
-
-def _replace_patient_references(obj: Any, old_id: str, new_id: str) -> int:
+class FhirBundleFixer:
     """
-    Recursively replace all Patient/<old_id> references with Patient/<new_id>.
+    Fixes a FHIR Bundle, Parameters document, or single resource so it passes
+    bwell FHIR server merge validation.
 
-    Returns the number of replacements made.
+    Configure the fixer once via the constructor, then call ``fix()`` for each
+    payload you want to process.  The instance is safe to reuse across calls.
+
+    Example::
+
+        fixer = FhirBundleFixer(meta_source="https://example.org", owner="my-org")
+        fixed_payload, results = fixer.fix(payload)
+        for label, changes, errors in results:
+            ...
     """
-    count = 0
-    if isinstance(obj, dict):
-        if isinstance(obj.get("reference"), str):
-            target = f"Patient/{old_id}"
-            if obj["reference"] == target:
-                obj["reference"] = f"Patient/{new_id}"
-                count += 1
-        for value in obj.values():
-            count += _replace_patient_references(value, old_id, new_id)
-    elif isinstance(obj, list):
-        for item in obj:
-            count += _replace_patient_references(item, old_id, new_id)
-    return count
 
+    def __init__(
+        self,
+        *,
+        meta_source: str | None = None,
+        owner: str | None = None,
+        access: str | None = None,
+        source_assigning_authority: str | None = None,
+    ) -> None:
+        self.meta_source = meta_source
+        self.owner = owner
+        self.access = access
+        self.source_assigning_authority = source_assigning_authority
 
-def apply_patient_id(payload: dict[str, Any], new_patient_id: str) -> tuple[int, int]:
-    """
-    Find the Patient resource in the payload, set its id to new_patient_id, and
-    replace all Patient/<old-id> references throughout the payload.
+    def fix(
+        self,
+        payload: dict[str, Any],
+        *,
+        patient_id: str | None = None,
+    ) -> tuple[dict[str, Any], list[tuple[str, list[str], list[str]]]]:
+        """
+        Fix all resources in a Bundle, Parameters, or single resource.
 
-    Returns (references_replaced, patient_id_changed) — patient_id_changed is 1
-    if the Patient resource's id was actually different from new_patient_id, else 0.
-    """
-    old_id: str | None = None
+        Optionally rewrites the Patient resource id and all Patient/<old-id>
+        cross-references when *patient_id* is supplied.
 
-    def _find_patient(resources: list[dict[str, Any]]) -> str | None:
-        for r in resources:
-            if r.get("resourceType") == "Patient":
-                return str(r.get("id", "")) or None
-        return None
+        Returns ``(fixed_payload, results)`` where *results* is a list of
+        ``(label, changes, errors)`` — one entry per top-level resource processed.
+        Changes and errors are human-readable strings describing what was done or
+        what could not be auto-fixed.
+        """
+        if patient_id is not None:
+            self.apply_patient_id(payload, patient_id)
 
-    resource_type = payload.get("resourceType")
-    if resource_type == "Bundle":
-        resources = [e["resource"] for e in payload.get("entry", []) if "resource" in e]
-        old_id = _find_patient(resources)
-    elif resource_type == "Parameters":
-        resources = [p["resource"] for p in payload.get("parameter", []) if "resource" in p]
-        old_id = _find_patient(resources)
-    elif resource_type == "Patient":
-        old_id = str(payload.get("id", "")) or None
-    else:
-        old_id = None
+        return self._fix_payload(payload)
 
-    if old_id is None or old_id == new_patient_id:
-        return 0, 0
+    # ── static helpers ────────────────────────────────────────────────────────
 
-    # Update the Patient resource id
-    def _set_patient_id(obj: Any) -> None:
+    @staticmethod
+    def is_uuid(value: str) -> bool:
+        return bool(_UUID_RE.match(value))
+
+    @staticmethod
+    def deterministic_uuid(resource_id: str, source_assigning_authority: str) -> str:
+        """Reproduce the server's UUIDv5 for a non-UUID id."""
+        return str(uuid.uuid5(_OID_NAMESPACE, f"{resource_id}|{source_assigning_authority}"))
+
+    @staticmethod
+    def is_valid_reference(ref: str) -> bool:
+        if ref.startswith("#"):
+            return len(ref) > 1
+        if ref.startswith("http://") or ref.startswith("https://"):
+            return True
+        return bool(_RELATIVE_REF_RE.match(ref))
+
+    @staticmethod
+    def _replace_patient_references(obj: Any, old_id: str, new_id: str) -> int:
+        """
+        Recursively replace all Patient/<old_id> references with Patient/<new_id>.
+
+        Returns the number of replacements made.
+        """
+        count = 0
         if isinstance(obj, dict):
-            if obj.get("resourceType") == "Patient":
-                obj["id"] = new_patient_id
+            if isinstance(obj.get("reference"), str):
+                target = f"Patient/{old_id}"
+                if obj["reference"] == target:
+                    obj["reference"] = f"Patient/{new_id}"
+                    count += 1
             for value in obj.values():
-                _set_patient_id(value)
+                count += FhirBundleFixer._replace_patient_references(value, old_id, new_id)
         elif isinstance(obj, list):
             for item in obj:
-                _set_patient_id(item)
+                count += FhirBundleFixer._replace_patient_references(item, old_id, new_id)
+        return count
 
-    _set_patient_id(payload)
-    refs_replaced = _replace_patient_references(payload, old_id, new_patient_id)
-    return refs_replaced, 1
+    @staticmethod
+    def apply_patient_id(payload: dict[str, Any], new_patient_id: str) -> tuple[int, int]:
+        """
+        Find the Patient resource in the payload, set its id to new_patient_id, and
+        replace all Patient/<old-id> references throughout the payload.
 
+        Returns (references_replaced, patient_id_changed) — patient_id_changed is 1
+        if the Patient resource's id was actually different from new_patient_id, else 0.
+        """
+        old_id: str | None = None
 
-def _collect_invalid_references(obj: Any, path: str) -> list[str]:
-    issues = []
-    if isinstance(obj, dict):
-        if "reference" in obj and isinstance(obj["reference"], str):
-            ref = obj["reference"]
-            if not is_valid_reference(ref):
-                issues.append(
-                    f"invalid reference at {path}.reference: {ref!r} "
-                    "(expected #contained, https://..., or ResourceType/id)"
-                )
-        for key, value in obj.items():
-            issues.extend(_collect_invalid_references(value, f"{path}.{key}"))
-    elif isinstance(obj, list):
-        for i, item in enumerate(obj):
-            issues.extend(_collect_invalid_references(item, f"{path}[{i}]"))
-    return issues
+        def _find_patient(resources: list[dict[str, Any]]) -> str | None:
+            for r in resources:
+                if r.get("resourceType") == "Patient":
+                    return str(r.get("id", "")) or None
+            return None
 
+        resource_type = payload.get("resourceType")
+        if resource_type == "Bundle":
+            resources = [e["resource"] for e in payload.get("entry", []) if "resource" in e]
+            old_id = _find_patient(resources)
+        elif resource_type == "Parameters":
+            resources = [p["resource"] for p in payload.get("parameter", []) if "resource" in p]
+            old_id = _find_patient(resources)
+        elif resource_type == "Patient":
+            old_id = str(payload.get("id", "")) or None
+        else:
+            old_id = None
 
-def _validate_fhir_schema(resource: dict[str, Any]) -> list[str]:
-    """Validate against the FHIR R4 schema using fhirschemapy. Returns error strings."""
-    if not _FHIR_SCHEMA_AVAILABLE:
-        return []
-    resource_type = resource.get("resourceType")
-    if not resource_type:
-        return []
-    # Bundle validation requires the aidbox package (not installed); skip it —
-    # Bundle structure is handled by fix_payload, not by schema validation here.
-    if resource_type in ("Bundle", "Parameters"):
-        return []
-    model_class = getattr(_fhir_r4b, resource_type, None)
-    if model_class is None:
-        return [f"unknown resourceType {resource_type!r} — not in FHIR R4 schema"]
-    try:
-        # Strip contained before validating — contained resources are fixed separately
-        # and their presence triggers an aidbox-dependent resource_families lookup.
-        resource_for_validation = {k: v for k, v in resource.items() if k != "contained"}
-        model_class.model_validate(resource_for_validation)
-        return []
-    except _PydanticValidationError as exc:
-        return [f"schema: {e['loc']} — {e['msg']}" for e in exc.errors()]
+        if old_id is None or old_id == new_patient_id:
+            return 0, 0
 
+        def _set_patient_id(obj: Any) -> None:
+            if isinstance(obj, dict):
+                if obj.get("resourceType") == "Patient":
+                    obj["id"] = new_patient_id
+                for value in obj.values():
+                    _set_patient_id(value)
+            elif isinstance(obj, list):
+                for item in obj:
+                    _set_patient_id(item)
 
-def fix_resource(
-    resource: dict[str, Any],
-    args: argparse.Namespace,
-    *,
-    is_contained: bool = False,
-    path: str = "",
-) -> tuple[dict[str, Any], list[str], list[str]]:
-    """
-    Fix a single FHIR resource in place and recurse into contained[] and nested Bundles.
+        _set_patient_id(payload)
+        refs_replaced = FhirBundleFixer._replace_patient_references(payload, old_id, new_patient_id)
+        return refs_replaced, 1
 
-    is_contained=True skips meta.source and security tag requirements, which do not apply
-    to contained (inline) resources since they are validated as part of their parent.
+    @staticmethod
+    def _collect_invalid_references(obj: Any, path: str) -> list[str]:
+        issues = []
+        if isinstance(obj, dict):
+            if "reference" in obj and isinstance(obj["reference"], str):
+                ref = obj["reference"]
+                if not FhirBundleFixer.is_valid_reference(ref):
+                    issues.append(
+                        f"invalid reference at {path}.reference: {ref!r} "
+                        "(expected #contained, https://..., or ResourceType/id)"
+                    )
+            for key, value in obj.items():
+                issues.extend(FhirBundleFixer._collect_invalid_references(value, f"{path}.{key}"))
+        elif isinstance(obj, list):
+            for i, item in enumerate(obj):
+                issues.extend(FhirBundleFixer._collect_invalid_references(item, f"{path}[{i}]"))
+        return issues
 
-    Returns (fixed_resource, changes, errors).
-    """
-    changes: list[str] = []
-    errors: list[str] = []
-    label = f"{resource.get('resourceType', '?')}/{resource.get('id', '?')}"
-    prefix = f"{path}{label}: " if path else ""
+    @staticmethod
+    def _validate_fhir_schema(resource: dict[str, Any]) -> list[str]:
+        """Validate against the FHIR R4 schema using fhirschemapy. Returns error strings."""
+        if not _FHIR_SCHEMA_AVAILABLE:
+            return []
+        resource_type = resource.get("resourceType")
+        if not resource_type:
+            return []
+        # Bundle validation requires the aidbox package (not installed); skip it —
+        # Bundle structure is handled by _fix_payload, not by schema validation here.
+        if resource_type in ("Bundle", "Parameters"):
+            return []
+        model_class = getattr(_fhir_r4b, resource_type, None)
+        if model_class is None:
+            return [f"unknown resourceType {resource_type!r} — not in FHIR R4 schema"]
+        try:
+            # Strip contained before validating — contained resources are fixed separately
+            # and their presence triggers an aidbox-dependent resource_families lookup.
+            resource_for_validation = {k: v for k, v in resource.items() if k != "contained"}
+            model_class.model_validate(resource_for_validation)
+            return []
+        except _PydanticValidationError as exc:
+            return [f"schema: {e['loc']} — {e['msg']}" for e in exc.errors()]
 
-    def note(msg: str) -> None:
-        changes.append(f"{prefix}{msg}")
+    # ── private instance methods ──────────────────────────────────────────────
 
-    def fail(msg: str) -> None:
-        errors.append(f"{prefix}{msg}")
+    def _apply_meta_security(
+        self,
+        resource: dict[str, Any],
+        label: str,
+    ) -> tuple[list[str], list[str]]:
+        """
+        Apply meta.source and security tag fixes to *resource* in place.
 
-    if not resource.get("resourceType"):
-        fail("missing resourceType — fix manually")
+        Returns ``(changes, errors)`` with messages prefixed by *label*.
+        Called for every top-level resource including the Bundle container itself.
+        """
+        changes: list[str] = []
+        errors: list[str] = []
 
-    # ── meta.source and security tags (top-level resources only) ─────────────
-    if not is_contained:
+        def note(msg: str) -> None:
+            changes.append(f"{label}: {msg}")
+
+        def fail(msg: str) -> None:
+            errors.append(f"{label}: {msg}")
+
         if "meta" not in resource:
             resource["meta"] = {}
 
         if not resource["meta"].get("source"):
-            if args.meta_source:
-                resource["meta"]["source"] = args.meta_source
-                note(f"set meta.source = {args.meta_source!r}")
+            if self.meta_source:
+                resource["meta"]["source"] = self.meta_source
+                note(f"set meta.source = {self.meta_source!r}")
             else:
-                fail("missing meta.source — provide --meta-source")
+                fail("missing meta.source — provide meta_source")
 
         if "security" not in resource["meta"]:
             resource["meta"]["security"] = []
@@ -260,126 +303,166 @@ def fix_resource(
 
         owner_tags = tags_for(OWNER_SYSTEM)
         if len(owner_tags) == 0:
-            if args.owner:
-                add_tag(OWNER_SYSTEM, args.owner, "owner")
+            if self.owner:
+                add_tag(OWNER_SYSTEM, self.owner, "owner")
             else:
-                fail("missing owner security tag — provide --owner")
+                fail("missing owner security tag — provide owner")
         elif len(owner_tags) > 1:
             kept = owner_tags[0]
             resource["meta"]["security"] = [t for t in resource["meta"]["security"] if t.get("system") != OWNER_SYSTEM]
             resource["meta"]["security"].append(kept)
             note(f"removed {len(owner_tags) - 1} duplicate owner tag(s), kept code={kept['code']!r}")
 
-        access_code = args.access or args.owner
+        access_code = self.access or self.owner
         if access_code and not tags_for(ACCESS_SYSTEM):
             add_tag(ACCESS_SYSTEM, access_code, "access")
 
-        if args.source_assigning_authority and not tags_for(SOURCE_ASSIGNING_AUTHORITY_SYSTEM):
-            add_tag(SOURCE_ASSIGNING_AUTHORITY_SYSTEM, args.source_assigning_authority, "sourceAssigningAuthority")
+        if self.source_assigning_authority and not tags_for(SOURCE_ASSIGNING_AUTHORITY_SYSTEM):
+            add_tag(SOURCE_ASSIGNING_AUTHORITY_SYSTEM, self.source_assigning_authority, "sourceAssigningAuthority")
 
-    # ── id (applies to all resources including contained) ────────────────────
-    if not resource.get("id"):
-        new_id = str(uuid.uuid4())
-        resource["id"] = new_id
-        note(f"generated random id = {new_id!r}")
+        return changes, errors
 
-    resource_id = str(resource.get("id", ""))
+    def _fix_resource(
+        self,
+        resource: dict[str, Any],
+        *,
+        is_contained: bool = False,
+        path: str = "",
+    ) -> tuple[dict[str, Any], list[str], list[str]]:
+        """
+        Fix a single FHIR resource in place and recurse into contained[] and
+        nested Bundle entries.
 
-    if "|" in resource_id:
-        fail(
-            f"id contains a pipe character '|': {resource_id!r} — "
-            "remove the pipe and set --source-assigning-authority to the portion after it"
-        )
-    elif not is_contained and not is_uuid(resource_id):
-        security = resource.get("meta", {}).get("security", [])
-        has_owner = any(t.get("system") == OWNER_SYSTEM for t in security)
-        has_saa = any(t.get("system") == SOURCE_ASSIGNING_AUTHORITY_SYSTEM for t in security)
-        if not has_owner and not has_saa:
-            saa = args.source_assigning_authority or args.owner
-            if saa:
-                resource["meta"]["security"].append({"system": SOURCE_ASSIGNING_AUTHORITY_SYSTEM, "code": saa})
-                note(f"added sourceAssigningAuthority tag (code={saa!r}) — required for non-UUID id")
-            else:
-                fail(
-                    "non-UUID id requires an owner or sourceAssigningAuthority security tag — "
-                    "provide --owner or --source-assigning-authority"
-                )
+        ``is_contained=True`` skips meta.source and security tag requirements,
+        which do not apply to contained (inline) resources since they are
+        validated as part of their parent.
 
-    # ── references ───────────────────────────────────────────────────────────
-    # Exclude subtrees that are walked recursively to avoid duplicate reports.
-    skip_keys = set()
-    if resource.get("resourceType") == "Bundle":
-        skip_keys.add("entry")
-    if isinstance(resource.get("contained"), list):
-        skip_keys.add("contained")
-    resource_for_refs = {k: v for k, v in resource.items() if k not in skip_keys}
-    for issue in _collect_invalid_references(resource_for_refs, label):
-        fail(issue)
+        Returns ``(fixed_resource, changes, errors)``.
+        """
+        changes: list[str] = []
+        errors: list[str] = []
+        label = f"{resource.get('resourceType', '?')}/{resource.get('id', '?')}"
+        prefix = f"{path}{label}: " if path else ""
 
-    # ── FHIR schema validation ────────────────────────────────────────────────
-    for issue in _validate_fhir_schema(resource):
-        fail(issue)
+        def note(msg: str) -> None:
+            changes.append(f"{prefix}{msg}")
 
-    # ── contained resources (recurse, skip meta/security) ────────────────────
-    if isinstance(resource.get("contained"), list):
-        fixed_contained = []
-        for cr in resource["contained"]:
-            fixed_cr, cr_changes, cr_errors = fix_resource(cr, args, is_contained=True, path=f"{prefix}contained/")
-            fixed_contained.append(fixed_cr)
-            changes.extend(cr_changes)
-            errors.extend(cr_errors)
-        resource["contained"] = fixed_contained
+        def fail(msg: str) -> None:
+            errors.append(f"{prefix}{msg}")
 
-    # ── nested Bundle entries (recurse with full fixes) ───────────────────────
-    if resource.get("resourceType") == "Bundle" and isinstance(resource.get("entry"), list):
-        for i, entry in enumerate(resource["entry"]):
-            if "resource" in entry:
-                fixed_r, r_changes, r_errors = fix_resource(
-                    entry["resource"], args, is_contained=False, path=f"{prefix}entry[{i}]/"
-                )
-                entry["resource"] = fixed_r
-                changes.extend(r_changes)
-                errors.extend(r_errors)
+        if not resource.get("resourceType"):
+            fail("missing resourceType — fix manually")
 
-    return resource, changes, errors
+        # ── meta.source and security tags (top-level resources only) ─────────
+        if not is_contained:
+            meta_changes, meta_errors = self._apply_meta_security(resource, f"{path}{label}")
+            changes.extend(meta_changes)
+            errors.extend(meta_errors)
+
+        # ── id (applies to all resources including contained) ─────────────────
+        if not resource.get("id"):
+            new_id = str(uuid.uuid4())
+            resource["id"] = new_id
+            note(f"generated random id = {new_id!r}")
+
+        resource_id = str(resource.get("id", ""))
+
+        if "|" in resource_id:
+            fail(
+                f"id contains a pipe character '|': {resource_id!r} — "
+                "remove the pipe and set source_assigning_authority to the portion after it"
+            )
+        elif not is_contained and not self.is_uuid(resource_id):
+            security = resource.get("meta", {}).get("security", [])
+            has_owner = any(t.get("system") == OWNER_SYSTEM for t in security)
+            has_saa = any(t.get("system") == SOURCE_ASSIGNING_AUTHORITY_SYSTEM for t in security)
+            if not has_owner and not has_saa:
+                saa = self.source_assigning_authority or self.owner
+                if saa:
+                    resource["meta"]["security"].append({"system": SOURCE_ASSIGNING_AUTHORITY_SYSTEM, "code": saa})
+                    note(f"added sourceAssigningAuthority tag (code={saa!r}) — required for non-UUID id")
+                else:
+                    fail(
+                        "non-UUID id requires an owner or sourceAssigningAuthority security tag — "
+                        "provide owner or source_assigning_authority"
+                    )
+
+        # ── references ────────────────────────────────────────────────────────
+        # Exclude subtrees that are walked recursively to avoid duplicate reports.
+        skip_keys = set()
+        if resource.get("resourceType") == "Bundle":
+            skip_keys.add("entry")
+        if isinstance(resource.get("contained"), list):
+            skip_keys.add("contained")
+        resource_for_refs = {k: v for k, v in resource.items() if k not in skip_keys}
+        for issue in self._collect_invalid_references(resource_for_refs, label):
+            fail(issue)
+
+        # ── FHIR schema validation ────────────────────────────────────────────
+        for issue in self._validate_fhir_schema(resource):
+            fail(issue)
+
+        # ── contained resources (recurse, skip meta/security) ─────────────────
+        if isinstance(resource.get("contained"), list):
+            fixed_contained = []
+            for cr in resource["contained"]:
+                fixed_cr, cr_changes, cr_errors = self._fix_resource(cr, is_contained=True, path=f"{prefix}contained/")
+                fixed_contained.append(fixed_cr)
+                changes.extend(cr_changes)
+                errors.extend(cr_errors)
+            resource["contained"] = fixed_contained
+
+        # ── nested Bundle entries (recurse with full fixes) ────────────────────
+        if resource.get("resourceType") == "Bundle" and isinstance(resource.get("entry"), list):
+            for i, entry in enumerate(resource["entry"]):
+                if "resource" in entry:
+                    fixed_r, r_changes, r_errors = self._fix_resource(
+                        entry["resource"], is_contained=False, path=f"{prefix}entry[{i}]/"
+                    )
+                    entry["resource"] = fixed_r
+                    changes.extend(r_changes)
+                    errors.extend(r_errors)
+
+        return resource, changes, errors
+
+    def _fix_payload(
+        self,
+        payload: dict[str, Any],
+    ) -> tuple[dict[str, Any], list[tuple[str, list[str], list[str]]]]:
+        resource_type = payload.get("resourceType")
+        results: list[tuple[str, list[str], list[str]]] = []
+
+        if resource_type == "Bundle":
+            bundle_label = f"Bundle/{payload.get('id', '<no id>')}"
+            bundle_changes, bundle_errors = self._apply_meta_security(payload, bundle_label)
+            results.append((bundle_label, bundle_changes, bundle_errors))
+
+            for entry in payload.get("entry", []):
+                if "resource" in entry:
+                    r = entry["resource"]
+                    label = f"{r.get('resourceType', 'Unknown')}/{r.get('id', '<no id>')}"
+                    fixed, changes, errors = self._fix_resource(r)
+                    entry["resource"] = fixed
+                    results.append((label, changes, errors))
+            return payload, results
+
+        if resource_type == "Parameters":
+            for param in payload.get("parameter", []):
+                if "resource" in param:
+                    r = param["resource"]
+                    label = f"{r.get('resourceType', 'Unknown')}/{r.get('id', '<no id>')}"
+                    fixed, changes, errors = self._fix_resource(r)
+                    param["resource"] = fixed
+                    results.append((label, changes, errors))
+            return payload, results
+
+        label = f"{payload.get('resourceType', 'Unknown')}/{payload.get('id', '<no id>')}"
+        fixed, changes, errors = self._fix_resource(payload)
+        results.append((label, changes, errors))
+        return fixed, results
 
 
-def fix_payload(
-    payload: dict[str, Any], args: argparse.Namespace
-) -> tuple[dict[str, Any], list[tuple[str, list[str], list[str]]]]:
-    """
-    Fix all resources in a Bundle, Parameters, or single resource.
-
-    Returns (fixed_payload, results) where results is a list of
-    (label, changes, errors) — one entry per top-level resource processed.
-    """
-    resource_type = payload.get("resourceType")
-    results = []
-
-    if resource_type == "Bundle":
-        for entry in payload.get("entry", []):
-            if "resource" in entry:
-                r = entry["resource"]
-                label = f"{r.get('resourceType', 'Unknown')}/{r.get('id', '<no id>')}"
-                fixed, changes, errors = fix_resource(r, args)
-                entry["resource"] = fixed
-                results.append((label, changes, errors))
-        return payload, results
-
-    if resource_type == "Parameters":
-        for param in payload.get("parameter", []):
-            if "resource" in param:
-                r = param["resource"]
-                label = f"{r.get('resourceType', 'Unknown')}/{r.get('id', '<no id>')}"
-                fixed, changes, errors = fix_resource(r, args)
-                param["resource"] = fixed
-                results.append((label, changes, errors))
-        return payload, results
-
-    label = f"{payload.get('resourceType', 'Unknown')}/{payload.get('id', '<no id>')}"
-    fixed, changes, errors = fix_resource(payload, args)
-    results.append((label, changes, errors))
-    return fixed, results
+# ── CLI ───────────────────────────────────────────────────────────────────────
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -466,11 +549,19 @@ def main() -> int:
         print(f"ERROR: invalid JSON — {exc}", file=sys.stderr)
         return 1
 
-    if args.patient_id:
-        refs_replaced, id_changed = apply_patient_id(payload, args.patient_id)
+    fixer = FhirBundleFixer(
+        meta_source=args.meta_source,
+        owner=args.owner,
+        access=args.access,
+        source_assigning_authority=args.source_assigning_authority,
+    )
+
+    patient_id: str | None = args.patient_id
+    if patient_id is not None:
+        refs_replaced, id_changed = FhirBundleFixer.apply_patient_id(payload, patient_id)
         if id_changed:
             print(
-                f"Patient id set to {args.patient_id!r}; {refs_replaced} Patient reference(s) updated.",
+                f"Patient id set to {patient_id!r}; {refs_replaced} Patient reference(s) updated.",
                 file=sys.stderr,
             )
         else:
@@ -480,7 +571,7 @@ def main() -> int:
                 file=sys.stderr,
             )
 
-    fixed_payload, results = fix_payload(payload, args)
+    fixed_payload, results = fixer.fix(payload)
 
     if not results:
         print("ERROR: no resources found in input", file=sys.stderr)
