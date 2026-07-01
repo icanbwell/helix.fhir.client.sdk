@@ -1,3 +1,75 @@
+[build-system]
+requires = ["setuptools>=75.8.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "helix.fhir.client.sdk"
+dynamic = ["version"]
+description = "helix.fhir.client.sdk"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Imran Qureshi", email = "imran@icanbwell.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "furl",
+    "requests",
+    "urllib3",
+    "chardet",
+    "aiohttp",
+    "async-timeout>=4.0.3",
+    "python-dateutil",
+    "compressedfhir>=1.0.13,<3",
+    "certifi>=2025.1.31",
+    "opentelemetry-api>=1.39",
+    "opentelemetry-distro[otlp]>=0.60b0",
+    "opentelemetry-sdk>=1.39.1",
+    "opentelemetry-instrumentation-httpx>=0.60b0",
+    "opentelemetry-instrumentation-requests>=0.60b0",
+    "opentelemetry-instrumentation-aiohttp-client>=0.60b0",
+    "opentelemetry-instrumentation-asyncio>=0.60b0",
+    "multidict>=6",
+]
+
+[tool.setuptools.dynamic]
+version = { file = "VERSION" }
+
+[tool.setuptools.packages.find]
+exclude = ["**/test", "**/test/**"]
+
+[tool.setuptools.package-data]
+helix_fhir_client_sdk = ["py.typed"]
+
+[dependency-groups]
+dev = [
+    "packaging",
+    "wheel>=0.43.0",
+    "twine>=5.1.1",
+    "pre-commit>=4.0.1",
+    "autoflake>=2.3.1",
+    "mypy>=1.15.0",
+    "pytest>=8.3.3",
+    "black>=24.10.0",
+    "pytest-asyncio>=0.23.8",
+    "types-requests>=2.31.0",
+    "types-python-dateutil>=2.8.19.14",
+    "Sphinx==7.4.7",
+    "sphinx-autoapi==3.2.1",
+    "sphinx-rtd-theme==2.0.0",
+    "myst-parser==3.0.1",
+    "helix-mockserver-client>=2.0.4",
+    "httpx>=0.23.3",
+    "aioresponses>=0.7.6",
+    "deepdiff>=8.6.1",
+    "pytest-benchmark>=4.0.0",
+    "msgpack-types>=0.5.0",
+    "objsize>=0.7.1",
+    "types-orjson>=3.6.2",
+    "bandit>=1.8.3",
+    "ruff>=0.11.5",
+]
+
 [tool.ruff]
 line-length = 120
 target-version = "py312"
@@ -16,11 +88,38 @@ select = [
 ]
 ignore = [
     "E501",  # Line too long (handled by ruff-format)
-    "C408", # unnecessary dict()
-    "C901", # function is too complex
+    "C408",  # unnecessary dict()
+    "C901",  # function is too complex
 ]
 
 [tool.mypy]
 strict = true
 python_version = "3.12"
 ignore_missing_imports = true
+warn_return_any = true
+warn_unused_configs = true
+strict_optional = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["setuptools.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["furl.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["aioresponses.*"]
+allow_untyped_calls = true
+
+[[tool.mypy.overrides]]
+module = ["objsize.*"]
+allow_untyped_calls = true
+follow_untyped_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests/", "spark_pipeline_framework/**/test/"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

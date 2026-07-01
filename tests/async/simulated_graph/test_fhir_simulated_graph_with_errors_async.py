@@ -116,10 +116,10 @@ async def test_fhir_simulated_graph_with_errors_async() -> None:
     # sort the entries by request url
     bundle["entry"] = sorted(
         bundle["entry"],
-        key=lambda x: (int(x["resource"].get("id")) if x["resource"].get("id") else hash(x["request"]["url"])),
+        key=lambda x: int(x["resource"].get("id")) if x["resource"].get("id") else hash(x["request"]["url"]),
     )
     expected_json["entry"] = sorted(
         expected_json["entry"],
-        key=lambda x: (int(x["resource"].get("id")) if x["resource"].get("id") else hash(x["request"]["url"])),
+        key=lambda x: int(x["resource"].get("id")) if x["resource"].get("id") else hash(x["request"]["url"]),
     )
     assert bundle == expected_json
