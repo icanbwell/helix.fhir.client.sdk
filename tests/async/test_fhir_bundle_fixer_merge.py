@@ -132,24 +132,25 @@ async def test_fhir_bundle_fixer_fixes_and_merges_async() -> None:
         client = client.auth_wellknown_url(auth_well_known_url)
         return client
 
+    def assert_merge_succeeded(merge: FhirMergeResponse, label: str) -> None:
+        logger.info(f"{label} merge status: {merge.status}")
+        logger.info(f"{label} merge response: {merge.responses}")
+        assert merge.status == 200, f"{label}: expected HTTP 200, got {merge.status}: {merge.responses}"
+        errors = [issue for r in merge.responses for issue in r.get("issue", []) if issue.get("severity") == "error"]
+        assert not errors, f"{label}: server returned errors: {errors}"
+        not_created = [r for r in merge.responses if not r.get("created")]
+        assert not not_created, f"{label}: expected created=true for all, got: {not_created}"
+
     logger.info("=== Merging Patient ===")
     patient_merge: FhirMergeResponse | None = await FhirMergeResponse.from_async_generator(
         make_client("Patient").merge_async(json_data_list=[json.dumps(patient_resource)])
     )
     assert patient_merge is not None
-    logger.info(f"Patient merge status: {patient_merge.status}")
-    logger.info(f"Patient merge response: {patient_merge.responses}")
-    assert patient_merge.status == 200, patient_merge.responses
-    assert len(patient_merge.responses) == 1, patient_merge.responses
-    assert patient_merge.responses[0].get("created") is True, patient_merge.responses
+    assert_merge_succeeded(patient_merge, "Patient")
 
     logger.info("=== Merging Observation ===")
     obs_merge: FhirMergeResponse | None = await FhirMergeResponse.from_async_generator(
         make_client("Observation").merge_async(json_data_list=[json.dumps(obs_resource)])
     )
     assert obs_merge is not None
-    logger.info(f"Observation merge status: {obs_merge.status}")
-    logger.info(f"Observation merge response: {obs_merge.responses}")
-    assert obs_merge.status == 200, obs_merge.responses
-    assert len(obs_merge.responses) == 1, obs_merge.responses
-    assert obs_merge.responses[0].get("created") is True, obs_merge.responses
+    assert_merge_succeeded(obs_merge, "Observation")
