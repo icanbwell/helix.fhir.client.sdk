@@ -17,7 +17,7 @@ Contained resources (resource.contained[]) are fixed for id and references only 
 they are submitted as part of their parent and are not independently validated for
 meta.source or security tags.
 
-If fhirschemapy is installed, each resource is also validated against the FHIR R4
+If fhirschemapy is installed, each resource is also validated against the FHIR R4B
 schema and structural errors are reported.
 
 Unfixable issues (pipe in id, invalid references, schema errors) are written
@@ -25,19 +25,19 @@ to stderr.  The fixed output is still written so you can inspect and correct man
 Exit code is 0 when all resources are fully fixed, 1 when any unfixable issues remain.
 
 Usage:
-    python tools/fix_fhir_bundle.py \\
+    python -m helix_fhir_client_sdk.fixers.fix_fhir_bundle \\
         --input bundle.json --output fixed.json \\
         --meta-source https://example.org \\
         --owner my-org
 
-    python tools/fix_fhir_bundle.py \\
+    python -m helix_fhir_client_sdk.fixers.fix_fhir_bundle \\
         --input bundle.json --output fixed.json \\
         --meta-source https://example.org \\
         --owner my-org \\
         --access my-org \\
         --source-assigning-authority my-org
 
-    python tools/fix_fhir_bundle.py \\
+    python -m helix_fhir_client_sdk.fixers.fix_fhir_bundle \\
         --input bundle.json --output - \\
         --meta-source https://example.org \\
         --owner my-org
@@ -270,7 +270,7 @@ class FhirBundleFixer:
 
     @staticmethod
     def _validate_fhir_schema(resource: dict[str, Any]) -> list[str]:
-        """Validate against the FHIR R4 schema using fhirschemapy. Returns error strings."""
+        """Validate against the FHIR R4B schema using fhirschemapy. Returns error strings."""
         if not _FHIR_SCHEMA_AVAILABLE:
             return []
         resource_type = resource.get("resourceType")
@@ -282,7 +282,7 @@ class FhirBundleFixer:
             return []
         model_class = getattr(_fhir_r4b, resource_type, None)
         if model_class is None:
-            return [f"unknown resourceType {resource_type!r} — not in FHIR R4 schema"]
+            return [f"unknown resourceType {resource_type!r} — not in FHIR R4B schema"]
         try:
             # Strip contained before validating — contained resources are fixed separately
             # and their presence triggers an aidbox-dependent resource_families lookup.
@@ -391,6 +391,7 @@ class FhirBundleFixer:
 
         if not resource.get("resourceType"):
             fail("missing resourceType — fix manually")
+            return resource, changes, errors
 
         # ── meta.source and security tags (top-level resources only) ─────────
         if not is_contained:

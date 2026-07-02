@@ -1,12 +1,12 @@
 # fix_fhir_bundle.py
 
-Prepares a FHIR Bundle (or single resource) for merging to the bwell FHIR server by automatically applying the fixes required to pass [merge validation](../docs/merge-validation-spec.md).
+Prepares a FHIR Bundle (or single resource) for merging to the bwell FHIR server by automatically applying the fixes required to pass merge validation.
 
 ## Requirements
 
 - Python 3.9+
 - No required dependencies — the script uses the standard library only.
-- **Optional:** `fhirschemapy` enables FHIR R4 structural schema validation. If installed, each resource is validated against the R4 schema and structural errors (missing required fields, invalid enum values) are reported alongside the other checks.
+- **Optional:** `fhirschemapy` enables FHIR R4B structural schema validation. If installed, each resource is validated against the R4B schema and structural errors (missing required fields, invalid enum values) are reported alongside the other checks.
 
 ```bash
 pip install fhirschemapy
@@ -15,7 +15,7 @@ pip install fhirschemapy
 ## Usage
 
 ```
-python tools/fix_fhir_bundle.py \
+python -m helix_fhir_client_sdk.fixers.fix_fhir_bundle \
     --input <PATH> \
     --output <PATH> \
     [--meta-source <URL>] \
@@ -91,7 +91,7 @@ Summary: 1 top-level resource(s), 3 fix(es) applied, 1 unfixable issue(s).
 ### Basic: fix a bundle and write to a new file
 
 ```bash
-python tools/fix_fhir_bundle.py \
+python -m helix_fhir_client_sdk.fixers.fix_fhir_bundle \
     --input bundle.json \
     --output fixed.json \
     --meta-source https://example.org/fhir \
@@ -101,7 +101,7 @@ python tools/fix_fhir_bundle.py \
 ### With all security tags
 
 ```bash
-python tools/fix_fhir_bundle.py \
+python -m helix_fhir_client_sdk.fixers.fix_fhir_bundle \
     --input bundle.json \
     --output fixed.json \
     --meta-source https://example.org/fhir \
@@ -113,7 +113,7 @@ python tools/fix_fhir_bundle.py \
 ### Dry run: see what would change without writing output
 
 ```bash
-python tools/fix_fhir_bundle.py \
+python -m helix_fhir_client_sdk.fixers.fix_fhir_bundle \
     --input bundle.json \
     --output fixed.json \
     --meta-source https://example.org/fhir \
@@ -124,7 +124,7 @@ python tools/fix_fhir_bundle.py \
 ### Write fixed output to stdout
 
 ```bash
-python tools/fix_fhir_bundle.py \
+python -m helix_fhir_client_sdk.fixers.fix_fhir_bundle \
     --input bundle.json \
     --output - \
     --meta-source https://example.org/fhir \
@@ -134,7 +134,7 @@ python tools/fix_fhir_bundle.py \
 ### Use in a pipeline (check exit code)
 
 ```bash
-python tools/fix_fhir_bundle.py \
+python -m helix_fhir_client_sdk.fixers.fix_fhir_bundle \
     --input bundle.json \
     --output fixed.json \
     --meta-source https://example.org/fhir \
@@ -171,7 +171,7 @@ If a resource already has exactly one owner tag, it is left unchanged. If it has
 The script accepts a single FHIR resource JSON directly — it does not need to be wrapped in a Bundle:
 
 ```bash
-python tools/fix_fhir_bundle.py \
+python -m helix_fhir_client_sdk.fixers.fix_fhir_bundle \
     --input patient.json \
     --output fixed_patient.json \
     --meta-source https://example.org/fhir \
@@ -180,4 +180,4 @@ python tools/fix_fhir_bundle.py \
 
 ## Related
 
-- [Merge Validation Spec](../docs/merge-validation-spec.md) — the full list of checks the server runs during `$merge`
+- Merge validation spec — the full list of checks the server runs during `$merge`
