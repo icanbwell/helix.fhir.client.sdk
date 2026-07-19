@@ -66,6 +66,7 @@ dev = [
 ]
 
 [tool.uv]
+exclude-newer = "2 days"
 constraint-dependencies = ["msgpack>=1.2.1"]
 
 [tool.ruff]
