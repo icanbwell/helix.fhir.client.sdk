@@ -16,6 +16,22 @@ Treat these as hard constraints, not suggestions. Code that violates tenant isol
 
 ---
 
+## Design-Time Quality Kit & Knowledge Substrate
+
+The worst failures happen at **design time**, before code review can catch them. b.well maintains a tool-neutral **knowledge substrate** — the single source of truth for rules, patterns, and gradeable review rubrics — and a design-time kit that uses it. Reach for these instead of re-deriving (or reinventing) an approach:
+
+- **Authoring a design?** Use the **`tech-design`** skill — it walks you through the rubric so the design passes EA review the first time.
+- **Reviewing a design?** Use **`/tech-design-review`** — it grades a TDD/FDR against the rubric and returns concrete, cited gaps.
+- **Rubrics** (`rubrics/`) — what "good" means, gradeably: `tech-design-rubric.md`, `fhir-feasibility-rubric.md` (conformance + IG conformance + resource-explosion feasibility), `api-design-rubric.md`.
+- **Patterns** (`patterns/`) — named, blessed shapes to appeal to by name, not reinvent: `orchestrated-long-running-work`, `temporal-coalescing`, `event-key-and-partition-design`.
+- **Decision guides** (`decision-guides/`) — e.g. `datastore-selection.md` (including *do not put run/FSM state on a FHIR `Task`*).
+- **Standards** (`standards/`) — canonical rules, e.g. `events.md` (Kafka/event conventions; supersedes the inline `patient.updated`-style examples elsewhere in this file).
+- **Reference architectures** (`reference-architectures/`) — annotated real exemplars (the DEQM orchestrator; a good API/SDK).
+
+Overview + the stable-anchor citation convention: `docs/knowledge-substrate.md`. Cite substrate content by anchor (e.g. `standards/events.md#std-events-partition-key`), never by line number.
+
+---
+
 ## Architecture Non-Negotiables
 
 ### Event-Driven First
