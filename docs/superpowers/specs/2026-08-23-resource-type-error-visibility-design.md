@@ -1,6 +1,6 @@
 # Error & Rejection Visibility for `simulate_graph_by_resource_type_async()`
 
-**Status:** Design approved, not yet implemented · **Ticket:** TBD (follow-on to DCON-4509 / EA-2509 Phase 2 — create a JIRA ticket before implementation starts, per this repo's commit convention) · **Repo:** `helix.fhir.client.sdk`
+**Status:** Design approved, not yet implemented · **Ticket:** DCON-5229 (follow-on to the completion-hook feature; related to EA-2509) · **Repo:** `helix.fhir.client.sdk`
 
 ## Problem
 
