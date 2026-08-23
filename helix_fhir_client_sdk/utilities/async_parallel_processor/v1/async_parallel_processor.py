@@ -158,15 +158,23 @@ class AsyncParallelProcessor:
                 done: set[Task[tuple[ParallelFunctionContext, TOutput]]]
                 done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
 
-                # Process completed tasks
+                # asyncio.wait() can return more than one simultaneously-completed
+                # task in `done`, and iterating a set does not preserve completion
+                # order. Yield every already-succeeded result in this batch before
+                # raising, so a failing task never causes an already-succeeded
+                # sibling task's result to be silently discarded.
+                first_error: BaseException | None = None
                 for task in done:
                     try:
                         context, result = await task
-                        yield (context, result) if yield_context else result  # type: ignore[misc]
-                    except Exception:
-                        # Handle or re-raise error
-                        # logger.error(f"Error processing row: {e}")
-                        raise
+                    except Exception as exc:
+                        if first_error is None:
+                            first_error = exc
+                        continue
+                    yield (context, result) if yield_context else result  # type: ignore[misc]
+
+                if first_error is not None:
+                    raise first_error
 
         finally:
             # Cancel any pending tasks if something goes wrong
