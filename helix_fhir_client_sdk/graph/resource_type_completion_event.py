@@ -29,3 +29,14 @@ class ResourceTypeCompletionEvent:
     depth (e.g. Practitioner reached both via Patient.generalPractitioner and,
     later, Encounter.participant) — callers should treat this as "retrieving
     again", not a bug."""
+
+    urls: list[str]
+    """The actual URL(s) that were queried to produce this event's
+    resources — one per FhirGetResponse chunk that contributed to it
+    (usually one, occasionally more if the link had multiple targets or the
+    response was paginated), params included (e.g.
+    "https://example.com/fhir/AllergyIntolerance?patient=123"). Lets a
+    callback shared across multiple concurrent
+    simulate_graph_by_resource_type_async() calls tell which
+    server/patient/call this event belongs to, since the patient/resource id
+    is already embedded in the URL as a path or query parameter."""

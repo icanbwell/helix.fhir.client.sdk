@@ -1468,6 +1468,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         resource_types=[start],
                         resource_count=parent_response_resource_count,
                         graph_depth=0,
+                        urls=[],
                     )
                 )
 
@@ -1517,6 +1518,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                         resource_types=resource_types,
                                         resource_count=sum(r.get_resource_count() for r in link_responses),
                                         graph_depth=graph_depth,
+                                        urls=[],
                                     )
                                 )
 
