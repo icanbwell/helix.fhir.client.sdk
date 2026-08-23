@@ -1,6 +1,6 @@
 # Error & Rejection Visibility for `simulate_graph_by_resource_type_async()`
 
-**Status:** Design approved, not yet implemented · **Ticket:** DCON-5229 (follow-on to the completion-hook feature; related to EA-2509) · **Repo:** `helix.fhir.client.sdk`
+**Status:** Implemented · **Ticket:** DCON-5229 (follow-on to the completion-hook feature; related to EA-2509) · **Repo:** `helix.fhir.client.sdk`
 
 ## Problem
 
