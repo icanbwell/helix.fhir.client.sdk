@@ -1392,7 +1392,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             assert self._additional_parameters is not None
             self._additional_parameters.append("contained=true")
 
-        async for r in self._process_simulate_graph_by_resource_type_async(
+        inner_generator = self._process_simulate_graph_by_resource_type_async(
             id_=id_,
             graph_json=graph_json,
             contained=contained,
@@ -1417,8 +1417,17 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             on_resource_type_started=on_resource_type_started,
             on_graph_retrieval_started=on_graph_retrieval_started,
             on_graph_retrieval_completed=on_graph_retrieval_completed,
-        ):
-            yield r
+        )
+        try:
+            async for r in inner_generator:
+                yield r
+        finally:
+            # Explicitly close the inner generator so its own try/finally (where
+            # on_graph_retrieval_completed fires) runs synchronously as part of closing
+            # this wrapper generator, rather than being deferred to asyncio's asyncgen
+            # finalizer on some later event-loop turn. aclose() on an already-exhausted
+            # or already-closed generator is a safe, idempotent no-op.
+            await inner_generator.aclose()
 
     # noinspection PyPep8Naming
     async def _process_simulate_graph_by_resource_type_async(

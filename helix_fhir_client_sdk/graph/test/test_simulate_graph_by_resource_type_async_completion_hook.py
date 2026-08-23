@@ -625,3 +625,42 @@ async def test_graph_retrieval_completed_fires_once_on_explicit_aclose() -> None
         await agen.aclose()
 
     assert len(graph_completed_events) == 1
+
+
+@pytest.mark.asyncio
+async def test_graph_retrieval_completed_fires_once_on_public_method_explicit_aclose() -> None:
+    # Regression test for the gap flagged in
+    # test_graph_retrieval_completed_fires_once_on_explicit_aclose's docstring
+    # above: the PUBLIC simulate_graph_by_resource_type_async now wraps its
+    # call to the private generator in a try/finally that explicitly awaits
+    # inner_generator.aclose(), so closing the *public* generator early must
+    # also deterministically run the inner generator's finally block (where
+    # on_graph_retrieval_completed fires) within this same aclose() call —
+    # not on some later event-loop turn via asyncio's asyncgen finalizer.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses() as m:
+        mock_two_link_graph_responses(m)
+
+        agen = graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_graph_retrieval_completed=on_graph_completed,
+        )
+
+        # Advance past the first yield (the start resource, Patient) without
+        # consuming the rest of the generator via `async for`.
+        first_response = await agen.__anext__()
+        assert first_response.resource_type == "Patient"
+
+        # Explicitly close the PUBLIC generator early instead of exhausting it.
+        await agen.aclose()
+
+    assert len(graph_completed_events) == 1
