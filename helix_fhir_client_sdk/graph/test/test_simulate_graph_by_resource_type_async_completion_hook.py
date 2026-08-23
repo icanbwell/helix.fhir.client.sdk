@@ -1404,3 +1404,167 @@ async def test_continue_on_resource_type_error_true_skips_failed_links_nested_ch
     # produce any parent bundle entries for Practitioner to traverse from.
     assert {e.resource_types[0] if e.resource_types else "" for e in started_events} <= {"Patient", "Encounter"}
     assert not any("Practitioner" in e.resource_types for e in started_events)
+
+
+@pytest.mark.asyncio
+async def test_start_resource_partial_multi_id_fetch_is_not_dropped() -> None:
+    # Regression guard: FhirGetResponse.append() never recomputes `status`, so
+    # an aggregated multi-id start-resource response (the ?_id=1,2 search
+    # failed, forcing the one-by-one fallback) inherits whichever sub-fetch's
+    # status landed first. Here id "1" 404s and id "2" succeeds, so the
+    # aggregated response reports successful == False while actually carrying
+    # a real Patient. A status-based early-return guard silently dropped that
+    # real data and skipped every link in the traversal; the guard is now
+    # content-based, so the traversal must proceed normally.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    with aioresponses() as m:
+        # The combined _id search fails, which is what triggers the SDK's
+        # one-by-one fallback for the remaining ids.
+        m.get(
+            "http://example.com/fhir/Patient?_id=1,2",
+            status=400,
+            payload={"resourceType": "OperationOutcome"},
+        )
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            status=404,
+            payload={"resourceType": "OperationOutcome"},
+        )
+        m.get(
+            "http://example.com/fhir/Patient/2",
+            payload={"resourceType": "Patient", "id": "2"},
+        )
+        m.get(
+            "http://example.com/fhir/AllergyIntolerance?patient=2",
+            payload={"resourceType": "AllergyIntolerance", "id": "1"},
+        )
+        m.get(
+            "http://example.com/fhir/CarePlan?patient=2",
+            payload={"resourceType": "CarePlan", "id": "1"},
+        )
+
+        responses = [
+            r
+            async for r in graph_processor.simulate_graph_by_resource_type_async(
+                id_=["1", "2"],
+                graph_json=TWO_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                on_resource_type_completed=on_completed,
+            )
+        ]
+
+    # The real Patient that was successfully fetched one-by-one survived.
+    patient_resources = [
+        resource for r in responses for resource in r.get_resources() if resource.get("resourceType") == "Patient"
+    ]
+    assert [resource.get("id") for resource in patient_resources] == ["2"]
+
+    # The traversal was NOT aborted — both links ran off the surviving Patient.
+    assert sorted({r.resource_type for r in responses if r.resource_type}) == [
+        "AllergyIntolerance",
+        "CarePlan",
+        "Patient",
+    ]
+
+    # The start resource's completion event took the normal (non-early-return)
+    # path, so it is classified "success", not "not_found"/"empty".
+    start_completed = [e for e in completed_events if e.link_index == -1]
+    assert len(start_completed) == 1
+    assert start_completed[0].outcome == "success"
+
+
+@pytest.mark.asyncio
+async def test_resource_type_completed_outcome_error_for_non_404_http_status() -> None:
+    # Regression guard: this SDK's retry client returns (does not raise) for
+    # HTTP 400/403 — only 5xx retries and then raises. A link whose fetch came
+    # back 403 used to fall through to outcome="empty", making a server-side
+    # permission denial indistinguishable from "genuinely no data".
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Patient", "id": "1"},
+        )
+        m.get(
+            "http://example.com/fhir/AllergyIntolerance?patient=1",
+            status=403,
+            payload={"resourceType": "OperationOutcome"},
+        )
+        m.get(
+            "http://example.com/fhir/CarePlan?patient=1",
+            payload={"resourceType": "CarePlan", "id": "1"},
+        )
+
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_resource_type_completed=on_completed,
+            on_graph_retrieval_completed=on_graph_completed,
+        ):
+            pass
+
+    allergy_completed = [e for e in completed_events if e.resource_types == ["AllergyIntolerance"]]
+    assert len(allergy_completed) == 1
+    assert allergy_completed[0].outcome == "error"
+    # Synthesized (there is no raised exception to name), and deliberately
+    # distinguishable from a raised-exception error's class name.
+    assert allergy_completed[0].error_type == "HttpStatus403"
+    assert allergy_completed[0].error_message == "Fetch failed with HTTP status 403"
+
+    assert len(graph_completed_events) == 1
+    assert graph_completed_events[0].total_error_count == 1
+
+
+@pytest.mark.asyncio
+async def test_callback_exception_is_not_counted_as_a_fetch_failure() -> None:
+    # Regression guard: total_error_count means "a resource type's fetch
+    # genuinely failed". A loop-level try/except around the link-processing
+    # loop also caught exceptions raised by the caller's own
+    # on_resource_type_completed callback and miscounted them. Here every
+    # fetch succeeds and only the callback raises, so the count must stay 0.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        if event.resource_types == ["CarePlan"]:
+            raise ValueError("callback blew up, but CarePlan's own fetch succeeded")
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses() as m:
+        mock_two_link_graph_responses(m)
+
+        with pytest.raises(ValueError):
+            async for _ in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=TWO_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                on_resource_type_completed=on_completed,
+                on_graph_retrieval_completed=on_graph_completed,
+            ):
+                pass
+
+    assert len(graph_completed_events) == 1
+    assert graph_completed_events[0].total_error_count == 0

@@ -69,6 +69,16 @@ class GraphLinkParameters:
     with on_resource_type_started/on_resource_type_completed; unused
     otherwise (e.g. simulate_graph_async)."""
 
+    on_link_fetch_error: Callable[[], None] | None = None
+    """Optional callback invoked exactly once when this link's own fetch
+    raises a real Exception (never for asyncio.CancelledError) and
+    continue_on_resource_type_error is False, right before the exception
+    re-raises. Lets the caller maintain an accurate fetch-failure count
+    without inferring it from "some exception happened to propagate
+    through my consumer loop" — which would also catch exceptions raised
+    from inside a caller-supplied on_resource_type_completed callback.
+    None for callers that don't need this (e.g. simulate_graph_async)."""
+
     continue_on_resource_type_error: bool = False
     """When True, a link's own fetch failure fires on_resource_type_completed
     with outcome="error" and the traversal continues to the next link

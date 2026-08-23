@@ -76,7 +76,9 @@ class ResourceTypeCompletionEvent:
     link's declared target types); "error" (the fetch raised — only
     possible when the caller opted into continue_on_resource_type_error;
     otherwise a raised fetch fires this event with outcome="error" and then
-    the exception propagates, aborting the traversal). One link can declare
+    the exception propagates, aborting the traversal — or the fetch came
+    back with a non-404 unsuccessful HTTP status, which this SDK's retry
+    client returns rather than raises for, e.g. 400/403). One link can declare
     more than one target type and so span responses with mixed outcomes —
     this field reports one outcome for the whole link event using the
     precedence above (success beats everything; a single successful target
@@ -85,8 +87,14 @@ class ResourceTypeCompletionEvent:
 
     error_type: str | None
     """The failed fetch's exception class name (e.g. "RuntimeError"), set
-    only when outcome == "error". None for every other outcome."""
+    only when outcome == "error". When the failure was a non-404
+    unsuccessful HTTP status that this SDK's retry client returned rather
+    than raised for, there is no exception to name, so this is synthesized
+    as "HttpStatus<code>" (e.g. "HttpStatus403") — that prefix is how a
+    caller tells the two error sources apart. None for every other
+    outcome."""
 
     error_message: str | None
-    """str(exception) for the failed fetch, set only when outcome ==
-    "error". None for every other outcome."""
+    """str(exception) for the failed fetch, or "Fetch failed with HTTP
+    status <code>" for a returned-not-raised HTTP error status. Set only
+    when outcome == "error"; None for every other outcome."""
