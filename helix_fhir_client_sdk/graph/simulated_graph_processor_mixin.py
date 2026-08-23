@@ -18,9 +18,18 @@ from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinitionTarget,
 )
 from helix_fhir_client_sdk.graph.graph_link_parameters import GraphLinkParameters
+from helix_fhir_client_sdk.graph.graph_retrieval_completed_event import (
+    GraphRetrievalCompletedEvent,
+)
+from helix_fhir_client_sdk.graph.graph_retrieval_started_event import (
+    GraphRetrievalStartedEvent,
+)
 from helix_fhir_client_sdk.graph.graph_target_parameters import GraphTargetParameters
 from helix_fhir_client_sdk.graph.resource_type_completion_event import (
     ResourceTypeCompletionEvent,
+)
+from helix_fhir_client_sdk.graph.resource_type_started_event import (
+    ResourceTypeStartedEvent,
 )
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -317,6 +326,17 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Validate input parameters
         assert parameters, "Processing parameters must be provided"
+
+        if parameters.on_resource_type_started and row.target:
+            started_resource_types = sorted({target.type_ for target in row.target if target.type_})
+            if started_resource_types:
+                await parameters.on_resource_type_started(
+                    ResourceTypeStartedEvent(
+                        resource_types=started_resource_types,
+                        graph_depth=parameters.graph_depth,
+                        url=parameters.url,
+                    )
+                )
 
         # Log debug information about the current link processing
         if parameters.logger:
@@ -1312,6 +1332,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         input_cache: RequestCache | None = None,
         compare_hash: bool = True,
         on_resource_type_completed: (Callable[[ResourceTypeCompletionEvent], Awaitable[None]] | None) = None,
+        on_resource_type_started: (Callable[[ResourceTypeStartedEvent], Awaitable[None]] | None) = None,
+        on_graph_retrieval_started: (Callable[[GraphRetrievalStartedEvent], Awaitable[None]] | None) = None,
+        on_graph_retrieval_completed: (Callable[[GraphRetrievalCompletedEvent], Awaitable[None]] | None) = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Simulates the $graph query yielding results per graph link (resource type) instead
@@ -1342,6 +1365,21 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                              one graph link's resources have been fully
                                              yielded. Fires with a ResourceTypeCompletionEvent.
                                              Defaults to None (no-op, zero behavior change).
+        :param on_resource_type_started: Optional async callback invoked once per graph
+                                           link (or the start resource) right before that
+                                           link's resources begin retrieving. Fires with a
+                                           ResourceTypeStartedEvent. Defaults to None (no-op,
+                                           zero behavior change).
+        :param on_graph_retrieval_started: Optional async callback invoked exactly once,
+                                             before the start resource is fetched. Fires with
+                                             a GraphRetrievalStartedEvent. Defaults to None
+                                             (no-op, zero behavior change).
+        :param on_graph_retrieval_completed: Optional async callback invoked exactly once,
+                                               after every resource in the graph has been
+                                               yielded (including the zero-results early
+                                               return). Fires with a
+                                               GraphRetrievalCompletedEvent. Defaults to None
+                                               (no-op, zero behavior change).
         :return: AsyncGenerator yielding FhirGetResponse per resource type
         """
         if contained:
@@ -1372,6 +1410,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             input_cache=input_cache,
             compare_hash=compare_hash,
             on_resource_type_completed=on_resource_type_completed,
+            on_resource_type_started=on_resource_type_started,
+            on_graph_retrieval_started=on_graph_retrieval_started,
+            on_graph_retrieval_completed=on_graph_retrieval_completed,
         ):
             yield r
 
@@ -1400,6 +1441,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         input_cache: RequestCache | None = None,
         compare_hash: bool = True,
         on_resource_type_completed: (Callable[[ResourceTypeCompletionEvent], Awaitable[None]] | None) = None,
+        on_resource_type_started: (Callable[[ResourceTypeStartedEvent], Awaitable[None]] | None) = None,
+        on_graph_retrieval_started: (Callable[[GraphRetrievalStartedEvent], Awaitable[None]] | None) = None,
+        on_graph_retrieval_completed: (Callable[[GraphRetrievalCompletedEvent], Awaitable[None]] | None) = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Core implementation that yields per graph link instead of accumulating all responses.
@@ -1429,10 +1473,30 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         if not isinstance(id_, list):
             id_ = id_.split(",")
 
+        base_url_value: str = url or ""
+
         id_search_unsupported_resources: list[str] = []
         cache: RequestCache = input_cache if input_cache is not None else RequestCache()
         async with cache:
             start: str = graph_definition.start
+
+            if on_graph_retrieval_started:
+                await on_graph_retrieval_started(
+                    GraphRetrievalStartedEvent(
+                        start_resource_type=start,
+                        url=base_url_value,
+                    )
+                )
+
+            if on_resource_type_started:
+                await on_resource_type_started(
+                    ResourceTypeStartedEvent(
+                        resource_types=[start],
+                        graph_depth=0,
+                        url=base_url_value,
+                    )
+                )
+
             parent_response: FhirGetResponse
             cache_hits: int
             parent_response, cache_hits = await self._get_resources_by_parameters_async(
@@ -1445,10 +1509,23 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 add_cached_bundles_to_result=add_cached_bundles_to_result,
                 compare_hash=compare_hash,
             )
+            # Capture the actual queried URL (with params) before the existing
+            # line below overwrites it with the connection's base URL —
+            # that overwrite is pre-existing behavior, out of scope to change.
+            parent_queried_url: str = parent_response.url
 
             parent_response_resource_count = parent_response.get_resource_count()
             if parent_response_resource_count == 0:
                 yield parent_response
+                if on_graph_retrieval_completed:
+                    await on_graph_retrieval_completed(
+                        GraphRetrievalCompletedEvent(
+                            resource_types=[],
+                            total_resource_count=0,
+                            max_graph_depth=0,
+                            urls=[parent_queried_url],
+                        )
+                    )
                 return
 
             if logger:
@@ -1468,9 +1545,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         resource_types=[start],
                         resource_count=parent_response_resource_count,
                         graph_depth=0,
-                        urls=[],
+                        urls=[parent_queried_url],
                     )
                 )
+
+            all_resource_types: set[str] = {start}
+            total_resource_count: int = parent_response_resource_count
+            max_graph_depth: int = 0
+            all_urls: set[str] = {parent_queried_url}
 
             parent_bundle_entries: FhirBundleEntryList = parent_response.get_bundle_entries()
 
@@ -1497,6 +1579,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             cache=cache,
                             scope_parser=scope_parser,
                             max_concurrent_tasks=max_concurrent_tasks,
+                            on_resource_type_started=on_resource_type_started,
+                            graph_depth=graph_depth,
+                            url=base_url_value,
                         ),
                         log_level=self._log_level,
                         parent_link_map=new_parent_link_map,
@@ -1505,22 +1590,32 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         add_cached_bundles_to_result=add_cached_bundles_to_result,
                         ifModifiedSince=ifModifiedSince,
                     ):
+                        # Capture each response's actual queried URL before the
+                        # existing loop below overwrites it with the base URL.
+                        link_queried_urls = [r.url for r in link_responses]
+
                         # Yield each link's responses individually instead of accumulating
                         for link_response in link_responses:
                             link_response.url = url or link_response.url
                             yield link_response
 
-                        if on_resource_type_completed and link_responses:
+                        if link_responses and (on_resource_type_completed or on_graph_retrieval_completed):
                             resource_types = sorted({r.resource_type for r in link_responses if r.resource_type})
                             if resource_types:
-                                await on_resource_type_completed(
-                                    ResourceTypeCompletionEvent(
-                                        resource_types=resource_types,
-                                        resource_count=sum(r.get_resource_count() for r in link_responses),
-                                        graph_depth=graph_depth,
-                                        urls=[],
+                                resource_count_for_link = sum(r.get_resource_count() for r in link_responses)
+                                all_resource_types.update(resource_types)
+                                total_resource_count += resource_count_for_link
+                                max_graph_depth = graph_depth
+                                all_urls.update(link_queried_urls)
+                                if on_resource_type_completed:
+                                    await on_resource_type_completed(
+                                        ResourceTypeCompletionEvent(
+                                            resource_types=resource_types,
+                                            resource_count=resource_count_for_link,
+                                            graph_depth=graph_depth,
+                                            urls=link_queried_urls,
+                                        )
                                     )
-                                )
 
                 parent_link_map = new_parent_link_map
                 graph_depth += 1
@@ -1531,4 +1626,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     f"start={graph_definition.start}, "
                     f"hits: {cache.cache_hits}, "
                     f"misses: {cache.cache_misses}"
+                )
+
+            if on_graph_retrieval_completed:
+                await on_graph_retrieval_completed(
+                    GraphRetrievalCompletedEvent(
+                        resource_types=sorted(all_resource_types),
+                        total_resource_count=total_resource_count,
+                        max_graph_depth=max_graph_depth,
+                        urls=sorted(all_urls),
+                    )
                 )

@@ -3,8 +3,17 @@ from typing import Any
 import pytest
 from aioresponses import aioresponses
 
+from helix_fhir_client_sdk.graph.graph_retrieval_completed_event import (
+    GraphRetrievalCompletedEvent,
+)
+from helix_fhir_client_sdk.graph.graph_retrieval_started_event import (
+    GraphRetrievalStartedEvent,
+)
 from helix_fhir_client_sdk.graph.resource_type_completion_event import (
     ResourceTypeCompletionEvent,
+)
+from helix_fhir_client_sdk.graph.resource_type_started_event import (
+    ResourceTypeStartedEvent,
 )
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
     SimulatedGraphProcessorMixin,
@@ -126,3 +135,110 @@ async def test_on_resource_type_completed_fires_correctly_at_concurrency_2() -> 
     non_start_events = [e for e in events if e.resource_types != ["Patient"]]
     all_reported_types = [t for e in non_start_events for t in e.resource_types]
     assert sorted(all_reported_types) == sorted(["AllergyIntolerance", "CarePlan"])
+
+
+@pytest.mark.asyncio
+async def test_full_event_lifecycle_fires_in_order_at_concurrency_1() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    started_events: list[ResourceTypeStartedEvent] = []
+    completed_events: list[ResourceTypeCompletionEvent] = []
+    graph_started_events: list[GraphRetrievalStartedEvent] = []
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_started(event: ResourceTypeStartedEvent) -> None:
+        started_events.append(event)
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    async def on_graph_started(event: GraphRetrievalStartedEvent) -> None:
+        graph_started_events.append(event)
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses() as m:
+        mock_two_link_graph_responses(m)
+
+        responses = [
+            r
+            async for r in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=TWO_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                on_resource_type_started=on_started,
+                on_resource_type_completed=on_completed,
+                on_graph_retrieval_started=on_graph_started,
+                on_graph_retrieval_completed=on_graph_completed,
+            )
+        ]
+
+    assert len(responses) == 3  # Patient, AllergyIntolerance, CarePlan
+
+    # exactly one graph-level bookend event each
+    assert len(graph_started_events) == 1
+    assert graph_started_events[0].start_resource_type == "Patient"
+    assert graph_started_events[0].url == "http://example.com/fhir"
+
+    assert len(graph_completed_events) == 1
+    assert sorted(graph_completed_events[0].resource_types) == sorted(["Patient", "AllergyIntolerance", "CarePlan"])
+    assert graph_completed_events[0].total_resource_count == 3
+    assert graph_completed_events[0].max_graph_depth == 0
+    assert sorted(graph_completed_events[0].urls) == sorted(
+        [
+            "http://example.com/fhir/Patient/1",
+            "http://example.com/fhir/AllergyIntolerance?patient=1",
+            "http://example.com/fhir/CarePlan?patient=1",
+        ]
+    )
+
+    # one started + one completed per resource type (start resource + 2 links)
+    assert len(started_events) == 3
+    assert len(completed_events) == 3
+    assert started_events[0].resource_types == ["Patient"]
+    assert started_events[0].url == "http://example.com/fhir"
+    assert completed_events[0].resource_types == ["Patient"]
+    assert completed_events[0].urls == ["http://example.com/fhir/Patient/1"]
+
+    # at max_concurrent_tasks=1, ordering is fully deterministic: graph_started
+    # fires before anything else, graph_completed fires after everything else,
+    # and each resource type's started event fires immediately before its own
+    # completed event (not interleaved with any other resource type's events).
+    started_types_in_order = [e.resource_types[0] for e in started_events]
+    completed_types_in_order = [e.resource_types[0] for e in completed_events]
+    assert started_types_in_order == completed_types_in_order
+
+
+@pytest.mark.asyncio
+async def test_graph_retrieval_completed_fires_on_zero_results() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Bundle", "entry": []},
+        )
+
+        responses = [
+            r
+            async for r in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=TWO_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                on_graph_retrieval_completed=on_graph_completed,
+            )
+        ]
+
+    assert len(responses) == 1  # just the empty start-resource response
+    assert len(graph_completed_events) == 1
+    assert graph_completed_events[0].resource_types == []
+    assert graph_completed_events[0].total_resource_count == 0
+    assert graph_completed_events[0].max_graph_depth == 0
