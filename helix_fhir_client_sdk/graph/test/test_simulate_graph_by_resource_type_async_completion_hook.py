@@ -212,6 +212,84 @@ async def test_full_event_lifecycle_fires_in_order_at_concurrency_1() -> None:
 
 
 @pytest.mark.asyncio
+async def test_full_event_lifecycle_stays_correct_at_concurrency_2() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=2)
+
+    # A single shared timeline is required here (rather than four separate
+    # lists) because `on_resource_type_started` fires from inside each row's
+    # own concurrent task, while `on_resource_type_completed` fires from the
+    # single-threaded outer generator loop. Comparing `list.index()` positions
+    # across two separate lists cannot establish relative ordering between
+    # them; only a single list that all callbacks append to, in the order
+    # they actually run, can do that. Each entry is (kind, resource_type),
+    # where kind is one of "graph_started", "started", "completed",
+    # "graph_completed", and resource_type is the FHIR resource type for the
+    # per-type events or a fixed marker for the whole-graph bookend events.
+    timeline: list[tuple[str, str]] = []
+
+    async def on_graph_started(event: GraphRetrievalStartedEvent) -> None:
+        timeline.append(("graph_started", "__graph__"))
+
+    async def on_started(event: ResourceTypeStartedEvent) -> None:
+        timeline.append(("started", event.resource_types[0]))
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        timeline.append(("completed", event.resource_types[0]))
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        timeline.append(("graph_completed", "__graph__"))
+
+    with aioresponses() as m:
+        mock_two_link_graph_responses(m)
+
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=2,
+            on_resource_type_started=on_started,
+            on_resource_type_completed=on_completed,
+            on_graph_retrieval_started=on_graph_started,
+            on_graph_retrieval_completed=on_graph_completed,
+        ):
+            pass
+
+    resource_types = {"Patient", "AllergyIntolerance", "CarePlan"}
+
+    # whole-graph bookends: each fires exactly once...
+    graph_started_indices = [i for i, (kind, _) in enumerate(timeline) if kind == "graph_started"]
+    graph_completed_indices = [i for i, (kind, _) in enumerate(timeline) if kind == "graph_completed"]
+    assert len(graph_started_indices) == 1
+    assert len(graph_completed_indices) == 1
+
+    # ...and — since they fire outside the concurrent-rows section entirely —
+    # sit at the very start and very end of the shared timeline, regardless of
+    # how the concurrent per-row work interleaves in between.
+    assert graph_started_indices[0] == 0
+    assert graph_completed_indices[0] == len(timeline) - 1
+
+    # every resource type produced exactly one started and one completed entry
+    started_entries = [rt for kind, rt in timeline if kind == "started"]
+    completed_entries = [rt for kind, rt in timeline if kind == "completed"]
+    assert sorted(started_entries) == sorted(resource_types)
+    assert sorted(completed_entries) == sorted(resource_types)
+
+    # the narrower invariant that actually holds under concurrency: each
+    # resource type's own "started" entry precedes that same type's own
+    # "completed" entry in the shared timeline. We deliberately do NOT assert
+    # any ordering between DIFFERENT resource types' started events, since
+    # concurrent rows may legitimately interleave in either order.
+    for resource_type in resource_types:
+        first_started_index = next(
+            i for i, (kind, rt) in enumerate(timeline) if kind == "started" and rt == resource_type
+        )
+        first_completed_index = next(
+            i for i, (kind, rt) in enumerate(timeline) if kind == "completed" and rt == resource_type
+        )
+        assert first_started_index < first_completed_index
+
+
+@pytest.mark.asyncio
 async def test_graph_retrieval_completed_fires_on_zero_results() -> None:
     graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
 
