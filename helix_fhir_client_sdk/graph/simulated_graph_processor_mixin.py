@@ -1429,6 +1429,46 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # or already-closed generator is a safe, idempotent no-op.
             await inner_generator.aclose()
 
+    async def _fire_on_resource_type_completed_for_link(
+        self,
+        *,
+        links: list[GraphDefinitionLink],
+        context: ParallelFunctionContext,
+        resource_types: list[str],
+        resource_count_for_link: int,
+        link_queried_urls: list[str],
+        graph_depth: int,
+        on_resource_type_completed: Callable[[ResourceTypeCompletionEvent], Awaitable[None]] | None,
+    ) -> None:
+        """
+        Fires on_resource_type_completed for one graph link's aggregated response
+        batch, if a callback was supplied. Falls back to the link's declared
+        target type(s) when the link returned zero resources (resource_types is
+        empty), so a caller that received on_resource_type_started for this link
+        always receives a matching completion event — see
+        ResourceTypeCompletionEvent.resource_types' docstring for the
+        resource_count == 0 signal that distinguishes this fallback case.
+
+        Extracted out of the traversal loop in
+        _process_simulate_graph_by_resource_type_async to keep that loop's
+        nesting shallow.
+        """
+        if not on_resource_type_completed:
+            return
+
+        reported_resource_types = resource_types or sorted(
+            {target.type_ for target in links[context.task_index].target if target.type_}
+        )
+        await on_resource_type_completed(
+            ResourceTypeCompletionEvent(
+                resource_types=reported_resource_types,
+                resource_count=resource_count_for_link,
+                graph_depth=graph_depth,
+                urls=link_queried_urls,
+                link_index=context.task_index,
+            )
+        )
+
     # noinspection PyPep8Naming
     async def _process_simulate_graph_by_resource_type_async(
         self,
@@ -1650,28 +1690,17 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 all_resource_types.update(resource_types)
                                 total_resource_count += resource_count_for_link
                                 max_graph_depth = graph_depth
-                            if link_queried_urls:
-                                all_urls.update(link_queried_urls)
+                            all_urls.update(link_queried_urls)
 
-                            if on_resource_type_completed:
-                                reported_resource_types = resource_types
-                                if not reported_resource_types:
-                                    # Nothing came back for this link — fall back to
-                                    # its declared target type(s) so a caller that
-                                    # received on_resource_type_started for this link
-                                    # always receives a matching completion event.
-                                    reported_resource_types = sorted(
-                                        {target.type_ for target in links[context.task_index].target if target.type_}
-                                    )
-                                await on_resource_type_completed(
-                                    ResourceTypeCompletionEvent(
-                                        resource_types=reported_resource_types,
-                                        resource_count=resource_count_for_link,
-                                        graph_depth=graph_depth,
-                                        urls=link_queried_urls,
-                                        link_index=context.task_index,
-                                    )
-                                )
+                            await self._fire_on_resource_type_completed_for_link(
+                                links=links,
+                                context=context,
+                                resource_types=resource_types,
+                                resource_count_for_link=resource_count_for_link,
+                                link_queried_urls=link_queried_urls,
+                                graph_depth=graph_depth,
+                                on_resource_type_completed=on_resource_type_completed,
+                            )
 
                     parent_link_map = new_parent_link_map
                     graph_depth += 1
