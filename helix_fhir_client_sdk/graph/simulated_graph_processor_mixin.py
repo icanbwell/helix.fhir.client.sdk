@@ -1,7 +1,7 @@
 import json
 import time
 from abc import ABC
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from datetime import UTC, datetime
 from logging import Logger
 from typing import Any, cast
@@ -19,6 +19,9 @@ from helix_fhir_client_sdk.graph.graph_definition import (
 )
 from helix_fhir_client_sdk.graph.graph_link_parameters import GraphLinkParameters
 from helix_fhir_client_sdk.graph.graph_target_parameters import GraphTargetParameters
+from helix_fhir_client_sdk.graph.resource_type_completion_event import (
+    ResourceTypeCompletionEvent,
+)
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
@@ -1308,6 +1311,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         add_cached_bundles_to_result: bool = True,
         input_cache: RequestCache | None = None,
         compare_hash: bool = True,
+        on_resource_type_completed: (Callable[[ResourceTypeCompletionEvent], Awaitable[None]] | None) = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Simulates the $graph query yielding results per graph link (resource type) instead
@@ -1333,6 +1337,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param add_cached_bundles_to_result: Optional flag to add cached bundles to result
         :param input_cache: Optional cache to use for input
         :param compare_hash: Optional flag to compare hash of the resources
+        :param on_resource_type_completed: Optional async callback invoked once the start
+                                             resource has been yielded, and again each time
+                                             one graph link's resources have been fully
+                                             yielded. Fires with a ResourceTypeCompletionEvent.
+                                             Defaults to None (no-op, zero behavior change).
         :return: AsyncGenerator yielding FhirGetResponse per resource type
         """
         if contained:
@@ -1362,6 +1371,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             add_cached_bundles_to_result=add_cached_bundles_to_result,
             input_cache=input_cache,
             compare_hash=compare_hash,
+            on_resource_type_completed=on_resource_type_completed,
         ):
             yield r
 
@@ -1389,6 +1399,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         add_cached_bundles_to_result: bool = True,
         input_cache: RequestCache | None = None,
         compare_hash: bool = True,
+        on_resource_type_completed: (Callable[[ResourceTypeCompletionEvent], Awaitable[None]] | None) = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Core implementation that yields per graph link instead of accumulating all responses.
@@ -1451,6 +1462,15 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             parent_response.url = url or parent_response.url
             yield parent_response
 
+            if on_resource_type_completed:
+                await on_resource_type_completed(
+                    ResourceTypeCompletionEvent(
+                        resource_types=[start],
+                        resource_count=parent_response_resource_count,
+                        graph_depth=0,
+                    )
+                )
+
             parent_bundle_entries: FhirBundleEntryList = parent_response.get_bundle_entries()
 
             parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
@@ -1458,6 +1478,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 parent_link_map.append((graph_definition.link, parent_bundle_entries))
 
             # Process graph links one at a time and yield each link's response
+            graph_depth = 0
             while len(parent_link_map):
                 new_parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
 
@@ -1488,7 +1509,19 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             link_response.url = url or link_response.url
                             yield link_response
 
+                        if on_resource_type_completed and link_responses:
+                            resource_types = sorted({r.resource_type for r in link_responses if r.resource_type})
+                            if resource_types:
+                                await on_resource_type_completed(
+                                    ResourceTypeCompletionEvent(
+                                        resource_types=resource_types,
+                                        resource_count=sum(r.get_resource_count() for r in link_responses),
+                                        graph_depth=graph_depth,
+                                    )
+                                )
+
                 parent_link_map = new_parent_link_map
+                graph_depth += 1
 
             if logger:
                 logger.info(
