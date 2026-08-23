@@ -12,6 +12,9 @@ def test_resource_type_completion_event_construction() -> None:
         link_index=0,
         client_person_id="client-1",
         connection_name="Aetna Sandbox",
+        outcome="success",
+        error_type=None,
+        error_message=None,
     )
     assert event.resource_types == ["Condition"]
     assert event.resource_count == 12
@@ -20,6 +23,9 @@ def test_resource_type_completion_event_construction() -> None:
     assert event.link_index == 0
     assert event.client_person_id == "client-1"
     assert event.connection_name == "Aetna Sandbox"
+    assert event.outcome == "success"
+    assert event.error_type is None
+    assert event.error_message is None
 
 
 def test_resource_type_completion_event_multiple_types() -> None:
@@ -38,8 +44,61 @@ def test_resource_type_completion_event_multiple_types() -> None:
         link_index=0,
         client_person_id="client-1",
         connection_name="Aetna Sandbox",
+        outcome="success",
+        error_type=None,
+        error_message=None,
     )
     assert len(event.resource_types) == 2
     assert len(event.urls) == 2
     assert event.client_person_id == "client-1"
     assert event.connection_name == "Aetna Sandbox"
+
+
+def test_resource_type_completion_event_error_outcome() -> None:
+    event = ResourceTypeCompletionEvent(
+        resource_types=["AllergyIntolerance"],
+        resource_count=0,
+        graph_depth=0,
+        urls=[],
+        link_index=0,
+        client_person_id="client-1",
+        connection_name="Aetna Sandbox",
+        outcome="error",
+        error_type="RuntimeError",
+        error_message="simulated network failure",
+    )
+    assert event.outcome == "error"
+    assert event.error_type == "RuntimeError"
+    assert event.error_message == "simulated network failure"
+
+
+def test_resource_type_completion_event_not_found_outcome() -> None:
+    event = ResourceTypeCompletionEvent(
+        resource_types=["Condition"],
+        resource_count=0,
+        graph_depth=0,
+        urls=["https://example.com/fhir/Condition?patient=123"],
+        link_index=0,
+        client_person_id="",
+        connection_name="",
+        outcome="not_found",
+        error_type=None,
+        error_message=None,
+    )
+    assert event.outcome == "not_found"
+
+
+def test_resource_type_completion_event_scope_denied_outcome() -> None:
+    event = ResourceTypeCompletionEvent(
+        resource_types=["Condition"],
+        resource_count=0,
+        graph_depth=0,
+        urls=[],
+        link_index=0,
+        client_person_id="",
+        connection_name="",
+        outcome="scope_denied",
+        error_type=None,
+        error_message=None,
+    )
+    assert event.outcome == "scope_denied"

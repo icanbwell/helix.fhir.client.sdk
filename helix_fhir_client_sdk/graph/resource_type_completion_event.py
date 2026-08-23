@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Literal
 
 
 @dataclass(slots=True)
@@ -63,3 +64,29 @@ class ResourceTypeCompletionEvent:
     """Caller-supplied, opaque display name for the connection this call
     belongs to. Not interpreted by this SDK in any way — echoed back
     exactly as provided, for the same reason as client_person_id."""
+
+    outcome: Literal["success", "empty", "not_found", "scope_denied", "error"]
+    """Precise classification of why resource_count is what it is:
+    "success" (resource_count > 0); "empty" (zero resources, no specific
+    reason — e.g. a reverse-link had no matching references, or this event
+    was fired for a cancelled fetch, which is never classified as "error" —
+    see error_type/error_message below); "not_found" (the source explicitly
+    returned 404 for the requested resource(s)); "scope_denied" (the fetch
+    never happened because the auth scope disallowed every one of the
+    link's declared target types); "error" (the fetch raised — only
+    possible when the caller opted into continue_on_resource_type_error;
+    otherwise a raised fetch fires this event with outcome="error" and then
+    the exception propagates, aborting the traversal). One link can declare
+    more than one target type and so span responses with mixed outcomes —
+    this field reports one outcome for the whole link event using the
+    precedence above (success beats everything; a single successful target
+    makes the whole link "success" even if a sibling target within the same
+    link was denied or not found)."""
+
+    error_type: str | None
+    """The failed fetch's exception class name (e.g. "RuntimeError"), set
+    only when outcome == "error". None for every other outcome."""
+
+    error_message: str | None
+    """str(exception) for the failed fetch, set only when outcome ==
+    "error". None for every other outcome."""

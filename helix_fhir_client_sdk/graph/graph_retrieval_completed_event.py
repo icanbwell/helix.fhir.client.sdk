@@ -46,3 +46,18 @@ class GraphRetrievalCompletedEvent:
     """Caller-supplied, opaque display name for the connection this call
     belongs to. Not interpreted by this SDK in any way — echoed back
     exactly as provided, for the same reason as client_person_id."""
+
+    total_error_count: int
+    """Count of resource types (including the start resource, if its own
+    fetch failed) whose ResourceTypeCompletionEvent fired with
+    outcome == "error" during this call. A real fetch failure — the number
+    a caller would alert or retry on. Does not include scope-denials (see
+    total_rejected_count) or not-found/empty results, since those are
+    normal, non-failure outcomes."""
+
+    total_rejected_count: int
+    """Count of resource types whose ResourceTypeCompletionEvent fired with
+    outcome == "scope_denied" during this call. Kept separate from
+    total_error_count because scope-denial is an expected authorization
+    outcome, not a failure — folding it into the error count would make
+    error-rate alerting fire on routine, by-design scope restrictions."""

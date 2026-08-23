@@ -96,6 +96,26 @@ NO_TARGET_LINK_GRAPH: dict[str, Any] = {
 }
 
 
+# A single link declaring TWO target types — exercises the documented
+# "success beats everything" precedence in ResourceTypeCompletionEvent.outcome:
+# one target's fetch succeeds while the other's 404s, and the whole link must
+# still be reported as outcome="success" (see Ruling B in the task report).
+MULTI_TARGET_LINK_GRAPH: dict[str, Any] = {
+    "id": "1",
+    "name": "Test Graph - Multi Target Link",
+    "resourceType": "GraphDefinition",
+    "start": "Patient",
+    "link": [
+        {
+            "target": [
+                {"type": "AllergyIntolerance", "params": "patient={ref}"},
+                {"type": "CarePlan", "params": "patient={ref}"},
+            ]
+        },
+    ],
+}
+
+
 def mock_two_link_graph_responses(m: aioresponses) -> None:
     m.get(
         "http://example.com/fhir/Patient/1",
@@ -891,3 +911,306 @@ async def test_on_resource_type_completed_fires_for_start_resource_on_cancellati
     assert len(graph_completed_events) == 1
 
     assert len(graph_completed_events) == 1
+
+
+@pytest.mark.asyncio
+async def test_resource_type_completed_outcome_success() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    with aioresponses() as m:
+        mock_two_link_graph_responses(m)
+
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_resource_type_completed=on_completed,
+        ):
+            pass
+
+    assert all(e.outcome == "success" for e in completed_events)
+    assert all(e.error_type is None and e.error_message is None for e in completed_events)
+
+
+@pytest.mark.asyncio
+async def test_resource_type_completed_outcome_empty_for_no_matching_references() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Patient", "id": "1"},
+        )
+
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=PATH_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_resource_type_completed=on_completed,
+        ):
+            pass
+
+    link_completed = [e for e in completed_events if e.link_index == 0]
+    assert len(link_completed) == 1
+    assert link_completed[0].outcome == "empty"
+
+
+@pytest.mark.asyncio
+async def test_resource_type_completed_outcome_not_found() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Patient", "id": "1"},
+        )
+        m.get(
+            "http://example.com/fhir/AllergyIntolerance?patient=1",
+            status=404,
+            payload={"resourceType": "OperationOutcome"},
+        )
+        m.get(
+            "http://example.com/fhir/CarePlan?patient=1",
+            payload={"resourceType": "CarePlan", "id": "1"},
+        )
+
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_resource_type_completed=on_completed,
+        ):
+            pass
+
+    allergy_completed = [e for e in completed_events if e.resource_types == ["AllergyIntolerance"]]
+    assert len(allergy_completed) == 1
+    assert allergy_completed[0].outcome == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_resource_type_completed_outcome_scope_denied() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+    graph_processor._auth_scopes = ["patient/Patient.read", "patient/CarePlan.read"]
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Patient", "id": "1"},
+        )
+        m.get(
+            "http://example.com/fhir/CarePlan?patient=1",
+            payload={"resourceType": "CarePlan", "id": "1"},
+        )
+
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_resource_type_completed=on_completed,
+            on_graph_retrieval_completed=on_graph_completed,
+        ):
+            pass
+
+    allergy_completed = [e for e in completed_events if e.resource_types == ["AllergyIntolerance"]]
+    assert len(allergy_completed) == 1
+    assert allergy_completed[0].outcome == "scope_denied"
+    assert len(graph_completed_events) == 1
+    assert graph_completed_events[0].total_rejected_count == 1
+    assert graph_completed_events[0].total_error_count == 0
+
+
+@pytest.mark.asyncio
+async def test_resource_type_completed_outcome_error_and_graph_error_count() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Patient", "id": "1"},
+        )
+        m.get(
+            "http://example.com/fhir/AllergyIntolerance?patient=1",
+            exception=RuntimeError("simulated network failure fetching link"),
+        )
+        m.get(
+            "http://example.com/fhir/CarePlan?patient=1",
+            payload={"resourceType": "CarePlan", "id": "1"},
+        )
+
+        with pytest.raises(FhirSenderException):
+            async for _ in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=TWO_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                on_resource_type_completed=on_completed,
+                on_graph_retrieval_completed=on_graph_completed,
+            ):
+                pass
+
+    allergy_completed = [e for e in completed_events if e.resource_types == ["AllergyIntolerance"]]
+    assert len(allergy_completed) == 1
+    assert allergy_completed[0].outcome == "error"
+    assert allergy_completed[0].error_type == "FhirSenderException"
+    assert allergy_completed[0].error_message
+
+    assert len(graph_completed_events) == 1
+    assert graph_completed_events[0].total_error_count == 1
+    assert graph_completed_events[0].total_rejected_count == 0
+
+
+@pytest.mark.asyncio
+async def test_resource_type_completed_outcome_error_for_start_resource() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            exception=RuntimeError("simulated network failure fetching start resource"),
+        )
+
+        with pytest.raises(FhirSenderException):
+            async for _ in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=TWO_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                on_resource_type_completed=on_completed,
+                on_graph_retrieval_completed=on_graph_completed,
+            ):
+                pass
+
+    assert len(completed_events) == 1
+    assert completed_events[0].outcome == "error"
+    assert completed_events[0].error_type == "FhirSenderException"
+    assert len(graph_completed_events) == 1
+    assert graph_completed_events[0].total_error_count == 1
+
+
+@pytest.mark.asyncio
+async def test_resource_type_completed_outcome_success_beats_sibling_target_not_found() -> None:
+    # Ruling B regression guard: a single link declaring two target types,
+    # where one target's fetch succeeds and the other's 404s, must still be
+    # reported as outcome="success" for the whole link — per the documented
+    # precedence in ResourceTypeCompletionEvent.outcome ("success beats
+    # everything; a single successful target makes the whole link 'success'
+    # even if a sibling target within the same link was denied or not
+    # found"). Also guards against a naive fix that would classify by
+    # get_resource_count() alone: the 404 response's OperationOutcome body
+    # would otherwise inflate resource_count_for_link without being a real
+    # success.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Patient", "id": "1"},
+        )
+        m.get(
+            "http://example.com/fhir/AllergyIntolerance?patient=1",
+            payload={"resourceType": "AllergyIntolerance", "id": "1"},
+        )
+        m.get(
+            "http://example.com/fhir/CarePlan?patient=1",
+            status=404,
+            payload={"resourceType": "OperationOutcome"},
+        )
+
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=MULTI_TARGET_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_resource_type_completed=on_completed,
+        ):
+            pass
+
+    link_completed = [e for e in completed_events if e.link_index == 0]
+    assert len(link_completed) == 1
+    assert link_completed[0].outcome == "success"
+
+
+@pytest.mark.asyncio
+async def test_resource_type_completed_outcome_not_found_for_start_resource() -> None:
+    # Ruling C regression guard: the start resource's own 404-with-body fetch
+    # must be classified as outcome="not_found", not "success" — the
+    # OperationOutcome body parses into a FhirResource, so
+    # get_resource_count() returns 1 (not 0), which would otherwise skip the
+    # zero-result guard entirely and fall through to the unconditional
+    # outcome="success" block below it.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            status=404,
+            payload={"resourceType": "OperationOutcome"},
+        )
+
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_resource_type_completed=on_completed,
+        ):
+            pass
+
+    assert len(completed_events) == 1
+    assert completed_events[0].outcome == "not_found"

@@ -15,6 +15,8 @@ def test_graph_retrieval_completed_event_construction() -> None:
         ],
         client_person_id="client-1",
         connection_name="Aetna Sandbox",
+        total_error_count=0,
+        total_rejected_count=0,
     )
     assert event.resource_types == ["Patient", "AllergyIntolerance", "CarePlan"]
     assert event.total_resource_count == 3
@@ -22,6 +24,8 @@ def test_graph_retrieval_completed_event_construction() -> None:
     assert len(event.urls) == 3
     assert event.client_person_id == "client-1"
     assert event.connection_name == "Aetna Sandbox"
+    assert event.total_error_count == 0
+    assert event.total_rejected_count == 0
 
 
 def test_graph_retrieval_completed_event_zero_results() -> None:
@@ -34,8 +38,25 @@ def test_graph_retrieval_completed_event_zero_results() -> None:
         urls=["https://example.com/fhir/Patient/123"],
         client_person_id="client-1",
         connection_name="Aetna Sandbox",
+        total_error_count=0,
+        total_rejected_count=0,
     )
     assert event.resource_types == []
     assert event.total_resource_count == 0
     assert event.client_person_id == "client-1"
     assert event.connection_name == "Aetna Sandbox"
+
+
+def test_graph_retrieval_completed_event_error_and_rejection_rollups() -> None:
+    event = GraphRetrievalCompletedEvent(
+        resource_types=["Patient"],
+        total_resource_count=1,
+        max_graph_depth=0,
+        urls=["https://example.com/fhir/Patient/123"],
+        client_person_id="client-1",
+        connection_name="Aetna Sandbox",
+        total_error_count=2,
+        total_rejected_count=1,
+    )
+    assert event.total_error_count == 2
+    assert event.total_rejected_count == 1
