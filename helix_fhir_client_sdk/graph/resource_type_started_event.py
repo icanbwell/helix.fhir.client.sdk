@@ -49,3 +49,14 @@ class ResourceTypeStartedEvent:
     events that both carry the identical (graph_depth, link_index) pair.
     Callers needing a fully global key across nested graphs should not rely
     on this pair alone."""
+
+    client_person_id: str
+    """Caller-supplied, opaque identifier for the person this call belongs
+    to. Not interpreted by this SDK in any way — echoed back exactly as
+    provided, purely so a callback shared across multiple concurrent
+    simulate_graph_by_resource_type_async() calls can tell them apart."""
+
+    connection_name: str
+    """Caller-supplied, opaque display name for the connection this call
+    belongs to. Not interpreted by this SDK in any way — echoed back
+    exactly as provided, for the same reason as client_person_id."""

@@ -337,6 +337,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     graph_depth=parameters.graph_depth,
                     url=parameters.url,
                     link_index=context.task_index,
+                    client_person_id=parameters.client_person_id,
+                    connection_name=parameters.connection_name,
                 )
             )
 
@@ -394,6 +396,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         graph_depth=parameters.graph_depth,
                         urls=[],
                         link_index=context.task_index,
+                        client_person_id=parameters.client_person_id,
+                        connection_name=parameters.connection_name,
                     )
                 )
             raise
@@ -1357,6 +1361,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         on_resource_type_started: (Callable[[ResourceTypeStartedEvent], Awaitable[None]] | None) = None,
         on_graph_retrieval_started: (Callable[[GraphRetrievalStartedEvent], Awaitable[None]] | None) = None,
         on_graph_retrieval_completed: (Callable[[GraphRetrievalCompletedEvent], Awaitable[None]] | None) = None,
+        client_person_id: str = "",
+        connection_name: str = "",
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Simulates the $graph query yielding results per graph link (resource type) instead
@@ -1405,6 +1411,15 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                                break/aclose(). Fires with a
                                                GraphRetrievalCompletedEvent. Defaults to None
                                                (no-op, zero behavior change).
+        :param client_person_id: Optional caller-supplied, opaque identifier for the
+                                    person this call belongs to. Not interpreted by this
+                                    SDK — echoed back on every fired event so a callback
+                                    shared across multiple concurrent calls can tell them
+                                    apart. Defaults to "".
+        :param connection_name: Optional caller-supplied, opaque display name for the
+                                   connection this call belongs to. Not interpreted by
+                                   this SDK — echoed back on every fired event for the
+                                   same reason as client_person_id. Defaults to "".
         :return: AsyncGenerator yielding FhirGetResponse per resource type
         """
         if contained:
@@ -1438,6 +1453,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             on_resource_type_started=on_resource_type_started,
             on_graph_retrieval_started=on_graph_retrieval_started,
             on_graph_retrieval_completed=on_graph_retrieval_completed,
+            client_person_id=client_person_id,
+            connection_name=connection_name,
         )
         try:
             async for r in inner_generator:
@@ -1460,6 +1477,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         link_queried_urls: list[str],
         graph_depth: int,
         on_resource_type_completed: Callable[[ResourceTypeCompletionEvent], Awaitable[None]] | None,
+        client_person_id: str,
+        connection_name: str,
     ) -> None:
         """
         Fires on_resource_type_completed for one graph link's aggregated response
@@ -1487,6 +1506,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 graph_depth=graph_depth,
                 urls=link_queried_urls,
                 link_index=context.task_index,
+                client_person_id=client_person_id,
+                connection_name=connection_name,
             )
         )
 
@@ -1518,6 +1539,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         on_resource_type_started: (Callable[[ResourceTypeStartedEvent], Awaitable[None]] | None) = None,
         on_graph_retrieval_started: (Callable[[GraphRetrievalStartedEvent], Awaitable[None]] | None) = None,
         on_graph_retrieval_completed: (Callable[[GraphRetrievalCompletedEvent], Awaitable[None]] | None) = None,
+        client_person_id: str = "",
+        connection_name: str = "",
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Core implementation that yields per graph link instead of accumulating all responses.
@@ -1571,6 +1594,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         GraphRetrievalStartedEvent(
                             start_resource_type=start,
                             url=base_url_value,
+                            client_person_id=client_person_id,
+                            connection_name=connection_name,
                         )
                     )
 
@@ -1581,6 +1606,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             graph_depth=0,
                             url=base_url_value,
                             link_index=-1,
+                            client_person_id=client_person_id,
+                            connection_name=connection_name,
                         )
                     )
 
@@ -1612,6 +1639,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 graph_depth=0,
                                 urls=[],
                                 link_index=-1,
+                                client_person_id=client_person_id,
+                                connection_name=connection_name,
                             )
                         )
                     raise
@@ -1641,6 +1670,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 graph_depth=0,
                                 urls=[parent_queried_url] if parent_queried_url else [],
                                 link_index=-1,
+                                client_person_id=client_person_id,
+                                connection_name=connection_name,
                             )
                         )
                     return
@@ -1664,6 +1695,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             graph_depth=0,
                             urls=[parent_queried_url] if parent_queried_url else [],
                             link_index=-1,
+                            client_person_id=client_person_id,
+                            connection_name=connection_name,
                         )
                     )
 
@@ -1700,6 +1733,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 on_resource_type_completed=on_resource_type_completed,
                                 graph_depth=graph_depth,
                                 url=base_url_value,
+                                client_person_id=client_person_id,
+                                connection_name=connection_name,
                             ),
                             log_level=self._log_level,
                             yield_context=True,
@@ -1741,6 +1776,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 link_queried_urls=link_queried_urls,
                                 graph_depth=graph_depth,
                                 on_resource_type_completed=on_resource_type_completed,
+                                client_person_id=client_person_id,
+                                connection_name=connection_name,
                             )
 
                     parent_link_map = new_parent_link_map
@@ -1777,5 +1814,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             total_resource_count=total_resource_count,
                             max_graph_depth=max_graph_depth,
                             urls=sorted(all_urls),
+                            client_person_id=client_person_id,
+                            connection_name=connection_name,
                         )
                     )

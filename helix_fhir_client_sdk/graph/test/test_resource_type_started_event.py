@@ -9,8 +9,12 @@ def test_resource_type_started_event_construction() -> None:
         graph_depth=1,
         url="https://example.com/fhir",
         link_index=-1,
+        client_person_id="client-1",
+        connection_name="Aetna Sandbox",
     )
     assert event.resource_types == ["Condition"]
     assert event.graph_depth == 1
     assert event.url == "https://example.com/fhir"
     assert event.link_index == -1
+    assert event.client_person_id == "client-1"
+    assert event.connection_name == "Aetna Sandbox"

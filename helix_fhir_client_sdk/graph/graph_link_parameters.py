@@ -53,3 +53,18 @@ class GraphLinkParameters:
     that already got on_resource_type_started for this row. None for callers
     that don't use simulate_graph_by_resource_type_async's per-resource-type
     hooks (e.g. simulate_graph_async)."""
+
+    client_person_id: str = ""
+    """Caller-supplied, opaque identifier for the person this call belongs
+    to, passed straight through to ResourceTypeStartedEvent.client_person_id
+    and ResourceTypeCompletionEvent.client_person_id. Only meaningful
+    together with on_resource_type_started/on_resource_type_completed;
+    unused otherwise (e.g. simulate_graph_async)."""
+
+    connection_name: str = ""
+    """Caller-supplied, opaque display name for the connection this call
+    belongs to, passed straight through to
+    ResourceTypeStartedEvent.connection_name and
+    ResourceTypeCompletionEvent.connection_name. Only meaningful together
+    with on_resource_type_started/on_resource_type_completed; unused
+    otherwise (e.g. simulate_graph_async)."""

@@ -236,6 +236,8 @@ async def test_full_event_lifecycle_fires_in_order_at_concurrency_1() -> None:
                 on_resource_type_completed=on_completed,
                 on_graph_retrieval_started=on_graph_started,
                 on_graph_retrieval_completed=on_graph_completed,
+                client_person_id="client-1",
+                connection_name="Aetna Sandbox",
             )
         ]
 
@@ -245,6 +247,8 @@ async def test_full_event_lifecycle_fires_in_order_at_concurrency_1() -> None:
     assert len(graph_started_events) == 1
     assert graph_started_events[0].start_resource_type == "Patient"
     assert graph_started_events[0].url == "http://example.com/fhir"
+    assert graph_started_events[0].client_person_id == "client-1"
+    assert graph_started_events[0].connection_name == "Aetna Sandbox"
 
     assert len(graph_completed_events) == 1
     assert sorted(graph_completed_events[0].resource_types) == sorted(["Patient", "AllergyIntolerance", "CarePlan"])
@@ -257,6 +261,8 @@ async def test_full_event_lifecycle_fires_in_order_at_concurrency_1() -> None:
             "http://example.com/fhir/CarePlan?patient=1",
         ]
     )
+    assert graph_completed_events[0].client_person_id == "client-1"
+    assert graph_completed_events[0].connection_name == "Aetna Sandbox"
 
     # one started + one completed per resource type (start resource + 2 links)
     assert len(started_events) == 3
@@ -267,6 +273,15 @@ async def test_full_event_lifecycle_fires_in_order_at_concurrency_1() -> None:
     assert completed_events[0].resource_types == ["Patient"]
     assert completed_events[0].urls == ["http://example.com/fhir/Patient/1"]
     assert completed_events[0].link_index == -1
+
+    # client_person_id/connection_name are opaque pass-through values that
+    # must show up unchanged on every fired event, for both the start
+    # resource and every link — so a callback shared across multiple
+    # concurrent calls can tell them apart.
+    assert all(e.client_person_id == "client-1" for e in started_events)
+    assert all(e.connection_name == "Aetna Sandbox" for e in started_events)
+    assert all(e.client_person_id == "client-1" for e in completed_events)
+    assert all(e.connection_name == "Aetna Sandbox" for e in completed_events)
 
     # at max_concurrent_tasks=1, ordering is fully deterministic: graph_started
     # fires before anything else, graph_completed fires after everything else,
