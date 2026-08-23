@@ -1302,6 +1302,319 @@ The companion plan in `helix.pipelines` (`docs/superpowers/plans/2026-08-22-proa
 
 ---
 
+## Task 8: Final-review fixes (correlation key, always-fire `completed`, guaranteed terminal event)
+
+**Context:** Tasks 1-7 shipped and passed a final whole-branch review. That review found the mechanical implementation sound (backward compatibility, URL-capture ordering, `graph_depth` threading, concurrency semantics all correct) but identified 5 Important, plan-level API-contract gaps and one real test gap, all pre-existing in the design Tasks 1-7 faithfully implemented — not implementer deviations:
+
+1. **`on_resource_type_started` has no guaranteed `on_resource_type_completed` counterpart.** A link whose target(s) return zero results (very common — e.g. a `path`-based link like `Patient.generalPractitioner` when the patient has none) fires `started` but the `if resource_types:` guard suppresses `completed` entirely. Same gap for the start resource's own zero-result early-return path (`started(Patient)` fires, `completed(Patient)` never does). A progress UI built on this lifecycle shows "retrieving X..." forever.
+2. **`urls` can be `[""]`.** `FhirGetResponse.url` is `""` on the scope-denied and fully-cached-with-no-HTTP-call paths through `_get_resources_by_parameters_async`, defeating the correlation purpose the field exists for.
+3. **`GraphRetrievalCompletedEvent`'s "always fires exactly once" docstring is false.** Nothing fires it if an exception propagates from inside the traversal, or if the caller stops consuming the generator early (a completely normal thing to do with a streaming generator).
+4. **`started`/`completed` have no stable correlation key.** They're paired only by resource-type string, which breaks for multi-target links with partial results, two different links declaring the same type at the same depth, and the documented "type recurs at a later depth" case.
+5. **Two other docstrings assert things the code doesn't do**, one of them self-contradictory (`ResourceTypeCompletionEvent.resource_types`' parenthetical claims empty results "still fire" while the code suppresses them, and references an internal plan task number no external consumer can resolve).
+6. **Real test gap:** nothing exercises `graph_depth > 0` — every test fixture is a flat, non-nested graph, so the second pass of the outer `while` loop (`simulated_graph_processor_mixin.py`'s traversal) is entirely unverified by any test in this feature.
+
+This is the last task before the branch is done. There is no second fix-wave after this one — get it right in one pass.
+
+**Files:**
+- Modify: `helix_fhir_client_sdk/utilities/async_parallel_processor/v1/async_parallel_processor.py` — add an opt-in `yield_context` parameter (see below). This is a shared utility with exactly one other consumer in this repo (`simulate_graph_async()`'s call site at `simulated_graph_processor_mixin.py:~232`) — the change must be 100% inert for that call site.
+- Create: `helix_fhir_client_sdk/utilities/async_parallel_processor/v1/test/test_async_parallel_processor.py` (this class currently has zero tests; follow this repo's `test/`-subpackage-next-to-source convention).
+- Modify: `helix_fhir_client_sdk/graph/resource_type_started_event.py`, `helix_fhir_client_sdk/graph/resource_type_completion_event.py` — add `link_index: int` to both; fix the wrong docstring on the latter.
+- Modify: `helix_fhir_client_sdk/graph/graph_retrieval_completed_event.py` — fix the "always fires" / empty-`urls` docstring wording (the behavior fix below makes "always fires" true; the `urls`-can-be-empty wording needs correcting regardless).
+- Modify: `helix_fhir_client_sdk/graph/simulated_graph_processor_mixin.py` — the full fix described below.
+- Modify: `helix_fhir_client_sdk/graph/test/test_resource_type_started_event.py`, `helix_fhir_client_sdk/graph/test/test_resource_type_completion_event.py` — add `link_index` to existing construction calls.
+- Modify: `helix_fhir_client_sdk/graph/test/test_simulate_graph_by_resource_type_async_completion_hook.py` — add the depth>0 test, and update existing assertions that construct/compare events to account for the new `link_index` field where relevant.
+
+**Design decisions (already made — implement as specified, no further judgment calls needed on these five points):**
+
+1. **Correlation key = `(graph_depth, link_index)`.** `link_index` is `-1` for the start resource (a sentinel — it isn't processed via `AsyncParallelProcessor`, so it has no natural index), and `AsyncParallelProcessor`'s existing `ParallelFunctionContext.task_index` for every link (already assigned via `enumerate(rows)` before dispatch — confirmed stable and deterministic regardless of completion order). `task_index` was already available to `process_link_async_parallel_function` (hence to `on_resource_type_started`'s firing site); it was NOT available to the outer generator loop that fires `on_resource_type_completed` — fixing that gap is the `AsyncParallelProcessor` change below.
+2. **`AsyncParallelProcessor.process_rows_in_parallel` gains `yield_context: bool = False`.** When `False` (the default — `simulate_graph_async()`'s call site needs zero changes), yields bare `TOutput` exactly as today. When `True`, yields `tuple[ParallelFunctionContext, TOutput]` instead. Only `_process_simulate_graph_by_resource_type_async`'s call site passes `yield_context=True`.
+3. **`on_resource_type_completed` fires once per row, unconditionally** (still only if a callback is registered) — no longer gated on `link_responses` being non-empty or containing a non-`None` `resource_type`. When nothing came back, it reports the link's *declared* target type(s) (looked up via `links[context.task_index].target`) with `resource_count=0`, so a caller that received `started` for this link always receives a matching `completed`. The whole-graph aggregation (`all_resource_types`/`total_resource_count`/`all_urls`) is unaffected by this fallback — it still only reflects resources *actually* retrieved, matching its existing docstring.
+4. **`on_graph_retrieval_completed` fires from exactly one `try/finally` block wrapping the whole traversal**, not from three separate call sites (the current zero-result-return, post-loop, and — previously missing — exception/early-close paths). This makes the "always fires exactly once" docstring true for normal completion, the zero-result path, exceptions, and the caller breaking out of / closing the generator early (which Python's `async for` guarantees calls `aclose()`, running `finally` blocks). Document as a known, unavoidable limitation of async generators that a caller who lets the generator become unreachable *without* explicit `break`/`aclose()` may not observe this event — that's a general Python limitation, not something this fix can close.
+5. **Empty-string URLs are filtered out** at the point of capture (`if r.url`), for both the parent response and every link response, before building any event's `urls` list.
+
+**Interfaces:**
+- `ResourceTypeStartedEvent` and `ResourceTypeCompletionEvent` both gain `link_index: int` (`-1` for the start resource, `context.task_index` for links).
+- `AsyncParallelProcessor.process_rows_in_parallel` gains `yield_context: bool = False`.
+
+- [ ] **Step 1: Write the failing tests**
+
+Update the two dataclasses' existing tests to pass `link_index`:
+
+```python
+# helix_fhir_client_sdk/graph/test/test_resource_type_started_event.py — add to the existing construction call:
+        link_index=-1,
+# ...and assert:
+    assert event.link_index == -1
+```
+
+```python
+# helix_fhir_client_sdk/graph/test/test_resource_type_completion_event.py — add to BOTH existing construction calls:
+        link_index=0,
+# ...and assert:
+    assert event.link_index == 0
+```
+
+Write a new test file for `AsyncParallelProcessor`, covering both branches (`max_concurrent_tasks=1` and `>1`) with `yield_context=True`, plus a regression test proving `yield_context=False` (the default) is byte-for-byte the existing behavior:
+
+```python
+# helix_fhir_client_sdk/utilities/async_parallel_processor/v1/test/test_async_parallel_processor.py
+import pytest
+
+from helix_fhir_client_sdk.utilities.async_parallel_processor.v1.async_parallel_processor import (
+    AsyncParallelProcessor,
+    ParallelFunctionContext,
+)
+
+
+async def double_it(
+    *, context: ParallelFunctionContext, row: int, parameters: None, additional_parameters: dict | None
+) -> int:
+    return row * 2
+
+
+@pytest.mark.asyncio
+async def test_yield_context_false_is_default_and_unchanged() -> None:
+    processor = AsyncParallelProcessor(name="test", max_concurrent_tasks=1)
+    results = [r async for r in processor.process_rows_in_parallel(rows=[1, 2, 3], process_row_fn=double_it, parameters=None)]
+    assert results == [2, 4, 6]
+
+
+@pytest.mark.asyncio
+async def test_yield_context_true_sequential() -> None:
+    processor = AsyncParallelProcessor(name="test", max_concurrent_tasks=1)
+    results = [
+        (ctx.task_index, ctx.total_task_count, value)
+        async for ctx, value in processor.process_rows_in_parallel(
+            rows=[1, 2, 3], process_row_fn=double_it, parameters=None, yield_context=True
+        )
+    ]
+    assert results == [(0, 3, 2), (1, 3, 4), (2, 3, 6)]
+
+
+@pytest.mark.asyncio
+async def test_yield_context_true_concurrent() -> None:
+    processor = AsyncParallelProcessor(name="test", max_concurrent_tasks=2)
+    results = [
+        (ctx.task_index, value)
+        async for ctx, value in processor.process_rows_in_parallel(
+            rows=[1, 2, 3], process_row_fn=double_it, parameters=None, yield_context=True
+        )
+    ]
+    # completion order isn't guaranteed under concurrency; task_index correctly
+    # identifies which row each result belongs to regardless of arrival order
+    assert sorted(results) == [(0, 2), (1, 4), (2, 6)]
+```
+
+Write the depth>0 test. Base the nested `target.link` JSON shape on the existing `test_graph_definition_with_nested_links` test in `helix_fhir_client_sdk/graph/test/test_simulate_graph_processor_mixin.py` (same repo, same nested-graph-definition parsing, just a different top-level method) — copy its exact `link`/`target`/nested-`link` JSON structure rather than guessing the shape `GraphDefinitionTarget.from_dict` expects. Add to `test_simulate_graph_by_resource_type_async_completion_hook.py`:
+
+```python
+@pytest.mark.asyncio
+async def test_started_and_completed_events_fire_at_depth_1_for_nested_links() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    started_events: list[ResourceTypeStartedEvent] = []
+    completed_events: list[ResourceTypeCompletionEvent] = []
+
+    async def on_started(event: ResourceTypeStartedEvent) -> None:
+        started_events.append(event)
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    # NESTED_GRAPH: Patient -> Encounter (depth 0) -> Practitioner (depth 1),
+    # matching the target.link nesting shape from
+    # test_graph_definition_with_nested_links in test_simulate_graph_processor_mixin.py.
+    with aioresponses() as m:
+        # mock Patient/1, Encounter?patient=1, and the nested Practitioner lookup
+        # using the same URL patterns as test_graph_definition_with_nested_links
+        ...
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=NESTED_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_resource_type_started=on_started,
+            on_resource_type_completed=on_completed,
+        ):
+            pass
+
+    depth_1_started = [e for e in started_events if e.graph_depth == 1]
+    depth_1_completed = [e for e in completed_events if e.graph_depth == 1]
+    assert len(depth_1_started) == 1
+    assert depth_1_started[0].resource_types == ["Practitioner"]
+    assert len(depth_1_completed) == 1
+    assert depth_1_completed[0].resource_types == ["Practitioner"]
+```
+
+The `...` above (mock setup, exact `NESTED_GRAPH` dict) is intentionally left for the implementer to fill in by copying `test_graph_definition_with_nested_links`'s fixture — don't guess the JSON shape.
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+New/changed tests should fail: `link_index` tests with `TypeError` (missing kwarg), `AsyncParallelProcessor` tests with `TypeError: process_rows_in_parallel() got an unexpected keyword argument 'yield_context'`, the depth-1 test with an assertion failure (0 events at depth 1, since nothing fires past depth 0 yet in the fixture you're introducing — or a `KeyError`/parsing error if the nested JSON isn't wired up yet).
+
+- [ ] **Step 3: Implement**
+
+Amend `async_parallel_processor.py`:
+
+```python
+    async def process_rows_in_parallel[
+        TInput,
+        TOutput,
+        TParameters: dict[str, Any] | object,
+    ](
+        self,
+        *,
+        rows: list[TInput],
+        process_row_fn: ParallelFunction[TInput, TOutput, TParameters],
+        parameters: TParameters | None,
+        log_level: str | None = None,
+        yield_context: bool = False,
+        **kwargs: Any,
+    ) -> AsyncGenerator[TOutput, None]:
+```
+
+(Note: the return type annotation stays `AsyncGenerator[TOutput, None]` for simplicity/least-diff even though it's technically `AsyncGenerator[TOutput | tuple[ParallelFunctionContext, TOutput], None]` when `yield_context=True` — this mirrors how the method is already fully dynamic via `**kwargs`; if your type checker complains, use `# type: ignore[misc]` on the yield lines rather than restructuring the generic signature.)
+
+Sequential branch:
+
+```python
+        if self.max_concurrent_tasks == 1:
+            for i, row in enumerate(rows):
+                context = ParallelFunctionContext(
+                    name=self.name,
+                    log_level=log_level,
+                    task_index=i,
+                    total_task_count=len(rows),
+                )
+                result = await process_row_fn(
+                    context=context,
+                    row=row,
+                    parameters=parameters,
+                    additional_parameters=kwargs,
+                )
+                yield (context, result) if yield_context else result
+            return
+```
+
+Concurrent branch — change `process_with_semaphore_async` to return `tuple[ParallelFunctionContext, TOutput]` always (internal-only change, not observable outside this method), and unwrap conditionally at the yield site:
+
+```python
+        async def process_with_semaphore_async(
+            *, name: str, row1: TInput, task_index: int, total_task_count: int
+        ) -> tuple[ParallelFunctionContext, TOutput]:
+            context = ParallelFunctionContext(
+                name=name,
+                log_level=log_level,
+                task_index=task_index,
+                total_task_count=total_task_count,
+            )
+            if self.semaphore is None:
+                result = await process_row_fn(
+                    context=context, row=row1, parameters=parameters, additional_parameters=kwargs
+                )
+            else:
+                async with self.semaphore:
+                    result = await process_row_fn(
+                        context=context, row=row1, parameters=parameters, additional_parameters=kwargs
+                    )
+            return context, result
+
+        total_task_count: int = len(rows)
+
+        pending: set[Task[tuple[ParallelFunctionContext, TOutput]]] = {
+            asyncio.create_task(
+                process_with_semaphore_async(
+                    name=self.name, row1=row, task_index=i, total_task_count=total_task_count
+                ),
+                name=f"task_{i}",
+            )
+            for i, row in enumerate(rows)
+        }
+
+        try:
+            while pending:
+                done: set[Task[tuple[ParallelFunctionContext, TOutput]]]
+                done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                for task in done:
+                    try:
+                        context, result = await task
+                        yield (context, result) if yield_context else result
+                    except Exception:
+                        raise
+        finally:
+            for task in pending:
+                task.cancel()
+```
+
+Amend `resource_type_started_event.py` — add at the end:
+
+```python
+    link_index: int
+    """-1 for the start resource (not processed via AsyncParallelProcessor, so
+    it has no row index). For links, the 0-based index of this link within
+    the current graph_depth pass's row list — combined with graph_depth,
+    forms a stable key for pairing this event with its corresponding
+    ResourceTypeCompletionEvent, since resource_types alone is not always
+    unique (a link can declare multiple types, two links at the same depth
+    can declare the same type, and a type can recur at a later depth)."""
+```
+
+Amend `resource_type_completion_event.py` — replace the existing wrong parenthetical and add the new field:
+
+```python
+    resource_types: list[str]
+    """Distinct resource type(s) actually returned for the completed link, taken
+    from each yielded FhirGetResponse.resource_type — not from the graph
+    definition's declared target types, so this reflects what was actually
+    fetched. When a link returns zero resources, this falls back to the
+    link's declared target type(s) instead of an empty list, so a caller that
+    received ResourceTypeStartedEvent for this link always receives a
+    matching completion event — use resource_count == 0 to distinguish this
+    fallback case from a real non-empty result."""
+
+    # ... resource_count, graph_depth, urls fields unchanged ...
+
+    link_index: int
+    """Same semantics as ResourceTypeStartedEvent.link_index — pairs this
+    event with the ResourceTypeStartedEvent that preceded it."""
+```
+
+Amend `graph_retrieval_completed_event.py`'s `urls` docstring:
+
+```python
+    urls: list[str]
+    """Union of every actual URL queried across the whole graph traversal
+    (start resource + every link, every depth), params included. May be
+    empty if every queried resource was served from cache or was
+    scope-denied (no real HTTP request made), not just on the start
+    resource's zero-result path. This event fires exactly once per call —
+    including when the traversal raises or the caller closes/abandons the
+    generator early — except in the unavoidable Python limitation where a
+    caller lets the generator become unreachable without an explicit
+    break/aclose()."""
+```
+
+Rewrite `_process_simulate_graph_by_resource_type_async`'s body (from `if not isinstance(id_, list):` through the end) to: wrap the traversal in `try/finally` firing `on_graph_retrieval_completed` exactly once from `finally`; initialize the aggregation variables (`all_resource_types`, `total_resource_count`, `max_graph_depth`, `all_urls`) before anything that can raise; pass `yield_context=True` and unpack `context, link_responses` from the parallel processor; use `context.task_index` as `link_index`; filter empty-string URLs at capture; and make the per-row `on_resource_type_completed` firing unconditional (with declared-type fallback via `links[context.task_index].target`) per Design Decision 3 above. Apply exactly the design decisions listed above — they are final, not open questions.
+
+Add the started-event's `link_index=-1` to its existing firing point (for the start resource), and add `link_index=context.task_index` to `process_link_async_parallel_function`'s `on_resource_type_started` firing (it already has `context` in scope as its first parameter — no new plumbing needed there).
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `uv run pytest helix_fhir_client_sdk/graph/test/ helix_fhir_client_sdk/utilities/async_parallel_processor/v1/test/ -v` and `uv run mypy helix_fhir_client_sdk/`.
+
+- [ ] **Step 5: Run the full regression suite**
+
+Run: `uv run pytest helix_fhir_client_sdk/ -v` to confirm nothing outside the graph module regressed (the `AsyncParallelProcessor` change, though additive, touches a shared utility).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add helix_fhir_client_sdk/utilities/async_parallel_processor/v1/async_parallel_processor.py helix_fhir_client_sdk/utilities/async_parallel_processor/v1/test/test_async_parallel_processor.py helix_fhir_client_sdk/graph/resource_type_started_event.py helix_fhir_client_sdk/graph/resource_type_completion_event.py helix_fhir_client_sdk/graph/graph_retrieval_completed_event.py helix_fhir_client_sdk/graph/simulated_graph_processor_mixin.py helix_fhir_client_sdk/graph/test/test_resource_type_started_event.py helix_fhir_client_sdk/graph/test/test_resource_type_completion_event.py helix_fhir_client_sdk/graph/test/test_simulate_graph_by_resource_type_async_completion_hook.py
+git commit -m "DCON-4509 add link_index correlation key, always-fire on_resource_type_completed, guarantee on_graph_retrieval_completed fires exactly once"
+```
+
+---
+
 ## Self-review notes (for whoever executes this plan)
 
 - **Spec coverage:** Phase 2 §6's bullet "Either shape requires `simulate_graph_async()` to expose a per-resource-type completion hook" is satisfied by Tasks 1-2 (for `simulate_graph_by_resource_type_async`, the method actually used in production — not `simulate_graph_async`, which is a different, non-streaming method with no per-type boundary and is out of scope here since `helix.pipelines` doesn't use it for the default FHIR-retriever path).
@@ -1309,3 +1622,4 @@ The companion plan in `helix.pipelines` (`docs/superpowers/plans/2026-08-22-proa
 - **Placeholder scan:** resolved. An earlier draft of this plan left `fhir_client_with_mock_responses` and `SOME_TWO_LINK_GRAPH` as guessed placeholders. Both have been replaced with concrete code that mirrors the actual, confirmed convention in `helix_fhir_client_sdk/graph/test/test_simulate_graph_processor_mixin.py`: no pytest fixtures at all, just a `TestGraphProcessor(FhirClient)` subclass, `get_graph_processor()` helper, and `aioresponses()` HTTP-level mocking.
 - **Convention fixes applied on review:** test paths corrected to `helix_fhir_client_sdk/graph/test/` (this repo has no `tests/graph/`); commit messages corrected to lead with the `DCON-4509` ticket key instead of conventional-commit prefixes (`feat:`/`test:`/`chore:`), matching every real commit in this repo's history; the old Task 4's manual `VERSION` bump was replaced (now Task 7) because `.github/workflows/python-publish.yml` derives `VERSION` from the GitHub release tag automatically — it's never hand-edited; and the `graph_depth` increment in Task 2 was moved to the end of the `while` loop body so first-level links actually fire at depth 0, matching Task 1's own docstring and test (the original placement would have fired depth 1 for first-level links, contradicting Task 1).
 - **Scope extension after Tasks 1-3 shipped:** during execution, the goal grew from one callback (`on_resource_type_completed`) to a full four-callback lifecycle — `on_resource_type_started`, `on_graph_retrieval_started`, `on_graph_retrieval_completed` were added as Tasks 4-6 (renumbering the original Task 4 to Task 7), each event carrying the actual queried URL(s) so a callback shared across concurrent per-patient calls can tell which call an event belongs to. This required amending Task 1/2's already-committed `ResourceTypeCompletionEvent` (a new `urls` field) rather than rewriting history — see Task 4's design note for why "completed" events get real per-request URLs (read off `FhirGetResponse.url` before this file's pre-existing overwrite-with-base-URL line runs) while "started" events only get the connection's base URL (the specific query isn't constructed yet at that point).
+- **Final whole-branch review after Task 7:** found the mechanical implementation (Tasks 1-7) sound but surfaced 5 Important, plan-level API-contract gaps this plan itself had never considered — not implementer bugs. Task 8 fixes all of them: a stable `link_index` correlation key, `on_resource_type_completed` firing unconditionally (declared-type fallback) so it always has a `started` counterpart, `on_graph_retrieval_completed` firing from a single `try/finally` so it's genuinely guaranteed once per call, empty-string URL filtering, three corrected docstrings, and the previously-missing `graph_depth > 0` test. Task 8 is explicitly the last fix wave — per this session's process, adjudicate any residual review findings after it rather than starting a third round.
