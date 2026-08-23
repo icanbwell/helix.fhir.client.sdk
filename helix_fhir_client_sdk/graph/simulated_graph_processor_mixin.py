@@ -1928,6 +1928,52 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     nonlocal total_error_count
                     total_error_count += 1
 
+                async def _record_link_batch_outcome(
+                    *,
+                    link_responses: list[FhirGetResponse],
+                    link_queried_urls: list[str],
+                    links: list[GraphDefinitionLink],
+                    context: ParallelFunctionContext,
+                    error: Exception | None,
+                ) -> Literal["success", "empty", "not_found", "scope_denied", "error"]:
+                    """Aggregates one link batch's results into the whole-graph
+                    rollups and fires its completion event.
+
+                    Extracted into a nested closure (rather than left inline in
+                    the consumer loop below) so that loop's body stays shallow —
+                    this is purely the accounting + event-firing step, factored
+                    out from the yielding step it must stay separate from since
+                    only the outer generator can yield.
+                    """
+                    nonlocal all_resource_types, total_resource_count, max_graph_depth, all_urls
+                    resource_types = sorted({r.resource_type for r in link_responses if r.resource_type})
+                    resource_count_for_link = sum(r.get_resource_count() for r in link_responses)
+
+                    # The whole-graph aggregation only reflects resources
+                    # actually retrieved — it must NOT be affected by the
+                    # declared-type fallback used below for the
+                    # per-link completion event.
+                    if resource_types:
+                        all_resource_types.update(resource_types)
+                        total_resource_count += resource_count_for_link
+                        max_graph_depth = graph_depth
+                    all_urls.update(link_queried_urls)
+
+                    return await self._fire_on_resource_type_completed_for_link(
+                        links=links,
+                        context=context,
+                        resource_types=resource_types,
+                        resource_count_for_link=resource_count_for_link,
+                        link_queried_urls=link_queried_urls,
+                        link_responses=link_responses,
+                        scope_parser=scope_parser,
+                        graph_depth=graph_depth,
+                        on_resource_type_completed=on_resource_type_completed,
+                        client_person_id=client_person_id,
+                        connection_name=connection_name,
+                        error=error,
+                    )
+
                 # Process graph links one at a time and yield each link's response
                 graph_depth = 0
                 while len(parent_link_map):
@@ -1968,9 +2014,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             link_responses = link_fetch_result.responses
 
                             # Capture each response's actual queried URL before the
-                            # existing loop below overwrites it with the base URL,
-                            # filtering out empty strings (scope-denied / fully
-                            # cached responses have url == "").
+                            # loop below overwrites it with the base URL, filtering
+                            # out empty strings (scope-denied / fully cached
+                            # responses have url == "").
                             link_queried_urls = [r.url for r in link_responses if r.url]
 
                             # Yield each link's responses individually instead of accumulating
@@ -1978,31 +2024,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 link_response.url = url or link_response.url
                                 yield link_response
 
-                            resource_types = sorted({r.resource_type for r in link_responses if r.resource_type})
-                            resource_count_for_link = sum(r.get_resource_count() for r in link_responses)
-
-                            # The whole-graph aggregation only reflects resources
-                            # actually retrieved — it must NOT be affected by the
-                            # declared-type fallback used below for the
-                            # per-link completion event.
-                            if resource_types:
-                                all_resource_types.update(resource_types)
-                                total_resource_count += resource_count_for_link
-                                max_graph_depth = graph_depth
-                            all_urls.update(link_queried_urls)
-
-                            outcome = await self._fire_on_resource_type_completed_for_link(
+                            outcome = await _record_link_batch_outcome(
+                                link_responses=link_responses,
+                                link_queried_urls=link_queried_urls,
                                 links=links,
                                 context=context,
-                                resource_types=resource_types,
-                                resource_count_for_link=resource_count_for_link,
-                                link_queried_urls=link_queried_urls,
-                                link_responses=link_responses,
-                                scope_parser=scope_parser,
-                                graph_depth=graph_depth,
-                                on_resource_type_completed=on_resource_type_completed,
-                                client_person_id=client_person_id,
-                                connection_name=connection_name,
                                 error=link_fetch_result.error,
                             )
                             if outcome == "error":
