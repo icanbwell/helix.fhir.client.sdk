@@ -24,7 +24,7 @@
 
 **Files:**
 - Create: `helix_fhir_client_sdk/graph/resource_type_completion_event.py`
-- Test: `tests/graph/test_resource_type_completion_event.py` (check whether tests live under `tests/` or `helix_fhir_client_sdk/graph/test/` — this module's sibling files use a `test/` subpackage next to the code per existing convention; search for `test_graph_definition` first to confirm the pattern before creating the file)
+- Test: `helix_fhir_client_sdk/graph/test/test_resource_type_completion_event.py` — confirmed convention: this module's sibling tests (`test_simulate_graph_processor_mixin.py`, `test_simulate_graph_processor_mixin_caching.py`) live in a `test/` subpackage next to the source, not under a top-level `tests/` dir. The repo-root `tests/` directory holds unrelated suites (`fhir/`, `async/`, `sync/`, `deidentifier/`).
 
 **Interfaces:**
 - Produces: `ResourceTypeCompletionEvent` dataclass with fields `resource_types: list[str]`, `resource_count: int`, `graph_depth: int` — consumed by Task 2.
@@ -62,7 +62,7 @@ def test_resource_type_completion_event_multiple_types() -> None:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/graph/test_resource_type_completion_event.py -v` (adjust path once the convention from Task 1's file search is confirmed)
+Run: `pytest helix_fhir_client_sdk/graph/test/test_resource_type_completion_event.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'helix_fhir_client_sdk.graph.resource_type_completion_event'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -103,14 +103,14 @@ class ResourceTypeCompletionEvent:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest tests/graph/test_resource_type_completion_event.py -v`
+Run: `pytest helix_fhir_client_sdk/graph/test/test_resource_type_completion_event.py -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add helix_fhir_client_sdk/graph/resource_type_completion_event.py tests/graph/test_resource_type_completion_event.py
-git commit -m "feat: add ResourceTypeCompletionEvent for per-resource-type progress signaling"
+git add helix_fhir_client_sdk/graph/resource_type_completion_event.py helix_fhir_client_sdk/graph/test/test_resource_type_completion_event.py
+git commit -m "DCON-4509 add ResourceTypeCompletionEvent for per-resource-type progress signaling"
 ```
 
 ---
@@ -119,7 +119,7 @@ git commit -m "feat: add ResourceTypeCompletionEvent for per-resource-type progr
 
 **Files:**
 - Modify: `helix_fhir_client_sdk/graph/simulated_graph_processor_mixin.py:1292-1499` (`simulate_graph_by_resource_type_async` and `_process_simulate_graph_by_resource_type_async`)
-- Test: same test module as the existing tests for this method — run `grep -rln "simulate_graph_by_resource_type_async" tests/` first to find it; if none exist yet, create `tests/graph/test_simulate_graph_by_resource_type_async_completion_hook.py` next to wherever the existing streaming tests for this mixin live.
+- Test: confirmed no existing tests reference `simulate_graph_by_resource_type_async` anywhere in the repo (`grep -rln "simulate_graph_by_resource_type_async" --include="*.py" .` returns only the source file itself). Create `helix_fhir_client_sdk/graph/test/test_simulate_graph_by_resource_type_async_completion_hook.py`, mirroring the mocking pattern already used by `helix_fhir_client_sdk/graph/test/test_simulate_graph_processor_mixin.py` in the same directory (see below — there is no fixture-based mocking in this repo; it uses a `TestGraphProcessor(FhirClient)` subclass + `aioresponses()`).
 
 **Interfaces:**
 - Consumes: `ResourceTypeCompletionEvent` from Task 1.
@@ -127,66 +127,121 @@ git commit -m "feat: add ResourceTypeCompletionEvent for per-resource-type progr
 
 - [ ] **Step 1: Write the failing test**
 
+This repo has no fixture-based FHIR client mocking. The established pattern (from
+`helix_fhir_client_sdk/graph/test/test_simulate_graph_processor_mixin.py`, same
+directory) is a `TestGraphProcessor(FhirClient)` subclass, a `get_graph_processor()`
+helper, and `aioresponses()` for HTTP-level mocking. Mirror it exactly:
+
 ```python
+from typing import Any
+
 import pytest
+from aioresponses import aioresponses
 
 from helix_fhir_client_sdk.graph.resource_type_completion_event import (
     ResourceTypeCompletionEvent,
 )
+from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
+    SimulatedGraphProcessorMixin,
+)
+from helix_fhir_client_sdk.graph.test.test_simulate_graph_processor_mixin import (
+    get_graph_processor,
+)
 
-# Reuse whatever fixture/mock FhirClient this repo's existing
-# simulate_graph_by_resource_type_async tests use to avoid a real network call —
-# check test_simulate_graph_async.py or similar for the existing mock pattern
-# and mirror it here rather than inventing a new one.
+TWO_LINK_GRAPH: dict[str, Any] = {
+    "id": "1",
+    "name": "Test Graph",
+    "resourceType": "GraphDefinition",
+    "start": "Patient",
+    "link": [
+        {"target": [{"type": "AllergyIntolerance", "params": "patient={ref}"}]},
+        {"target": [{"type": "CarePlan", "params": "patient={ref}"}]},
+    ],
+}
+
+
+def mock_two_link_graph_responses(m: aioresponses) -> None:
+    m.get(
+        "http://example.com/fhir/Patient/1",
+        payload={"resourceType": "Patient", "id": "1"},
+    )
+    m.get(
+        "http://example.com/fhir/AllergyIntolerance?patient=1",
+        payload={"resourceType": "AllergyIntolerance", "id": "1"},
+    )
+    m.get(
+        "http://example.com/fhir/CarePlan?patient=1",
+        payload={"resourceType": "CarePlan", "id": "1"},
+    )
 
 
 @pytest.mark.asyncio
-async def test_on_resource_type_completed_fires_once_per_link(
-    fhir_client_with_mock_responses,  # replace with the actual fixture name found above
-) -> None:
+async def test_on_resource_type_completed_fires_once_per_link() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
     events: list[ResourceTypeCompletionEvent] = []
 
     async def capture(event: ResourceTypeCompletionEvent) -> None:
         events.append(event)
 
-    result = await fhir_client_with_mock_responses.simulate_graph_by_resource_type_async(
-        id_="123",
-        graph_json=SOME_TWO_LINK_GRAPH,  # a GraphDefinition with e.g. AllergyIntolerance + CarePlan links
-        contained=False,
-        max_concurrent_tasks=1,
-        on_resource_type_completed=capture,
-    )
-    _ = [r async for r in result] if hasattr(result, "__aiter__") else None
+    with aioresponses() as m:
+        mock_two_link_graph_responses(m)
+
+        responses = [
+            r
+            async for r in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=TWO_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                on_resource_type_completed=capture,
+            )
+        ]
+
+    assert len(responses) == 3  # Patient, AllergyIntolerance, CarePlan
 
     # one event for the start resource (Patient) + one per link
     assert len(events) == 3
     assert events[0].resource_types == ["Patient"]
-    assert {"AllergyIntolerance", "CarePlan"} <= {
-        t for e in events[1:] for t in e.resource_types
+    assert events[0].graph_depth == 0
+    assert {t for e in events[1:] for t in e.resource_types} == {
+        "AllergyIntolerance",
+        "CarePlan",
     }
+    assert all(e.graph_depth == 0 for e in events[1:])
 
 
 @pytest.mark.asyncio
-async def test_on_resource_type_completed_defaults_to_none_is_noop(
-    fhir_client_with_mock_responses,
-) -> None:
+async def test_on_resource_type_completed_defaults_to_none_is_noop() -> None:
     # No callback passed — must behave exactly as before (regression guard for
     # the "zero behavior change for existing callers" constraint).
-    responses = [
-        r
-        async for r in fhir_client_with_mock_responses.simulate_graph_by_resource_type_async(
-            id_="123",
-            graph_json=SOME_TWO_LINK_GRAPH,
-            contained=False,
-            max_concurrent_tasks=1,
-        )
-    ]
-    assert len(responses) > 0
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    with aioresponses() as m:
+        mock_two_link_graph_responses(m)
+
+        responses = [
+            r
+            async for r in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=TWO_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+            )
+        ]
+
+    assert len(responses) == 3
 ```
+
+`get_graph_processor` is module-private (no `__all__` restriction, but not
+re-exported) — importing it from the sibling test module is consistent with how
+this repo already shares test helpers across files in the same `test/` package;
+if that import proves awkward in practice, duplicating the ~6-line helper locally
+is also fine per this repo's "prefer duplication over the wrong abstraction" norm.
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/graph/test_simulate_graph_by_resource_type_async_completion_hook.py -v`
+Run: `pytest helix_fhir_client_sdk/graph/test/test_simulate_graph_by_resource_type_async_completion_hook.py -v`
 Expected: FAIL with `TypeError: simulate_graph_by_resource_type_async() got an unexpected keyword argument 'on_resource_type_completed'`
 
 - [ ] **Step 3: Implement**
@@ -227,6 +282,18 @@ Add the parameter to `simulate_graph_by_resource_type_async` (public method, cur
             Callable[[ResourceTypeCompletionEvent], Awaitable[None]] | None
         ) = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
+```
+
+Also add a matching `:param on_resource_type_completed:` line to this method's
+docstring — every other parameter has one (lines 1320-1336 of the current file),
+so leaving this one undocumented breaks that convention. E.g.:
+
+```
+:param on_resource_type_completed: Optional async callback invoked once the start
+                                     resource has been yielded, and again each time
+                                     one graph link's resources have been fully
+                                     yielded. Fires with a ResourceTypeCompletionEvent.
+                                     Defaults to None (no-op, zero behavior change).
 ```
 
 and pass it through in the call to `_process_simulate_graph_by_resource_type_async` (currently ends `compare_hash=compare_hash,` around line 1364):
@@ -271,7 +338,6 @@ Fire it once per row, inside the outer `while` loop. Replace the current body (l
             graph_depth = 0
             while len(parent_link_map):
                 new_parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
-                graph_depth += 1
 
                 for links, current_parent_bundle_entries in parent_link_map:
                     link_responses: list[FhirGetResponse]
@@ -321,25 +387,28 @@ Fire it once per row, inside the outer `while` loop. Replace the current body (l
                                 )
 
                 parent_link_map = new_parent_link_map
+                graph_depth += 1
 ```
 
-Note the event fires *after* the `for link_response in link_responses: yield link_response` loop for that row — the caller has already received every resource for this link by the time the event arrives, satisfying "fully retrieved" (not "about to start").
+Note two things:
+1. The event fires *after* the `for link_response in link_responses: yield link_response` loop for that row — the caller has already received every resource for this link by the time the event arrives, satisfying "fully retrieved" (not "about to start").
+2. `graph_depth += 1` is deliberately placed *after* `parent_link_map = new_parent_link_map`, not at the top of the `while` body. This makes the first pass (links directly off the start resource) fire with `graph_depth=0`, matching Task 1's `ResourceTypeCompletionEvent.graph_depth` docstring ("0 for links directly off the start resource") and its test assertions. Incrementing at the top of the loop instead — as an earlier draft of this plan did — would make first-level links fire at depth 1, contradicting Task 1's own test.
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest tests/graph/test_simulate_graph_by_resource_type_async_completion_hook.py -v`
+Run: `pytest helix_fhir_client_sdk/graph/test/test_simulate_graph_by_resource_type_async_completion_hook.py -v`
 Expected: PASS
 
 - [ ] **Step 5: Run the full existing test suite for this module to confirm no regression**
 
-Run: `pytest tests/graph/ -v -k "simulate_graph"`
-Expected: All pre-existing tests for `simulate_graph_async`, `simulate_graph_streaming_async`, and `simulate_graph_by_resource_type_async` still PASS unchanged (they don't pass `on_resource_type_completed`, exercising the default-`None` no-op path).
+Run: `pytest helix_fhir_client_sdk/graph/test/ -v -k "simulate_graph"`
+Expected: All pre-existing tests for `simulate_graph_async` and `simulate_graph_by_resource_type_async` still PASS unchanged (they don't pass `on_resource_type_completed`, exercising the default-`None` no-op path).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add helix_fhir_client_sdk/graph/simulated_graph_processor_mixin.py tests/graph/test_simulate_graph_by_resource_type_async_completion_hook.py
-git commit -m "feat: add on_resource_type_completed callback to simulate_graph_by_resource_type_async"
+git add helix_fhir_client_sdk/graph/simulated_graph_processor_mixin.py helix_fhir_client_sdk/graph/test/test_simulate_graph_by_resource_type_async_completion_hook.py
+git commit -m "DCON-4509 add on_resource_type_completed callback to simulate_graph_by_resource_type_async"
 ```
 
 ---
@@ -353,24 +422,30 @@ This task exists because the whole reason this hook is more valuable than the st
 
 - [ ] **Step 1: Write the test**
 
+Reuse the `TWO_LINK_GRAPH` graph and `mock_two_link_graph_responses` helper from
+Task 2's test module (same file):
+
 ```python
 @pytest.mark.asyncio
-async def test_on_resource_type_completed_fires_correctly_at_concurrency_2(
-    fhir_client_with_mock_responses,
-) -> None:
+async def test_on_resource_type_completed_fires_correctly_at_concurrency_2() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=2)
+
     events: list[ResourceTypeCompletionEvent] = []
 
     async def capture(event: ResourceTypeCompletionEvent) -> None:
         events.append(event)
 
-    async for _ in fhir_client_with_mock_responses.simulate_graph_by_resource_type_async(
-        id_="123",
-        graph_json=SOME_TWO_LINK_GRAPH,
-        contained=False,
-        max_concurrent_tasks=2,
-        on_resource_type_completed=capture,
-    ):
-        pass
+    with aioresponses() as m:
+        mock_two_link_graph_responses(m)
+
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=2,
+            on_resource_type_completed=capture,
+        ):
+            pass
 
     # Regardless of which of the two links finishes first, each event's
     # resource_types must be internally consistent (no mixing of two links'
@@ -383,36 +458,36 @@ async def test_on_resource_type_completed_fires_correctly_at_concurrency_2(
 
 - [ ] **Step 2: Run and confirm it passes without further code changes**
 
-Run: `pytest tests/graph/test_simulate_graph_by_resource_type_async_completion_hook.py -v -k concurrency`
+Run: `pytest helix_fhir_client_sdk/graph/test/test_simulate_graph_by_resource_type_async_completion_hook.py -v -k concurrency`
 Expected: PASS. If it fails, that's a real bug in `AsyncParallelProcessor` ordering assumptions — stop and re-examine `process_rows_in_parallel`'s semaphore-based branch (the `max_concurrent_tasks != 1` path) before proceeding; do not paper over it by forcing `max_concurrent_tasks=1` in the event-firing code.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add tests/graph/test_simulate_graph_by_resource_type_async_completion_hook.py
-git commit -m "test: verify on_resource_type_completed stays correct under concurrent link processing"
+git add helix_fhir_client_sdk/graph/test/test_simulate_graph_by_resource_type_async_completion_hook.py
+git commit -m "DCON-4509 verify on_resource_type_completed stays correct under concurrent link processing"
 ```
 
 ---
 
-## Task 4: Version bump and changelog
+## Task 4: Coordinate the release with `helix.pipelines`
 
-**Files:**
-- Modify: `VERSION` (referenced by `pyproject.toml:35` as `version = { file = "VERSION" }`)
-- Modify: `CHANGELOG.md` if one exists (check repo root; if not, skip)
+**Files:** none — no file changes in this task.
 
-- [ ] **Step 1: Bump the version**
+There is no `CHANGELOG.md` in this repo, and `VERSION` is not manually maintained:
+`.github/workflows/python-publish.yml`'s "Set release tag in VERSION" step
+overwrites the `VERSION` file from the GitHub release tag at publish time
+(`on: release: types: [created]`), and `git log -p -- VERSION` shows it has never
+been hand-edited since its initial `0.0.1` commit. Do not add a step to manually
+edit or commit `VERSION` — CI derives it from the tag when a release is cut.
 
-Check `VERSION`'s current value and bump the minor version (this is an additive, backward-compatible feature — semver minor, not patch, not major).
+- [ ] **Step 1: Note the intended version bump in the PR description**
 
-- [ ] **Step 2: Commit**
+Since this is an additive, backward-compatible change, note in the PR description
+(for whoever cuts the GitHub release) that it warrants a semver-minor bump, not a
+patch — no file change needed on this branch.
 
-```bash
-git add VERSION CHANGELOG.md
-git commit -m "chore: bump version for on_resource_type_completed feature"
-```
-
-- [ ] **Step 3: Coordinate the release with `helix.pipelines`**
+- [ ] **Step 2: Coordinate the release with `helix.pipelines`**
 
 The companion plan in `helix.pipelines` (`docs/superpowers/plans/2026-08-22-proa-per-resource-type-progress.md`, Task 1) pins this exact version once published. Do not merge that plan's Task 1 until this SDK version is actually released (published to whatever package index `helix.pipelines`' `Pipfile` resolves `helix-fhir-client-sdk` from — check `Pipfile` there for the source).
 
@@ -422,4 +497,5 @@ The companion plan in `helix.pipelines` (`docs/superpowers/plans/2026-08-22-proa
 
 - **Spec coverage:** Phase 2 §6's bullet "Either shape requires `simulate_graph_async()` to expose a per-resource-type completion hook" is satisfied by Tasks 1-2 (for `simulate_graph_by_resource_type_async`, the method actually used in production — not `simulate_graph_async`, which is a different, non-streaming method with no per-type boundary and is out of scope here since `helix.pipelines` doesn't use it for the default FHIR-retriever path).
 - **What this plan deliberately does NOT do:** it does not touch `SubscriptionStatus`, Kafka, or any FHIR modeling — those are `helix.pipelines`-owned decisions requiring an FDR / AsyncAPI update per the spec's §10, and live entirely in the companion plan.
-- **Placeholder scan:** `fhir_client_with_mock_responses` and `SOME_TWO_LINK_GRAPH` are named placeholders for fixtures the executing engineer must locate (via the `grep` instructions in each task) or construct from this repo's existing test conventions — flagged explicitly rather than guessed, since the exact fixture names weren't visible from outside this repo's test suite at plan-writing time.
+- **Placeholder scan:** resolved. An earlier draft of this plan left `fhir_client_with_mock_responses` and `SOME_TWO_LINK_GRAPH` as guessed placeholders. Both have been replaced with concrete code that mirrors the actual, confirmed convention in `helix_fhir_client_sdk/graph/test/test_simulate_graph_processor_mixin.py`: no pytest fixtures at all, just a `TestGraphProcessor(FhirClient)` subclass, `get_graph_processor()` helper, and `aioresponses()` HTTP-level mocking.
+- **Convention fixes applied on review:** test paths corrected to `helix_fhir_client_sdk/graph/test/` (this repo has no `tests/graph/`); commit messages corrected to lead with the `DCON-4509` ticket key instead of conventional-commit prefixes (`feat:`/`test:`/`chore:`), matching every real commit in this repo's history; Task 4's manual `VERSION` bump was replaced because `.github/workflows/python-publish.yml` derives `VERSION` from the GitHub release tag automatically — it's never hand-edited; and the `graph_depth` increment in Task 2 was moved to the end of the `while` loop body so first-level links actually fire at depth 0, matching Task 1's own docstring and test (the original placement would have fired depth 1 for first-level links, contradicting Task 1).
