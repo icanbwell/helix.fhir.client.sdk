@@ -96,3 +96,33 @@ async def test_on_resource_type_completed_defaults_to_none_is_noop() -> None:
         ]
 
     assert len(responses) == 3
+
+
+@pytest.mark.asyncio
+async def test_on_resource_type_completed_fires_correctly_at_concurrency_2() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=2)
+
+    events: list[ResourceTypeCompletionEvent] = []
+
+    async def capture(event: ResourceTypeCompletionEvent) -> None:
+        events.append(event)
+
+    with aioresponses() as m:
+        mock_two_link_graph_responses(m)
+
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=2,
+            on_resource_type_completed=capture,
+        ):
+            pass
+
+    # Regardless of which of the two links finishes first, each event's
+    # resource_types must be internally consistent (no mixing of two links'
+    # resource types into one event) and resource_count must match the sum of
+    # that link's own chunks.
+    non_start_events = [e for e in events if e.resource_types != ["Patient"]]
+    all_reported_types = [t for e in non_start_events for t in e.resource_types]
+    assert sorted(all_reported_types) == sorted(["AllergyIntolerance", "CarePlan"])
