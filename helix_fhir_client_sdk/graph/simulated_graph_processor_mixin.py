@@ -1378,7 +1378,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param on_graph_retrieval_completed: Optional async callback invoked exactly once,
                                                after every resource in the graph has been
                                                yielded (including the zero-results early
-                                               return). Fires with a
+                                               return), and also when an exception propagates
+                                               from inside the traversal or the caller stops
+                                               consuming the generator early via an explicit
+                                               break/aclose(). Fires with a
                                                GraphRetrievalCompletedEvent. Defaults to None
                                                (no-op, zero behavior change).
         :return: AsyncGenerator yielding FhirGetResponse per resource type
@@ -1577,7 +1580,6 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
                 all_resource_types.add(start)
                 total_resource_count += parent_response_resource_count
-                max_graph_depth = 0
 
                 parent_bundle_entries: FhirBundleEntryList = parent_response.get_bundle_entries()
 
@@ -1675,12 +1677,18 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             finally:
                 # Fires exactly once per call, from this single try/finally block
                 # wrapping the whole traversal — including when the traversal
-                # raises, or the caller stops consuming the generator early (an
-                # `async for` loop that `break`s, or an explicit `aclose()`, both
-                # run this `finally` block per Python's async generator
-                # semantics). The one case this cannot cover is a caller who
-                # lets the generator become unreachable (e.g. garbage collected)
-                # without an explicit break/aclose() — that is an unavoidable
+                # raises, or the caller stops consuming the generator early via
+                # an explicit `await gen.aclose()` (which runs this `finally`
+                # block as part of closing the generator). Note that a bare
+                # `async for ... : break` with no explicit aclose() is NOT
+                # guaranteed by the language to run this block promptly — that
+                # only happens in practice under CPython (refcounting collects
+                # the abandoned generator once it's unreachable) together with
+                # asyncio's default asyncgen finalizer hook, which schedules
+                # aclose() on it. The one case this cannot cover at all is a
+                # caller who lets the generator become unreachable without an
+                # explicit break/aclose() and whose runtime/event loop doesn't
+                # run that finalization promptly — that is an unavoidable
                 # limitation of async generators in Python, not something this
                 # fix can close.
                 if on_graph_retrieval_completed:

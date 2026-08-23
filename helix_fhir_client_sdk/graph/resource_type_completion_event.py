@@ -46,4 +46,9 @@ class ResourceTypeCompletionEvent:
 
     link_index: int
     """Same semantics as ResourceTypeStartedEvent.link_index — pairs this
-    event with the ResourceTypeStartedEvent that preceded it."""
+    event with the ResourceTypeStartedEvent that preceded it. See that
+    field's docstring for the important caveat that (graph_depth,
+    link_index) is only globally unique at graph_depth == 0; at
+    graph_depth >= 1 it is unique only within the single parallel-
+    processing batch this link belongs to, and a depth can contain more
+    than one such batch."""

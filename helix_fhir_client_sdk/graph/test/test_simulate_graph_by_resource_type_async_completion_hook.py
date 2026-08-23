@@ -3,6 +3,7 @@ from typing import Any
 import pytest
 from aioresponses import aioresponses
 
+from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.graph.graph_retrieval_completed_event import (
     GraphRetrievalCompletedEvent,
 )
@@ -527,3 +528,100 @@ async def test_started_and_completed_events_fire_at_depth_1_for_nested_links() -
     # the correlation key (graph_depth, link_index) pairs the depth-1
     # started event with its own depth-1 completed event.
     assert depth_1_started[0].link_index == depth_1_completed[0].link_index
+
+
+@pytest.mark.asyncio
+async def test_graph_retrieval_completed_fires_exactly_once_on_exception() -> None:
+    # Design Decision 4: on_graph_retrieval_completed must fire exactly once
+    # even when an exception propagates from inside the traversal — not
+    # just on normal completion or the zero-results early return. Mock the
+    # start-resource fetch to raise instead of returning a payload; the SDK
+    # wraps whatever exception aiohttp/aioresponses raises into a
+    # FhirSenderException as it propagates out of
+    # _get_resources_by_parameters_async.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            exception=RuntimeError("simulated network failure fetching start resource"),
+        )
+
+        with pytest.raises(FhirSenderException):
+            async for _ in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=TWO_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                on_graph_retrieval_completed=on_graph_completed,
+            ):
+                pass
+
+    assert len(graph_completed_events) == 1
+
+
+@pytest.mark.asyncio
+async def test_graph_retrieval_completed_fires_once_on_explicit_aclose() -> None:
+    # Design Decision 4: on_graph_retrieval_completed must also fire when the
+    # caller stops consuming the generator early via an explicit aclose()
+    # (deterministic), as opposed to a bare `break` relied on to be
+    # collected by the GC (explicitly out of scope — non-deterministic).
+    #
+    # This test calls _process_simulate_graph_by_resource_type_async
+    # directly rather than the public simulate_graph_by_resource_type_async
+    # wrapper. That public method is just
+    # `async for r in self._process_simulate_graph_by_resource_type_async(...): yield r`
+    # — a second, outer async generator. Closing that *outer* generator does
+    # NOT deterministically close the inner one within the same await:
+    # unwinding the outer generator's frame merely drops the inner
+    # generator's refcount, and — because the inner generator is itself an
+    # *unclosed* async generator at that point — finalizing it requires
+    # asyncio's asyncgen finalizer hook, which only schedules aclose() on a
+    # later event-loop turn rather than running it inline (verified
+    # empirically: the inner generator's `finally` block did not run until
+    # several `asyncio.sleep(0)` turns after the outer aclose() had already
+    # returned). That delay is the same underlying non-determinism this test
+    # deliberately avoids by not relying on the `break` path either.
+    #
+    # Calling aclose() directly on _process_simulate_graph_by_resource_type_async's
+    # own generator object throws GeneratorExit straight into its own
+    # suspended frame, which runs its `finally` block synchronously and
+    # deterministically as part of this single aclose() call, since there is
+    # no intervening wrapper generator to introduce that delay.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses() as m:
+        mock_two_link_graph_responses(m)
+
+        agen = graph_processor._process_simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            logger=None,
+            url="http://example.com/fhir",
+            expand_fhir_bundle=None,
+            auth_scopes=None,
+            max_concurrent_tasks=1,
+            sort_resources=None,
+            on_graph_retrieval_completed=on_graph_completed,
+        )
+
+        # Advance past the first yield (the start resource, Patient) without
+        # consuming the rest of the generator via `async for`.
+        first_response = await agen.__anext__()
+        assert first_response.resource_type == "Patient"
+
+        # Explicitly close the generator early instead of exhausting it.
+        await agen.aclose()
+
+    assert len(graph_completed_events) == 1

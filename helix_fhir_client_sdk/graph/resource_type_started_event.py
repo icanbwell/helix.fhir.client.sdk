@@ -35,8 +35,17 @@ class ResourceTypeStartedEvent:
     link_index: int
     """-1 for the start resource (not processed via AsyncParallelProcessor, so
     it has no row index). For links, the 0-based index of this link within
-    the current graph_depth pass's row list — combined with graph_depth,
-    forms a stable key for pairing this event with its corresponding
-    ResourceTypeCompletionEvent, since resource_types alone is not always
-    unique (a link can declare multiple types, two links at the same depth
-    can declare the same type, and a type can recur at a later depth)."""
+    the row list of the single parallel-processing batch this row belongs
+    to (that batch is one call to AsyncParallelProcessor for the links at a
+    given graph_depth that share the same parent bundle).
+
+    At graph_depth == 0 there is always exactly one such batch, so
+    (graph_depth, link_index) is globally unique there. At graph_depth >= 1,
+    a single depth can contain more than one batch — one per nested-link-
+    bearing target carried over from the previous depth — and each batch
+    restarts link_index at 0. So (graph_depth, link_index) alone does not
+    disambiguate across batches at the same depth: two different links at
+    the same depth, each with their own nested links, can produce started
+    events that both carry the identical (graph_depth, link_index) pair.
+    Callers needing a fully global key across nested graphs should not rely
+    on this pair alone."""
