@@ -1,3 +1,5 @@
+import asyncio
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
@@ -795,5 +797,97 @@ async def test_graph_retrieval_completed_fires_once_on_public_method_explicit_ac
 
         # Explicitly close the PUBLIC generator early instead of exhausting it.
         await agen.aclose()
+
+
+@pytest.mark.asyncio
+async def test_on_resource_type_completed_fires_for_link_on_cancellation() -> None:
+    # asyncio.CancelledError is a BaseException, not an Exception, so the
+    # `except Exception:` guard around a link's own fetch would silently let
+    # it bypass the completion-event firing entirely. This happens for real
+    # whenever one concurrent link's failure causes AsyncParallelProcessor to
+    # cancel other still-in-flight sibling link tasks (see
+    # test_concurrent_batch_yields_completed_siblings_before_raising in
+    # test_async_parallel_processor.py for the related data-loss fix at the
+    # processor level). Simulated here by making the link's own fetch raise
+    # CancelledError directly, which is deterministic and avoids depending on
+    # real concurrent task-cancellation timing.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    async def raise_cancelled(**kwargs: Any) -> AsyncGenerator[Any, None]:
+        raise asyncio.CancelledError()
+        yield  # pragma: no cover - unreachable; makes this an async generator function
+
+    graph_processor._process_link_async = raise_cancelled  # type: ignore[method-assign]
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Patient", "id": "1"},
+        )
+
+        with pytest.raises(asyncio.CancelledError):
+            async for _ in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=TWO_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                on_resource_type_completed=on_completed,
+            ):
+                pass
+
+    # At max_concurrent_tasks=1, links are processed sequentially, so only
+    # the first link (AllergyIntolerance) is ever attempted before its
+    # cancelled fetch aborts the traversal — but that one link still gets a
+    # matching completion event instead of the cancellation silently
+    # bypassing it.
+    non_start_completed = [e for e in completed_events if e.resource_types != ["Patient"]]
+    assert len(non_start_completed) == 1
+    assert non_start_completed[0].resource_types == ["AllergyIntolerance"]
+    assert non_start_completed[0].resource_count == 0
+
+
+@pytest.mark.asyncio
+async def test_on_resource_type_completed_fires_for_start_resource_on_cancellation() -> None:
+    # Same fix, applied to the start-resource fetch's own except clause:
+    # asyncio.CancelledError there must also fire a matching completion event
+    # for the ResourceTypeStartedEvent fired earlier for the start resource,
+    # and on_graph_retrieval_completed must still fire exactly once from the
+    # outer finally regardless.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    async def raise_cancelled(**kwargs: Any) -> Any:
+        raise asyncio.CancelledError()
+
+    graph_processor._get_resources_by_parameters_async = raise_cancelled  # type: ignore[method-assign]
+
+    with pytest.raises(asyncio.CancelledError):
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_resource_type_completed=on_completed,
+            on_graph_retrieval_completed=on_graph_completed,
+        ):
+            pass
+
+    assert len(completed_events) == 1
+    assert completed_events[0].resource_types == ["Patient"]
+    assert completed_events[0].resource_count == 0
+    assert len(graph_completed_events) == 1
 
     assert len(graph_completed_events) == 1

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import time
 from abc import ABC
@@ -380,13 +381,17 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             ):
                 # Collect each link result
                 result.append(link_result)
-        except Exception:
+        except (Exception, asyncio.CancelledError):
             # Fire a matching completion event (if registered) before letting
             # the exception propagate, so a caller that already received
             # on_resource_type_started for this link doesn't get stuck
             # waiting forever for a completion event that will never come.
             # This is purely an additional signal — the exception is not
-            # suppressed.
+            # suppressed. asyncio.CancelledError is caught explicitly (it is
+            # a BaseException, not an Exception) because a sibling link's
+            # failure cancels other in-flight concurrent links via
+            # AsyncParallelProcessor's cleanup — those cancelled links must
+            # still get a matching completion event.
             if parameters.on_resource_type_completed:
                 failed_resource_types = sorted({t.type_ for t in row.target if t.type_}) if row.target else []
                 await parameters.on_resource_type_completed(
@@ -1624,13 +1629,18 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         add_cached_bundles_to_result=add_cached_bundles_to_result,
                         compare_hash=compare_hash,
                     )
-                except Exception:
+                except (Exception, asyncio.CancelledError, GeneratorExit):
                     # Fire a matching completion event (if registered) before
                     # letting the exception propagate, so the
                     # on_resource_type_started fired above for the start
                     # resource isn't left without a matching completion
                     # event. This is purely an additional signal — the
-                    # exception is not suppressed.
+                    # exception is not suppressed. asyncio.CancelledError and
+                    # GeneratorExit are caught explicitly (both are
+                    # BaseException, not Exception) because a caller closing
+                    # or abandoning this generator while the start-resource
+                    # fetch is in flight raises GeneratorExit here, and a
+                    # cancelled surrounding task raises CancelledError.
                     if on_resource_type_completed:
                         await on_resource_type_completed(
                             ResourceTypeCompletionEvent(
