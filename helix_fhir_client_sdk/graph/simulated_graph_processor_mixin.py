@@ -3,6 +3,7 @@ import json
 import time
 from abc import ABC
 from collections.abc import AsyncGenerator, Awaitable, Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from logging import Logger
 from typing import Any, Literal, cast
@@ -57,6 +58,23 @@ from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.hash_util import ResourceHash
+
+
+@dataclass(slots=True)
+class _LinkFetchResult:
+    """
+    Return shape for process_link_async_parallel_function. `error` is set
+    only when the link's own fetch raised a real Exception (never
+    asyncio.CancelledError — that always propagates immediately instead)
+    AND the caller opted into continue_on_resource_type_error, so the
+    consumer loop in _process_simulate_graph_by_resource_type_async can
+    classify and fire the matching completion event itself (with
+    outcome="error") instead of process_link_async_parallel_function firing
+    it and re-raising. Not part of this SDK's public API.
+    """
+
+    responses: list[FhirGetResponse]
+    error: Exception | None = None
 
 
 class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
@@ -223,8 +241,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
                 # Parallel processing of links for each parent bundle
                 for link, parent_bundle_entries in parent_link_map:
-                    link_responses: list[FhirGetResponse]
-                    async for link_responses in AsyncParallelProcessor(
+                    async for link_fetch_result in AsyncParallelProcessor(
                         name="process_link_async_parallel_function",
                         max_concurrent_tasks=max_concurrent_tasks,
                     ).process_rows_in_parallel(
@@ -244,7 +261,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         add_cached_bundles_to_result=add_cached_bundles_to_result,
                         ifModifiedSince=ifModifiedSince,
                     ):
-                        child_responses.extend(link_responses)
+                        child_responses.extend(link_fetch_result.responses)
 
                 # Update parent link map for next iteration
                 parent_link_map = new_parent_link_map
@@ -296,7 +313,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         row: GraphDefinitionLink,
         parameters: GraphLinkParameters | None,
         additional_parameters: dict[str, Any] | None,
-    ) -> list[FhirGetResponse]:
+    ) -> _LinkFetchResult:
         """
         Parallel processing function for graph definition links.
 
@@ -391,9 +408,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # Exception) because a sibling link's failure cancels other
             # in-flight concurrent links via AsyncParallelProcessor's
             # cleanup — those cancelled links must still get a matching
-            # completion event. Never classified as outcome="error" —
-            # cancellation means "shut down", not "this resource type
-            # failed" (see GraphRetrievalCompletedEvent.total_error_count's
+            # completion event. Never classified as outcome="error", and
+            # never subject to continue_on_resource_type_error — cancellation
+            # means "shut down", not "this resource type failed", in either
+            # mode (see GraphRetrievalCompletedEvent.total_error_count's
             # docstring).
             if parameters.on_resource_type_completed:
                 failed_resource_types = sorted({t.type_ for t in row.target if t.type_}) if row.target else []
@@ -413,9 +431,17 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 )
             raise
         except Exception as exc:
-            # Same reasoning as the CancelledError branch above, but for a
-            # real fetch failure: fire the matching completion event with
-            # outcome="error" before letting the exception propagate.
+            if parameters.continue_on_resource_type_error:
+                # Defer firing the completion event to the consumer loop in
+                # _process_simulate_graph_by_resource_type_async, which
+                # classifies outcome="error" from this returned error and
+                # fires exactly one completion event for this link — firing
+                # here too would double-fire it.
+                return _LinkFetchResult(responses=[], error=exc)
+
+            # Default behavior (continue_on_resource_type_error=False):
+            # fire the matching completion event before letting the
+            # exception propagate, exactly as before this flag existed.
             if parameters.on_resource_type_completed:
                 failed_resource_types = sorted({t.type_ for t in row.target if t.type_}) if row.target else []
                 await parameters.on_resource_type_completed(
@@ -450,7 +476,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             )
 
         # Return the list of retrieved responses
-        return result
+        return _LinkFetchResult(responses=result)
 
     async def _process_link_async(
         self,
@@ -1395,6 +1421,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         on_graph_retrieval_completed: (Callable[[GraphRetrievalCompletedEvent], Awaitable[None]] | None) = None,
         client_person_id: str = "",
         connection_name: str = "",
+        continue_on_resource_type_error: bool = False,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Simulates the $graph query yielding results per graph link (resource type) instead
@@ -1452,6 +1479,18 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                    connection this call belongs to. Not interpreted by
                                    this SDK — echoed back on every fired event for the
                                    same reason as client_person_id. Defaults to "".
+        :param continue_on_resource_type_error: Optional flag (default False,
+                                                   preserving today's exact
+                                                   behavior). When True, a
+                                                   link's own fetch failure
+                                                   fires on_resource_type_completed
+                                                   with outcome="error" and the
+                                                   traversal continues to the
+                                                   next link instead of
+                                                   re-raising. The start
+                                                   resource's own fetch
+                                                   failure is always fatal,
+                                                   regardless of this flag.
         :return: AsyncGenerator yielding FhirGetResponse per resource type
         """
         if contained:
@@ -1487,6 +1526,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             on_graph_retrieval_completed=on_graph_retrieval_completed,
             client_person_id=client_person_id,
             connection_name=connection_name,
+            continue_on_resource_type_error=continue_on_resource_type_error,
         )
         try:
             async for r in inner_generator:
@@ -1603,6 +1643,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         on_graph_retrieval_completed: (Callable[[GraphRetrievalCompletedEvent], Awaitable[None]] | None) = None,
         client_person_id: str = "",
         connection_name: str = "",
+        continue_on_resource_type_error: bool = False,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Core implementation that yields per graph link instead of accumulating all responses.
@@ -1803,9 +1844,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
                     for links, current_parent_bundle_entries in parent_link_map:
                         context: ParallelFunctionContext
-                        link_responses: list[FhirGetResponse]
+                        link_fetch_result: _LinkFetchResult
                         try:
-                            async for context, link_responses in AsyncParallelProcessor(  # type: ignore[assignment]
+                            async for context, link_fetch_result in AsyncParallelProcessor(  # type: ignore[misc]
                                 name="process_link_async_parallel_function",
                                 max_concurrent_tasks=max_concurrent_tasks,
                             ).process_rows_in_parallel(
@@ -1823,6 +1864,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                     url=base_url_value,
                                     client_person_id=client_person_id,
                                     connection_name=connection_name,
+                                    continue_on_resource_type_error=continue_on_resource_type_error,
                                 ),
                                 log_level=self._log_level,
                                 yield_context=True,
@@ -1832,6 +1874,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 add_cached_bundles_to_result=add_cached_bundles_to_result,
                                 ifModifiedSince=ifModifiedSince,
                             ):
+                                link_responses = link_fetch_result.responses
+
                                 # Capture each response's actual queried URL before the
                                 # existing loop below overwrites it with the base URL,
                                 # filtering out empty strings (scope-denied / fully
@@ -1868,8 +1912,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                     on_resource_type_completed=on_resource_type_completed,
                                     client_person_id=client_person_id,
                                     connection_name=connection_name,
+                                    error=link_fetch_result.error,
                                 )
-                                if outcome == "scope_denied":
+                                if outcome == "error":
+                                    total_error_count += 1
+                                elif outcome == "scope_denied":
                                     total_rejected_count += 1
                         except Exception:
                             # A link's own fetch failure already fired its

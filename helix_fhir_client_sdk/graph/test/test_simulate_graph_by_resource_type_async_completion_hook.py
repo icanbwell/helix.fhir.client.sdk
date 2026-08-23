@@ -1214,3 +1214,193 @@ async def test_resource_type_completed_outcome_not_found_for_start_resource() ->
 
     assert len(completed_events) == 1
     assert completed_events[0].outcome == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_continue_on_resource_type_error_false_still_aborts() -> None:
+    # Default (False) must behave exactly as before this feature existed —
+    # a link's fetch failure still aborts the whole traversal.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    responses: list[Any] = []
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Patient", "id": "1"},
+        )
+        m.get(
+            "http://example.com/fhir/AllergyIntolerance?patient=1",
+            exception=RuntimeError("simulated network failure fetching link"),
+        )
+        m.get(
+            "http://example.com/fhir/CarePlan?patient=1",
+            payload={"resourceType": "CarePlan", "id": "1"},
+        )
+
+        with pytest.raises(FhirSenderException):
+            async for r in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=TWO_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                continue_on_resource_type_error=False,
+            ):
+                responses.append(r)
+
+    # Only the start resource (Patient) was yielded before the abort —
+    # CarePlan, sequenced after the failing AllergyIntolerance link at
+    # max_concurrent_tasks=1, never got a chance to run.
+    assert len(responses) == 1
+    assert responses[0].resource_type == "Patient"
+
+
+@pytest.mark.asyncio
+async def test_continue_on_resource_type_error_true_continues_past_failure() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Patient", "id": "1"},
+        )
+        m.get(
+            "http://example.com/fhir/AllergyIntolerance?patient=1",
+            exception=RuntimeError("simulated network failure fetching link"),
+        )
+        m.get(
+            "http://example.com/fhir/CarePlan?patient=1",
+            payload={"resourceType": "CarePlan", "id": "1"},
+        )
+
+        responses = [
+            r
+            async for r in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=TWO_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                continue_on_resource_type_error=True,
+                on_resource_type_completed=on_completed,
+                on_graph_retrieval_completed=on_graph_completed,
+            )
+        ]
+
+    # Patient and CarePlan both came through despite AllergyIntolerance's
+    # fetch failing — the traversal did not abort.
+    assert sorted(r.resource_type for r in responses if r.resource_type) == ["CarePlan", "Patient"]
+
+    allergy_completed = [e for e in completed_events if e.resource_types == ["AllergyIntolerance"]]
+    assert len(allergy_completed) == 1
+    assert allergy_completed[0].outcome == "error"
+    assert allergy_completed[0].error_type == "FhirSenderException"
+
+    care_plan_completed = [e for e in completed_events if e.resource_types == ["CarePlan"]]
+    assert len(care_plan_completed) == 1
+    assert care_plan_completed[0].outcome == "success"
+
+    assert len(graph_completed_events) == 1
+    assert graph_completed_events[0].total_error_count == 1
+    assert sorted(graph_completed_events[0].resource_types) == ["CarePlan", "Patient"]
+
+
+@pytest.mark.asyncio
+async def test_continue_on_resource_type_error_true_start_resource_still_fatal() -> None:
+    # The start resource's own fetch failure is always fatal, in every
+    # mode — there are no links to traverse without it.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            exception=RuntimeError("simulated network failure fetching start resource"),
+        )
+
+        with pytest.raises(FhirSenderException):
+            async for _ in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=TWO_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                continue_on_resource_type_error=True,
+            ):
+                pass
+
+
+@pytest.mark.asyncio
+async def test_continue_on_resource_type_error_true_cancellation_still_propagates() -> None:
+    # asyncio.CancelledError must never be swallowed as a "continue past
+    # this error" case, in either mode — cancellation means shut down, not
+    # "this resource type failed".
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    async def raise_cancelled(**kwargs: Any) -> AsyncGenerator[Any, None]:
+        raise asyncio.CancelledError()
+        yield  # pragma: no cover - unreachable; makes this an async generator function
+
+    graph_processor._process_link_async = raise_cancelled  # type: ignore[method-assign]
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Patient", "id": "1"},
+        )
+
+        with pytest.raises(asyncio.CancelledError):
+            async for _ in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=TWO_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                continue_on_resource_type_error=True,
+            ):
+                pass
+
+
+@pytest.mark.asyncio
+async def test_continue_on_resource_type_error_true_skips_failed_links_nested_children() -> None:
+    # A failed link's own nested target.link children never run — there is
+    # no parent bundle to traverse from since the fetch that would have
+    # produced it failed.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    started_events: list[ResourceTypeStartedEvent] = []
+
+    async def on_started(event: ResourceTypeStartedEvent) -> None:
+        started_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Patient", "id": "1"},
+        )
+        m.get(
+            "http://example.com/fhir/Encounter?patient=1",
+            exception=RuntimeError("simulated network failure fetching Encounter"),
+        )
+
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=NESTED_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            continue_on_resource_type_error=True,
+            on_resource_type_started=on_started,
+        ):
+            pass
+
+    # Only Patient (link_index=-1) and Encounter (link_index=0, graph_depth=0)
+    # ever started — Practitioner (nested under Encounter's target.link) never
+    # got a started event, since Encounter's own fetch failed before it could
+    # produce any parent bundle entries for Practitioner to traverse from.
+    assert {e.resource_types[0] if e.resource_types else "" for e in started_events} <= {"Patient", "Encounter"}
+    assert not any("Practitioner" in e.resource_types for e in started_events)

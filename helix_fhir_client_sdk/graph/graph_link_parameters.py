@@ -68,3 +68,13 @@ class GraphLinkParameters:
     ResourceTypeCompletionEvent.connection_name. Only meaningful together
     with on_resource_type_started/on_resource_type_completed; unused
     otherwise (e.g. simulate_graph_async)."""
+
+    continue_on_resource_type_error: bool = False
+    """When True, a link's own fetch failure fires on_resource_type_completed
+    with outcome="error" and the traversal continues to the next link
+    instead of re-raising. Defaults to False, which preserves this SDK's
+    original behavior exactly (fire the completion event, then re-raise,
+    aborting the traversal) — existing callers that don't pass this on
+    simulate_graph_by_resource_type_async() see zero behavior change. Not
+    consulted by simulate_graph_async() (the non-streaming sibling method),
+    which never sets it and so always gets the default False."""
