@@ -4,6 +4,9 @@ from logging import Logger
 
 from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 
+from helix_fhir_client_sdk.graph.resource_type_completion_event import (
+    ResourceTypeCompletionEvent,
+)
 from helix_fhir_client_sdk.graph.resource_type_started_event import (
     ResourceTypeStartedEvent,
 )
@@ -43,3 +46,10 @@ class GraphLinkParameters:
     through to ResourceTypeStartedEvent.url (see that dataclass's docstring
     for why it's the base URL and not the full query URL). Only meaningful
     together with on_resource_type_started; unused otherwise."""
+
+    on_resource_type_completed: Callable[[ResourceTypeCompletionEvent], Awaitable[None]] | None = None
+    """Optional callback fired if this row (GraphDefinitionLink) raises while
+    being processed, so a matching completion event still reaches callers
+    that already got on_resource_type_started for this row. None for callers
+    that don't use simulate_graph_by_resource_type_async's per-resource-type
+    hooks (e.g. simulate_graph_async)."""

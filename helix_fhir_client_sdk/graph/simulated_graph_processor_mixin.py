@@ -327,17 +327,18 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # Validate input parameters
         assert parameters, "Processing parameters must be provided"
 
-        if parameters.on_resource_type_started and row.target:
-            started_resource_types = sorted({target.type_ for target in row.target if target.type_})
-            if started_resource_types:
-                await parameters.on_resource_type_started(
-                    ResourceTypeStartedEvent(
-                        resource_types=started_resource_types,
-                        graph_depth=parameters.graph_depth,
-                        url=parameters.url,
-                        link_index=context.task_index,
-                    )
+        if parameters.on_resource_type_started:
+            started_resource_types = (
+                sorted({target.type_ for target in row.target if target.type_}) if row.target else []
+            )
+            await parameters.on_resource_type_started(
+                ResourceTypeStartedEvent(
+                    resource_types=started_resource_types,
+                    graph_depth=parameters.graph_depth,
+                    url=parameters.url,
+                    link_index=context.task_index,
                 )
+            )
 
         # Log debug information about the current link processing
         if parameters.logger:
@@ -354,28 +355,48 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Process the link asynchronously and collect responses
         link_result: FhirGetResponse
-        async for link_result in self._process_link_async(
-            link=row,
-            parent_bundle_entries=parameters.parent_bundle_entries,
-            logger=parameters.logger,
-            cache=parameters.cache,
-            scope_parser=parameters.scope_parser,
-            # Handle parent link map from additional parameters
-            parent_link_map=(additional_parameters["parent_link_map"] if additional_parameters else []),
-            # Determine request size, default to 1 if not specified
-            request_size=(additional_parameters["request_size"] if additional_parameters else 1),
-            # Track unsupported resources for ID-based search
-            id_search_unsupported_resources=(
-                additional_parameters["id_search_unsupported_resources"] if additional_parameters else []
-            ),
-            max_concurrent_tasks=parameters.max_concurrent_tasks,
-            add_cached_bundles_to_result=(
-                additional_parameters.get("add_cached_bundles_to_result", True) if additional_parameters else True
-            ),
-            ifModifiedSince=(additional_parameters.get("ifModifiedSince", None) if additional_parameters else None),
-        ):
-            # Collect each link result
-            result.append(link_result)
+        try:
+            async for link_result in self._process_link_async(
+                link=row,
+                parent_bundle_entries=parameters.parent_bundle_entries,
+                logger=parameters.logger,
+                cache=parameters.cache,
+                scope_parser=parameters.scope_parser,
+                # Handle parent link map from additional parameters
+                parent_link_map=(additional_parameters["parent_link_map"] if additional_parameters else []),
+                # Determine request size, default to 1 if not specified
+                request_size=(additional_parameters["request_size"] if additional_parameters else 1),
+                # Track unsupported resources for ID-based search
+                id_search_unsupported_resources=(
+                    additional_parameters["id_search_unsupported_resources"] if additional_parameters else []
+                ),
+                max_concurrent_tasks=parameters.max_concurrent_tasks,
+                add_cached_bundles_to_result=(
+                    additional_parameters.get("add_cached_bundles_to_result", True) if additional_parameters else True
+                ),
+                ifModifiedSince=(additional_parameters.get("ifModifiedSince", None) if additional_parameters else None),
+            ):
+                # Collect each link result
+                result.append(link_result)
+        except Exception:
+            # Fire a matching completion event (if registered) before letting
+            # the exception propagate, so a caller that already received
+            # on_resource_type_started for this link doesn't get stuck
+            # waiting forever for a completion event that will never come.
+            # This is purely an additional signal — the exception is not
+            # suppressed.
+            if parameters.on_resource_type_completed:
+                failed_resource_types = sorted({t.type_ for t in row.target if t.type_}) if row.target else []
+                await parameters.on_resource_type_completed(
+                    ResourceTypeCompletionEvent(
+                        resource_types=failed_resource_types,
+                        resource_count=0,
+                        graph_depth=parameters.graph_depth,
+                        urls=[],
+                        link_index=context.task_index,
+                    )
+                )
+            raise
 
         # Record end time for performance tracking
         end_time: datetime = datetime.now()
@@ -1565,16 +1586,35 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
                 parent_response: FhirGetResponse
                 cache_hits: int
-                parent_response, cache_hits = await self._get_resources_by_parameters_async(
-                    resource_type=start,
-                    id_=id_,
-                    cache=cache,
-                    scope_parser=scope_parser,
-                    logger=logger,
-                    id_search_unsupported_resources=id_search_unsupported_resources,
-                    add_cached_bundles_to_result=add_cached_bundles_to_result,
-                    compare_hash=compare_hash,
-                )
+                try:
+                    parent_response, cache_hits = await self._get_resources_by_parameters_async(
+                        resource_type=start,
+                        id_=id_,
+                        cache=cache,
+                        scope_parser=scope_parser,
+                        logger=logger,
+                        id_search_unsupported_resources=id_search_unsupported_resources,
+                        add_cached_bundles_to_result=add_cached_bundles_to_result,
+                        compare_hash=compare_hash,
+                    )
+                except Exception:
+                    # Fire a matching completion event (if registered) before
+                    # letting the exception propagate, so the
+                    # on_resource_type_started fired above for the start
+                    # resource isn't left without a matching completion
+                    # event. This is purely an additional signal — the
+                    # exception is not suppressed.
+                    if on_resource_type_completed:
+                        await on_resource_type_completed(
+                            ResourceTypeCompletionEvent(
+                                resource_types=[start],
+                                resource_count=0,
+                                graph_depth=0,
+                                urls=[],
+                                link_index=-1,
+                            )
+                        )
+                    raise
                 # Capture the actual queried URL (with params) before the existing
                 # line below overwrites it with the connection's base URL —
                 # that overwrite is pre-existing behavior, out of scope to change.
@@ -1657,6 +1697,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 scope_parser=scope_parser,
                                 max_concurrent_tasks=max_concurrent_tasks,
                                 on_resource_type_started=on_resource_type_started,
+                                on_resource_type_completed=on_resource_type_completed,
                                 graph_depth=graph_depth,
                                 url=base_url_value,
                             ),

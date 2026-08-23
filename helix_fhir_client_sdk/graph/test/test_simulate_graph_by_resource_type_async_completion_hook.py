@@ -80,6 +80,20 @@ NESTED_GRAPH: dict[str, Any] = {
 }
 
 
+# A link with no "target" key at all (legal per GraphDefinitionLink.from_dict,
+# which defaults target to []) — exercises the Bug 2 fix, where
+# on_resource_type_started must fire unconditionally per link (previously
+# gated on `row.target` being truthy, so this link never got a started
+# event, yet the completion fallback fired unconditionally regardless).
+NO_TARGET_LINK_GRAPH: dict[str, Any] = {
+    "id": "1",
+    "name": "Test Graph - No Target Link",
+    "resourceType": "GraphDefinition",
+    "start": "Patient",
+    "link": [{}],
+}
+
+
 def mock_two_link_graph_responses(m: aioresponses) -> None:
     m.get(
         "http://example.com/fhir/Patient/1",
@@ -563,6 +577,110 @@ async def test_graph_retrieval_completed_fires_exactly_once_on_exception() -> No
                 pass
 
     assert len(graph_completed_events) == 1
+
+
+@pytest.mark.asyncio
+async def test_on_resource_type_completed_fires_for_link_on_exception() -> None:
+    # Design Decision (Bug 1, link variant): if a LINK's own fetch raises
+    # (as opposed to the start resource's fetch, already covered by
+    # test_graph_retrieval_completed_fires_exactly_once_on_exception), the
+    # on_resource_type_started already fired for that link must still get a
+    # matching on_resource_type_completed (resource_count=0) before the
+    # exception propagates to the caller — otherwise a progress UI gets
+    # stuck showing "retrieving AllergyIntolerance..." forever.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    started_events: list[ResourceTypeStartedEvent] = []
+    completed_events: list[ResourceTypeCompletionEvent] = []
+
+    async def on_started(event: ResourceTypeStartedEvent) -> None:
+        started_events.append(event)
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Patient", "id": "1"},
+        )
+        # The AllergyIntolerance link's own fetch raises instead of
+        # returning a payload.
+        m.get(
+            "http://example.com/fhir/AllergyIntolerance?patient=1",
+            exception=RuntimeError("simulated network failure fetching link"),
+        )
+        # CarePlan is registered too so the mock server never errors on an
+        # unmatched URL if it happens to be requested before the exception
+        # above unwinds the traversal (max_concurrent_tasks=1 makes this
+        # deterministic, but keep the graph fully mocked regardless).
+        m.get(
+            "http://example.com/fhir/CarePlan?patient=1",
+            payload={"resourceType": "CarePlan", "id": "1"},
+        )
+
+        with pytest.raises(FhirSenderException):
+            async for _ in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=TWO_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                on_resource_type_started=on_started,
+                on_resource_type_completed=on_completed,
+            ):
+                pass
+
+    # The AllergyIntolerance link got both a started and a matching
+    # completed event, with resource_count=0, despite the exception.
+    allergy_started = [e for e in started_events if e.resource_types == ["AllergyIntolerance"]]
+    allergy_completed = [e for e in completed_events if e.resource_types == ["AllergyIntolerance"]]
+    assert len(allergy_started) == 1
+    assert len(allergy_completed) == 1
+    assert allergy_completed[0].resource_count == 0
+    assert allergy_completed[0].urls == []
+    assert allergy_started[0].link_index == allergy_completed[0].link_index
+
+
+@pytest.mark.asyncio
+async def test_on_resource_type_started_fires_for_link_with_no_target() -> None:
+    # Bug 2: a link with no declared target (target == []) must still get a
+    # started event (previously gated on `row.target` being truthy, so it
+    # silently never fired one) that pairs symmetrically with the
+    # unconditional completion fallback that already fires for such links.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    started_events: list[ResourceTypeStartedEvent] = []
+    completed_events: list[ResourceTypeCompletionEvent] = []
+
+    async def on_started(event: ResourceTypeStartedEvent) -> None:
+        started_events.append(event)
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Patient", "id": "1"},
+        )
+
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=NO_TARGET_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_resource_type_started=on_started,
+            on_resource_type_completed=on_completed,
+        ):
+            pass
+
+    link_started = [e for e in started_events if e.link_index == 0]
+    link_completed = [e for e in completed_events if e.link_index == 0]
+    assert len(link_started) == 1
+    assert link_started[0].resource_types == []
+    assert len(link_completed) == 1
+    assert link_completed[0].resource_types == []
+    assert link_completed[0].resource_count == 0
 
 
 @pytest.mark.asyncio
