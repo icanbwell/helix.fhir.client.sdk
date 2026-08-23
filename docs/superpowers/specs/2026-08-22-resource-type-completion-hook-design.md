@@ -48,3 +48,5 @@ Give callers an explicit, concurrency-safe event lifecycle instead of an implici
 ## Rollout
 
 Additive, backward-compatible change — semver **minor**, not patch. `helix.pipelines`' companion work should not wire up the new callbacks until this version is actually published (`VERSION` is set from the GitHub release tag at publish time, not hand-edited).
+
+**Post-merge fixes:** an independent adversarial review found two concurrency-correctness bugs this design's "each resource type's own `started` precedes its own `completed`" and "the two bookend events each fire exactly once" guarantees didn't actually hold under `max_concurrent_tasks > 1` sibling-task-failure scenarios (a shared-utility data-loss bug in `AsyncParallelProcessor`, and `asyncio.CancelledError`/`GeneratorExit` bypassing the exception-pairing guards). See Task 10 in the implementation plan (`docs/superpowers/plans/2026-08-22-resource-type-completion-hook.md`) for details — the guarantees stated above are accurate as written; these were implementation bugs, not design gaps, and are now fixed and regression-tested.

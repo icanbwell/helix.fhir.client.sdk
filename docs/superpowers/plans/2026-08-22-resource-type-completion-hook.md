@@ -1630,6 +1630,19 @@ Commits: `3374997` (nesting extraction), `23d3dbf` (exception-pairing + symmetry
 
 ---
 
+## Task 10: Adversarial review — two concurrency-correctness bugs in the started/completed guarantee
+
+**Context:** After Task 9 shipped, an independent adversarial review of the full PR diff (deliberately hunting for correctness bugs, not another pass over the same review-round findings) found two bugs specific to concurrent execution (`max_concurrent_tasks > 1`) that neither Task 8's nor Task 9's fixes covered, because every existing test for the exception-pairing guarantee ran at `max_concurrent_tasks=1` (sequential, no real concurrency).
+
+1. **Critical: `AsyncParallelProcessor`'s concurrent branch could silently drop an already-succeeded sibling task's result.** `asyncio.wait(pending, return_when=FIRST_COMPLETED)` can return more than one simultaneously-completed task in a single `done` set, and iterating that `set` does not preserve completion order. If a failing task happened to be iterated before a successful one in the same batch, the failure's exception propagated immediately, and the successful task sitting next to it in `done` was never awaited or yielded — its `FhirGetResponse` data, and its `on_resource_type_completed` event, were silently lost. Fixed in `helix_fhir_client_sdk/utilities/async_parallel_processor/v1/async_parallel_processor.py` by draining every already-completed task in a `done` batch (yielding each success) before raising the first captured error, instead of raising on the first exception encountered while iterating.
+2. **High: `asyncio.CancelledError`/`GeneratorExit` bypassed the exception-pairing guards Task 9 added.** Task 9's fix (`except Exception:` around the start-resource fetch and each link's fetch) only catches `Exception` subclasses — `asyncio.CancelledError` and `GeneratorExit` are `BaseException` subclasses and are not caught by it. In practice: when one concurrent link's fetch fails, `AsyncParallelProcessor`'s cleanup cancels the other still-in-flight sibling link tasks — and those cancelled links' `on_resource_type_completed` never fired, even though their `on_resource_type_started` already had, exactly the "stuck waiting for a completion event that will never come" failure Task 9 set out to eliminate. Fixed by broadening both guards to `except (Exception, asyncio.CancelledError)` (plus `GeneratorExit` at the start-resource site), still re-raising unchanged afterward.
+
+Both fixes are additive/corrective only — no API surface change, no new parameters. Confirmed via new deterministic regression tests (no reliance on real timing/sleep races): a concurrent-batch test that forces two tasks into the same `asyncio.wait()` completion batch, and two tests that simulate `CancelledError` via a monkeypatched fetch method rather than real task cancellation timing.
+
+**Files:** `helix_fhir_client_sdk/utilities/async_parallel_processor/v1/async_parallel_processor.py`, `helix_fhir_client_sdk/graph/simulated_graph_processor_mixin.py`, both files' test suites.
+
+Commits: `7ff4943` (AsyncParallelProcessor data-loss fix), `4d4f8ec` (CancelledError/GeneratorExit handling fix).
+
 ## Self-review notes (for whoever executes this plan)
 
 - **Spec coverage:** Phase 2 §6's bullet "Either shape requires `simulate_graph_async()` to expose a per-resource-type completion hook" is satisfied by Tasks 1-2 (for `simulate_graph_by_resource_type_async`, the method actually used in production — not `simulate_graph_async`, which is a different, non-streaming method with no per-type boundary and is out of scope here since `helix.pipelines` doesn't use it for the default FHIR-retriever path).
