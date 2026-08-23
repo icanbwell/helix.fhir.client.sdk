@@ -15,8 +15,11 @@ class ResourceTypeCompletionEvent:
     """Distinct resource type(s) actually returned for the completed link, taken
     from each yielded FhirGetResponse.resource_type — not from the graph
     definition's declared target types, so this reflects what was actually
-    fetched (e.g. empty results still fire with resource_types=[] filtered out
-    upstream; see Task 2)."""
+    fetched. When a link returns zero resources, this falls back to the
+    link's declared target type(s) instead of an empty list, so a caller that
+    received ResourceTypeStartedEvent for this link always receives a
+    matching completion event — use resource_count == 0 to distinguish this
+    fallback case from a real non-empty result."""
 
     resource_count: int
     """Total resource count across every FhirGetResponse chunk yielded for this
@@ -40,3 +43,7 @@ class ResourceTypeCompletionEvent:
     simulate_graph_by_resource_type_async() calls tell which
     server/patient/call this event belongs to, since the patient/resource id
     is already embedded in the URL as a path or query parameter."""
+
+    link_index: int
+    """Same semantics as ResourceTypeStartedEvent.link_index — pairs this
+    event with the ResourceTypeStartedEvent that preceded it."""

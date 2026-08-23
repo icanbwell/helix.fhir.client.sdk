@@ -9,11 +9,13 @@ def test_resource_type_completion_event_construction() -> None:
         resource_count=12,
         graph_depth=1,
         urls=["https://example.com/fhir/Condition?patient=123"],
+        link_index=0,
     )
     assert event.resource_types == ["Condition"]
     assert event.resource_count == 12
     assert event.graph_depth == 1
     assert event.urls == ["https://example.com/fhir/Condition?patient=123"]
+    assert event.link_index == 0
 
 
 def test_resource_type_completion_event_multiple_types() -> None:
@@ -29,6 +31,7 @@ def test_resource_type_completion_event_multiple_types() -> None:
             "https://example.com/fhir/AllergyIntolerance?patient=123",
             "https://example.com/fhir/CarePlan?patient=123",
         ],
+        link_index=0,
     )
     assert len(event.resource_types) == 2
     assert len(event.urls) == 2

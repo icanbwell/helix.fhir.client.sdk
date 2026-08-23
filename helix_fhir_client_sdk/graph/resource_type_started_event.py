@@ -31,3 +31,12 @@ class ResourceTypeStartedEvent:
     from substituting the parent bundle's actual resource references into
     the link's target.params template, which happens deeper in the request
     pipeline than this event's firing point."""
+
+    link_index: int
+    """-1 for the start resource (not processed via AsyncParallelProcessor, so
+    it has no row index). For links, the 0-based index of this link within
+    the current graph_depth pass's row list — combined with graph_depth,
+    forms a stable key for pairing this event with its corresponding
+    ResourceTypeCompletionEvent, since resource_types alone is not always
+    unique (a link can declare multiple types, two links at the same depth
+    can declare the same type, and a type can recur at a later depth)."""

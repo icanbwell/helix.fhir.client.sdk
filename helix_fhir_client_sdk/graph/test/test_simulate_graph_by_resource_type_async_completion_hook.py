@@ -33,6 +33,51 @@ TWO_LINK_GRAPH: dict[str, Any] = {
     ],
 }
 
+# A path-based link whose target never matches anything on the returned
+# Patient resource (no "generalPractitioner" property in the mocked payload
+# below), so process_link_async_parallel_function returns an empty list for
+# this link — exercising the "link returns zero resources" fallback path for
+# on_resource_type_completed (Design Decision 3).
+PATH_LINK_GRAPH: dict[str, Any] = {
+    "id": "1",
+    "name": "Test Graph - Path Link",
+    "resourceType": "GraphDefinition",
+    "start": "Patient",
+    "link": [
+        {"path": "generalPractitioner", "target": [{"type": "Practitioner"}]},
+    ],
+}
+
+# NESTED_GRAPH: Patient -> Encounter (depth 0) -> Practitioner (depth 1),
+# matching the target.link nesting shape from
+# test_graph_definition_with_nested_links in test_simulate_graph_processor_mixin.py.
+NESTED_GRAPH: dict[str, Any] = {
+    "id": "1",
+    "name": "Test Graph - Nested",
+    "resourceType": "GraphDefinition",
+    "start": "Patient",
+    "link": [
+        {
+            "target": [
+                {
+                    "type": "Encounter",
+                    "params": "patient={ref}",
+                    "link": [
+                        {
+                            "target": [
+                                {
+                                    "type": "Practitioner",
+                                    "params": "encounter={ref}",
+                                }
+                            ]
+                        }
+                    ],
+                }
+            ]
+        }
+    ],
+}
+
 
 def mock_two_link_graph_responses(m: aioresponses) -> None:
     m.get(
@@ -78,11 +123,15 @@ async def test_on_resource_type_completed_fires_once_per_link() -> None:
     assert len(events) == 3
     assert events[0].resource_types == ["Patient"]
     assert events[0].graph_depth == 0
+    assert events[0].link_index == -1
     assert {t for e in events[1:] for t in e.resource_types} == {
         "AllergyIntolerance",
         "CarePlan",
     }
     assert all(e.graph_depth == 0 for e in events[1:])
+    # link_index correlates to each link's 0-based position in the graph
+    # definition's link list (deterministic at max_concurrent_tasks=1).
+    assert sorted(e.link_index for e in events[1:]) == [0, 1]
 
 
 @pytest.mark.asyncio
@@ -199,8 +248,10 @@ async def test_full_event_lifecycle_fires_in_order_at_concurrency_1() -> None:
     assert len(completed_events) == 3
     assert started_events[0].resource_types == ["Patient"]
     assert started_events[0].url == "http://example.com/fhir"
+    assert started_events[0].link_index == -1
     assert completed_events[0].resource_types == ["Patient"]
     assert completed_events[0].urls == ["http://example.com/fhir/Patient/1"]
+    assert completed_events[0].link_index == -1
 
     # at max_concurrent_tasks=1, ordering is fully deterministic: graph_started
     # fires before anything else, graph_completed fires after everything else,
@@ -209,6 +260,14 @@ async def test_full_event_lifecycle_fires_in_order_at_concurrency_1() -> None:
     started_types_in_order = [e.resource_types[0] for e in started_events]
     completed_types_in_order = [e.resource_types[0] for e in completed_events]
     assert started_types_in_order == completed_types_in_order
+
+    # the (graph_depth, link_index) correlation key pairs each started event
+    # with its own completed event, for the start resource and every link.
+    for started_event, completed_event in zip(started_events, completed_events, strict=True):
+        assert started_event.graph_depth == completed_event.graph_depth
+        assert started_event.link_index == completed_event.link_index
+    # the two links get distinct, deterministic 0-based indices.
+    assert sorted(e.link_index for e in started_events[1:]) == [0, 1]
 
 
 @pytest.mark.asyncio
@@ -320,3 +379,151 @@ async def test_graph_retrieval_completed_fires_on_zero_results() -> None:
     assert graph_completed_events[0].resource_types == []
     assert graph_completed_events[0].total_resource_count == 0
     assert graph_completed_events[0].max_graph_depth == 0
+
+
+@pytest.mark.asyncio
+async def test_on_resource_type_completed_fires_for_start_resource_with_zero_results() -> None:
+    # Same gap as test_graph_retrieval_completed_fires_on_zero_results, but for
+    # on_resource_type_completed specifically: the start resource's own
+    # zero-result early-return path fires ResourceTypeStartedEvent but must
+    # also fire a matching ResourceTypeCompletionEvent (Design Decision 3).
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Bundle", "entry": []},
+        )
+
+        responses = [
+            r
+            async for r in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=TWO_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                on_resource_type_completed=on_completed,
+            )
+        ]
+
+    assert len(responses) == 1  # just the empty start-resource response
+    assert len(completed_events) == 1
+    assert completed_events[0].resource_types == ["Patient"]
+    assert completed_events[0].resource_count == 0
+    assert completed_events[0].graph_depth == 0
+    assert completed_events[0].link_index == -1
+
+
+@pytest.mark.asyncio
+async def test_on_resource_type_completed_fires_with_declared_type_fallback_when_link_returns_nothing() -> None:
+    # A path-based link (e.g. Patient.generalPractitioner) whose target
+    # doesn't match anything on the parent resource is very common and must
+    # still produce a completion event for the on_resource_type_started that
+    # already fired for it (Design Decision 3), reporting the link's
+    # *declared* target type with resource_count=0 — and this fallback must
+    # NOT pollute the whole-graph aggregation, which only reflects resources
+    # actually retrieved.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            # No "generalPractitioner" property, so the path-based link below
+            # never matches any reference and yields zero resources.
+            payload={"resourceType": "Patient", "id": "1"},
+        )
+
+        responses = [
+            r
+            async for r in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=PATH_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                on_resource_type_completed=on_completed,
+                on_graph_retrieval_completed=on_graph_completed,
+            )
+        ]
+
+    assert len(responses) == 1  # just the Patient; the link yielded nothing
+
+    # one completion event for the start resource, one (fallback) for the link
+    assert len(completed_events) == 2
+    link_completed = completed_events[1]
+    assert link_completed.resource_types == ["Practitioner"]  # declared-type fallback
+    assert link_completed.resource_count == 0
+    assert link_completed.graph_depth == 0
+    assert link_completed.link_index == 0
+
+    # the whole-graph aggregation is unaffected by the fallback: no
+    # Practitioner was actually retrieved.
+    assert len(graph_completed_events) == 1
+    assert "Practitioner" not in graph_completed_events[0].resource_types
+    assert graph_completed_events[0].total_resource_count == 1  # just Patient
+
+
+def mock_nested_graph_responses(m: aioresponses) -> None:
+    m.get(
+        "http://example.com/fhir/Patient/1",
+        payload={"resourceType": "Patient", "id": "1"},
+    )
+    m.get(
+        "http://example.com/fhir/Encounter?patient=1",
+        payload={"resourceType": "Encounter", "id": "10"},
+    )
+    m.get(
+        "http://example.com/fhir/Practitioner?encounter=10",
+        payload={"resourceType": "Practitioner", "id": "100"},
+    )
+
+
+@pytest.mark.asyncio
+async def test_started_and_completed_events_fire_at_depth_1_for_nested_links() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    started_events: list[ResourceTypeStartedEvent] = []
+    completed_events: list[ResourceTypeCompletionEvent] = []
+
+    async def on_started(event: ResourceTypeStartedEvent) -> None:
+        started_events.append(event)
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    with aioresponses() as m:
+        mock_nested_graph_responses(m)
+
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=NESTED_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_resource_type_started=on_started,
+            on_resource_type_completed=on_completed,
+        ):
+            pass
+
+    depth_1_started = [e for e in started_events if e.graph_depth == 1]
+    depth_1_completed = [e for e in completed_events if e.graph_depth == 1]
+    assert len(depth_1_started) == 1
+    assert depth_1_started[0].resource_types == ["Practitioner"]
+    assert len(depth_1_completed) == 1
+    assert depth_1_completed[0].resource_types == ["Practitioner"]
+    assert depth_1_completed[0].resource_count == 1
+    # the correlation key (graph_depth, link_index) pairs the depth-1
+    # started event with its own depth-1 completed event.
+    assert depth_1_started[0].link_index == depth_1_completed[0].link_index

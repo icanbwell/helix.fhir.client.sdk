@@ -335,6 +335,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         resource_types=started_resource_types,
                         graph_depth=parameters.graph_depth,
                         url=parameters.url,
+                        link_index=context.task_index,
                     )
                 )
 
@@ -1477,163 +1478,217 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         id_search_unsupported_resources: list[str] = []
         cache: RequestCache = input_cache if input_cache is not None else RequestCache()
+
+        # Aggregation state for the graph-level completion event. Initialized
+        # here — before anything below that can raise — so the `finally`
+        # block guarding on_graph_retrieval_completed can always build a
+        # GraphRetrievalCompletedEvent from *some* valid state, even if an
+        # exception propagates partway through the traversal or the caller
+        # closes/abandons the generator early.
+        all_resource_types: set[str] = set()
+        total_resource_count: int = 0
+        max_graph_depth: int = 0
+        all_urls: set[str] = set()
+
         async with cache:
             start: str = graph_definition.start
-
-            if on_graph_retrieval_started:
-                await on_graph_retrieval_started(
-                    GraphRetrievalStartedEvent(
-                        start_resource_type=start,
-                        url=base_url_value,
-                    )
-                )
-
-            if on_resource_type_started:
-                await on_resource_type_started(
-                    ResourceTypeStartedEvent(
-                        resource_types=[start],
-                        graph_depth=0,
-                        url=base_url_value,
-                    )
-                )
-
-            parent_response: FhirGetResponse
-            cache_hits: int
-            parent_response, cache_hits = await self._get_resources_by_parameters_async(
-                resource_type=start,
-                id_=id_,
-                cache=cache,
-                scope_parser=scope_parser,
-                logger=logger,
-                id_search_unsupported_resources=id_search_unsupported_resources,
-                add_cached_bundles_to_result=add_cached_bundles_to_result,
-                compare_hash=compare_hash,
-            )
-            # Capture the actual queried URL (with params) before the existing
-            # line below overwrites it with the connection's base URL —
-            # that overwrite is pre-existing behavior, out of scope to change.
-            parent_queried_url: str = parent_response.url
-
-            parent_response_resource_count = parent_response.get_resource_count()
-            if parent_response_resource_count == 0:
-                yield parent_response
-                if on_graph_retrieval_completed:
-                    await on_graph_retrieval_completed(
-                        GraphRetrievalCompletedEvent(
-                            resource_types=[],
-                            total_resource_count=0,
-                            max_graph_depth=0,
-                            urls=[parent_queried_url],
+            try:
+                if on_graph_retrieval_started:
+                    await on_graph_retrieval_started(
+                        GraphRetrievalStartedEvent(
+                            start_resource_type=start,
+                            url=base_url_value,
                         )
                     )
-                return
 
-            if logger:
-                logger.info(
-                    f"FhirClient.simulate_graph_by_resource_type_async() "
-                    f"got parent resources: {parent_response_resource_count} "
-                    f"cached:{cache_hits}"
-                )
-
-            # Yield the start resource (Patient) first
-            parent_response.url = url or parent_response.url
-            yield parent_response
-
-            if on_resource_type_completed:
-                await on_resource_type_completed(
-                    ResourceTypeCompletionEvent(
-                        resource_types=[start],
-                        resource_count=parent_response_resource_count,
-                        graph_depth=0,
-                        urls=[parent_queried_url],
-                    )
-                )
-
-            all_resource_types: set[str] = {start}
-            total_resource_count: int = parent_response_resource_count
-            max_graph_depth: int = 0
-            all_urls: set[str] = {parent_queried_url}
-
-            parent_bundle_entries: FhirBundleEntryList = parent_response.get_bundle_entries()
-
-            parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
-            if graph_definition.link and parent_bundle_entries:
-                parent_link_map.append((graph_definition.link, parent_bundle_entries))
-
-            # Process graph links one at a time and yield each link's response
-            graph_depth = 0
-            while len(parent_link_map):
-                new_parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
-
-                for links, current_parent_bundle_entries in parent_link_map:
-                    link_responses: list[FhirGetResponse]
-                    async for link_responses in AsyncParallelProcessor(
-                        name="process_link_async_parallel_function",
-                        max_concurrent_tasks=max_concurrent_tasks,
-                    ).process_rows_in_parallel(
-                        rows=links,
-                        process_row_fn=self.process_link_async_parallel_function,
-                        parameters=GraphLinkParameters(
-                            parent_bundle_entries=current_parent_bundle_entries,
-                            logger=logger,
-                            cache=cache,
-                            scope_parser=scope_parser,
-                            max_concurrent_tasks=max_concurrent_tasks,
-                            on_resource_type_started=on_resource_type_started,
-                            graph_depth=graph_depth,
+                if on_resource_type_started:
+                    await on_resource_type_started(
+                        ResourceTypeStartedEvent(
+                            resource_types=[start],
+                            graph_depth=0,
                             url=base_url_value,
-                        ),
-                        log_level=self._log_level,
-                        parent_link_map=new_parent_link_map,
-                        request_size=request_size,
-                        id_search_unsupported_resources=id_search_unsupported_resources,
-                        add_cached_bundles_to_result=add_cached_bundles_to_result,
-                        ifModifiedSince=ifModifiedSince,
-                    ):
-                        # Capture each response's actual queried URL before the
-                        # existing loop below overwrites it with the base URL.
-                        link_queried_urls = [r.url for r in link_responses]
+                            link_index=-1,
+                        )
+                    )
 
-                        # Yield each link's responses individually instead of accumulating
-                        for link_response in link_responses:
-                            link_response.url = url or link_response.url
-                            yield link_response
+                parent_response: FhirGetResponse
+                cache_hits: int
+                parent_response, cache_hits = await self._get_resources_by_parameters_async(
+                    resource_type=start,
+                    id_=id_,
+                    cache=cache,
+                    scope_parser=scope_parser,
+                    logger=logger,
+                    id_search_unsupported_resources=id_search_unsupported_resources,
+                    add_cached_bundles_to_result=add_cached_bundles_to_result,
+                    compare_hash=compare_hash,
+                )
+                # Capture the actual queried URL (with params) before the existing
+                # line below overwrites it with the connection's base URL —
+                # that overwrite is pre-existing behavior, out of scope to change.
+                # Empty-string URLs (scope-denied / fully-cached-with-no-HTTP-call
+                # paths through _get_resources_by_parameters_async) are filtered
+                # out here so they never end up in an event's urls list.
+                parent_queried_url: str = parent_response.url
+                if parent_queried_url:
+                    all_urls.add(parent_queried_url)
 
-                        if link_responses and (on_resource_type_completed or on_graph_retrieval_completed):
+                parent_response_resource_count = parent_response.get_resource_count()
+                if parent_response_resource_count == 0:
+                    yield parent_response
+                    if on_resource_type_completed:
+                        # No resources came back for the start resource either —
+                        # report it (declared type == start, the only type there
+                        # ever is for the start resource) with resource_count=0 so
+                        # the ResourceTypeStartedEvent fired above always has a
+                        # matching completion event.
+                        await on_resource_type_completed(
+                            ResourceTypeCompletionEvent(
+                                resource_types=[start],
+                                resource_count=0,
+                                graph_depth=0,
+                                urls=[parent_queried_url] if parent_queried_url else [],
+                                link_index=-1,
+                            )
+                        )
+                    return
+
+                if logger:
+                    logger.info(
+                        f"FhirClient.simulate_graph_by_resource_type_async() "
+                        f"got parent resources: {parent_response_resource_count} "
+                        f"cached:{cache_hits}"
+                    )
+
+                # Yield the start resource (Patient) first
+                parent_response.url = url or parent_response.url
+                yield parent_response
+
+                if on_resource_type_completed:
+                    await on_resource_type_completed(
+                        ResourceTypeCompletionEvent(
+                            resource_types=[start],
+                            resource_count=parent_response_resource_count,
+                            graph_depth=0,
+                            urls=[parent_queried_url] if parent_queried_url else [],
+                            link_index=-1,
+                        )
+                    )
+
+                all_resource_types.add(start)
+                total_resource_count += parent_response_resource_count
+                max_graph_depth = 0
+
+                parent_bundle_entries: FhirBundleEntryList = parent_response.get_bundle_entries()
+
+                parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
+                if graph_definition.link and parent_bundle_entries:
+                    parent_link_map.append((graph_definition.link, parent_bundle_entries))
+
+                # Process graph links one at a time and yield each link's response
+                graph_depth = 0
+                while len(parent_link_map):
+                    new_parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
+
+                    for links, current_parent_bundle_entries in parent_link_map:
+                        context: ParallelFunctionContext
+                        link_responses: list[FhirGetResponse]
+                        async for context, link_responses in AsyncParallelProcessor(  # type: ignore[assignment]
+                            name="process_link_async_parallel_function",
+                            max_concurrent_tasks=max_concurrent_tasks,
+                        ).process_rows_in_parallel(
+                            rows=links,
+                            process_row_fn=self.process_link_async_parallel_function,
+                            parameters=GraphLinkParameters(
+                                parent_bundle_entries=current_parent_bundle_entries,
+                                logger=logger,
+                                cache=cache,
+                                scope_parser=scope_parser,
+                                max_concurrent_tasks=max_concurrent_tasks,
+                                on_resource_type_started=on_resource_type_started,
+                                graph_depth=graph_depth,
+                                url=base_url_value,
+                            ),
+                            log_level=self._log_level,
+                            yield_context=True,
+                            parent_link_map=new_parent_link_map,
+                            request_size=request_size,
+                            id_search_unsupported_resources=id_search_unsupported_resources,
+                            add_cached_bundles_to_result=add_cached_bundles_to_result,
+                            ifModifiedSince=ifModifiedSince,
+                        ):
+                            # Capture each response's actual queried URL before the
+                            # existing loop below overwrites it with the base URL,
+                            # filtering out empty strings (scope-denied / fully
+                            # cached responses have url == "").
+                            link_queried_urls = [r.url for r in link_responses if r.url]
+
+                            # Yield each link's responses individually instead of accumulating
+                            for link_response in link_responses:
+                                link_response.url = url or link_response.url
+                                yield link_response
+
                             resource_types = sorted({r.resource_type for r in link_responses if r.resource_type})
+                            resource_count_for_link = sum(r.get_resource_count() for r in link_responses)
+
+                            # The whole-graph aggregation only reflects resources
+                            # actually retrieved — it must NOT be affected by the
+                            # declared-type fallback used below for the
+                            # per-link completion event.
                             if resource_types:
-                                resource_count_for_link = sum(r.get_resource_count() for r in link_responses)
                                 all_resource_types.update(resource_types)
                                 total_resource_count += resource_count_for_link
                                 max_graph_depth = graph_depth
+                            if link_queried_urls:
                                 all_urls.update(link_queried_urls)
-                                if on_resource_type_completed:
-                                    await on_resource_type_completed(
-                                        ResourceTypeCompletionEvent(
-                                            resource_types=resource_types,
-                                            resource_count=resource_count_for_link,
-                                            graph_depth=graph_depth,
-                                            urls=link_queried_urls,
-                                        )
+
+                            if on_resource_type_completed:
+                                reported_resource_types = resource_types
+                                if not reported_resource_types:
+                                    # Nothing came back for this link — fall back to
+                                    # its declared target type(s) so a caller that
+                                    # received on_resource_type_started for this link
+                                    # always receives a matching completion event.
+                                    reported_resource_types = sorted(
+                                        {target.type_ for target in links[context.task_index].target if target.type_}
                                     )
+                                await on_resource_type_completed(
+                                    ResourceTypeCompletionEvent(
+                                        resource_types=reported_resource_types,
+                                        resource_count=resource_count_for_link,
+                                        graph_depth=graph_depth,
+                                        urls=link_queried_urls,
+                                        link_index=context.task_index,
+                                    )
+                                )
 
-                parent_link_map = new_parent_link_map
-                graph_depth += 1
+                    parent_link_map = new_parent_link_map
+                    graph_depth += 1
 
-            if logger:
-                logger.info(
-                    f"Request Cache for: id_={id_}, "
-                    f"start={graph_definition.start}, "
-                    f"hits: {cache.cache_hits}, "
-                    f"misses: {cache.cache_misses}"
-                )
-
-            if on_graph_retrieval_completed:
-                await on_graph_retrieval_completed(
-                    GraphRetrievalCompletedEvent(
-                        resource_types=sorted(all_resource_types),
-                        total_resource_count=total_resource_count,
-                        max_graph_depth=max_graph_depth,
-                        urls=sorted(all_urls),
+                if logger:
+                    logger.info(
+                        f"Request Cache for: id_={id_}, "
+                        f"start={graph_definition.start}, "
+                        f"hits: {cache.cache_hits}, "
+                        f"misses: {cache.cache_misses}"
                     )
-                )
+            finally:
+                # Fires exactly once per call, from this single try/finally block
+                # wrapping the whole traversal — including when the traversal
+                # raises, or the caller stops consuming the generator early (an
+                # `async for` loop that `break`s, or an explicit `aclose()`, both
+                # run this `finally` block per Python's async generator
+                # semantics). The one case this cannot cover is a caller who
+                # lets the generator become unreachable (e.g. garbage collected)
+                # without an explicit break/aclose() — that is an unavoidable
+                # limitation of async generators in Python, not something this
+                # fix can close.
+                if on_graph_retrieval_completed:
+                    await on_graph_retrieval_completed(
+                        GraphRetrievalCompletedEvent(
+                            resource_types=sorted(all_resource_types),
+                            total_resource_count=total_resource_count,
+                            max_graph_depth=max_graph_depth,
+                            urls=sorted(all_urls),
+                        )
+                    )

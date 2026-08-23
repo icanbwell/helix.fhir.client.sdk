@@ -27,9 +27,11 @@ class GraphRetrievalCompletedEvent:
 
     urls: list[str]
     """Union of every actual URL queried across the whole graph traversal
-    (start resource + every link, every depth), params included. Contains
-    at least the start resource's URL even if it returned zero results — a
-    request was still made, it just came back empty — whereas
-    resource_types is empty in that case, since nothing was actually
-    retrieved. This event always fires exactly once, empty-result case
-    included, since callers need a definitive "done" signal either way."""
+    (start resource + every link, every depth), params included. May be
+    empty if every queried resource was served from cache or was
+    scope-denied (no real HTTP request made), not just on the start
+    resource's zero-result path. This event fires exactly once per call —
+    including when the traversal raises or the caller closes/abandons the
+    generator early — except in the unavoidable Python limitation where a
+    caller lets the generator become unreachable without an explicit
+    break/aclose()."""
