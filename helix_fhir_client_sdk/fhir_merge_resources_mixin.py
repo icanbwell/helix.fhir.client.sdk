@@ -33,6 +33,7 @@ from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
 )
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
+from helix_fhir_client_sdk.utilities.json_helpers import parse_json_or_ndjson
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
 )
@@ -136,7 +137,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                     if response_text:
                         try:
                             # Parse response as plain dicts for speed
-                            parsed_response = json.loads(response_text)
+                            parsed_response = parse_json_or_ndjson(response_text)
                             if isinstance(parsed_response, list):
                                 responses = parsed_response
                             else:

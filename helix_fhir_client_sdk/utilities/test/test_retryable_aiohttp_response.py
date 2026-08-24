@@ -66,11 +66,29 @@ async def test_get_text_async_without_streaming_uses_response_text() -> None:
     content.read.assert_not_awaited()
 
 
+def _make_real_stream_reader_mock(*, body: bytes) -> MagicMock:
+    """A real aiohttp StreamReader's at_eof() flips from False to True once read() has
+    fully drained it - unlike a mock with a fixed at_eof() return value, which can hide
+    caching bugs that only manifest once the stream is genuinely exhausted."""
+    content = MagicMock()
+    state = {"read": False}
+    content.at_eof.side_effect = lambda: state["read"]
+
+    async def _read() -> bytes:
+        state["read"] = True
+        return body
+
+    content.read = AsyncMock(side_effect=_read)
+    return content
+
+
 @pytest.mark.asyncio
 async def test_get_text_async_caches_streamed_text() -> None:
-    content = MagicMock()
-    content.at_eof.return_value = False
-    content.read = AsyncMock(return_value=b"once")
+    """Regression test: get_text_async() must cache the streamed body via text_read and
+    return it on subsequent calls, even though reading it flips the real StreamReader's
+    at_eof() to True - a naive at_eof()-gated cache check would fall back to the (empty)
+    _response_text on the second call instead of the cached text."""
+    content = _make_real_stream_reader_mock(body=b"once")
 
     response = _make_response(response_text="", content=content, use_data_streaming=True)
 
