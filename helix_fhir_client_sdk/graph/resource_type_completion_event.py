@@ -5,11 +5,14 @@ from typing import Literal
 @dataclass(slots=True)
 class ResourceTypeCompletionEvent:
     """
-    Emitted by simulate_graph_by_resource_type_async() after every resource that
-    belongs to one GraphDefinition link (usually one resource type, occasionally
-    more than one if the link's `target` array names several types) has been
-    yielded to the caller. There is nothing left to wait for regarding these
-    resource type(s) at this graph depth once this event fires.
+    Emitted by simulate_graph_by_resource_type_async(), simulate_graph_async(),
+    and simulate_graph_streaming_async() after every resource that belongs to
+    one GraphDefinition link (usually one resource type, occasionally more
+    than one if the link's `target` array names several types) has been
+    fully retrieved (usually — but not always, see simulate_graph_async()'s
+    and simulate_graph_streaming_async()'s own docstrings — also yielded to
+    the caller at that point). There is nothing left to wait for regarding
+    these resource type(s) at this graph depth once this event fires.
     """
 
     resource_types: list[str]

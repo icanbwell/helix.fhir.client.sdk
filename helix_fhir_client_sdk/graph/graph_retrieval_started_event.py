@@ -4,9 +4,10 @@ from dataclasses import dataclass
 @dataclass(slots=True)
 class GraphRetrievalStartedEvent:
     """
-    Emitted exactly once by simulate_graph_by_resource_type_async(), before
-    the start resource is fetched — the first thing the method does. Useful
-    for "connecting..." progress UI.
+    Emitted exactly once by simulate_graph_by_resource_type_async(),
+    simulate_graph_async(), and simulate_graph_streaming_async(), before the
+    start resource is fetched — the first thing each of those methods does.
+    Useful for "connecting..." progress UI.
     """
 
     start_resource_type: str

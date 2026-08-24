@@ -4,10 +4,12 @@ from dataclasses import dataclass
 @dataclass(slots=True)
 class GraphRetrievalCompletedEvent:
     """
-    Emitted exactly once by simulate_graph_by_resource_type_async(), after
-    every resource in the graph has been yielded — the last thing the method
-    does before returning (including the early-return path where the start
-    resource itself returned zero results). Useful for "done" progress UI.
+    Emitted exactly once by simulate_graph_by_resource_type_async(),
+    simulate_graph_async(), and simulate_graph_streaming_async(), after the
+    traversal finishes retrieving every resource in the graph — the last
+    thing each of those methods does before returning (including the
+    early-return path where the start resource itself returned zero
+    results). Useful for "done" progress UI.
     """
 
     resource_types: list[str]

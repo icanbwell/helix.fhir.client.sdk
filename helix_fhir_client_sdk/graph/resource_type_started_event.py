@@ -4,11 +4,11 @@ from dataclasses import dataclass
 @dataclass(slots=True)
 class ResourceTypeStartedEvent:
     """
-    Emitted by simulate_graph_by_resource_type_async() right before it begins
-    retrieving one GraphDefinition link's resource type(s), or the start
-    resource itself. Fires once per link (mirroring
-    ResourceTypeCompletionEvent), before any HTTP request for that link has
-    completed.
+    Emitted by simulate_graph_by_resource_type_async(), simulate_graph_async(),
+    and simulate_graph_streaming_async() right before retrieval begins for one
+    GraphDefinition link's resource type(s), or the start resource itself.
+    Fires once per link (mirroring ResourceTypeCompletionEvent), before any
+    HTTP request for that link has completed.
     """
 
     resource_types: list[str]

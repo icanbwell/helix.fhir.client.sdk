@@ -32,9 +32,10 @@ class GraphLinkParameters:
 
     on_resource_type_started: Callable[[ResourceTypeStartedEvent], Awaitable[None]] | None = None
     """Optional callback fired once per row (GraphDefinitionLink) right
-    before that link's resources begin retrieving. None for callers that
-    don't use simulate_graph_by_resource_type_async's per-resource-type
-    hooks (e.g. simulate_graph_async)."""
+    before that link's resources begin retrieving. None for a caller of
+    simulate_graph_by_resource_type_async(), simulate_graph_async(), or
+    simulate_graph_streaming_async() that doesn't use that method's
+    per-resource-type hooks."""
 
     graph_depth: int = 0
     """The graph_depth of the current outer-loop pass this row belongs to.
@@ -50,16 +51,19 @@ class GraphLinkParameters:
     on_resource_type_completed: Callable[[ResourceTypeCompletionEvent], Awaitable[None]] | None = None
     """Optional callback fired if this row (GraphDefinitionLink) raises while
     being processed, so a matching completion event still reaches callers
-    that already got on_resource_type_started for this row. None for callers
-    that don't use simulate_graph_by_resource_type_async's per-resource-type
-    hooks (e.g. simulate_graph_async)."""
+    that already got on_resource_type_started for this row. None for a
+    caller of simulate_graph_by_resource_type_async(), simulate_graph_async(),
+    or simulate_graph_streaming_async() that doesn't use that method's
+    per-resource-type hooks."""
 
     client_person_id: str = ""
     """Caller-supplied, opaque identifier for the person this call belongs
     to, passed straight through to ResourceTypeStartedEvent.client_person_id
     and ResourceTypeCompletionEvent.client_person_id. Only meaningful
     together with on_resource_type_started/on_resource_type_completed;
-    unused otherwise (e.g. simulate_graph_async)."""
+    unused otherwise by a caller of simulate_graph_by_resource_type_async(),
+    simulate_graph_async(), or simulate_graph_streaming_async() that doesn't
+    use that method's per-resource-type hooks."""
 
     connection_name: str = ""
     """Caller-supplied, opaque display name for the connection this call
@@ -67,7 +71,9 @@ class GraphLinkParameters:
     ResourceTypeStartedEvent.connection_name and
     ResourceTypeCompletionEvent.connection_name. Only meaningful together
     with on_resource_type_started/on_resource_type_completed; unused
-    otherwise (e.g. simulate_graph_async)."""
+    otherwise by a caller of simulate_graph_by_resource_type_async(),
+    simulate_graph_async(), or simulate_graph_streaming_async() that doesn't
+    use that method's per-resource-type hooks."""
 
     on_link_fetch_error: Callable[[], None] | None = None
     """Optional callback invoked exactly once when this link's own fetch
@@ -77,7 +83,9 @@ class GraphLinkParameters:
     without inferring it from "some exception happened to propagate
     through my consumer loop" — which would also catch exceptions raised
     from inside a caller-supplied on_resource_type_completed callback.
-    None for callers that don't need this (e.g. simulate_graph_async)."""
+    None for a caller of simulate_graph_by_resource_type_async(),
+    simulate_graph_async(), or simulate_graph_streaming_async() that doesn't
+    use that method's per-resource-type hooks."""
 
     continue_on_resource_type_error: bool = False
     """When True, a link's own fetch failure fires on_resource_type_completed
@@ -85,6 +93,4 @@ class GraphLinkParameters:
     instead of re-raising. Defaults to False, which preserves this SDK's
     original behavior exactly (fire the completion event, then re-raise,
     aborting the traversal) — existing callers that don't pass this on
-    simulate_graph_by_resource_type_async() see zero behavior change. Not
-    consulted by simulate_graph_async() (the non-streaming sibling method),
-    which never sets it and so always gets the default False."""
+    simulate_graph_by_resource_type_async() see zero behavior change."""
