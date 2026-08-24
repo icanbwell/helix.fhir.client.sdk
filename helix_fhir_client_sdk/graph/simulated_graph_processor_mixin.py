@@ -176,8 +176,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             on_graph_retrieval_completed: Optional async callback invoked exactly once,
                 after the traversal finishes (including the zero-results early return),
                 and also when an exception propagates from inside the traversal or the
-                caller stops consuming this generator early via an explicit
-                break/aclose(). Fires with a GraphRetrievalCompletedEvent. Defaults to
+                caller closes the generator early via an explicit aclose() (deterministic —
+                fires within that same aclose() call). A bare `break` out of an `async for`
+                is not deterministic: it merely drops the generator's refcount, deferring
+                cleanup to asyncio's asyncgen finalizer hook, which schedules aclose() on
+                some later event-loop turn rather than firing this callback promptly, or
+                possibly not at all if the loop/process exits first. Callers that need this
+                callback to fire promptly must call aclose() explicitly rather than relying
+                on `break` alone. Fires with a GraphRetrievalCompletedEvent. Defaults to
                 None (no-op, zero behavior change).
             client_person_id: Optional caller-supplied, opaque identifier for the person
                 this call belongs to. Not interpreted by this SDK — echoed back on every
@@ -311,37 +317,46 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         )
                     raise
 
-                # The reported outcome is computed from the response's
-                # actual status/content, independent of the branching
-                # decision below — that branching stays exactly as it was
-                # before this feature (raw get_resource_count(), not the
-                # OperationOutcome-excluding content check
-                # _process_simulate_graph_by_resource_type_async uses) —
-                # this method's zero-vs-nonzero branching is deliberately
-                # unchanged. This must still be computed before the branch
-                # so a 404-with-body response
-                # (get_resource_count() == 1, not 0 — the OperationOutcome
-                # itself counts) reports outcome="not_found" correctly even
-                # though it takes the "nonzero" branch below, not the
-                # early-return one.
+                # The reported outcome must be computed from actual content,
+                # not from parent_response.status/.successful alone: when a
+                # multi-id start-resource fetch falls back to fetching each
+                # id one-by-one (_get_resources_by_id_one_by_one_async), the
+                # merged response is built via FhirGetResponse.append(),
+                # which never recomputes .status/.successful from later
+                # sub-fetches — so if the first id 404s and a later id
+                # succeeds, the merged response can still report
+                # status=404/successful=False despite holding real data.
+                # real_parent_resource_count (counting only non-
+                # OperationOutcome bundle entries) is what actually decides
+                # "success" here — the same technique
+                # _process_simulate_graph_by_resource_type_async's own
+                # real_parent_resource_count uses to avoid this exact
+                # misclassification. This is independent of the branching
+                # decision below, which stays exactly as it was before this
+                # feature (raw get_resource_count(), not this content-based
+                # count) — this method's zero-vs-nonzero branching is
+                # deliberately unchanged.
                 parent_response_resource_count = parent_response.get_resource_count()
+                real_parent_resource_count = sum(
+                    1
+                    for entry in parent_response.get_bundle_entries()
+                    if entry.resource is not None and entry.resource.get("resourceType") != "OperationOutcome"
+                )
                 start_resource_outcome: Literal["success", "empty", "not_found", "scope_denied", "error"] = (
-                    "not_found"
+                    "success"
+                    if real_parent_resource_count > 0
+                    else "not_found"
                     if parent_response.status == 404
                     else "error"
                     if not parent_response.successful
-                    else "success"
-                    if parent_response_resource_count > 0
                     else "empty"
                 )
                 start_resource_error_type = (
-                    f"HttpStatus{parent_response.status}"
-                    if not parent_response.successful and parent_response.status != 404
-                    else None
+                    f"HttpStatus{parent_response.status}" if start_resource_outcome == "error" else None
                 )
                 start_resource_error_message = (
                     f"Fetch failed with HTTP status {parent_response.status}"
-                    if not parent_response.successful and parent_response.status != 404
+                    if start_resource_outcome == "error"
                     else None
                 )
 
@@ -1748,9 +1763,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                                after the traversal finishes retrieving every
                                                resource (including the zero-results early
                                                return), and also when an exception
-                                               propagates or the caller stops consuming this
-                                               generator early via an explicit
-                                               break/aclose(). Fires with a
+                                               propagates or the caller closes this generator
+                                               early via an explicit aclose() (deterministic —
+                                               fires within that same aclose() call). A bare
+                                               `break` out of an `async for` is not
+                                               deterministic — it defers cleanup to asyncio's
+                                               asyncgen finalizer hook rather than firing this
+                                               callback promptly. Fires with a
                                                GraphRetrievalCompletedEvent. Defaults to
                                                None (no-op, zero behavior change).
         :param client_person_id: Optional caller-supplied, opaque identifier for the
@@ -1889,11 +1908,15 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                                after every resource in the graph has been
                                                yielded (including the zero-results early
                                                return), and also when an exception propagates
-                                               from inside the traversal or the caller stops
-                                               consuming the generator early via an explicit
-                                               break/aclose(). Fires with a
-                                               GraphRetrievalCompletedEvent. Defaults to None
-                                               (no-op, zero behavior change).
+                                               from inside the traversal or the caller closes
+                                               the generator early via an explicit aclose()
+                                               (deterministic — fires within that same
+                                               aclose() call). A bare `break` out of an
+                                               `async for` is not deterministic — it defers
+                                               cleanup to asyncio's asyncgen finalizer hook
+                                               rather than firing this callback promptly.
+                                               Fires with a GraphRetrievalCompletedEvent.
+                                               Defaults to None (no-op, zero behavior change).
         :param client_person_id: Optional caller-supplied, opaque identifier for the
                                     person this call belongs to. Not interpreted by this
                                     SDK — echoed back on every fired event so a callback

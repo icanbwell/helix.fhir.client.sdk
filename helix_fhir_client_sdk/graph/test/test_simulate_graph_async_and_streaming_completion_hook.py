@@ -695,3 +695,94 @@ async def test_started_and_completed_events_fire_at_depth_1_for_nested_links(use
     assert len(graph_completed_events) == 1
     assert graph_completed_events[0].max_graph_depth == 1
     assert graph_completed_events[0].total_resource_count == 3
+
+
+@pytest.mark.asyncio
+@USE_STREAMING_PARAMS
+async def test_start_resource_partial_multi_id_fetch_is_not_dropped(use_streaming: bool) -> None:
+    # Regression guard (PR review finding): FhirGetResponse.append() never
+    # recomputes `status`, so an aggregated multi-id start-resource response
+    # (the ?_id=1,2 search failed, forcing the one-by-one fallback) inherits
+    # whichever sub-fetch's status landed first. Here id "1" 404s and id "2"
+    # succeeds, so the aggregated response reports successful == False /
+    # status == 404 while actually carrying a real Patient. Classifying
+    # start_resource_outcome from .status/.successful alone would wrongly
+    # report "not_found" and skip adding the real data to the whole-graph
+    # rollups — the classification must be content-based instead (mirroring
+    # _process_simulate_graph_by_resource_type_async's own
+    # real_parent_resource_count check), independent of this method's
+    # unchanged raw-count branching.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses() as m:
+        # The combined _id search fails, which is what triggers the SDK's
+        # one-by-one fallback for the remaining ids.
+        m.get(
+            "http://example.com/fhir/Patient?_id=1,2",
+            status=400,
+            payload={"resourceType": "OperationOutcome"},
+        )
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            status=404,
+            payload={"resourceType": "OperationOutcome"},
+        )
+        m.get(
+            "http://example.com/fhir/Patient/2",
+            payload={"resourceType": "Patient", "id": "2"},
+        )
+        m.get(
+            "http://example.com/fhir/AllergyIntolerance?patient=2",
+            payload={"resourceType": "AllergyIntolerance", "id": "1"},
+        )
+        m.get(
+            "http://example.com/fhir/CarePlan?patient=2",
+            payload={"resourceType": "CarePlan", "id": "1"},
+        )
+
+        responses = await call_graph_method(
+            graph_processor,
+            use_streaming=use_streaming,
+            id_=["1", "2"],
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_resource_type_completed=on_completed,
+            on_graph_retrieval_completed=on_graph_completed,
+        )
+
+    # The real Patient that was successfully fetched one-by-one survived,
+    # and the traversal was NOT aborted — both links ran off it. The merged
+    # response also still holds the id "1" 404's OperationOutcome entry
+    # (get_resource_count() counts it too) — that's pre-existing,
+    # unrelated behavior; the fix under test is the outcome *classification*,
+    # not what ends up in the merged bundle.
+    assert len(responses) == 1
+    patient_resources = [
+        resource for resource in responses[0].get_resources() if resource.get("resourceType") == "Patient"
+    ]
+    assert [resource.get("id") for resource in patient_resources] == ["2"]
+    assert sorted(
+        resource["resourceType"] for resource in responses[0].get_resources() if resource.get("resourceType")
+    ) == ["AllergyIntolerance", "CarePlan", "OperationOutcome", "Patient"]
+
+    # The start resource's completion event is classified "success", not
+    # "not_found" — and the whole-graph rollups reflect the real data.
+    start_completed = [e for e in completed_events if e.link_index == -1]
+    assert len(start_completed) == 1
+    assert start_completed[0].outcome == "success"
+    assert start_completed[0].error_type is None
+    assert start_completed[0].error_message is None
+
+    assert len(graph_completed_events) == 1
+    assert "Patient" in graph_completed_events[0].resource_types
+    assert graph_completed_events[0].total_error_count == 0
