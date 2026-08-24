@@ -2,18 +2,12 @@ LANG=en_US.utf-8
 
 export LANG
 
-ECR_REGISTRY=856965016623.dkr.ecr.us-east-1.amazonaws.com
-
-.PHONY:ecr-login
-ecr-login: ## Login to ECR for root-mirror base images
-	aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $(ECR_REGISTRY)
-
-.PHONY: Pipfile.lock
-Pipfile.lock: build
-	docker compose run --rm --name helix_fhir_sdk dev sh -c "rm -f Pipfile.lock && pipenv lock --dev --verbose"
+.PHONY: uv.lock
+uv.lock: build
+	docker compose run --rm --name helix_fhir_sdk dev sh -c "uv lock"
 
 .PHONY:devdocker
-devdocker: ecr-login ## Builds the docker for dev
+devdocker: ## Builds the docker for dev
 	docker compose build
 
 .PHONY:init
@@ -50,9 +44,8 @@ run-pre-commit: setup-pre-commit
 	./.git/hooks/pre-commit
 
 .PHONY:update
-update: down Pipfile.lock setup-pre-commit  ## Updates all the packages using Pipfile
+update: down uv.lock setup-pre-commit  ## Updates all the packages using pyproject.toml
 	make devdocker && \
-	make pipenv-setup && \
 	make up
 
 .PHONY:tests
@@ -69,7 +62,7 @@ shell:devdocker ## Brings up the bash shell in dev docker
 	docker compose run -it --rm --name helix.fhir.client.sdk dev /bin/sh
 
 .PHONY:build
-build: ecr-login ## Builds the docker for dev
+build: ## Builds the docker for dev
 	docker compose build --progress=plain --parallel
 
 .PHONY:testpackage
@@ -101,11 +94,6 @@ console_test:  ## runs the test via console to download resources from FHIR serv
 	#source ~/.bash_profile
 	python ./console_test.py
 
-.PHONY:pipenv-setup
-pipenv-setup:devdocker ## Run pipenv-setup to update setup.py with latest dependencies
-	docker compose run --rm --name helix_fhir_client dev sh -c "pipenv run pipenv install --skip-lock --categories \"pipenvsetup\" && pipenv run pipenv-setup sync --pipfile" && \
-	make run-pre-commit
-
 .PHONY:clean
 clean: down
 	docker image rm imranq2/node-fhir-server-mongo -f
@@ -128,16 +116,16 @@ devsetup:venv
 
 .PHONY:show_dependency_graph
 show_dependency_graph:
-	docker compose run --rm --name helix.fhir.client.sdk dev sh -c "pipenv install --skip-lock && pipenv graph --reverse"
-	docker compose run --rm --name helix.fhir.client.sdk dev sh -c "pipenv install -d && pipenv graph"
+	docker compose run --rm --name helix.fhir.client.sdk dev sh -c "uv tree"
+	docker compose run --rm --name helix.fhir.client.sdk dev sh -c "uv tree --group dev"
 
 .PHONY:qodana
 qodana:
 	docker run --rm -it --name qodana --mount type=bind,source="$(pwd)",target=/data/project -p 8080:8080 jetbrains/qodana-python:2023.2 --show-report
 
 .PHONY: install_types
-install_types: Pipfile
-	docker compose run --rm --name helix.fhir.client.sdk dev pipenv run mypy --install-types --non-interactive
+install_types:
+	docker compose run --rm --name helix.fhir.client.sdk dev mypy --install-types --non-interactive
 
 .PHONY: mypy
 mypy:

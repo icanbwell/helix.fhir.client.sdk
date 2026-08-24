@@ -111,10 +111,10 @@ class TestPreservePortFromBaseUrl:
         External HTTPS URLs with default port 443 should work correctly.
         This is the workaround scenario described in INC-285.
         """
-        # When using external URLs like https://fhir-mcp.prod.bwell.zone/4_0_0/
+        # When using external URLs like https://fhir.prod.bwell.zone/4_0_0/
         # Both base and next use default port 443, so no modification needed
-        base_url = "https://fhir-mcp.prod.bwell.zone/4_0_0/Observation"
-        next_url = "https://fhir-mcp.prod.bwell.zone/4_0_0/Observation?_count=10"
+        base_url = "https://fhir.prod.bwell.zone/4_0_0/Observation"
+        next_url = "https://fhir.prod.bwell.zone/4_0_0/Observation?_count=10"
 
         result = UrlChecker.preserve_port_from_base_url(base_url=base_url, next_url=next_url)
 

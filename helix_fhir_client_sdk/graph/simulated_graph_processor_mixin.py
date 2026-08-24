@@ -1,10 +1,12 @@
+import asyncio
 import json
 import time
 from abc import ABC
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from logging import Logger
-from typing import Any, cast
+from typing import Any, Literal, cast
 from urllib.parse import quote
 
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
@@ -18,7 +20,19 @@ from helix_fhir_client_sdk.graph.graph_definition import (
     GraphDefinitionTarget,
 )
 from helix_fhir_client_sdk.graph.graph_link_parameters import GraphLinkParameters
+from helix_fhir_client_sdk.graph.graph_retrieval_completed_event import (
+    GraphRetrievalCompletedEvent,
+)
+from helix_fhir_client_sdk.graph.graph_retrieval_started_event import (
+    GraphRetrievalStartedEvent,
+)
 from helix_fhir_client_sdk.graph.graph_target_parameters import GraphTargetParameters
+from helix_fhir_client_sdk.graph.resource_type_completion_event import (
+    ResourceTypeCompletionEvent,
+)
+from helix_fhir_client_sdk.graph.resource_type_started_event import (
+    ResourceTypeStartedEvent,
+)
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
@@ -44,6 +58,23 @@ from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.hash_util import ResourceHash
+
+
+@dataclass(slots=True)
+class _LinkFetchResult:
+    """
+    Return shape for process_link_async_parallel_function. `error` is set
+    only when the link's own fetch raised a real Exception (never
+    asyncio.CancelledError — that always propagates immediately instead)
+    AND the caller opted into continue_on_resource_type_error, so the
+    consumer loop in _process_simulate_graph_by_resource_type_async can
+    classify and fire the matching completion event itself (with
+    outcome="error") instead of process_link_async_parallel_function firing
+    it and re-raising. Not part of this SDK's public API.
+    """
+
+    responses: list[FhirGetResponse]
+    error: Exception | None = None
 
 
 class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
@@ -210,8 +241,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
                 # Parallel processing of links for each parent bundle
                 for link, parent_bundle_entries in parent_link_map:
-                    link_responses: list[FhirGetResponse]
-                    async for link_responses in AsyncParallelProcessor(
+                    async for link_fetch_result in AsyncParallelProcessor(
                         name="process_link_async_parallel_function",
                         max_concurrent_tasks=max_concurrent_tasks,
                     ).process_rows_in_parallel(
@@ -231,7 +261,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         add_cached_bundles_to_result=add_cached_bundles_to_result,
                         ifModifiedSince=ifModifiedSince,
                     ):
-                        child_responses.extend(link_responses)
+                        child_responses.extend(link_fetch_result.responses)
 
                 # Update parent link map for next iteration
                 parent_link_map = new_parent_link_map
@@ -283,7 +313,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         row: GraphDefinitionLink,
         parameters: GraphLinkParameters | None,
         additional_parameters: dict[str, Any] | None,
-    ) -> list[FhirGetResponse]:
+    ) -> _LinkFetchResult:
         """
         Parallel processing function for graph definition links.
 
@@ -315,6 +345,21 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # Validate input parameters
         assert parameters, "Processing parameters must be provided"
 
+        if parameters.on_resource_type_started:
+            started_resource_types = (
+                sorted({target.type_ for target in row.target if target.type_}) if row.target else []
+            )
+            await parameters.on_resource_type_started(
+                ResourceTypeStartedEvent(
+                    resource_types=started_resource_types,
+                    graph_depth=parameters.graph_depth,
+                    url=parameters.url,
+                    link_index=context.task_index,
+                    client_person_id=parameters.client_person_id,
+                    connection_name=parameters.connection_name,
+                )
+            )
+
         # Log debug information about the current link processing
         if parameters.logger:
             parameters.logger.debug(
@@ -330,28 +375,104 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Process the link asynchronously and collect responses
         link_result: FhirGetResponse
-        async for link_result in self._process_link_async(
-            link=row,
-            parent_bundle_entries=parameters.parent_bundle_entries,
-            logger=parameters.logger,
-            cache=parameters.cache,
-            scope_parser=parameters.scope_parser,
-            # Handle parent link map from additional parameters
-            parent_link_map=(additional_parameters["parent_link_map"] if additional_parameters else []),
-            # Determine request size, default to 1 if not specified
-            request_size=(additional_parameters["request_size"] if additional_parameters else 1),
-            # Track unsupported resources for ID-based search
-            id_search_unsupported_resources=(
-                additional_parameters["id_search_unsupported_resources"] if additional_parameters else []
-            ),
-            max_concurrent_tasks=parameters.max_concurrent_tasks,
-            add_cached_bundles_to_result=(
-                additional_parameters.get("add_cached_bundles_to_result", True) if additional_parameters else True
-            ),
-            ifModifiedSince=(additional_parameters.get("ifModifiedSince", None) if additional_parameters else None),
-        ):
-            # Collect each link result
-            result.append(link_result)
+        try:
+            async for link_result in self._process_link_async(
+                link=row,
+                parent_bundle_entries=parameters.parent_bundle_entries,
+                logger=parameters.logger,
+                cache=parameters.cache,
+                scope_parser=parameters.scope_parser,
+                # Handle parent link map from additional parameters
+                parent_link_map=(additional_parameters["parent_link_map"] if additional_parameters else []),
+                # Determine request size, default to 1 if not specified
+                request_size=(additional_parameters["request_size"] if additional_parameters else 1),
+                # Track unsupported resources for ID-based search
+                id_search_unsupported_resources=(
+                    additional_parameters["id_search_unsupported_resources"] if additional_parameters else []
+                ),
+                max_concurrent_tasks=parameters.max_concurrent_tasks,
+                add_cached_bundles_to_result=(
+                    additional_parameters.get("add_cached_bundles_to_result", True) if additional_parameters else True
+                ),
+                ifModifiedSince=(additional_parameters.get("ifModifiedSince", None) if additional_parameters else None),
+            ):
+                # Collect each link result
+                result.append(link_result)
+        except asyncio.CancelledError:
+            # Fire a matching completion event (if registered) before letting
+            # the cancellation propagate, so a caller that already received
+            # on_resource_type_started for this link doesn't get stuck
+            # waiting forever for a completion event that will never come.
+            # This is purely an additional signal — the cancellation is not
+            # suppressed. Caught explicitly (it is a BaseException, not an
+            # Exception) because a sibling link's failure cancels other
+            # in-flight concurrent links via AsyncParallelProcessor's
+            # cleanup — those cancelled links must still get a matching
+            # completion event. Never classified as outcome="error", and
+            # never subject to continue_on_resource_type_error — cancellation
+            # means "shut down", not "this resource type failed", in either
+            # mode (see GraphRetrievalCompletedEvent.total_error_count's
+            # docstring).
+            if parameters.on_resource_type_completed:
+                failed_resource_types = sorted({t.type_ for t in row.target if t.type_}) if row.target else []
+                await parameters.on_resource_type_completed(
+                    ResourceTypeCompletionEvent(
+                        resource_types=failed_resource_types,
+                        resource_count=0,
+                        graph_depth=parameters.graph_depth,
+                        urls=[],
+                        link_index=context.task_index,
+                        client_person_id=parameters.client_person_id,
+                        connection_name=parameters.connection_name,
+                        outcome="empty",
+                        error_type=None,
+                        error_message=None,
+                    )
+                )
+            raise
+        except Exception as exc:
+            if parameters.continue_on_resource_type_error:
+                # Log it: in continue mode the exception is swallowed here, so
+                # without this line a caller that registered no
+                # on_resource_type_completed callback has no signal at all that
+                # a resource type was skipped.
+                if parameters.logger:
+                    parameters.logger.warning(
+                        "Resource type fetch failed, continuing traversal (continue_on_resource_type_error=True)"
+                        + f" | task_index: {context.task_index} | target: {target_resource_type} | error: {exc}"
+                    )
+                # Defer firing the completion event to the consumer loop in
+                # _process_simulate_graph_by_resource_type_async, which
+                # classifies outcome="error" from this returned error and
+                # fires exactly one completion event for this link — firing
+                # here too would double-fire it.
+                return _LinkFetchResult(responses=[], error=exc)
+
+            # Default behavior (continue_on_resource_type_error=False):
+            # fire the matching completion event before letting the
+            # exception propagate, exactly as before this flag existed.
+            # Report the fetch failure from here — the one place that knows
+            # this link's own fetch (and not, say, the caller's completion
+            # callback further downstream) is what failed.
+            if parameters.on_link_fetch_error:
+                parameters.on_link_fetch_error()
+            if parameters.on_resource_type_completed:
+                failed_resource_types = sorted({t.type_ for t in row.target if t.type_}) if row.target else []
+                await parameters.on_resource_type_completed(
+                    ResourceTypeCompletionEvent(
+                        resource_types=failed_resource_types,
+                        resource_count=0,
+                        graph_depth=parameters.graph_depth,
+                        urls=[],
+                        link_index=context.task_index,
+                        client_person_id=parameters.client_person_id,
+                        connection_name=parameters.connection_name,
+                        outcome="error",
+                        error_type=type(exc).__name__,
+                        error_message=str(exc),
+                    )
+                )
+            raise
 
         # Record end time for performance tracking
         end_time: datetime = datetime.now()
@@ -369,7 +490,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             )
 
         # Return the list of retrieved responses
-        return result
+        return _LinkFetchResult(responses=result)
 
     async def _process_link_async(
         self,
@@ -1287,3 +1408,671 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             input_cache=input_cache,
         ):
             yield r
+
+    # noinspection PyPep8Naming
+    async def simulate_graph_by_resource_type_async(
+        self,
+        *,
+        id_: list[str] | str,
+        graph_json: dict[str, Any],
+        contained: bool,
+        separate_bundle_resources: bool = False,
+        restrict_to_scope: str | None = None,
+        restrict_to_resources: list[str] | None = None,
+        restrict_to_capability_statement: str | None = None,
+        retrieve_and_restrict_to_capability_statement: bool | None = None,
+        ifModifiedSince: datetime | None = None,
+        eTag: str | None = None,
+        request_size: int | None = 1,
+        max_concurrent_tasks: int | None = 1,
+        sort_resources: bool | None = False,
+        add_cached_bundles_to_result: bool = True,
+        input_cache: RequestCache | None = None,
+        compare_hash: bool = True,
+        on_resource_type_completed: (Callable[[ResourceTypeCompletionEvent], Awaitable[None]] | None) = None,
+        on_resource_type_started: (Callable[[ResourceTypeStartedEvent], Awaitable[None]] | None) = None,
+        on_graph_retrieval_started: (Callable[[GraphRetrievalStartedEvent], Awaitable[None]] | None) = None,
+        on_graph_retrieval_completed: (Callable[[GraphRetrievalCompletedEvent], Awaitable[None]] | None) = None,
+        client_person_id: str = "",
+        connection_name: str = "",
+        continue_on_resource_type_error: bool = False,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        """
+        Simulates the $graph query yielding results per graph link (resource type) instead
+        of accumulating all resources into a single response. This allows callers to process
+        each resource type's data and release it from memory before fetching the next.
+
+        The start resource (e.g. Patient) is always yielded first, followed by each linked
+        resource type as a separate FhirGetResponse.
+
+        :param id_: single id or list of ids (ids can be comma separated too)
+        :param graph_json: definition of a graph to execute
+        :param contained: whether we should return the related resources as top level list or nest them inside their
+                            parent resources in a contained property
+        :param restrict_to_scope: Optional scope to restrict to
+        :param restrict_to_resources: Optional list of resources to restrict to
+        :param restrict_to_capability_statement: Optional capability statement to restrict to
+        :param retrieve_and_restrict_to_capability_statement: Optional capability statement to retrieve and restrict to
+        :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
+        :param eTag: Optional ETag to use for If-None-Match header
+        :param request_size: Optional Count of resources to request in one request
+        :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially.
+        :param sort_resources: Optional flag to sort resources
+        :param add_cached_bundles_to_result: Optional flag to add cached bundles to result
+        :param input_cache: Optional cache to use for input
+        :param compare_hash: Optional flag to compare hash of the resources
+        :param on_resource_type_completed: Optional async callback invoked once the start
+                                             resource has been yielded, and again each time
+                                             one graph link's resources have been fully
+                                             yielded. Fires with a ResourceTypeCompletionEvent.
+                                             Defaults to None (no-op, zero behavior change).
+        :param on_resource_type_started: Optional async callback invoked once per graph
+                                           link (or the start resource) right before that
+                                           link's resources begin retrieving. Fires with a
+                                           ResourceTypeStartedEvent. Defaults to None (no-op,
+                                           zero behavior change).
+        :param on_graph_retrieval_started: Optional async callback invoked exactly once,
+                                             before the start resource is fetched. Fires with
+                                             a GraphRetrievalStartedEvent. Defaults to None
+                                             (no-op, zero behavior change).
+        :param on_graph_retrieval_completed: Optional async callback invoked exactly once,
+                                               after every resource in the graph has been
+                                               yielded (including the zero-results early
+                                               return), and also when an exception propagates
+                                               from inside the traversal or the caller stops
+                                               consuming the generator early via an explicit
+                                               break/aclose(). Fires with a
+                                               GraphRetrievalCompletedEvent. Defaults to None
+                                               (no-op, zero behavior change).
+        :param client_person_id: Optional caller-supplied, opaque identifier for the
+                                    person this call belongs to. Not interpreted by this
+                                    SDK — echoed back on every fired event so a callback
+                                    shared across multiple concurrent calls can tell them
+                                    apart. Defaults to "".
+        :param connection_name: Optional caller-supplied, opaque display name for the
+                                   connection this call belongs to. Not interpreted by
+                                   this SDK — echoed back on every fired event for the
+                                   same reason as client_person_id. Defaults to "".
+        :param continue_on_resource_type_error: Optional flag (default False,
+                                                   preserving today's exact
+                                                   behavior). When True, a
+                                                   link's own fetch failure
+                                                   fires on_resource_type_completed
+                                                   with outcome="error" and the
+                                                   traversal continues to the
+                                                   next link instead of
+                                                   re-raising. The start
+                                                   resource's own fetch
+                                                   failure is always fatal,
+                                                   regardless of this flag.
+        :return: AsyncGenerator yielding FhirGetResponse per resource type
+        """
+        if contained:
+            if not self._additional_parameters:
+                self.additional_parameters([])
+            assert self._additional_parameters is not None
+            self._additional_parameters.append("contained=true")
+
+        inner_generator = self._process_simulate_graph_by_resource_type_async(
+            id_=id_,
+            graph_json=graph_json,
+            contained=contained,
+            separate_bundle_resources=separate_bundle_resources,
+            restrict_to_scope=restrict_to_scope,
+            restrict_to_resources=restrict_to_resources,
+            restrict_to_capability_statement=restrict_to_capability_statement,
+            retrieve_and_restrict_to_capability_statement=retrieve_and_restrict_to_capability_statement,
+            ifModifiedSince=ifModifiedSince,
+            eTag=eTag,
+            url=self._url,
+            expand_fhir_bundle=self._expand_fhir_bundle,
+            logger=self._logger,
+            auth_scopes=self._auth_scopes,
+            request_size=request_size,
+            max_concurrent_tasks=max_concurrent_tasks,
+            sort_resources=sort_resources,
+            add_cached_bundles_to_result=add_cached_bundles_to_result,
+            input_cache=input_cache,
+            compare_hash=compare_hash,
+            on_resource_type_completed=on_resource_type_completed,
+            on_resource_type_started=on_resource_type_started,
+            on_graph_retrieval_started=on_graph_retrieval_started,
+            on_graph_retrieval_completed=on_graph_retrieval_completed,
+            client_person_id=client_person_id,
+            connection_name=connection_name,
+            continue_on_resource_type_error=continue_on_resource_type_error,
+        )
+        try:
+            async for r in inner_generator:
+                yield r
+        finally:
+            # Explicitly close the inner generator so its own try/finally (where
+            # on_graph_retrieval_completed fires) runs synchronously as part of closing
+            # this wrapper generator, rather than being deferred to asyncio's asyncgen
+            # finalizer on some later event-loop turn. aclose() on an already-exhausted
+            # or already-closed generator is a safe, idempotent no-op.
+            await inner_generator.aclose()
+
+    async def _fire_on_resource_type_completed_for_link(
+        self,
+        *,
+        links: list[GraphDefinitionLink],
+        context: ParallelFunctionContext,
+        resource_types: list[str],
+        resource_count_for_link: int,
+        link_queried_urls: list[str],
+        link_responses: list[FhirGetResponse],
+        scope_parser: FhirScopeParser,
+        graph_depth: int,
+        on_resource_type_completed: Callable[[ResourceTypeCompletionEvent], Awaitable[None]] | None,
+        client_person_id: str,
+        connection_name: str,
+        error: Exception | None = None,
+    ) -> Literal["success", "empty", "not_found", "scope_denied", "error"]:
+        """
+        Classifies the outcome of one graph link's aggregated response batch
+        and fires on_resource_type_completed (if a callback was supplied).
+        Falls back to the link's declared target type(s) when the link
+        returned zero resources (resource_types is empty), so a caller that
+        received on_resource_type_started for this link always receives a
+        matching completion event — see ResourceTypeCompletionEvent.outcome's
+        docstring for the outcome precedence used when a link declares more
+        than one target type.
+
+        Always returns the classified outcome, even when
+        on_resource_type_completed is None, so the caller can maintain the
+        total_error_count/total_rejected_count rollups regardless of whether
+        a per-link callback is registered.
+
+        Extracted out of the traversal loop in
+        _process_simulate_graph_by_resource_type_async to keep that loop's
+        nesting shallow.
+        """
+        declared_types = sorted({target.type_ for target in links[context.task_index].target if target.type_})
+
+        # Separate from resource_count_for_link (which still drives the event's own
+        # resource_count field and the caller's total_resource_count rollup): an
+        # OperationOutcome error placeholder from a 404 response counts as "1
+        # resource" via get_resource_count(), which would otherwise make a
+        # 404-only link misclassify as "success" here.
+        successful_resource_count_for_link = sum(r.get_resource_count() for r in link_responses if r.successful)
+
+        outcome: Literal["success", "empty", "not_found", "scope_denied", "error"]
+        computed_error_type: str | None = None
+        computed_error_message: str | None = None
+        if error is not None:
+            outcome = "error"
+            computed_error_type = type(error).__name__
+            computed_error_message = str(error)
+        elif successful_resource_count_for_link > 0:
+            outcome = "success"
+        elif any(r.status == 404 for r in link_responses):
+            outcome = "not_found"
+        elif any(not r.successful for r in link_responses):
+            # This SDK's retry client returns (rather than raises) for non-5xx
+            # HTTP errors such as 400/403, so there is no exception to read an
+            # error_type/error_message off of — without this branch a
+            # server-side permission denial would be indistinguishable from
+            # "genuinely no data" (outcome="empty"). The synthesized
+            # error_type deliberately uses an HttpStatus<code> form so callers
+            # can tell it apart from a raised-exception error, whose
+            # error_type is the exception's class name.
+            outcome = "error"
+            failed_status = next(r.status for r in link_responses if not r.successful)
+            computed_error_type = f"HttpStatus{failed_status}"
+            computed_error_message = f"Fetch failed with HTTP status {failed_status}"
+        elif declared_types and not any(scope_parser.scope_allows(resource_type=t) for t in declared_types):
+            outcome = "scope_denied"
+        else:
+            outcome = "empty"
+
+        if on_resource_type_completed:
+            reported_resource_types = resource_types or declared_types
+            await on_resource_type_completed(
+                ResourceTypeCompletionEvent(
+                    resource_types=reported_resource_types,
+                    resource_count=resource_count_for_link,
+                    graph_depth=graph_depth,
+                    urls=link_queried_urls,
+                    link_index=context.task_index,
+                    client_person_id=client_person_id,
+                    connection_name=connection_name,
+                    outcome=outcome,
+                    error_type=computed_error_type,
+                    error_message=computed_error_message,
+                )
+            )
+        return outcome
+
+    # noinspection PyPep8Naming
+    async def _process_simulate_graph_by_resource_type_async(
+        self,
+        *,
+        id_: list[str] | str,
+        graph_json: dict[str, Any],
+        contained: bool,
+        separate_bundle_resources: bool = False,
+        restrict_to_scope: str | None = None,
+        restrict_to_resources: list[str] | None = None,
+        restrict_to_capability_statement: str | None = None,
+        retrieve_and_restrict_to_capability_statement: bool | None = None,
+        ifModifiedSince: datetime | None = None,
+        eTag: str | None = None,
+        logger: Logger | None,
+        url: str | None,
+        expand_fhir_bundle: bool | None,
+        auth_scopes: list[str] | None,
+        request_size: int | None = 1,
+        max_concurrent_tasks: int | None,
+        sort_resources: bool | None,
+        add_cached_bundles_to_result: bool = True,
+        input_cache: RequestCache | None = None,
+        compare_hash: bool = True,
+        on_resource_type_completed: (Callable[[ResourceTypeCompletionEvent], Awaitable[None]] | None) = None,
+        on_resource_type_started: (Callable[[ResourceTypeStartedEvent], Awaitable[None]] | None) = None,
+        on_graph_retrieval_started: (Callable[[GraphRetrievalStartedEvent], Awaitable[None]] | None) = None,
+        on_graph_retrieval_completed: (Callable[[GraphRetrievalCompletedEvent], Awaitable[None]] | None) = None,
+        client_person_id: str = "",
+        connection_name: str = "",
+        continue_on_resource_type_error: bool = False,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        """
+        Core implementation that yields per graph link instead of accumulating all responses.
+        Each yield contains the resources for one link traversal (typically one resource type).
+        """
+        assert graph_json, "Graph JSON must be provided"
+        graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
+        assert isinstance(graph_definition, GraphDefinition)
+        assert graph_definition.start, "Graph definition must have a start resource"
+
+        scope_parser: FhirScopeParser = FhirScopeParser(scopes=auth_scopes)
+        self.separate_bundle_resources(False)
+
+        if logger:
+            logger.info(
+                f"FhirClient.simulate_graph_by_resource_type_async() "
+                f"id_={id_}, "
+                f"contained={contained}, "
+                f"separate_bundle_resources={separate_bundle_resources}, "
+                f"request_size={request_size}, "
+                f"max_concurrent_tasks={max_concurrent_tasks}, "
+                f"expand_fhir_bundle={expand_fhir_bundle}, "
+                f"ifModifiedSince={ifModifiedSince.isoformat() if ifModifiedSince else None}, "
+                f"eTag={eTag}, "
+            )
+
+        if not isinstance(id_, list):
+            id_ = id_.split(",")
+
+        base_url_value: str = url or ""
+
+        id_search_unsupported_resources: list[str] = []
+        cache: RequestCache = input_cache if input_cache is not None else RequestCache()
+
+        # Aggregation state for the graph-level completion event. Initialized
+        # here — before anything below that can raise — so the `finally`
+        # block guarding on_graph_retrieval_completed can always build a
+        # GraphRetrievalCompletedEvent from *some* valid state, even if an
+        # exception propagates partway through the traversal or the caller
+        # closes/abandons the generator early.
+        all_resource_types: set[str] = set()
+        total_resource_count: int = 0
+        max_graph_depth: int = 0
+        all_urls: set[str] = set()
+        total_error_count: int = 0
+        total_rejected_count: int = 0
+
+        async with cache:
+            start: str = graph_definition.start
+            try:
+                if on_graph_retrieval_started:
+                    await on_graph_retrieval_started(
+                        GraphRetrievalStartedEvent(
+                            start_resource_type=start,
+                            url=base_url_value,
+                            client_person_id=client_person_id,
+                            connection_name=connection_name,
+                        )
+                    )
+
+                if on_resource_type_started:
+                    await on_resource_type_started(
+                        ResourceTypeStartedEvent(
+                            resource_types=[start],
+                            graph_depth=0,
+                            url=base_url_value,
+                            link_index=-1,
+                            client_person_id=client_person_id,
+                            connection_name=connection_name,
+                        )
+                    )
+
+                parent_response: FhirGetResponse
+                cache_hits: int
+                try:
+                    parent_response, cache_hits = await self._get_resources_by_parameters_async(
+                        resource_type=start,
+                        id_=id_,
+                        cache=cache,
+                        scope_parser=scope_parser,
+                        logger=logger,
+                        id_search_unsupported_resources=id_search_unsupported_resources,
+                        add_cached_bundles_to_result=add_cached_bundles_to_result,
+                        compare_hash=compare_hash,
+                    )
+                except (Exception, asyncio.CancelledError, GeneratorExit) as exc:
+                    # Fire a matching completion event (if registered) before
+                    # letting the exception propagate, so the
+                    # on_resource_type_started fired above for the start
+                    # resource isn't left without a matching completion
+                    # event. This is purely an additional signal — the
+                    # exception is not suppressed. asyncio.CancelledError and
+                    # GeneratorExit are caught explicitly (both are
+                    # BaseException, not Exception) because a caller closing
+                    # or abandoning this generator while the start-resource
+                    # fetch is in flight raises GeneratorExit here, and a
+                    # cancelled surrounding task raises CancelledError.
+                    # Cancellation/close is never classified as outcome=
+                    # "error" or counted in total_error_count — see
+                    # GraphRetrievalCompletedEvent.total_error_count's
+                    # docstring. The start resource's own fetch failure is
+                    # always fatal (this always re-raises), in every mode —
+                    # there are no links to traverse without it.
+                    is_real_error = isinstance(exc, Exception)
+                    if is_real_error:
+                        total_error_count += 1
+                    if on_resource_type_completed:
+                        await on_resource_type_completed(
+                            ResourceTypeCompletionEvent(
+                                resource_types=[start],
+                                resource_count=0,
+                                graph_depth=0,
+                                urls=[],
+                                link_index=-1,
+                                client_person_id=client_person_id,
+                                connection_name=connection_name,
+                                outcome="error" if is_real_error else "empty",
+                                error_type=type(exc).__name__ if is_real_error else None,
+                                error_message=str(exc) if is_real_error else None,
+                            )
+                        )
+                    raise
+                # Capture the actual queried URL (with params) before the existing
+                # line below overwrites it with the connection's base URL —
+                # that overwrite is pre-existing behavior, out of scope to change.
+                # Empty-string URLs (scope-denied / fully-cached-with-no-HTTP-call
+                # paths through _get_resources_by_parameters_async) are filtered
+                # out here so they never end up in an event's urls list.
+                parent_queried_url: str = parent_response.url
+                if parent_queried_url:
+                    all_urls.add(parent_queried_url)
+
+                parent_response_resource_count = parent_response.get_resource_count()
+
+                # Content-based, not status-based: FhirGetResponse.append() never
+                # recomputes `status`, so an aggregated multi-id response (the
+                # ?_id=a,b search failed and the SDK fell back to fetching one
+                # by one) inherits whichever sub-fetch's status landed first.
+                # A partially-found fetch (id "1" 404s, id "2" succeeds) would
+                # therefore report successful == False while actually carrying a
+                # real resource — early-returning on that would silently drop
+                # real data and skip every link in the traversal. So the
+                # early-return decision is made purely on whether any real
+                # (non-OperationOutcome) resource came back. The reported
+                # resource_count below stays the raw get_resource_count(),
+                # unchanged — only the branching decision uses this count,
+                # mirroring the same classification-count/reported-count split
+                # already used in _fire_on_resource_type_completed_for_link.
+                real_parent_resource_count = sum(
+                    1
+                    for entry in parent_response.get_bundle_entries()
+                    if entry.resource is not None and entry.resource.get("resourceType") != "OperationOutcome"
+                )
+                if real_parent_resource_count == 0:
+                    yield parent_response
+                    if on_resource_type_completed:
+                        # No resources came back for the start resource either —
+                        # report it (declared type == start, the only type there
+                        # ever is for the start resource) so the
+                        # ResourceTypeStartedEvent fired above always has a
+                        # matching completion event. A non-404 unsuccessful
+                        # status here is a real error this SDK's retry client
+                        # returned rather than raised (e.g. 400/403), so it gets
+                        # outcome="error" with a synthesized error_type — it is
+                        # not "no data".
+                        await on_resource_type_completed(
+                            ResourceTypeCompletionEvent(
+                                resource_types=[start],
+                                resource_count=parent_response_resource_count,
+                                graph_depth=0,
+                                urls=[parent_queried_url] if parent_queried_url else [],
+                                link_index=-1,
+                                client_person_id=client_person_id,
+                                connection_name=connection_name,
+                                outcome=(
+                                    "not_found"
+                                    if parent_response.status == 404
+                                    else "error"
+                                    if not parent_response.successful
+                                    else "empty"
+                                ),
+                                error_type=(
+                                    f"HttpStatus{parent_response.status}"
+                                    if not parent_response.successful and parent_response.status != 404
+                                    else None
+                                ),
+                                error_message=(
+                                    f"Fetch failed with HTTP status {parent_response.status}"
+                                    if not parent_response.successful and parent_response.status != 404
+                                    else None
+                                ),
+                            )
+                        )
+                    # Counted outside the callback check on purpose: the rollup
+                    # on GraphRetrievalCompletedEvent must be accurate for a
+                    # caller that registered only on_graph_retrieval_completed,
+                    # matching how the start-resource exception path above (and
+                    # _fire_on_resource_type_completed_for_link) keep the
+                    # rollups independent of on_resource_type_completed.
+                    if not parent_response.successful and parent_response.status != 404:
+                        total_error_count += 1
+                    return
+
+                if logger:
+                    logger.info(
+                        f"FhirClient.simulate_graph_by_resource_type_async() "
+                        f"got parent resources: {parent_response_resource_count} "
+                        f"cached:{cache_hits}"
+                    )
+
+                # Yield the start resource (Patient) first
+                parent_response.url = url or parent_response.url
+                yield parent_response
+
+                if on_resource_type_completed:
+                    await on_resource_type_completed(
+                        ResourceTypeCompletionEvent(
+                            resource_types=[start],
+                            resource_count=parent_response_resource_count,
+                            graph_depth=0,
+                            urls=[parent_queried_url] if parent_queried_url else [],
+                            link_index=-1,
+                            client_person_id=client_person_id,
+                            connection_name=connection_name,
+                            outcome="success",
+                            error_type=None,
+                            error_message=None,
+                        )
+                    )
+
+                all_resource_types.add(start)
+                total_resource_count += parent_response_resource_count
+
+                parent_bundle_entries: FhirBundleEntryList = parent_response.get_bundle_entries()
+
+                parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
+                if graph_definition.link and parent_bundle_entries:
+                    parent_link_map.append((graph_definition.link, parent_bundle_entries))
+
+                def _record_link_fetch_error() -> None:
+                    """Counts one genuine link fetch failure.
+
+                    Passed down to process_link_async_parallel_function so the
+                    count is made by the one place that knows a *fetch* failed.
+                    Wrapping the consumer loop below in a try/except instead
+                    would also count exceptions raised by a caller's own
+                    on_resource_type_completed callback, or thrown back into
+                    this generator at one of its yield points — neither of
+                    which is a resource-type fetch failure.
+                    """
+                    nonlocal total_error_count
+                    total_error_count += 1
+
+                async def _record_link_batch_outcome(
+                    *,
+                    link_responses: list[FhirGetResponse],
+                    link_queried_urls: list[str],
+                    links: list[GraphDefinitionLink],
+                    context: ParallelFunctionContext,
+                    error: Exception | None,
+                ) -> Literal["success", "empty", "not_found", "scope_denied", "error"]:
+                    """Aggregates one link batch's results into the whole-graph
+                    rollups and fires its completion event.
+
+                    Extracted into a nested closure (rather than left inline in
+                    the consumer loop below) so that loop's body stays shallow —
+                    this is purely the accounting + event-firing step, factored
+                    out from the yielding step it must stay separate from since
+                    only the outer generator can yield.
+                    """
+                    nonlocal all_resource_types, total_resource_count, max_graph_depth, all_urls
+                    resource_types = sorted({r.resource_type for r in link_responses if r.resource_type})
+                    resource_count_for_link = sum(r.get_resource_count() for r in link_responses)
+
+                    # The whole-graph aggregation only reflects resources
+                    # actually retrieved — it must NOT be affected by the
+                    # declared-type fallback used below for the
+                    # per-link completion event.
+                    if resource_types:
+                        all_resource_types.update(resource_types)
+                        total_resource_count += resource_count_for_link
+                        max_graph_depth = graph_depth
+                    all_urls.update(link_queried_urls)
+
+                    return await self._fire_on_resource_type_completed_for_link(
+                        links=links,
+                        context=context,
+                        resource_types=resource_types,
+                        resource_count_for_link=resource_count_for_link,
+                        link_queried_urls=link_queried_urls,
+                        link_responses=link_responses,
+                        scope_parser=scope_parser,
+                        graph_depth=graph_depth,
+                        on_resource_type_completed=on_resource_type_completed,
+                        client_person_id=client_person_id,
+                        connection_name=connection_name,
+                        error=error,
+                    )
+
+                # Process graph links one at a time and yield each link's response
+                graph_depth = 0
+                while len(parent_link_map):
+                    new_parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
+
+                    for links, current_parent_bundle_entries in parent_link_map:
+                        context: ParallelFunctionContext
+                        link_fetch_result: _LinkFetchResult
+                        async for context, link_fetch_result in AsyncParallelProcessor(  # type: ignore[misc]
+                            name="process_link_async_parallel_function",
+                            max_concurrent_tasks=max_concurrent_tasks,
+                        ).process_rows_in_parallel(
+                            rows=links,
+                            process_row_fn=self.process_link_async_parallel_function,
+                            parameters=GraphLinkParameters(
+                                parent_bundle_entries=current_parent_bundle_entries,
+                                logger=logger,
+                                cache=cache,
+                                scope_parser=scope_parser,
+                                max_concurrent_tasks=max_concurrent_tasks,
+                                on_resource_type_started=on_resource_type_started,
+                                on_resource_type_completed=on_resource_type_completed,
+                                graph_depth=graph_depth,
+                                url=base_url_value,
+                                client_person_id=client_person_id,
+                                connection_name=connection_name,
+                                continue_on_resource_type_error=continue_on_resource_type_error,
+                                on_link_fetch_error=_record_link_fetch_error,
+                            ),
+                            log_level=self._log_level,
+                            yield_context=True,
+                            parent_link_map=new_parent_link_map,
+                            request_size=request_size,
+                            id_search_unsupported_resources=id_search_unsupported_resources,
+                            add_cached_bundles_to_result=add_cached_bundles_to_result,
+                            ifModifiedSince=ifModifiedSince,
+                        ):
+                            link_responses = link_fetch_result.responses
+
+                            # Capture each response's actual queried URL before the
+                            # loop below overwrites it with the base URL, filtering
+                            # out empty strings (scope-denied / fully cached
+                            # responses have url == "").
+                            link_queried_urls = [r.url for r in link_responses if r.url]
+
+                            # Yield each link's responses individually instead of accumulating
+                            for link_response in link_responses:
+                                link_response.url = url or link_response.url
+                                yield link_response
+
+                            outcome = await _record_link_batch_outcome(
+                                link_responses=link_responses,
+                                link_queried_urls=link_queried_urls,
+                                links=links,
+                                context=context,
+                                error=link_fetch_result.error,
+                            )
+                            if outcome == "error":
+                                total_error_count += 1
+                            elif outcome == "scope_denied":
+                                total_rejected_count += 1
+
+                    parent_link_map = new_parent_link_map
+                    graph_depth += 1
+
+                if logger:
+                    logger.info(
+                        f"Request Cache for: id_={id_}, "
+                        f"start={graph_definition.start}, "
+                        f"hits: {cache.cache_hits}, "
+                        f"misses: {cache.cache_misses}"
+                    )
+            finally:
+                # Fires exactly once per call, from this single try/finally block
+                # wrapping the whole traversal — including when the traversal
+                # raises, or the caller stops consuming the generator early via
+                # an explicit `await gen.aclose()` (which runs this `finally`
+                # block as part of closing the generator). Note that a bare
+                # `async for ... : break` with no explicit aclose() is NOT
+                # guaranteed by the language to run this block promptly — that
+                # only happens in practice under CPython (refcounting collects
+                # the abandoned generator once it's unreachable) together with
+                # asyncio's default asyncgen finalizer hook, which schedules
+                # aclose() on it. The one case this cannot cover at all is a
+                # caller who lets the generator become unreachable without an
+                # explicit break/aclose() and whose runtime/event loop doesn't
+                # run that finalization promptly — that is an unavoidable
+                # limitation of async generators in Python, not something this
+                # fix can close.
+                if on_graph_retrieval_completed:
+                    await on_graph_retrieval_completed(
+                        GraphRetrievalCompletedEvent(
+                            resource_types=sorted(all_resource_types),
+                            total_resource_count=total_resource_count,
+                            max_graph_depth=max_graph_depth,
+                            urls=sorted(all_urls),
+                            client_person_id=client_person_id,
+                            connection_name=connection_name,
+                            total_error_count=total_error_count,
+                            total_rejected_count=total_rejected_count,
+                        )
+                    )
