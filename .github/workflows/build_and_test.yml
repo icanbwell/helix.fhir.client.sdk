@@ -13,7 +13,18 @@ env:
   JFROG_READ_TOKEN: ${{ secrets.JFROG_READ_TOKEN }}
 
 jobs:
+  validate-packages:
+    uses: icanbwell/actions/.github/workflows/validate-pip-packages.yaml@main
+    with:
+      python-version: '3.12'
+      runs-on: main
+    secrets:
+      ROOTIO_API_KEY: ${{ secrets.ROOTIO_API_KEY }}
+      JFROG_READ_USER: ${{ secrets.JFROG_READ_USER }}
+      JFROG_READ_TOKEN: ${{ secrets.JFROG_READ_TOKEN }}
+
   build_and_test:
+    needs: [validate-packages]
     runs-on: main
 
     steps:
@@ -38,6 +49,9 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: us-east-1
+          role-to-assume: arn:aws:iam::856965016623:role/services-k8s-service-account-github-actions-runner
+          role-session-name: ${{ github.run_id }}-rootio
+          role-duration-seconds: 3600
 
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2

@@ -22,4 +22,6 @@ metastore_db
 !README*.md
 
 .env
+.netrc
+.envrc
 spark-events

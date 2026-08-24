@@ -68,6 +68,11 @@ dev = [
 [tool.uv]
 constraint-dependencies = ["msgpack>=1.2.1"]
 
+[[tool.uv.index]]
+name = "jfrog"
+url = "https://artifacts.bwell.com/artifactory/api/pypi/virtual-pypi/simple"
+default = true
+
 [tool.ruff]
 line-length = 120
 target-version = "py312"

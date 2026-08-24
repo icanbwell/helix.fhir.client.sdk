@@ -1,0 +1,3 @@
+# Lists package@version patches rootio_patcher must skip, with reasoning for each.
+# Populated reactively as `rootio_patcher pip remediate --dry-run` flags entries
+# that cannot yet be pinned (e.g. no wheel published for this platform/Python combo).
