@@ -33,6 +33,7 @@ from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
 )
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
+from helix_fhir_client_sdk.utilities.json_helpers import parse_json_or_ndjson
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
 )
@@ -77,7 +78,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
         full_uri /= self._resource
 
         # Prepare headers
-        headers = {"Content-Type": "application/fhir+json"}
+        headers = {"Content-Type": "application/fhir+json", "Accept": self._accept}
         headers.update(self._additional_request_headers)
         profiling["build_url"] = time.time() - build_url_start
 
@@ -136,7 +137,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                     if response_text:
                         try:
                             # Parse response as plain dicts for speed
-                            parsed_response = json.loads(response_text)
+                            parsed_response = parse_json_or_ndjson(response_text)
                             if isinstance(parsed_response, list):
                                 responses = parsed_response
                             else:
@@ -267,7 +268,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
         full_uri: furl = furl(self._url)
         assert self._resource
         full_uri /= self._resource
-        headers = {"Content-Type": "application/fhir+json"}
+        headers = {"Content-Type": "application/fhir+json", "Accept": self._accept}
         headers.update(self._additional_request_headers)
         self._internal_logger.debug(f"Request headers: {headers}")
 
@@ -472,7 +473,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
         full_uri: furl = furl(self._url)
         assert self._resource
         full_uri /= self._resource
-        headers = {"Content-Type": "application/fhir+json"}
+        headers = {"Content-Type": "application/fhir+json", "Accept": self._accept}
         headers.update(self._additional_request_headers)
         self._internal_logger.debug(f"Request headers: {headers}")
 

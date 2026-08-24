@@ -25,6 +25,7 @@ from helix_fhir_client_sdk.structures.get_access_token_result import (
 )
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
+from helix_fhir_client_sdk.utilities.json_helpers import parse_json_or_ndjson
 from helix_fhir_client_sdk.utilities.list_chunker import ListChunker
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
@@ -134,7 +135,7 @@ class FhirMergeMixin(FhirClientProtocol):
                 full_uri: furl = furl(self._url)
                 assert self._resource
                 full_uri /= self._resource
-                headers = {"Content-Type": "application/fhir+json"}
+                headers = {"Content-Type": "application/fhir+json", "Accept": self._accept}
                 headers.update(self._additional_request_headers)
                 self._internal_logger.debug(f"Request headers: {headers}")
 
@@ -212,8 +213,8 @@ class FhirMergeMixin(FhirClientProtocol):
                                         response_text = await response.get_text_async()
                                         if response_text:
                                             try:
-                                                raw_response: list[dict[str, Any]] | dict[str, Any] = json.loads(
-                                                    response_text
+                                                raw_response: list[dict[str, Any]] | dict[str, Any] = (
+                                                    parse_json_or_ndjson(response_text)
                                                 )
                                                 if isinstance(raw_response, list):
                                                     responses = raw_response

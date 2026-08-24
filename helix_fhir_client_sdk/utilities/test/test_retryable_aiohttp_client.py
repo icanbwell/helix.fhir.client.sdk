@@ -156,7 +156,12 @@ async def test_chunked_transfer_encoding() -> None:
 
 
 async def test_no_exception_on_error() -> None:
-    """Test merge_async call when throw_exception_on_error is false."""
+    """Test merge_async call when throw_exception_on_error is false.
+
+    Error responses have their body eagerly captured (the stream is already
+    drained by the time get_text_async() is called), so the real error text
+    must be returned even though use_data_streaming is True.
+    """
     async with RetryableAioHttpClient(
         use_data_streaming=True,
         throw_exception_on_error=False,
@@ -175,7 +180,7 @@ async def test_no_exception_on_error() -> None:
             response = await client.get(url="http://test.com", headers=None)
             assert not response.ok
             assert response.status == 400
-            assert await response.get_text_async() == ""
+            assert await response.get_text_async() == "Error"
 
 
 @pytest.mark.asyncio

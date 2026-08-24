@@ -84,13 +84,18 @@ class RetryableAioHttpResponse:
     async def get_text_async(self) -> str:
         if self.content is None:
             return self._response_text
-        if self.use_data_streaming:
-            if self.text_read is None:
-                # avoid reading the stream multiple times
-                self.text_read = (await self.content.read()).decode("utf-8")
+        # Once we've read the stream ourselves, always return the cached copy - checking
+        # at_eof() again here would break the cache, since our own read() also leaves the
+        # stream at EOF, indistinguishable from "drained upstream" by the check below.
+        if self.text_read is not None:
             return self.text_read
-        else:
-            return self._response_text
+        # If the stream was already fully drained upstream (e.g. an error response whose
+        # body was eagerly captured into _response_text), re-reading it would yield b"".
+        if self.use_data_streaming and not self.content.at_eof():
+            # avoid reading the stream multiple times
+            self.text_read = (await self.content.read()).decode("utf-8")
+            return self.text_read
+        return self._response_text
 
     async def json(self) -> dict[str, str] | list[dict[str, str]]:
         text = await self.get_text_async()
