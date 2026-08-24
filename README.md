@@ -78,6 +78,30 @@ response: Optional[FhirGetResponse] = await FhirGetResponse.from_async_generator
 For FHIR servers that support data streaming (e.g., b.well FHIR server), you can just set the `use_data_streaming` parameter to stream the data as it is received.
 The data will be streamed in AsyncGenerators as described above.
 
+## Streaming `$merge` Responses
+`use_data_streaming` also applies to `$merge` calls (`merge_async`, `merge_resources_async`, `merge_bundle_async`,
+`merge_bundle_uncompressed`). When enabled, the SDK sends `Accept: application/fhir+ndjson` so a b.well FHIR server
+that supports it (see [merge.md](https://github.com/icanbwell/fhir-server/blob/main/readme/merge.md)) can stream the
+`$merge` response back instead of building the whole response in memory first.
+
+```python
+from helix_fhir_client_sdk.fhir_client import FhirClient
+
+fhir_client = FhirClient().url(fhir_server_url).resource("Patient").use_data_streaming(True)
+
+merge_response = await FhirMergeResponse.from_async_generator(
+    fhir_client.merge_async(json_data_list=[json.dumps(patient_resource)])
+)
+```
+
+This only changes how the response is read; it does not change the request body. If you also want the *request*
+body sent with chunked transfer encoding (independent of response streaming), opt in separately with
+`send_data_as_chunked(True)`.
+
+Error responses (e.g. a `400` with an `OperationOutcome`) are unaffected by streaming - the SDK always returns the
+full error body via `response.error`/`response.responses[...]["issue"]`, whether or not `use_data_streaming` is
+enabled.
+
 # Persistent Sessions (Connection Reuse)
 By default, the SDK creates a new HTTP session for each request. For better performance (~4× faster), 
 you can use persistent sessions to reuse connections across multiple requests.
