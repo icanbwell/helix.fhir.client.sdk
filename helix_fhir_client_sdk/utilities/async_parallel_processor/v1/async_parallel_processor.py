@@ -80,6 +80,7 @@ class AsyncParallelProcessor:
         process_row_fn: ParallelFunction[TInput, TOutput, TParameters],
         parameters: TParameters | None,
         log_level: str | None = None,
+        yield_context: bool = False,
         **kwargs: Any,
     ) -> AsyncGenerator[TOutput, None]:
         """
@@ -89,59 +90,57 @@ class AsyncParallelProcessor:
         :param process_row_fn: function to process each row
         :param parameters: parameters to pass to the process_row_fn
         :param log_level: log level
+        :param yield_context: if False (the default, preserving existing behavior for every
+                               pre-existing caller), yields bare TOutput values exactly as
+                               before. If True, yields (ParallelFunctionContext, TOutput)
+                               tuples instead, so callers can recover which row (via
+                               context.task_index) each result belongs to.
         :param kwargs: additional parameters
         :return: results of processing
         """
 
         if self.max_concurrent_tasks == 1:
             for i, row in enumerate(rows):
-                yield await process_row_fn(
-                    context=ParallelFunctionContext(
-                        name=self.name,
-                        log_level=log_level,
-                        task_index=i,
-                        total_task_count=len(rows),
-                    ),
+                context = ParallelFunctionContext(
+                    name=self.name,
+                    log_level=log_level,
+                    task_index=i,
+                    total_task_count=len(rows),
+                )
+                result = await process_row_fn(
+                    context=context,
                     row=row,
                     parameters=parameters,
                     additional_parameters=kwargs,
                 )
+                yield (context, result) if yield_context else result  # type: ignore[misc]
             return
 
         # noinspection PyShadowingNames
         async def process_with_semaphore_async(
             *, name: str, row1: TInput, task_index: int, total_task_count: int
-        ) -> TOutput:
+        ) -> tuple[ParallelFunctionContext, TOutput]:
+            context = ParallelFunctionContext(
+                name=name,
+                log_level=log_level,
+                task_index=task_index,
+                total_task_count=total_task_count,
+            )
             if self.semaphore is None:
-                return await process_row_fn(
-                    context=ParallelFunctionContext(
-                        name=name,
-                        log_level=log_level,
-                        task_index=task_index,
-                        total_task_count=total_task_count,
-                    ),
-                    row=row1,
-                    parameters=parameters,
-                    additional_parameters=kwargs,
+                result = await process_row_fn(
+                    context=context, row=row1, parameters=parameters, additional_parameters=kwargs
                 )
             else:
                 async with self.semaphore:
-                    return await process_row_fn(
-                        context=ParallelFunctionContext(
-                            name=name,
-                            log_level=log_level,
-                            task_index=task_index,
-                            total_task_count=total_task_count,
-                        ),
-                        row=row1,
-                        parameters=parameters,
-                        additional_parameters=kwargs,
+                    result = await process_row_fn(
+                        context=context, row=row1, parameters=parameters, additional_parameters=kwargs
                     )
+            return context, result
 
         total_task_count: int = len(rows)
 
         # Create all tasks at once with their indices
-        pending: set[Task[TOutput]] = {
+        pending: set[Task[tuple[ParallelFunctionContext, TOutput]]] = {
             asyncio.create_task(
                 process_with_semaphore_async(
                     name=self.name,
@@ -156,17 +155,26 @@ class AsyncParallelProcessor:
 
         try:
             while pending:
-                done: set[Task[TOutput]]
+                done: set[Task[tuple[ParallelFunctionContext, TOutput]]]
                 done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
 
-                # Process completed tasks
+                # asyncio.wait() can return more than one simultaneously-completed
+                # task in `done`, and iterating a set does not preserve completion
+                # order. Yield every already-succeeded result in this batch before
+                # raising, so a failing task never causes an already-succeeded
+                # sibling task's result to be silently discarded.
+                first_error: BaseException | None = None
                 for task in done:
                     try:
-                        yield await task
-                    except Exception:
-                        # Handle or re-raise error
-                        # logger.error(f"Error processing row: {e}")
-                        raise
+                        context, result = await task
+                    except Exception as exc:
+                        if first_error is None:
+                            first_error = exc
+                        continue
+                    yield (context, result) if yield_context else result  # type: ignore[misc]
+
+                if first_error is not None:
+                    raise first_error
 
         finally:
             # Cancel any pending tasks if something goes wrong
