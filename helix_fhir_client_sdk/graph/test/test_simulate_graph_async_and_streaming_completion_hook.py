@@ -307,6 +307,75 @@ async def test_resource_type_completed_outcome_not_found_for_start_resource(use_
 
 @pytest.mark.asyncio
 @USE_STREAMING_PARAMS
+async def test_not_found_start_resource_skips_link_traversal(use_streaming: bool) -> None:
+    # DCON-5260: process_simulate_graph_async()'s early-return branch used
+    # to check the raw get_resource_count() (which counts the
+    # OperationOutcome placeholder), so a 404 start resource fell through
+    # to link traversal against that bogus entry instead of stopping, like
+    # _process_simulate_graph_by_resource_type_async() already does. No
+    # AllergyIntolerance/CarePlan endpoint is mocked below — if the
+    # traversal wrongly proceeds, aioresponses raises for the unmatched
+    # request and this test fails.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            status=404,
+            payload={"resourceType": "OperationOutcome"},
+        )
+
+        responses = await call_graph_method(
+            graph_processor,
+            use_streaming=use_streaming,
+            id_="1",
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+        )
+
+    assert len(responses) == 1
+    assert [resource.get("resourceType") for resource in responses[0].get_resources()] == ["OperationOutcome"]
+
+
+@pytest.mark.asyncio
+@USE_STREAMING_PARAMS
+async def test_resource_type_completed_outcome_scope_denied_for_start_resource(use_streaming: bool) -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+    graph_processor._auth_scopes = ["patient/CarePlan.read"]
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses():
+        # No Patient/AllergyIntolerance/CarePlan endpoint is mocked at all —
+        # the scope denial must short-circuit before any HTTP call.
+        await call_graph_method(
+            graph_processor,
+            use_streaming=use_streaming,
+            id_="1",
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_resource_type_completed=on_completed,
+            on_graph_retrieval_completed=on_graph_completed,
+        )
+
+    assert len(completed_events) == 1
+    assert completed_events[0].outcome == "scope_denied"
+    assert len(graph_completed_events) == 1
+    assert graph_completed_events[0].total_rejected_count == 1
+    assert graph_completed_events[0].total_error_count == 0
+
+
+@pytest.mark.asyncio
+@USE_STREAMING_PARAMS
 async def test_graph_retrieval_completed_fires_exactly_once_on_start_resource_exception(
     use_streaming: bool,
 ) -> None:
