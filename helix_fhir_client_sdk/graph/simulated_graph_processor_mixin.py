@@ -305,6 +305,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         id_search_unsupported_resources=id_search_unsupported_resources,
                         add_cached_bundles_to_result=add_cached_bundles_to_result,
                         compare_hash=compare_hash,
+                        max_concurrent_tasks=max_concurrent_tasks,
                     )
                 except (Exception, asyncio.CancelledError, GeneratorExit) as exc:
                     # See the identical except-clause in
@@ -911,6 +912,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 additional_parameters.get("add_cached_bundles_to_result", True) if additional_parameters else True
             ),
             ifModifiedSince=(additional_parameters.get("ifModifiedSince", None) if additional_parameters else None),
+            max_concurrent_tasks=parameters.max_concurrent_tasks,
         ):
             # Collect each target result
             result.append(target_result)
@@ -932,6 +934,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         logger: Logger | None,
         id_search_unsupported_resources: list[str],
         add_cached_bundles_to_result: bool = True,
+        max_concurrent_tasks: int | None = None,
     ) -> FhirGetResponse:
         """
         Retrieve a group of child resources with advanced retrieval and logging capabilities.
@@ -982,6 +985,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # Track resources with limited ID search
             id_search_unsupported_resources=id_search_unsupported_resources,
             add_cached_bundles_to_result=add_cached_bundles_to_result,
+            max_concurrent_tasks=max_concurrent_tasks,
         )
 
         # Log detailed retrieval information if logger is available
@@ -999,6 +1003,44 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # Return the retrieved child resources
         return child_response
 
+    async def _fetch_child_groups_concurrently(
+        self,
+        *,
+        batches: list[dict[str, Any]],
+        max_concurrent_tasks: int | None,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        """
+        Fetches every batch assembled by _process_target_async's three
+        branches concurrently (bounded by max_concurrent_tasks) instead of
+        awaiting each batch's fetch before assembling the next. Each batch
+        dict is the exact kwargs for one _process_child_group() call. Batches
+        are independent — each is its own group of parent ids/refs — so
+        there is no ordering requirement between them (unlike
+        _get_resources_by_id_one_by_one_async(), which merges its per-id
+        fetches into a single response and does care about order).
+        """
+        if not batches:
+            return
+
+        async def _fetch_one_batch(
+            *,
+            context: ParallelFunctionContext,
+            row: dict[str, Any],
+            parameters: None,
+            additional_parameters: dict[str, Any] | None,
+        ) -> FhirGetResponse:
+            return await self._process_child_group(**row)
+
+        async for child_response in AsyncParallelProcessor(
+            name="_process_target_async_child_group",
+            max_concurrent_tasks=max_concurrent_tasks,
+        ).process_rows_in_parallel(
+            rows=batches,
+            process_row_fn=_fetch_one_batch,
+            parameters=None,
+        ):
+            yield child_response
+
     async def _process_target_async(
         self,
         *,
@@ -1013,6 +1055,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         id_search_unsupported_resources: list[str],
         add_cached_bundles_to_result: bool = True,
         ifModifiedSince: datetime | None = None,
+        max_concurrent_tasks: int | None = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
         Process a GraphDefinition target
@@ -1028,10 +1071,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param request_size: number of resources to request at once
         :param id_search_unsupported_resources: list of resources that do not support id search
         :param ifModifiedSince: ifModifiedSince to use
+        :param max_concurrent_tasks: maximum number of batches to fetch concurrently. If None,
+                                       there is no limit. If 1, batches are fetched sequentially
+                                       (this method's pre-existing behavior).
         :return: list of FhirGetResponse objects
         """
         children: list[FhirBundleEntry] = []
-        child_response: FhirGetResponse
         target_type: str | None = target.type_
         assert target_type
         parent_resource_type: str = ""
@@ -1044,6 +1089,29 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 f" path:[{path}]"
                 f"params: {target.params}"
             )
+
+        # Each element is the exact kwargs for one _process_child_group()
+        # call. Assembling this list first (no I/O — just bundle-entry
+        # bookkeeping) and fetching every batch concurrently afterward via
+        # _fetch_child_groups_concurrently, instead of awaiting each batch's
+        # fetch before assembling the next, is what lets N independent
+        # batches for one target become N requests in flight instead of N
+        # sequential round trips.
+        child_group_batches: list[dict[str, Any]] = []
+
+        # Tracks every child id assigned to a batch so far, across ALL
+        # batches for this target (not just the batch currently being
+        # filled) — distinct from a batch's own child_ids, which is reset
+        # once it fills. Without this, the same child id referenced by two
+        # different parents (e.g. two Encounters naming the same
+        # Practitioner) can land in two separate batches once request_size
+        # rolls over, and since those batches are now fetched concurrently
+        # rather than sequentially, both would race to fetch — and cache —
+        # the same id at once instead of the second one finding it already
+        # cached (the sequential code's behavior). Deduplicating up front
+        # keeps every id in exactly one batch, which is strictly fewer
+        # requests than before as well as concurrency-safe.
+        seen_child_ids: set[str] = set()
 
         # forward link and iterate over list
         if path and "[x]" in path and parent_bundle_entries:
@@ -1070,47 +1138,51 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         if reference_id:
                             reference_parts = reference_id.split("/")
                             if target_type in reference_parts:
-                                if reference_parts[-1] and reference_parts[-1] not in child_ids:
+                                if reference_parts[-1] and reference_parts[-1] not in seen_child_ids:
                                     child_ids.append(reference_parts[-1])
+                                    seen_child_ids.add(reference_parts[-1])
                                 # If we receive a reference like "example.com/Procedure/1234/"
                                 elif (
                                     len(reference_parts) > 2
                                     and reference_parts[-2]
-                                    and reference_parts[-2] not in child_ids
+                                    and reference_parts[-2] not in seen_child_ids
                                 ):
                                     child_ids.append(reference_parts[-2])
+                                    seen_child_ids.add(reference_parts[-2])
                         if request_size and len(child_ids) == request_size:
-                            child_response = await self._process_child_group(
-                                resource_type=target_type,
-                                id_=child_ids,
-                                parent_ids=parent_ids,
-                                parent_resource_type=parent_resource_type,
-                                path=path,
-                                cache=cache,
-                                scope_parser=scope_parser,
-                                logger=logger,
-                                id_search_unsupported_resources=id_search_unsupported_resources,
-                                add_cached_bundles_to_result=add_cached_bundles_to_result,
+                            child_group_batches.append(
+                                {
+                                    "resource_type": target_type,
+                                    "id_": child_ids,
+                                    "parent_ids": parent_ids,
+                                    "parent_resource_type": parent_resource_type,
+                                    "path": path,
+                                    "cache": cache,
+                                    "scope_parser": scope_parser,
+                                    "logger": logger,
+                                    "id_search_unsupported_resources": id_search_unsupported_resources,
+                                    "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                                    "max_concurrent_tasks": max_concurrent_tasks,
+                                }
                             )
-                            yield child_response
-                            children.extend(child_response.get_bundle_entries())
                             child_ids = []
                             parent_ids = []
             if child_ids:
-                child_response = await self._process_child_group(
-                    resource_type=target_type,
-                    id_=child_ids,
-                    parent_ids=parent_ids,
-                    parent_resource_type=parent_resource_type,
-                    path=path,
-                    cache=cache,
-                    scope_parser=scope_parser,
-                    logger=logger,
-                    id_search_unsupported_resources=id_search_unsupported_resources,
-                    add_cached_bundles_to_result=add_cached_bundles_to_result,
+                child_group_batches.append(
+                    {
+                        "resource_type": target_type,
+                        "id_": child_ids,
+                        "parent_ids": parent_ids,
+                        "parent_resource_type": parent_resource_type,
+                        "path": path,
+                        "cache": cache,
+                        "scope_parser": scope_parser,
+                        "logger": logger,
+                        "id_search_unsupported_resources": id_search_unsupported_resources,
+                        "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                        "max_concurrent_tasks": max_concurrent_tasks,
+                    }
                 )
-                yield child_response
-                children.extend(child_response.get_bundle_entries())
         elif path and parent_bundle_entries and target_type:
             child_ids = []
             for parent_bundle_entry in parent_bundle_entries:
@@ -1125,47 +1197,51 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             reference_id = reference["reference"]
                             reference_parts = reference_id.split("/")
                             if target_type in reference_parts:
-                                if reference_parts[-1] and reference_parts[-1] not in child_ids:
+                                if reference_parts[-1] and reference_parts[-1] not in seen_child_ids:
                                     child_ids.append(reference_parts[-1])
+                                    seen_child_ids.add(reference_parts[-1])
                                 # If we receive a reference like "example.com/Procedure/1234/"
                                 elif (
                                     len(reference_parts) > 2
                                     and reference_parts[-2]
-                                    and reference_parts[-2] not in child_ids
+                                    and reference_parts[-2] not in seen_child_ids
                                 ):
                                     child_ids.append(reference_parts[-2])
+                                    seen_child_ids.add(reference_parts[-2])
                             if request_size and len(child_ids) == request_size:
-                                child_response = await self._process_child_group(
-                                    resource_type=target_type,
-                                    id_=child_ids,
-                                    parent_ids=parent_ids,
-                                    parent_resource_type=parent_resource_type,
-                                    path=path,
-                                    cache=cache,
-                                    scope_parser=scope_parser,
-                                    logger=logger,
-                                    id_search_unsupported_resources=id_search_unsupported_resources,
-                                    add_cached_bundles_to_result=add_cached_bundles_to_result,
+                                child_group_batches.append(
+                                    {
+                                        "resource_type": target_type,
+                                        "id_": child_ids,
+                                        "parent_ids": parent_ids,
+                                        "parent_resource_type": parent_resource_type,
+                                        "path": path,
+                                        "cache": cache,
+                                        "scope_parser": scope_parser,
+                                        "logger": logger,
+                                        "id_search_unsupported_resources": id_search_unsupported_resources,
+                                        "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                                        "max_concurrent_tasks": max_concurrent_tasks,
+                                    }
                                 )
-                                yield child_response
-                                children.extend(child_response.get_bundle_entries())
                                 child_ids = []
                                 parent_ids = []
             if child_ids:
-                child_response = await self._process_child_group(
-                    resource_type=target_type,
-                    id_=child_ids,
-                    parent_ids=parent_ids,
-                    parent_resource_type=parent_resource_type,
-                    path=path,
-                    cache=cache,
-                    scope_parser=scope_parser,
-                    logger=logger,
-                    id_search_unsupported_resources=id_search_unsupported_resources,
-                    add_cached_bundles_to_result=add_cached_bundles_to_result,
+                child_group_batches.append(
+                    {
+                        "resource_type": target_type,
+                        "id_": child_ids,
+                        "parent_ids": parent_ids,
+                        "parent_resource_type": parent_resource_type,
+                        "path": path,
+                        "cache": cache,
+                        "scope_parser": scope_parser,
+                        "logger": logger,
+                        "id_search_unsupported_resources": id_search_unsupported_resources,
+                        "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                        "max_concurrent_tasks": max_concurrent_tasks,
+                    }
                 )
-                yield child_response
-                children.extend(child_response.get_bundle_entries())
 
         elif target.params:  # reverse path
             # for a reverse link, get the ids of the current resource, put in a view and
@@ -1190,47 +1266,64 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             additional_parameters = [p for p in param_list if not p.endswith("{ref}")]
             # get the property name of the ref parameter
             property_name: str = ref_param.split("=")[0]
+            # Same reasoning as seen_child_ids above, applied to the ids
+            # being batched into this reverse link's own {ref}=a,b,c query
+            # parameter: without a target-wide (not just current-batch) seen
+            # set, a duplicate parent id split across two request_size
+            # batches would let two concurrently-fetched batches issue the
+            # exact same query.
+            seen_parent_ids: set[str] = set()
             if parent_bundle_entries and property_name and target_type:
                 for parent_bundle_entry in parent_bundle_entries:
                     parent_resource = parent_bundle_entry.resource
                     if parent_resource:
                         parent_id = quote(parent_resource.get("id", ""))
                         parent_resource_type = parent_resource.get("resourceType", "")
-                        if parent_id and parent_id not in parent_ids:
+                        if parent_id and parent_id not in seen_parent_ids:
                             parent_ids.append(parent_id)
+                            seen_parent_ids.add(parent_id)
                     if request_size and len(parent_ids) == request_size:
                         request_parameters = [f"{property_name}={','.join(parent_ids)}"] + additional_parameters
-                        child_response = await self._process_child_group(
-                            resource_type=target_type,
-                            parent_ids=parent_ids,
-                            parent_resource_type=parent_resource_type,
-                            parameters=request_parameters,
-                            path=path,
-                            cache=cache,
-                            scope_parser=scope_parser,
-                            logger=logger,
-                            id_search_unsupported_resources=id_search_unsupported_resources,
-                            add_cached_bundles_to_result=add_cached_bundles_to_result,
+                        child_group_batches.append(
+                            {
+                                "resource_type": target_type,
+                                "parent_ids": parent_ids,
+                                "parent_resource_type": parent_resource_type,
+                                "parameters": request_parameters,
+                                "path": path,
+                                "cache": cache,
+                                "scope_parser": scope_parser,
+                                "logger": logger,
+                                "id_search_unsupported_resources": id_search_unsupported_resources,
+                                "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                                "max_concurrent_tasks": max_concurrent_tasks,
+                            }
                         )
-                        yield child_response
-                        children.extend(child_response.get_bundle_entries())
                         parent_ids = []
                 if parent_ids:
                     request_parameters = [f"{property_name}={','.join(parent_ids)}"] + additional_parameters
-                    child_response = await self._process_child_group(
-                        resource_type=target_type,
-                        parent_ids=parent_ids,
-                        parent_resource_type=parent_resource_type,
-                        parameters=request_parameters,
-                        path=path,
-                        cache=cache,
-                        scope_parser=scope_parser,
-                        logger=logger,
-                        id_search_unsupported_resources=id_search_unsupported_resources,
-                        add_cached_bundles_to_result=add_cached_bundles_to_result,
+                    child_group_batches.append(
+                        {
+                            "resource_type": target_type,
+                            "parent_ids": parent_ids,
+                            "parent_resource_type": parent_resource_type,
+                            "parameters": request_parameters,
+                            "path": path,
+                            "cache": cache,
+                            "scope_parser": scope_parser,
+                            "logger": logger,
+                            "id_search_unsupported_resources": id_search_unsupported_resources,
+                            "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                            "max_concurrent_tasks": max_concurrent_tasks,
+                        }
                     )
-                    yield child_response
-                    children.extend(child_response.get_bundle_entries())
+
+        async for child_response in self._fetch_child_groups_concurrently(
+            batches=child_group_batches, max_concurrent_tasks=max_concurrent_tasks
+        ):
+            yield child_response
+            children.extend(child_response.get_bundle_entries())
+
         if target.link:
             parent_link_map.append((target.link, children))
 
@@ -1243,8 +1336,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         additional_parameters: list[str] | None,
         logger: Logger | None,
         compare_hash: bool = True,
+        max_concurrent_tasks: int | None = None,
     ) -> FhirGetResponse | None:
-        result: FhirGetResponse | None = None
+        # Renamed so the nested fetch function below (whose signature must match
+        # the ParallelFunction protocol's own `additional_parameters` keyword,
+        # a dict of framework kwargs unrelated to this method's FHIR query
+        # parameters) doesn't shadow it.
+        fhir_query_parameters = additional_parameters
+
         non_cached_id_list: list[str] = []
 
         # first check to see if we can find these in the cache
@@ -1261,53 +1360,98 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         logger.info(f"Cache entry not found for {resource_type}/{resource_id} (1by1)")
                     non_cached_id_list.append(resource_id)
 
-        for single_id in non_cached_id_list:
+        if not non_cached_id_list:
+            return None
+
+        async def _cache_one_by_one_success_entry_async(
+            *, single_id: str, result2: FhirGetResponse, entry: FhirBundleEntry
+        ) -> None:
+            cache_updated = await cache.add_async(
+                resource_type=resource_type,
+                resource_id=single_id,
+                bundle_entry=result2.get_bundle_entries()[0],
+                status=result2.status,
+                last_modified=result2.lastModified,
+                etag=result2.etag,
+                from_input_cache=False,
+                raw_hash=ResourceHash().hash_value(json.dumps(json.loads(entry._resource.json()), sort_keys=True))
+                if compare_hash and entry._resource
+                else "",
+            )
+            if cache_updated and logger:
+                logger.info(f"Inserted {resource_type}/{single_id} into cache (1by1)")
+
+        async def _cache_one_by_one_result_async(*, single_id: str, result2: FhirGetResponse) -> None:
+            if result2.successful:
+                for entry in result2.get_bundle_entries():
+                    await _cache_one_by_one_success_entry_async(single_id=single_id, result2=result2, entry=entry)
+            else:
+                cache_updated = await cache.add_async(
+                    resource_type=resource_type,
+                    resource_id=single_id,
+                    bundle_entry=None,
+                    status=result2.status,
+                    last_modified=result2.lastModified,
+                    etag=result2.etag,
+                    from_input_cache=False,
+                    raw_hash="",
+                )
+                if cache_updated and logger:
+                    logger.info(f"Inserted {result2.status} for {resource_type}/{single_id} into cache (1by1)")
+
+        async def _fetch_and_cache_one_id(
+            *,
+            context: ParallelFunctionContext,
+            row: str,
+            parameters: None,
+            additional_parameters: dict[str, Any] | None,
+        ) -> FhirGetResponse | None:
+            single_id = row
+            result_for_id: FhirGetResponse | None = None
             result2: FhirGetResponse
             async for result2 in self._get_with_session_async(
                 page_number=None,
                 ids=[single_id],
-                additional_parameters=additional_parameters,
+                additional_parameters=fhir_query_parameters,
                 id_above=None,
                 fn_handle_streaming_chunk=None,
                 resource_type=resource_type,
             ):
                 if result2.resource_type == "OperationOutcome":
                     result2 = FhirGetErrorResponse.from_response(other_response=result2)
-                if result:
-                    result = result.append(result2)
-                else:
-                    result = result2
-                if result2.successful:
-                    for entry in result2.get_bundle_entries():
-                        cache_updated = await cache.add_async(
-                            resource_type=resource_type,
-                            resource_id=single_id,
-                            bundle_entry=result2.get_bundle_entries()[0],
-                            status=result2.status,
-                            last_modified=result2.lastModified,
-                            etag=result2.etag,
-                            from_input_cache=False,
-                            raw_hash=ResourceHash().hash_value(
-                                json.dumps(json.loads(entry._resource.json()), sort_keys=True)
-                            )
-                            if compare_hash and entry._resource
-                            else "",
-                        )
-                        if cache_updated and logger:
-                            logger.info(f"Inserted {resource_type}/{single_id} into cache (1by1)")
-                else:
-                    cache_updated = await cache.add_async(
-                        resource_type=resource_type,
-                        resource_id=single_id,
-                        bundle_entry=None,
-                        status=result2.status,
-                        last_modified=result2.lastModified,
-                        etag=result2.etag,
-                        from_input_cache=False,
-                        raw_hash="",
-                    )
-                    if cache_updated and logger:
-                        logger.info(f"Inserted {result2.status} for {resource_type}/{single_id} into cache (1by1)")
+                result_for_id = result_for_id.append(result2) if result_for_id else result2
+                await _cache_one_by_one_result_async(single_id=single_id, result2=result2)
+            return result_for_id
+
+        # Fetch every non-cached id concurrently (bounded by max_concurrent_tasks)
+        # instead of one HTTP round trip at a time — this is the fallback path
+        # used whenever the server doesn't support batch ?_id=a,b search for
+        # resource_type, so it can otherwise dominate wall-clock time for a
+        # population-level fetch. Results arrive in completion order, not
+        # request order, so they're collected by id here and merged back in
+        # `ids`' original order below — result.status/.successful must keep
+        # reflecting the first id in that order, not whichever request happens
+        # to finish first, matching this method's pre-existing behavior.
+        results_by_id: dict[str, FhirGetResponse | None] = {}
+        context: ParallelFunctionContext
+        fetched: FhirGetResponse | None
+        async for context, fetched in AsyncParallelProcessor(  # type: ignore[misc]
+            name="_get_resources_by_id_one_by_one_async",
+            max_concurrent_tasks=max_concurrent_tasks,
+        ).process_rows_in_parallel(
+            rows=non_cached_id_list,
+            process_row_fn=_fetch_and_cache_one_id,
+            parameters=None,
+            yield_context=True,
+        ):
+            results_by_id[non_cached_id_list[context.task_index]] = fetched
+
+        result: FhirGetResponse | None = None
+        for single_id in non_cached_id_list:
+            fetched = results_by_id.get(single_id)
+            if fetched is None:
+                continue
+            result = result.append(fetched) if result else fetched
         return result
 
     async def _get_resources_by_parameters_async(
@@ -1322,6 +1466,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         id_search_unsupported_resources: list[str],
         add_cached_bundles_to_result: bool = True,
         compare_hash: bool = True,
+        max_concurrent_tasks: int | None = None,
     ) -> tuple[FhirGetResponse, int]:
         assert resource_type
         if not scope_parser.scope_allows(resource_type=resource_type):
@@ -1409,6 +1554,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         cache=cache,
                         logger=logger,
                         compare_hash=compare_hash,
+                        max_concurrent_tasks=max_concurrent_tasks,
                     )
                 else:
                     if logger:
@@ -1437,6 +1583,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 cache=cache,
                 logger=logger,
                 compare_hash=compare_hash,
+                max_concurrent_tasks=max_concurrent_tasks,
             )
 
         # This list tracks the non-cached ids that were found
@@ -2227,6 +2374,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         id_search_unsupported_resources=id_search_unsupported_resources,
                         add_cached_bundles_to_result=add_cached_bundles_to_result,
                         compare_hash=compare_hash,
+                        max_concurrent_tasks=max_concurrent_tasks,
                     )
                 except (Exception, asyncio.CancelledError, GeneratorExit) as exc:
                     # Fire a matching completion event (if registered) before

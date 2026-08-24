@@ -589,6 +589,189 @@ async def test_process_simulate_graph_async_multiple_patients() -> None:
 
 
 @pytest.mark.asyncio
+async def test_process_target_async_batches_fetch_concurrently() -> None:
+    """
+    Regression guard (DCON-5261): _process_target_async() used to await each
+    request_size-bounded batch's fetch before assembling the next, so N
+    independent batches for one target took N sequential round trips. With
+    three patients and request_size defaulting to 1, the Encounter link
+    below produces three separate batches (Encounter?patient=1/2/3).
+
+    Asserts directly on how many of those three fetches were ever
+    in-flight at once (tracked by the delayed callback below), rather than
+    on wall-clock time — a fixed elapsed-time threshold is flaky across
+    cold/warm test runs (e.g. first-request connection/SSL context setup
+    overhead can dwarf the delay itself), whereas "were N requests
+    in-flight simultaneously" is unaffected by that overhead and can only
+    be true if the batches were actually fetched concurrently.
+    """
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=3)
+
+    logger: Logger = LoggerForTest()
+
+    graph_json: dict[str, Any] = {
+        "id": "1",
+        "name": "Test Graph",
+        "resourceType": "GraphDefinition",
+        "start": "Patient",
+        "link": [{"target": [{"type": "Encounter", "params": "patient={ref}"}]}],
+    }
+
+    in_flight = 0
+    max_in_flight = 0
+
+    def make_delayed_encounter_callback(patient_id: str) -> Callable[..., Awaitable[CallbackResult]]:
+        async def _callback(url: str, **kwargs: Any) -> CallbackResult:
+            nonlocal in_flight, max_in_flight
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+            await asyncio.sleep(0.1)
+            in_flight -= 1
+            return CallbackResult(
+                status=200,
+                headers={},
+                body=json.dumps({"entry": [{"resource": {"resourceType": "Encounter", "id": f"e{patient_id}"}}]}),
+            )
+
+        return _callback
+
+    with aioresponses() as m:
+        payload = {
+            "resourceType": "Bundle",
+            "entry": [
+                {"resource": {"resourceType": "Patient", "id": "1"}},
+                {"resource": {"resourceType": "Patient", "id": "2"}},
+                {"resource": {"resourceType": "Patient", "id": "3"}},
+            ],
+        }
+        m.get("http://example.com/fhir/Patient?_id=1,2,3", payload=payload)
+
+        for patient_id in ["1", "2", "3"]:
+            m.get(
+                f"http://example.com/fhir/Encounter?patient={patient_id}",
+                callback=make_delayed_encounter_callback(patient_id),
+            )
+
+        graph_processor.page_size(3)
+        async_gen = graph_processor.process_simulate_graph_async(
+            id_=["1", "2", "3"],
+            graph_json=graph_json,
+            contained=False,
+            separate_bundle_resources=False,
+            restrict_to_scope=None,
+            restrict_to_resources=None,
+            restrict_to_capability_statement=None,
+            retrieve_and_restrict_to_capability_statement=None,
+            ifModifiedSince=None,
+            eTag=None,
+            logger=logger,
+            url=None,
+            expand_fhir_bundle=False,
+            auth_scopes=[],
+            max_concurrent_tasks=3,
+            sort_resources=True,
+        )
+        response = [r async for r in async_gen]
+
+    assert len(response) == 1
+    resources: FhirResourceList = response[0].get_resources()
+    encounter_ids = sorted(r["id"] for r in resources if r["resourceType"] == "Encounter")
+    assert encounter_ids == ["e1", "e2", "e3"]
+
+    # All three batches must have been in flight at the same time at some
+    # point — sequential fetching (the pre-fix behavior) would never let
+    # in_flight exceed 1.
+    assert max_in_flight == 3, f"expected all 3 batches in flight concurrently, saw max {max_in_flight}"
+
+
+@pytest.mark.asyncio
+async def test_get_resources_by_id_one_by_one_fetches_concurrently() -> None:
+    """
+    Regression guard (DCON-5261): _get_resources_by_id_one_by_one_async() —
+    the fallback used once a resource type is found not to support batch
+    ?_id=a,b search — used to fetch each id with a plain sequential
+    for/await loop. Forcing that fallback here (the combined ?_id=1,2,3
+    search below returns 400) for three patient ids and asserting on how
+    many were ever in flight at once (see the identical technique in
+    test_process_target_async_batches_fetch_concurrently for why this is
+    used instead of a wall-clock threshold) proves they now fetch
+    concurrently instead of one at a time.
+    """
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=3)
+
+    logger: Logger = LoggerForTest()
+
+    graph_json: dict[str, Any] = {
+        "id": "1",
+        "name": "Test Graph",
+        "resourceType": "GraphDefinition",
+        "start": "Patient",
+        "link": [],
+    }
+
+    in_flight = 0
+    max_in_flight = 0
+
+    def make_delayed_patient_callback(patient_id: str) -> Callable[..., Awaitable[CallbackResult]]:
+        async def _callback(url: str, **kwargs: Any) -> CallbackResult:
+            nonlocal in_flight, max_in_flight
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+            await asyncio.sleep(0.1)
+            in_flight -= 1
+            return CallbackResult(
+                status=200,
+                headers={},
+                body=json.dumps({"resourceType": "Patient", "id": patient_id}),
+            )
+
+        return _callback
+
+    with aioresponses() as m:
+        # Force the one-by-one fallback: the combined _id search fails.
+        m.get(
+            "http://example.com/fhir/Patient?_id=1,2,3",
+            status=400,
+            payload={"resourceType": "OperationOutcome"},
+        )
+        for patient_id in ["1", "2", "3"]:
+            m.get(
+                f"http://example.com/fhir/Patient/{patient_id}",
+                callback=make_delayed_patient_callback(patient_id),
+            )
+
+        async_gen = graph_processor.process_simulate_graph_async(
+            id_=["1", "2", "3"],
+            graph_json=graph_json,
+            contained=False,
+            separate_bundle_resources=False,
+            restrict_to_scope=None,
+            restrict_to_resources=None,
+            restrict_to_capability_statement=None,
+            retrieve_and_restrict_to_capability_statement=None,
+            ifModifiedSince=None,
+            eTag=None,
+            logger=logger,
+            url=None,
+            expand_fhir_bundle=False,
+            auth_scopes=[],
+            max_concurrent_tasks=3,
+            sort_resources=True,
+        )
+        response = [r async for r in async_gen]
+
+    assert len(response) == 1
+    resources: FhirResourceList = response[0].get_resources()
+    patient_ids = sorted(r["id"] for r in resources if r["resourceType"] == "Patient")
+    assert patient_ids == ["1", "2", "3"]
+
+    # All three one-by-one fetches must have been in flight at the same
+    # time at some point — the pre-fix sequential loop would never let
+    # in_flight exceed 1.
+    assert max_in_flight == 3, f"expected all 3 one-by-one fetches in flight concurrently, saw max {max_in_flight}"
+
+
+@pytest.mark.asyncio
 async def test_graph_definition_with_multiple_links_concurrent_requests() -> None:
     """
     Test GraphDefinition with multiple targets.
