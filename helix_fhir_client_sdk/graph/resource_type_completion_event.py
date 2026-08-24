@@ -81,7 +81,9 @@ class ResourceTypeCompletionEvent:
     see error_type/error_message below); "not_found" (the source explicitly
     returned 404 for the requested resource(s)); "scope_denied" (the fetch
     never happened because the auth scope disallowed every one of the
-    link's declared target types); "error" (the fetch raised — only
+    link's declared target types — for the start resource, i.e.
+    link_index == -1, this means the auth scope disallowed the start
+    resource's own type); "error" (the fetch raised — only
     possible when the caller opted into continue_on_resource_type_error;
     otherwise a raised fetch fires this event with outcome="error" and then
     the exception propagates, aborting the traversal — or the fetch came
