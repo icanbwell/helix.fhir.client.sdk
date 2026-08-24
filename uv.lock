@@ -8,6 +8,10 @@ resolution-markers = [
     "python_full_version < '3.13'",
 ]
 
+[options]
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
+exclude-newer-span = "P2D"
+
 [manifest]
 constraints = [{ name = "msgpack", specifier = ">=1.2.1" }]
 
@@ -780,7 +784,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp" },
+    { name = "aiohttp", specifier = ">=3.14.3" },
     { name = "async-timeout", specifier = ">=4.0.3" },
     { name = "certifi", specifier = ">=2025.1.31" },
     { name = "compressedfhir", specifier = ">=1.0.13,<3" },
