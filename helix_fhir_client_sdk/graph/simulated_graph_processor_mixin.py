@@ -190,8 +190,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             continue_on_resource_type_error: Optional flag (default False, preserving
                 today's exact behavior). When True, a link's own fetch failure fires
                 on_resource_type_completed with outcome="error" and the traversal
-                continues to the next link instead of re-raising. The start resource's own
-                fetch failure is always fatal, regardless of this flag.
+                continues to the next link instead of re-raising. A raised start-resource
+                fetch failure is always fatal, regardless of this flag; a returned-not-
+                raised non-404 HTTP error status is reported as outcome="error" but does
+                not abort the traversal (pre-existing behavior, unchanged by this flag).
 
         Yields:
             FhirGetResponse objects representing retrieved resources
@@ -314,9 +316,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 # decision below — that branching stays exactly as it was
                 # before this feature (raw get_resource_count(), not the
                 # OperationOutcome-excluding content check
-                # _process_simulate_graph_by_resource_type_async uses), per
-                # this plan's Global Constraints. This must still be
-                # computed before the branch so a 404-with-body response
+                # _process_simulate_graph_by_resource_type_async uses) —
+                # this method's zero-vs-nonzero branching is deliberately
+                # unchanged. This must still be computed before the branch
+                # so a 404-with-body response
                 # (get_resource_count() == 1, not 0 — the OperationOutcome
                 # itself counts) reports outcome="not_found" correctly even
                 # though it takes the "nonzero" branch below, not the
@@ -341,6 +344,14 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     if not parent_response.successful and parent_response.status != 404
                     else None
                 )
+
+                # Track the actually-queried URL regardless of outcome — this
+                # mirrors _process_simulate_graph_by_resource_type_async's own
+                # unconditional URL tracking and keeps
+                # GraphRetrievalCompletedEvent.urls consistent across all
+                # three methods for the same server response.
+                if parent_response.url:
+                    all_urls.add(parent_response.url)
 
                 # If no parent resources found, yield empty response and exit
                 if parent_response_resource_count == 0:
@@ -372,10 +383,16 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         f"cached:{cache_hits}"
                     )
 
-                all_resource_types.add(start)
-                total_resource_count += parent_response_resource_count
-                if parent_response.url:
-                    all_urls.add(parent_response.url)
+                # Only reflect real, successfully-retrieved content in the
+                # whole-graph rollups — a 404-with-OperationOutcome-body or
+                # other non-success start response must not report itself as
+                # a retrieved Patient, matching how
+                # _process_simulate_graph_by_resource_type_async's own
+                # zero-result/error start-resource paths never touch these
+                # rollups either.
+                if start_resource_outcome == "success":
+                    all_resource_types.add(start)
+                    total_resource_count += parent_response_resource_count
 
                 if on_resource_type_completed:
                     await on_resource_type_completed(
@@ -711,11 +728,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         "Resource type fetch failed, continuing traversal (continue_on_resource_type_error=True)"
                         + f" | task_index: {context.task_index} | target: {target_resource_type} | error: {exc}"
                     )
-                # Defer firing the completion event to the consumer loop in
-                # _process_simulate_graph_by_resource_type_async, which
-                # classifies outcome="error" from this returned error and
-                # fires exactly one completion event for this link — firing
-                # here too would double-fire it.
+                # Defer firing the completion event to whichever consumer
+                # loop called this function (_process_simulate_graph_by_resource_type_async
+                # or process_simulate_graph_async both do), which classifies
+                # outcome="error" from this returned error and fires exactly
+                # one completion event for this link — firing here too would
+                # double-fire it.
                 return _LinkFetchResult(responses=[], error=exc)
 
             # Default behavior (continue_on_resource_type_error=False):
@@ -1616,9 +1634,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                                    on_resource_type_completed with
                                                    outcome="error" and the traversal
                                                    continues to the next link instead of
-                                                   re-raising. The start resource's own
+                                                   re-raising. A raised start-resource
                                                    fetch failure is always fatal,
-                                                   regardless of this flag.
+                                                   regardless of this flag; a returned-
+                                                   not-raised non-404 HTTP error status is
+                                                   reported as outcome="error" but does
+                                                   not abort the traversal (pre-existing
+                                                   behavior, unchanged by this flag).
         :return: FhirGetResponse
         """
         if contained:
@@ -1744,9 +1766,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                                    on_resource_type_completed with
                                                    outcome="error" and the traversal
                                                    continues to the next link instead of
-                                                   re-raising. The start resource's own
+                                                   re-raising. A raised start-resource
                                                    fetch failure is always fatal,
-                                                   regardless of this flag.
+                                                   regardless of this flag; a returned-
+                                                   not-raised non-404 HTTP error status is
+                                                   reported as outcome="error" but does
+                                                   not abort the traversal (pre-existing
+                                                   behavior, unchanged by this flag).
         :return: FhirGetResponse
         """
         if contained:

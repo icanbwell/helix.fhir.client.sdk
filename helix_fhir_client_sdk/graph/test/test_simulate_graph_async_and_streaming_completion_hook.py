@@ -50,6 +50,34 @@ START_ONLY_GRAPH: dict[str, Any] = {
     "start": "Patient",
 }
 
+# NESTED_GRAPH: Patient -> Encounter (depth 0) -> Practitioner (depth 1).
+NESTED_GRAPH: dict[str, Any] = {
+    "id": "1",
+    "name": "Test Graph - Nested",
+    "resourceType": "GraphDefinition",
+    "start": "Patient",
+    "link": [
+        {
+            "target": [
+                {
+                    "type": "Encounter",
+                    "params": "patient={ref}",
+                    "link": [
+                        {
+                            "target": [
+                                {
+                                    "type": "Practitioner",
+                                    "params": "encounter={ref}",
+                                }
+                            ]
+                        }
+                    ],
+                }
+            ]
+        }
+    ],
+}
+
 
 def mock_two_link_graph_responses(m: aioresponses) -> None:
     m.get(
@@ -236,14 +264,17 @@ async def test_resource_type_completed_outcome_not_found_for_start_resource(use_
     # 404-with-OperationOutcome-body response, so this takes the "nonzero"
     # code path, not the early-return path. The reported outcome must still
     # be correctly classified as "not_found" regardless of which path ran —
-    # that is what this test actually proves (see this plan's Global
-    # Constraints and the design spec's Key Decision 4).
+    # that is what this test actually proves.
     graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
 
     completed_events: list[ResourceTypeCompletionEvent] = []
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
 
     async def on_completed(event: ResourceTypeCompletionEvent) -> None:
         completed_events.append(event)
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
 
     with aioresponses() as m:
         m.get(
@@ -260,11 +291,18 @@ async def test_resource_type_completed_outcome_not_found_for_start_resource(use_
             contained=False,
             max_concurrent_tasks=1,
             on_resource_type_completed=on_completed,
+            on_graph_retrieval_completed=on_graph_completed,
         )
 
     assert len(completed_events) == 1
     assert completed_events[0].resource_types == ["Patient"]
     assert completed_events[0].outcome == "not_found"
+
+    # A 404-with-OperationOutcome-body start response must not be reported
+    # as a successfully-retrieved Patient in the whole-graph rollups.
+    assert len(graph_completed_events) == 1
+    assert graph_completed_events[0].resource_types == []
+    assert graph_completed_events[0].total_resource_count == 0
 
 
 @pytest.mark.asyncio
@@ -561,3 +599,99 @@ async def test_resource_type_completed_outcome_error_for_non_404_http_status(use
 
     assert len(graph_completed_events) == 1
     assert graph_completed_events[0].total_error_count == 1
+
+
+@pytest.mark.asyncio
+async def test_graph_retrieval_completed_fires_once_on_streaming_explicit_aclose() -> None:
+    # simulate_graph_streaming_async() wraps process_simulate_graph_async() in a
+    # try/finally that explicitly awaits inner_generator.aclose() — this proves
+    # that wrapper actually does something: closing the PUBLIC generator early
+    # must still deterministically fire on_graph_retrieval_completed within this
+    # same aclose() call, not on some later event-loop turn.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses() as m:
+        mock_two_link_graph_responses(m)
+
+        agen = graph_processor.simulate_graph_streaming_async(
+            id_="1",
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_graph_retrieval_completed=on_graph_completed,
+        )
+
+        # Advance past the first (only) yield without exhausting the generator
+        # via `async for`.
+        first_response = await agen.__anext__()
+        assert first_response.get_resource_count() == 3
+
+        # Explicitly close the PUBLIC generator early instead of exhausting it.
+        await agen.aclose()
+
+    assert len(graph_completed_events) == 1
+
+
+@pytest.mark.asyncio
+@USE_STREAMING_PARAMS
+async def test_started_and_completed_events_fire_at_depth_1_for_nested_links(use_streaming: bool) -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    started_events: list[ResourceTypeStartedEvent] = []
+    completed_events: list[ResourceTypeCompletionEvent] = []
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_started(event: ResourceTypeStartedEvent) -> None:
+        started_events.append(event)
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Patient", "id": "1"},
+        )
+        m.get(
+            "http://example.com/fhir/Encounter?patient=1",
+            payload={"resourceType": "Encounter", "id": "10"},
+        )
+        m.get(
+            "http://example.com/fhir/Practitioner?encounter=10",
+            payload={"resourceType": "Practitioner", "id": "100"},
+        )
+
+        responses = await call_graph_method(
+            graph_processor,
+            use_streaming=use_streaming,
+            id_="1",
+            graph_json=NESTED_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_resource_type_started=on_started,
+            on_resource_type_completed=on_completed,
+            on_graph_retrieval_completed=on_graph_completed,
+        )
+
+    assert len(responses) == 1
+    assert responses[0].get_resource_count() == 3  # Patient, Encounter, Practitioner
+
+    depth_1_started = [e for e in started_events if e.graph_depth == 1]
+    depth_1_completed = [e for e in completed_events if e.graph_depth == 1]
+    assert len(depth_1_started) == 1
+    assert depth_1_started[0].resource_types == ["Practitioner"]
+    assert len(depth_1_completed) == 1
+    assert depth_1_completed[0].resource_types == ["Practitioner"]
+    assert depth_1_completed[0].outcome == "success"
+
+    assert len(graph_completed_events) == 1
+    assert graph_completed_events[0].max_graph_depth == 1
+    assert graph_completed_events[0].total_resource_count == 3

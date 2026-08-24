@@ -53,8 +53,8 @@ class ResourceTypeStartedEvent:
     client_person_id: str
     """Caller-supplied, opaque identifier for the person this call belongs
     to. Not interpreted by this SDK in any way — echoed back exactly as
-    provided, purely so a callback shared across multiple concurrent
-    simulate_graph_by_resource_type_async() calls can tell them apart."""
+    provided, purely so a callback shared across multiple concurrent calls
+    (to any of the three emitting methods above) can tell them apart."""
 
     connection_name: str
     """Caller-supplied, opaque display name for the connection this call
