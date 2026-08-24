@@ -4,11 +4,11 @@ from dataclasses import dataclass
 @dataclass(slots=True)
 class ResourceTypeStartedEvent:
     """
-    Emitted by simulate_graph_by_resource_type_async() right before it begins
-    retrieving one GraphDefinition link's resource type(s), or the start
-    resource itself. Fires once per link (mirroring
-    ResourceTypeCompletionEvent), before any HTTP request for that link has
-    completed.
+    Emitted by simulate_graph_by_resource_type_async(), simulate_graph_async(),
+    and simulate_graph_streaming_async() right before retrieval begins for one
+    GraphDefinition link's resource type(s), or the start resource itself.
+    Fires once per link (mirroring ResourceTypeCompletionEvent), before any
+    HTTP request for that link has completed.
     """
 
     resource_types: list[str]
@@ -53,8 +53,8 @@ class ResourceTypeStartedEvent:
     client_person_id: str
     """Caller-supplied, opaque identifier for the person this call belongs
     to. Not interpreted by this SDK in any way — echoed back exactly as
-    provided, purely so a callback shared across multiple concurrent
-    simulate_graph_by_resource_type_async() calls can tell them apart."""
+    provided, purely so a callback shared across multiple concurrent calls
+    (to any of the three emitting methods above) can tell them apart."""
 
     connection_name: str
     """Caller-supplied, opaque display name for the connection this call

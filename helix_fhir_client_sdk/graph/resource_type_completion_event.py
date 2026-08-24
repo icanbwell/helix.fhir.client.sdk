@@ -5,11 +5,14 @@ from typing import Literal
 @dataclass(slots=True)
 class ResourceTypeCompletionEvent:
     """
-    Emitted by simulate_graph_by_resource_type_async() after every resource that
-    belongs to one GraphDefinition link (usually one resource type, occasionally
-    more than one if the link's `target` array names several types) has been
-    yielded to the caller. There is nothing left to wait for regarding these
-    resource type(s) at this graph depth once this event fires.
+    Emitted by simulate_graph_by_resource_type_async(), simulate_graph_async(),
+    and simulate_graph_streaming_async() after every resource that belongs to
+    one GraphDefinition link (usually one resource type, occasionally more
+    than one if the link's `target` array names several types) has been
+    fully retrieved (usually — but not always, see simulate_graph_async()'s
+    and simulate_graph_streaming_async()'s own docstrings — also yielded to
+    the caller at that point). There is nothing left to wait for regarding
+    these resource type(s) at this graph depth once this event fires.
     """
 
     resource_types: list[str]
@@ -23,16 +26,22 @@ class ResourceTypeCompletionEvent:
     fallback case from a real non-empty result."""
 
     resource_count: int
-    """Total resource count across every FhirGetResponse chunk yielded for this
-    link (sum of each chunk's get_resource_count())."""
+    """Total resource count across every FhirGetResponse chunk retrieved for
+    this link (sum of each chunk's get_resource_count()) — chunks are
+    yielded individually by simulate_graph_by_resource_type_async(), but
+    accumulated into one combined response by simulate_graph_async()/
+    simulate_graph_streaming_async(); this field reflects what was
+    retrieved either way, independent of how/whether it was yielded."""
 
     graph_depth: int
     """0 for links directly off the start resource; incremented once per pass
-    through simulate_graph_by_resource_type_async's outer while loop, i.e. once
-    per level of target.link nesting. A resource type can recur at a later
-    depth (e.g. Practitioner reached both via Patient.generalPractitioner and,
-    later, Encounter.participant) — callers should treat this as "retrieving
-    again", not a bug."""
+    through the traversal's outer while loop (each of
+    simulate_graph_by_resource_type_async(), simulate_graph_async(), and
+    simulate_graph_streaming_async() runs its own copy of that loop), i.e.
+    once per level of target.link nesting. A resource type can recur at a
+    later depth (e.g. Practitioner reached both via
+    Patient.generalPractitioner and, later, Encounter.participant) —
+    callers should treat this as "retrieving again", not a bug."""
 
     urls: list[str]
     """The actual URL(s) that were queried to produce this event's
@@ -40,8 +49,7 @@ class ResourceTypeCompletionEvent:
     (usually one, occasionally more if the link had multiple targets or the
     response was paginated), params included (e.g.
     "https://example.com/fhir/AllergyIntolerance?patient=123"). Lets a
-    callback shared across multiple concurrent
-    simulate_graph_by_resource_type_async() calls tell which
+    callback shared across multiple concurrent calls tell which
     server/patient/call this event belongs to, since the patient/resource id
     is already embedded in the URL as a path or query parameter."""
 
@@ -57,8 +65,8 @@ class ResourceTypeCompletionEvent:
     client_person_id: str
     """Caller-supplied, opaque identifier for the person this call belongs
     to. Not interpreted by this SDK in any way — echoed back exactly as
-    provided, purely so a callback shared across multiple concurrent
-    simulate_graph_by_resource_type_async() calls can tell them apart."""
+    provided, purely so a callback shared across multiple concurrent calls
+    (to any of the three emitting methods above) can tell them apart."""
 
     connection_name: str
     """Caller-supplied, opaque display name for the connection this call
