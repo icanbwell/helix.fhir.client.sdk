@@ -1217,6 +1217,46 @@ async def test_resource_type_completed_outcome_not_found_for_start_resource() ->
 
 
 @pytest.mark.asyncio
+async def test_resource_type_completed_outcome_scope_denied_for_start_resource() -> None:
+    # DCON-5260: the start resource's own fetch can be skipped entirely by
+    # the auth scope (_get_resources_by_parameters_async's own scope check),
+    # which must be classified as outcome="scope_denied", not "empty" —
+    # mirrors the identical check _fire_on_resource_type_completed_for_link
+    # already does for links.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+    graph_processor._auth_scopes = ["patient/CarePlan.read"]
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+    graph_completed_events: list[GraphRetrievalCompletedEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    async def on_graph_completed(event: GraphRetrievalCompletedEvent) -> None:
+        graph_completed_events.append(event)
+
+    with aioresponses():
+        # No Patient/AllergyIntolerance/CarePlan endpoint is mocked at all —
+        # the scope denial must short-circuit before any HTTP call.
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_resource_type_completed=on_completed,
+            on_graph_retrieval_completed=on_graph_completed,
+        ):
+            pass
+
+    assert len(completed_events) == 1
+    assert completed_events[0].outcome == "scope_denied"
+    assert completed_events[0].link_index == -1
+    assert len(graph_completed_events) == 1
+    assert graph_completed_events[0].total_rejected_count == 1
+    assert graph_completed_events[0].total_error_count == 0
+
+
+@pytest.mark.asyncio
 async def test_continue_on_resource_type_error_false_still_aborts() -> None:
     # Default (False) must behave exactly as before this feature existed —
     # a link's fetch failure still aborts the whole traversal.
