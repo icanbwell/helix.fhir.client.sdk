@@ -77,7 +77,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
         full_uri /= self._resource
 
         # Prepare headers
-        headers = {"Content-Type": "application/fhir+json"}
+        headers = {"Content-Type": "application/fhir+json", "Accept": self._accept}
         headers.update(self._additional_request_headers)
         profiling["build_url"] = time.time() - build_url_start
 
@@ -267,7 +267,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
         full_uri: furl = furl(self._url)
         assert self._resource
         full_uri /= self._resource
-        headers = {"Content-Type": "application/fhir+json"}
+        headers = {"Content-Type": "application/fhir+json", "Accept": self._accept}
         headers.update(self._additional_request_headers)
         self._internal_logger.debug(f"Request headers: {headers}")
 
@@ -472,7 +472,7 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
         full_uri: furl = furl(self._url)
         assert self._resource
         full_uri /= self._resource
-        headers = {"Content-Type": "application/fhir+json"}
+        headers = {"Content-Type": "application/fhir+json", "Accept": self._accept}
         headers.update(self._additional_request_headers)
         self._internal_logger.debug(f"Request headers: {headers}")
 

@@ -134,7 +134,7 @@ class FhirMergeMixin(FhirClientProtocol):
                 full_uri: furl = furl(self._url)
                 assert self._resource
                 full_uri /= self._resource
-                headers = {"Content-Type": "application/fhir+json"}
+                headers = {"Content-Type": "application/fhir+json", "Accept": self._accept}
                 headers.update(self._additional_request_headers)
                 self._internal_logger.debug(f"Request headers: {headers}")
 

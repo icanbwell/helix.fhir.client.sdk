@@ -84,7 +84,9 @@ class RetryableAioHttpResponse:
     async def get_text_async(self) -> str:
         if self.content is None:
             return self._response_text
-        if self.use_data_streaming:
+        # If the stream was already fully drained upstream (e.g. an error response whose
+        # body was eagerly captured into _response_text), re-reading it would yield b"".
+        if self.use_data_streaming and not self.content.at_eof():
             if self.text_read is None:
                 # avoid reading the stream multiple times
                 self.text_read = (await self.content.read()).decode("utf-8")
