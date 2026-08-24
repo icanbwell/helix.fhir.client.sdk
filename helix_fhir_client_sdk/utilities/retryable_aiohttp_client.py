@@ -131,6 +131,7 @@ class RetryableAioHttpClient:
         url: str,
         method: str = "GET",
         headers: dict[str, str] | None,
+        resource_type: str | None = None,
         **kwargs: Any,
     ) -> RetryableAioHttpResponse:
         retry_attempts: int = -1
@@ -159,6 +160,11 @@ class RetryableAioHttpClient:
                         FhirClientSdkOpenTelemetryAttributeNames.URL,
                         url,
                     )
+                    if resource_type:
+                        span.set_attribute(
+                            FhirClientSdkOpenTelemetryAttributeNames.RESOURCE,
+                            resource_type,
+                        )
                     async with async_timeout.timeout(self.timeout_in_seconds):
                         start_time: float = time.time()
                         response: ClientResponse = await self.session.request(
@@ -368,8 +374,15 @@ class RetryableAioHttpClient:
         # Raise an exception if all retries fail
         raise Exception("All retries failed")
 
-    async def get(self, *, url: str, headers: dict[str, str] | None = None, **kwargs: Any) -> RetryableAioHttpResponse:
-        return await self.fetch(url=url, method="GET", headers=headers, **kwargs)
+    async def get(
+        self,
+        *,
+        url: str,
+        headers: dict[str, str] | None = None,
+        resource_type: str | None = None,
+        **kwargs: Any,
+    ) -> RetryableAioHttpResponse:
+        return await self.fetch(url=url, method="GET", headers=headers, resource_type=resource_type, **kwargs)
 
     async def post(
         self,

@@ -152,6 +152,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         full_url=next_url,
                         headers=headers,
                         payload=payload,
+                        resource_type=resource_type or self._resource,
                     )
                     assert isinstance(response, RetryableAioHttpResponse)
 
@@ -321,6 +322,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         full_url=next_url,
                         headers=headers,
                         payload=payload,
+                        resource_type=resource_type or self._resource,
                     )
                     assert isinstance(response, RetryableAioHttpResponse)
 
@@ -420,6 +422,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         full_url: str,
         headers: dict[str, str],
         payload: dict[str, Any] | None,
+        resource_type: str | None = None,
     ) -> RetryableAioHttpResponse:
         """
         Sends a request to the server
@@ -428,6 +431,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         :param full_url: url to call
         :param headers: headers to send
         :param payload: payload to send
+        :param resource_type: FHIR resource type being requested, set as an OTel span
+                                attribute on the underlying HTTP GET span for observability
         """
         if self._max_concurrent_requests_semaphore:
             async with self._max_concurrent_requests_semaphore:
@@ -436,10 +441,15 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                     full_url=full_url,
                     headers=headers,
                     payload=payload,
+                    resource_type=resource_type,
                 )
         else:
             return await self._send_fhir_request_internal_async(
-                client=client, full_url=full_url, headers=headers, payload=payload
+                client=client,
+                full_url=full_url,
+                headers=headers,
+                payload=payload,
+                resource_type=resource_type,
             )
 
     async def _send_fhir_request_internal_async(
@@ -449,6 +459,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         full_url: str,
         headers: dict[str, str],
         payload: dict[str, Any] | None,
+        resource_type: str | None = None,
     ) -> RetryableAioHttpResponse:
         """
         Sends a request to the server
@@ -457,6 +468,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         :param full_url: url to call
         :param headers: headers to send
         :param payload: payload to send
+        :param resource_type: FHIR resource type being requested, set as an OTel span
+                                attribute on the underlying HTTP GET span for observability
         """
         assert client is not None
         assert full_url
@@ -489,4 +502,4 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         f"sending a get: {full_url} with client_id={self._client_id} "
                         + f"and scopes={self._auth_scopes} instance_id={self._uuid}"
                     )
-            return await client.get(url=full_url, headers=headers, data=payload)
+            return await client.get(url=full_url, headers=headers, data=payload, resource_type=resource_type)

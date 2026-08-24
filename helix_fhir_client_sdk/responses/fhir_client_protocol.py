@@ -141,6 +141,7 @@ class FhirClientProtocol(Protocol):
         full_url: str,
         headers: dict[str, str],
         payload: dict[str, Any] | None,
+        resource_type: str | None = None,
     ) -> RetryableAioHttpResponse: ...
 
     def create_http_session(self) -> ClientSession: ...

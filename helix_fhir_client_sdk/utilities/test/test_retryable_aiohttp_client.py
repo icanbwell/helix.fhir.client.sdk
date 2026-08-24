@@ -1,5 +1,7 @@
 # test_retryable_aiohttp_client.py
 from datetime import datetime
+from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from aiohttp import ClientConnectionError, ClientSession
@@ -9,9 +11,31 @@ from helix_fhir_client_sdk.function_types import RefreshTokenResult
 from helix_fhir_client_sdk.graph.test.test_simulate_graph_processor_mixin import (
     get_payload_function,
 )
+from helix_fhir_client_sdk.open_telemetry.attribute_names import (
+    FhirClientSdkOpenTelemetryAttributeNames,
+)
+from helix_fhir_client_sdk.utilities import retryable_aiohttp_client
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
 )
+
+
+class _FakeSpanContextManager:
+    """Stands in for TRACER.start_as_current_span()'s real context manager,
+    since this package intentionally depends only on opentelemetry-api (a
+    library concern) and not opentelemetry-sdk (the exporter/test-utility
+    package an application would provide) — so there is no real Span/
+    TracerProvider available to assert against in this repo's own tests.
+    """
+
+    def __init__(self, span: MagicMock) -> None:
+        self._span = span
+
+    def __enter__(self) -> MagicMock:
+        return self._span
+
+    def __exit__(self, *exc_info: Any) -> None:
+        return None
 
 
 @pytest.mark.asyncio
@@ -556,3 +580,59 @@ async def test_token_refresh_with_different_headers() -> None:
             assert response.status == 200
             assert refresh_call_count == 1
             assert await response.get_text_async() == '{"key": "value"}'
+
+
+@pytest.mark.asyncio
+async def test_get_sets_resource_type_span_attribute_when_provided(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock_span = MagicMock()
+    monkeypatch.setattr(
+        retryable_aiohttp_client.TRACER,
+        "start_as_current_span",
+        MagicMock(side_effect=lambda *_args, **_kwargs: _FakeSpanContextManager(mock_span)),
+    )
+
+    async with RetryableAioHttpClient(
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
+    ) as client:
+        with aioresponses() as m:
+            m.get("http://test.com/Patient?_id=1", status=200, payload={"key": "value"})
+            response = await client.get(url="http://test.com/Patient?_id=1", headers=None, resource_type="Patient")
+            assert response.ok
+
+    mock_span.set_attribute.assert_any_call(FhirClientSdkOpenTelemetryAttributeNames.RESOURCE, "Patient")
+    mock_span.set_attribute.assert_any_call(
+        FhirClientSdkOpenTelemetryAttributeNames.URL, "http://test.com/Patient?_id=1"
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_does_not_set_resource_type_span_attribute_when_omitted(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock_span = MagicMock()
+    monkeypatch.setattr(
+        retryable_aiohttp_client.TRACER,
+        "start_as_current_span",
+        MagicMock(side_effect=lambda *_args, **_kwargs: _FakeSpanContextManager(mock_span)),
+    )
+
+    async with RetryableAioHttpClient(
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
+    ) as client:
+        with aioresponses() as m:
+            m.get("http://test.com", status=200, payload={"key": "value"})
+            response = await client.get(url="http://test.com", headers=None)
+            assert response.ok
+
+    resource_calls = [
+        call
+        for call in mock_span.set_attribute.call_args_list
+        if call.args and call.args[0] == FhirClientSdkOpenTelemetryAttributeNames.RESOURCE
+    ]
+    assert resource_calls == []
