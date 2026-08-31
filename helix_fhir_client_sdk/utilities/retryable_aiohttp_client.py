@@ -478,7 +478,5 @@ class RetryableAioHttpClient:
                 )
                 await asyncio.sleep(60)
         else:
-            logger.warning(
-                f"Received 429 (Too Many Requests) for {full_url}. No Retry-After header. Sleeping for 60s."
-            )
+            logger.warning(f"Received 429 (Too Many Requests) for {full_url}. No Retry-After header. Sleeping for 60s.")
             await asyncio.sleep(60)
