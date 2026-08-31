@@ -528,15 +528,15 @@ wheels = [
 
 [[package]]
 name = "compressedfhir"
-version = "1.0.13"
+version = "3.0.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "msgpack" },
     { name = "orjson" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/29/10/21c1dd83b878f3635ff8b03ae9d3305b73f7b0d28345098157cba87d291f/compressedfhir-1.0.13.tar.gz", hash = "sha256:9369325ce7d1894e52521fb1b212e4a48d42df96233d156fb8c6c7890d07a801", size = 45285, upload-time = "2026-01-04T05:57:41.644Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b6/58/535f024237f9ed65dd9f69739ef8b06a7aa70c406b2faaa2811bd9de4fac/compressedfhir-3.0.4.tar.gz", hash = "sha256:7983f506e4cec3d2676732dc348075a93b9edc440908db84fc3dfad52fd2e36b", size = 45514, upload-time = "2026-01-20T13:49:13.016Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/73/07/04c4c01fe55c05016879a102bf8207d9e524bacc1164b2feef38d3fedee8/compressedfhir-1.0.13-py3-none-any.whl", hash = "sha256:7eceebb38d9c410b715b2cb0585387038abcf9abab0ac398901cd0fcfd9efe52", size = 62014, upload-time = "2026-01-04T05:57:40.688Z" },
+    { url = "https://files.pythonhosted.org/packages/4b/70/fe7eda9d00b9682ee5c8065e691d1c84bdf37c83f1cb62a6f4c038fd188d/compressedfhir-3.0.4-py3-none-any.whl", hash = "sha256:bee5506aa866c6ee976f78d524fa9a38053b25f1fc77eca77598c6f46090b50b", size = 62223, upload-time = "2026-01-20T13:49:12.146Z" },
 ]
 
 [[package]]
@@ -787,7 +787,7 @@ requires-dist = [
     { name = "aiohttp", specifier = ">=3.14.3" },
     { name = "async-timeout", specifier = ">=4.0.3" },
     { name = "certifi", specifier = ">=2025.1.31" },
-    { name = "compressedfhir", specifier = ">=1.0.13,<3" },
+    { name = "compressedfhir", specifier = ">=3.0.2,<4" },
     { name = "fhirschemapy", specifier = ">=0.0.11" },
     { name = "furl" },
     { name = "multidict", specifier = ">=6" },
