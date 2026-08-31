@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -24,6 +25,7 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
 )
 
 TRACER = trace.get_tracer(__name__)
+logger = logging.getLogger(__name__)
 
 
 class RetryableAioHttpClient:
@@ -442,7 +444,12 @@ class RetryableAioHttpClient:
             # noinspection PyBroadException
             try:
                 if retry_after_text.isnumeric():  # it is a number of seconds
-                    await asyncio.sleep(int(retry_after_text))
+                    wait_seconds = int(retry_after_text)
+                    logger.warning(
+                        f"Received 429 (Too Many Requests) for {full_url}."
+                        f" Retry-After={retry_after_text}s. Sleeping for {wait_seconds}s."
+                    )
+                    await asyncio.sleep(wait_seconds)
                 else:
                     wait_till: datetime = datetime.strptime(retry_after_text, "%a, %d %b %Y %H:%M:%S GMT")
                     # Ensure the parsed time is in UTC
@@ -453,9 +460,25 @@ class RetryableAioHttpClient:
 
                     # If the time difference is positive, sleep for that amount of time
                     if time_diff > 0:
+                        logger.warning(
+                            f"Received 429 (Too Many Requests) for {full_url}."
+                            f" Retry-After={retry_after_text}. Sleeping for {time_diff:.1f}s."
+                        )
                         await asyncio.sleep(time_diff)
-            except Exception:
+                    else:
+                        logger.warning(
+                            f"Received 429 (Too Many Requests) for {full_url}."
+                            f" Retry-After={retry_after_text} is already in the past. Not sleeping."
+                        )
+            except Exception as e:
                 # if there was some exception, parsing the Retry-After header, sleep for 60 seconds
+                logger.warning(
+                    f"Received 429 (Too Many Requests) for {full_url}."
+                    f" Failed to parse Retry-After header ({retry_after_text!r}): {e}. Sleeping for 60s."
+                )
                 await asyncio.sleep(60)
         else:
+            logger.warning(
+                f"Received 429 (Too Many Requests) for {full_url}. No Retry-After header. Sleeping for 60s."
+            )
             await asyncio.sleep(60)
