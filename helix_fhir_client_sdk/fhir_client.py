@@ -364,6 +364,13 @@ class FhirClient(
         if use:
             self._accept = "application/fhir+ndjson"
             self._content_type = "application/fhir+ndjson"
+        else:
+            # Revert only what enabling streaming itself set, so an explicit .accept()/.content_type()
+            # call made after use_data_streaming(True) is not silently clobbered.
+            if self._accept == "application/fhir+ndjson":
+                self._accept = "application/fhir+json"
+            if self._content_type == "application/fhir+ndjson":
+                self._content_type = "application/fhir+json"
 
         return self
 

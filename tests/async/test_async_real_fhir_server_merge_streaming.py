@@ -104,3 +104,55 @@ async def test_async_real_fhir_server_merge_streaming_preserves_issue_diagnostic
     assert merge_response is not None
     logger.info(merge_response.responses)
     assert merge_response.responses[0]["issue"] is not None, json.dumps(merge_response.responses)
+
+
+@pytest.mark.parametrize("use_data_streaming", [True, False])
+async def test_async_real_fhir_server_merge_streaming_multiple_resources(use_data_streaming: bool) -> None:
+    """
+    Sends more than one resource in a single $merge call. This is the case that
+    exercises the ndjson request body: when use_data_streaming is True, the client
+    must send one JSON resource per line rather than a JSON array, since that is
+    what the FHIR server's streaming $merge understands
+    (https://github.com/icanbwell/fhir-server/blob/main/readme/merge.md). If the
+    client instead sent a JSON array with an ndjson Content-Type, this test would
+    still show whether the server round trip breaks or silently mishandles the
+    batch.
+    """
+    logger: Logger = LoggerForTest()
+    await FhirServerHelpers.clean_fhir_server_async(resource_type="Patient")
+
+    fhir_server_url: str = environ["FHIR_SERVER_URL"]
+    auth_client_id = environ["FHIR_CLIENT_ID"]
+    auth_client_secret = environ["FHIR_CLIENT_SECRET"]
+    auth_well_known_url = environ["AUTH_CONFIGURATION_URI"]
+
+    fhir_client = FhirClient()
+    fhir_client = fhir_client.url(fhir_server_url).resource("Patient")
+    fhir_client = fhir_client.client_credentials(client_id=auth_client_id, client_secret=auth_client_secret)
+    fhir_client = fhir_client.auth_wellknown_url(auth_well_known_url)
+    fhir_client = fhir_client.use_data_streaming(use_data_streaming)
+
+    resources = [
+        {
+            "resourceType": "Patient",
+            "id": f"streaming-merge-test-multi-{i}",
+            "meta": {
+                "source": "http://www.icanbwell.com",
+                "security": [
+                    {"system": "https://www.icanbwell.com/access", "code": "bwell"},
+                    {"system": "https://www.icanbwell.com/owner", "code": "bwell"},
+                ],
+            },
+        }
+        for i in range(1, 4)
+    ]
+
+    merge_response: FhirMergeResponse | None = await FhirMergeResponse.from_async_generator(
+        fhir_client.merge_async(json_data_list=[json.dumps(r) for r in resources])
+    )
+
+    assert merge_response is not None
+    logger.info(merge_response.responses)
+    assert merge_response.status == 200, merge_response.responses
+    assert len(merge_response.responses) == len(resources), merge_response.responses
+    assert all(r["created"] is True for r in merge_response.responses), merge_response.responses
