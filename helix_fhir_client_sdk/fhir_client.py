@@ -363,6 +363,7 @@ class FhirClient(
         # accepts.  We should remove this when that is fixed.
         if use:
             self._accept = "application/fhir+ndjson"
+            self._content_type = "application/fhir+ndjson"
 
         return self
 
