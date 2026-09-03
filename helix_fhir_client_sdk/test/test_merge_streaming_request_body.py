@@ -169,3 +169,26 @@ async def test_merge_bundle_async_sends_ndjson_body_for_multiple_entries_when_st
         _ = [response async for response in fhir_client.merge_bundle_async(id_="1", bundle=bundle)]
 
         _assert_is_ndjson(_sent_body(m, "POST", url), [_PATIENT_1, _PATIENT_2])
+
+
+@pytest.mark.asyncio
+async def test_merge_async_ndjson_body_escapes_embedded_newlines_in_resource_fields() -> None:
+    """A literal newline inside a resource field must not be able to introduce a
+    spurious ndjson line boundary - json.dumps always escapes control characters,
+    so "\n".join(...) can only ever add newlines *between* resources.
+    """
+    url = "http://example.com/Patient/1/$merge"
+    fhir_client = FhirClient().url("http://example.com").resource("Patient").use_data_streaming(True)
+    patient_with_newline = {"resourceType": "Patient", "id": "1", "note": "line one\nline two"}
+    json_data_list = [json.dumps(patient_with_newline), json.dumps(_PATIENT_2)]
+
+    with aioresponses() as m:
+        m.post(url, status=200, payload=[patient_with_newline, _PATIENT_2])
+
+        _ = [response async for response in fhir_client.merge_async(json_data_list=json_data_list)]
+
+        body = _sent_body(m, "POST", url)
+        lines = body.splitlines()
+        assert len(lines) == 2
+        assert json.loads(lines[0]) == patient_with_newline
+        assert json.loads(lines[1]) == _PATIENT_2

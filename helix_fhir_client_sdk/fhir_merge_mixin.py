@@ -172,7 +172,7 @@ class FhirMergeMixin(FhirClientProtocol):
                             json_payload: str
                             if len(chunk) == 1:
                                 json_payload = json.dumps(chunk[0])
-                            elif self._use_data_streaming:
+                            elif self._content_type == "application/fhir+ndjson":
                                 # the FHIR server's streaming $merge only understands ndjson
                                 # (one resource per line), not a JSON array
                                 json_payload = "\n".join(json.dumps(item) for item in chunk)
@@ -204,7 +204,7 @@ class FhirMergeMixin(FhirClientProtocol):
                                     send_data_as_chunked=self._send_data_as_chunked,
                                     # a gzip-compressed request body forces chunked transfer encoding, which the
                                     # FHIR server's streaming ndjson $merge parser cannot handle correctly
-                                    compress=self._compress and not self._use_data_streaming,
+                                    compress=self._compress and self._content_type != "application/fhir+ndjson",
                                     throw_exception_on_error=self._throw_exception_on_error,
                                     log_all_url_results=self._log_all_response_urls,
                                     access_token=self._access_token,

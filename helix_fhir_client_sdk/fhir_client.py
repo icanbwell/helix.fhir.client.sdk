@@ -361,16 +361,12 @@ class FhirClient(
         self._use_data_streaming = use
         # The b.well FHIR server as of version 5.3.16 has a bug that it cannot parse an accept string with multiple
         # accepts.  We should remove this when that is fixed.
-        if use:
-            self._accept = "application/fhir+ndjson"
-            self._content_type = "application/fhir+ndjson"
-        else:
-            # Revert only what enabling streaming itself set, so an explicit .accept()/.content_type()
-            # call made after use_data_streaming(True) is not silently clobbered.
-            if self._accept == "application/fhir+ndjson":
-                self._accept = "application/fhir+json"
-            if self._content_type == "application/fhir+ndjson":
-                self._content_type = "application/fhir+json"
+        # Like every other header setter on this builder, this unconditionally overwrites Accept/Content-Type
+        # (last call wins) rather than trying to detect and preserve an unrelated explicit override - a value-based
+        # heuristic can't distinguish "streaming set this" from "the caller happened to choose the same string".
+        # Call .accept()/.content_type() after use_data_streaming() if you need a custom value.
+        self._accept = "application/fhir+ndjson" if use else "application/fhir+json"
+        self._content_type = "application/fhir+ndjson" if use else "application/fhir+json"
 
         return self
 
