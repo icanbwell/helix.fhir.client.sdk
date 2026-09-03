@@ -15,6 +15,12 @@ async def double_it(
     return row * 2
 
 
+@pytest.mark.parametrize("max_concurrent_tasks", [0, -1])
+def test_init_rejects_non_positive_max_concurrent_tasks(max_concurrent_tasks: int) -> None:
+    with pytest.raises(ValueError):
+        AsyncParallelProcessor(name="test", max_concurrent_tasks=max_concurrent_tasks)
+
+
 @pytest.mark.asyncio
 async def test_yield_context_false_is_default_and_unchanged() -> None:
     processor = AsyncParallelProcessor(name="test", max_concurrent_tasks=1)

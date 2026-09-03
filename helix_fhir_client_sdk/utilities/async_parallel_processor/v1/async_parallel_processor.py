@@ -63,6 +63,8 @@ class AsyncParallelProcessor:
         :param max_concurrent_tasks: maximum number of concurrent tasks. If None, there is no limit.
                                     If 1 then the tasks are processed sequentially else they are processed in parallel
         """
+        if max_concurrent_tasks is not None and max_concurrent_tasks < 1:
+            raise ValueError(f"max_concurrent_tasks must be None or >= 1, got {max_concurrent_tasks}")
         self.name: str = name
         self.max_concurrent_tasks: int | None = max_concurrent_tasks
 
