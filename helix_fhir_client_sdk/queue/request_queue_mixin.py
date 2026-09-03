@@ -97,7 +97,12 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         payload: dict[str, str] | None = self._action_payload if self._action_payload else None
         headers = {
             "Accept": self._accept,
-            "Content-Type": self._content_type,
+            # Not self._content_type: that field describes $merge's resource-list request
+            # body and is repurposed to ndjson when streaming. This request's body (when
+            # present) is always the action_payload (e.g. a GraphDefinition for $graph),
+            # which is never ndjson - advertising Content-Type: application/fhir+ndjson
+            # here caused the FHIR server to mis-parse the body and truncate the response.
+            "Content-Type": "application/fhir+json",
             "Accept-Encoding": self._accept_encoding,
         }
         headers.update(self._additional_request_headers)
@@ -266,7 +271,12 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         payload: dict[str, str] | None = self._action_payload if self._action_payload else None
         headers = {
             "Accept": self._accept,
-            "Content-Type": self._content_type,
+            # Not self._content_type: that field describes $merge's resource-list request
+            # body and is repurposed to ndjson when streaming. This request's body (when
+            # present) is always the action_payload (e.g. a GraphDefinition for $graph),
+            # which is never ndjson - advertising Content-Type: application/fhir+ndjson
+            # here caused the FHIR server to mis-parse the body and truncate the response.
+            "Content-Type": "application/fhir+json",
             "Accept-Encoding": self._accept_encoding,
         }
         headers.update(self._additional_request_headers)
