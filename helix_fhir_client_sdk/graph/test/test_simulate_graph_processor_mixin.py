@@ -774,16 +774,25 @@ async def test_get_resources_by_id_one_by_one_fetches_concurrently() -> None:
 @pytest.mark.asyncio
 async def test_get_resources_by_id_one_by_one_respects_max_concurrent_tasks_bound() -> None:
     """
-    Regression guard for a bug found reviewing DCON-5261's AsyncParallelProcessor
-    usage: it created one asyncio.Task per row up front regardless of
-    max_concurrent_tasks, relying on a semaphore only to gate entry into each
-    row's actual work. That never let more than max_concurrent_tasks *requests*
-    run concurrently (the semaphore already prevented that), but it is a
-    different, complementary guard from test_get_resources_by_id_one_by_one_
-    fetches_concurrently above (which only proves concurrency exists at all,
-    with request count == max_concurrent_tasks so it can't distinguish bounded
-    from unbounded). Here request count (6) exceeds max_concurrent_tasks (2),
-    so an unbounded implementation would let all 6 run at once.
+    Integration-level check that concurrent HTTP request count never exceeds
+    max_concurrent_tasks, with request count (6) exceeding max_concurrent_tasks (2)
+    so an implementation with no concurrency bound at all would let all 6 run at once.
+
+    NOTE: this does NOT regression-test the DCON-5378 fix itself. Both the old
+    semaphore-gated-but-eager-Task-creation implementation and the new bounded
+    worker pool correctly bound concurrent *request* execution here - the bug
+    DCON-5378 fixes (creating one asyncio.Task per row up front regardless of
+    max_concurrent_tasks) is a Task-object memory cost, not a concurrency-bound
+    bug, so it isn't observable via in-flight request counting. The actual
+    regression guard for that bug is the lower-level
+    test_process_rows_in_parallel_does_not_create_all_tasks_up_front in
+    test_async_parallel_processor.py, which asserts on Task creation count
+    directly. This test is still valuable as an independent confirmation that
+    max_concurrent_tasks bounds real request concurrency through the full
+    SimulatedGraphProcessorMixin path, complementing
+    test_get_resources_by_id_one_by_one_fetches_concurrently above (which only
+    proves concurrency exists at all, with request count == max_concurrent_tasks
+    so it can't distinguish bounded from unbounded).
     """
     max_concurrent_tasks = 2
     patient_ids = [str(i) for i in range(1, 7)]
