@@ -772,6 +772,95 @@ async def test_get_resources_by_id_one_by_one_fetches_concurrently() -> None:
 
 
 @pytest.mark.asyncio
+async def test_get_resources_by_id_one_by_one_respects_max_concurrent_tasks_bound() -> None:
+    """
+    Regression guard for a bug found reviewing DCON-5261's AsyncParallelProcessor
+    usage: it created one asyncio.Task per row up front regardless of
+    max_concurrent_tasks, relying on a semaphore only to gate entry into each
+    row's actual work. That never let more than max_concurrent_tasks *requests*
+    run concurrently (the semaphore already prevented that), but it is a
+    different, complementary guard from test_get_resources_by_id_one_by_one_
+    fetches_concurrently above (which only proves concurrency exists at all,
+    with request count == max_concurrent_tasks so it can't distinguish bounded
+    from unbounded). Here request count (6) exceeds max_concurrent_tasks (2),
+    so an unbounded implementation would let all 6 run at once.
+    """
+    max_concurrent_tasks = 2
+    patient_ids = [str(i) for i in range(1, 7)]
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=len(patient_ids))
+
+    logger: Logger = LoggerForTest()
+
+    graph_json: dict[str, Any] = {
+        "id": "1",
+        "name": "Test Graph",
+        "resourceType": "GraphDefinition",
+        "start": "Patient",
+        "link": [],
+    }
+
+    in_flight = 0
+    max_in_flight = 0
+
+    def make_delayed_patient_callback(patient_id: str) -> Callable[..., Awaitable[CallbackResult]]:
+        async def _callback(url: str, **kwargs: Any) -> CallbackResult:
+            nonlocal in_flight, max_in_flight
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+            await asyncio.sleep(0.1)
+            in_flight -= 1
+            return CallbackResult(
+                status=200,
+                headers={},
+                body=json.dumps({"resourceType": "Patient", "id": patient_id}),
+            )
+
+        return _callback
+
+    with aioresponses() as m:
+        # Force the one-by-one fallback: the combined _id search fails.
+        m.get(
+            f"http://example.com/fhir/Patient?_id={','.join(patient_ids)}",
+            status=400,
+            payload={"resourceType": "OperationOutcome"},
+        )
+        for patient_id in patient_ids:
+            m.get(
+                f"http://example.com/fhir/Patient/{patient_id}",
+                callback=make_delayed_patient_callback(patient_id),
+            )
+
+        async_gen = graph_processor.process_simulate_graph_async(
+            id_=patient_ids,
+            graph_json=graph_json,
+            contained=False,
+            separate_bundle_resources=False,
+            restrict_to_scope=None,
+            restrict_to_resources=None,
+            restrict_to_capability_statement=None,
+            retrieve_and_restrict_to_capability_statement=None,
+            ifModifiedSince=None,
+            eTag=None,
+            logger=logger,
+            url=None,
+            expand_fhir_bundle=False,
+            auth_scopes=[],
+            max_concurrent_tasks=max_concurrent_tasks,
+            sort_resources=True,
+        )
+        response = [r async for r in async_gen]
+
+    assert len(response) == 1
+    resources: FhirResourceList = response[0].get_resources()
+    fetched_ids = sorted(r["id"] for r in resources if r["resourceType"] == "Patient")
+    assert fetched_ids == patient_ids
+
+    assert max_in_flight == max_concurrent_tasks, (
+        f"expected at most {max_concurrent_tasks} one-by-one fetches in flight at once, saw max {max_in_flight}"
+    )
+
+
+@pytest.mark.asyncio
 async def test_graph_definition_with_multiple_links_concurrent_requests() -> None:
     """
     Test GraphDefinition with multiple targets.

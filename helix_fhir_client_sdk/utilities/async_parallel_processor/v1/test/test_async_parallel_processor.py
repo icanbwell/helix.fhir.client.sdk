@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, cast
 
 import pytest
@@ -88,3 +89,59 @@ async def test_concurrent_batch_yields_completed_siblings_before_raising() -> No
             results.append(item)
 
     assert results == ["ok"]
+
+
+@pytest.mark.asyncio
+async def test_process_rows_in_parallel_does_not_create_all_tasks_up_front() -> None:
+    """Regression test: a prior implementation created one asyncio.Task per row
+    immediately (via a set comprehension), before the loop even started, and
+    relied on a semaphore only to gate entry into process_row_fn's body. That
+    left every not-yet-scheduled row's Task object resident in memory at once
+    regardless of max_concurrent_tasks - real, avoidable memory pressure for a
+    large `rows` list. The fix is a bounded worker pool: at most
+    max_concurrent_tasks Task objects exist at any moment, topped up one-for-one
+    as each completes.
+    """
+    created_task_count = 0
+    real_create_task = asyncio.create_task
+
+    def counting_create_task(coro: Any, **kwargs: Any) -> "asyncio.Task[Any]":
+        nonlocal created_task_count
+        created_task_count += 1
+        return real_create_task(coro, **kwargs)
+
+    release = asyncio.Event()
+
+    async def blocking_fn(
+        *, context: ParallelFunctionContext, row: int, parameters: None, additional_parameters: dict[str, Any] | None
+    ) -> int:
+        await release.wait()
+        return row
+
+    max_concurrent_tasks = 2
+    total_rows = 10
+    processor = AsyncParallelProcessor(name="test", max_concurrent_tasks=max_concurrent_tasks)
+
+    results: list[int] = []
+
+    async def consume() -> None:
+        async for r in processor.process_rows_in_parallel(
+            rows=list(range(total_rows)), process_row_fn=blocking_fn, parameters=None
+        ):
+            results.append(r)
+
+    consumer_task = real_create_task(consume())
+    try:
+        asyncio.create_task = counting_create_task
+        # Give the event loop enough ticks to run process_rows_in_parallel up to
+        # its first suspension point (every worker awaiting release.wait()).
+        for _ in range(3):
+            await asyncio.sleep(0)
+
+        assert created_task_count == max_concurrent_tasks
+    finally:
+        asyncio.create_task = real_create_task
+        release.set()
+        await consumer_task
+
+    assert sorted(results) == list(range(total_rows))
