@@ -135,7 +135,7 @@ class FhirMergeMixin(FhirClientProtocol):
                 full_uri: furl = furl(self._url)
                 assert self._resource
                 full_uri /= self._resource
-                headers = {"Content-Type": "application/fhir+json", "Accept": self._accept}
+                headers = {"Content-Type": self._content_type, "Accept": self._accept}
                 headers.update(self._additional_request_headers)
                 self._internal_logger.debug(f"Request headers: {headers}")
 
@@ -169,7 +169,15 @@ class FhirMergeMixin(FhirClientProtocol):
                         for chunk in chunks:
                             resource_uri: furl = full_uri.copy()
                             # if there is only item in the list then send it instead of having it in a list
-                            json_payload: str = json.dumps(chunk[0]) if len(chunk) == 1 else json.dumps(chunk)
+                            json_payload: str
+                            if len(chunk) == 1:
+                                json_payload = json.dumps(chunk[0])
+                            elif self._content_type == "application/fhir+ndjson":
+                                # the FHIR server's streaming $merge only understands ndjson
+                                # (one resource per line), not a JSON array
+                                json_payload = "\n".join(json.dumps(item) for item in chunk)
+                            else:
+                                json_payload = json.dumps(chunk)
                             # json_payload_bytes: str = json_payload
                             obj_id = id_ or 1  # TODO: remove this once the node fhir accepts merge without a parameter
                             assert obj_id
@@ -194,7 +202,9 @@ class FhirMergeMixin(FhirClientProtocol):
                                     exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                                     use_data_streaming=self._use_data_streaming,
                                     send_data_as_chunked=self._send_data_as_chunked,
-                                    compress=self._compress,
+                                    # a gzip-compressed request body forces chunked transfer encoding, which the
+                                    # FHIR server's streaming ndjson $merge parser cannot handle correctly
+                                    compress=self._compress and self._content_type != "application/fhir+ndjson",
                                     throw_exception_on_error=self._throw_exception_on_error,
                                     log_all_url_results=self._log_all_response_urls,
                                     access_token=self._access_token,
