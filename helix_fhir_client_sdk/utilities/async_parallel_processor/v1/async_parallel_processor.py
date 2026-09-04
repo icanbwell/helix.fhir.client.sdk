@@ -63,11 +63,10 @@ class AsyncParallelProcessor:
         :param max_concurrent_tasks: maximum number of concurrent tasks. If None, there is no limit.
                                     If 1 then the tasks are processed sequentially else they are processed in parallel
         """
+        if max_concurrent_tasks is not None and max_concurrent_tasks < 1:
+            raise ValueError(f"max_concurrent_tasks must be None or >= 1, got {max_concurrent_tasks}")
         self.name: str = name
         self.max_concurrent_tasks: int | None = max_concurrent_tasks
-        self.semaphore: asyncio.Semaphore | None = (
-            asyncio.Semaphore(max_concurrent_tasks) if max_concurrent_tasks else None
-        )
 
     async def process_rows_in_parallel[
         TInput,
@@ -117,41 +116,48 @@ class AsyncParallelProcessor:
             return
 
         # noinspection PyShadowingNames
-        async def process_with_semaphore_async(
-            *, name: str, row1: TInput, task_index: int, total_task_count: int
+        async def process_one_async(
+            *, row1: TInput, task_index: int, total_task_count: int
         ) -> tuple[ParallelFunctionContext, TOutput]:
             context = ParallelFunctionContext(
-                name=name,
+                name=self.name,
                 log_level=log_level,
                 task_index=task_index,
                 total_task_count=total_task_count,
             )
-            if self.semaphore is None:
-                result = await process_row_fn(
-                    context=context, row=row1, parameters=parameters, additional_parameters=kwargs
-                )
-            else:
-                async with self.semaphore:
-                    result = await process_row_fn(
-                        context=context, row=row1, parameters=parameters, additional_parameters=kwargs
-                    )
+            result = await process_row_fn(
+                context=context, row=row1, parameters=parameters, additional_parameters=kwargs
+            )
             return context, result
 
         total_task_count: int = len(rows)
 
-        # Create all tasks at once with their indices
-        pending: set[Task[tuple[ParallelFunctionContext, TOutput]]] = {
-            asyncio.create_task(
-                process_with_semaphore_async(
-                    name=self.name,
-                    row1=row,
-                    task_index=i,
-                    total_task_count=total_task_count,
-                ),
-                name=f"task_{i}",  # Optionally set task name for easier debugging
+        # Bounded worker pool: at most `max_concurrent_tasks` Task objects (or
+        # `total_task_count` if unbounded) exist at any moment, refilled one-for-one
+        # as each completes. A prior version created one Task per row up front and
+        # relied on a semaphore only to gate entry into process_row_fn's body - that
+        # left every not-yet-scheduled row's Task object (and its captured closure
+        # state) resident in memory simultaneously regardless of max_concurrent_tasks,
+        # which is real, avoidable memory pressure for graph traversals with many
+        # thousands of child references.
+        limit: int = self.max_concurrent_tasks if self.max_concurrent_tasks else total_task_count
+        row_iterator = enumerate(rows)
+
+        def _start_next_task() -> Task[tuple[ParallelFunctionContext, TOutput]] | None:
+            try:
+                i, row = next(row_iterator)
+            except StopIteration:
+                return None
+            return asyncio.create_task(
+                process_one_async(row1=row, task_index=i, total_task_count=total_task_count),
+                name=f"task_{i}",
             )
-            for i, row in enumerate(rows)
-        }
+
+        pending: set[Task[tuple[ParallelFunctionContext, TOutput]]] = set()
+        for _ in range(min(limit, total_task_count)):
+            task = _start_next_task()
+            if task is not None:
+                pending.add(task)
 
         try:
             while pending:
@@ -175,6 +181,13 @@ class AsyncParallelProcessor:
 
                 if first_error is not None:
                     raise first_error
+
+                # Top the pool back up to `limit` with the next not-yet-started rows.
+                for _ in range(len(done)):
+                    task = _start_next_task()
+                    if task is None:
+                        break
+                    pending.add(task)
 
         finally:
             # Cancel any pending tasks if something goes wrong
