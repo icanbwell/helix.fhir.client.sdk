@@ -1,28 +1,34 @@
-# icanbwell - Copilot Instructions
+# Copilot Instructions
 
-You are working in a cloud-native, multi-tenant, HIPAA-compliant healthcare platform. The platform is FHIR-native, event-driven (Kafka + CloudEvents), and exposes capabilities through a federated GraphQL gateway.
+This file provides guidelines and best practices for GitHub Copilot and other AI coding assistants when working in this repository.
 
-## Hard Constraints
-- Tenant isolation is mandatory on every data access path. Not optional.
-- No PHI/PII in logs, test fixtures, example data, comments, or PR descriptions.
-- No new technology, vendors, or patterns without checking approved-tech.yaml and EA review.
-- Public API changes require a Tech Design Review.
-- Event-driven first. Default to async via Kafka. Justify sync.
-- Client-facing access goes through the federated GraphQL gateway. No bypass.
+## General Guidelines
+- Follow the repository's coding standards and conventions.
+- Write clear, concise, and well-documented code.
+- Prefer early returns and flattened control flow to reduce deep nesting.
+- Use type hints and docstrings for all public functions and methods.
+- Write and update tests for all new features and bug fixes.
+- Use existing libraries and utilities in the project when possible.
+- Avoid introducing breaking changes unless explicitly required.
+- Ensure all code passes linting and tests before submitting changes.
 
-## Design Defaults
-- Program to interfaces, not implementations. Vendor integrations behind capability abstractions.
-- Composition over inheritance. Strategy pattern over growing conditionals.
-- Dependency injection at boundaries. No hidden global state.
-- Idempotent consumers. Assume at-least-once delivery.
-- Parameterized tests for functions with more than two input variations.
-- Mock only at external boundaries.
+## File/Folder Structure
+- Place new modules in the appropriate subdirectory under `fhirnotesvectorstore/`.
+- Place new tests in the corresponding folder under `tests/`.
+- Update `README.md` and other documentation as needed for new features.
 
-## Before Coding
-- Find and use the repo's canonical build/test/lint commands. Do not guess.
-- Propose a plan for non-trivial changes. Call out tenancy, PHI, contract, and dependency risks.
-- Check approved-tech.yaml before introducing any dependency.
-- If your change touches public API, events, or cross-service behavior, reference the governing artifact (TDD, FDR, ADR, AsyncAPI).
+## Commit Messages
+- Use clear, descriptive commit messages that explain the purpose of the change.
 
-## Repo-Specific Instructions
-Check .github/copilot-instructions.md in the specific repository for repo-level context, commands, and additional guidelines that extend these org-wide instructions.
+## Pull Requests
+- Reference related issues or feature requests in pull requests.
+- Provide a summary of changes and any special instructions for reviewers.
+
+## Special Instructions
+- For embedding and FHIR-related code, follow the patterns established in the `fhir_notes` and `vectorsearch` modules.
+- For Docker or deployment changes, update the relevant `docker-compose` and `Dockerfile` as needed.
+
+---
+
+_This file is intended for use by GitHub Copilot and other AI coding assistants to ensure consistency and quality in code contributions._
+
