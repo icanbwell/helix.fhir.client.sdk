@@ -24,9 +24,9 @@ class TestFhirGraphMixin:
                 self.resource("Patient")
                 self.log_level("DEBUG")
 
-            def create_http_session(self) -> aiohttp.ClientSession:
+            def create_http_session(self, connection_limit: int = 100) -> aiohttp.ClientSession:
                 # Mocking the HTTP session creation
-                return aiohttp.ClientSession()
+                return aiohttp.ClientSession(connector=aiohttp.TCPConnector(limit=connection_limit))
 
         return TestClient()
 

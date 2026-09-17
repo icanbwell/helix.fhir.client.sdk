@@ -29,11 +29,11 @@ class TestGraphProcessor(FhirClient):
         self.log_level("DEBUG")
         self.page_size(1)
 
-    def create_http_session(self) -> aiohttp.ClientSession:
+    def create_http_session(self, connection_limit: int = 100) -> aiohttp.ClientSession:
         """
         Create a mock HTTP session.
         """
-        return aiohttp.ClientSession()
+        return aiohttp.ClientSession(connector=aiohttp.TCPConnector(limit=connection_limit))
 
 
 def get_graph_processor(*, max_concurrent_requests: int | None = None) -> FhirClient:

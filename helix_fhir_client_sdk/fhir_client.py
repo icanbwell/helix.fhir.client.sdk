@@ -848,7 +848,7 @@ class FhirClient(
             full_url += f"id:above={id_above}"
         return full_url
 
-    def create_http_session(self) -> ClientSession:
+    def create_http_session(self, connection_limit: int = 100) -> ClientSession:
         """
         Creates the SDK's default HTTP Session.
 
@@ -856,7 +856,27 @@ class FhirClient(
         The SDK manages the lifecycle of sessions created by this method.
 
         Note: If you want to provide your own session factory, use use_http_session() instead.
+
+        Raising connection_limit matters when the returned session is shared across many
+        parallel requests, since that session's pool caps in-flight connections:
+
+        .. code-block:: python
+
+            session = fhir_client.create_http_session(connection_limit=500)
+            fhir_client.use_http_session(lambda: session)  # caller closes it when done
+
+        The SDK itself calls this with no arguments, building and discarding a session per
+        request, so the default is never reached on that path.
+
+        :param connection_limit: total pooled connections allowed, or 0 for unlimited.
+                                 Defaults to 100, matching aiohttp's own default. Unlimited
+                                 removes all backpressure: each pooled connection is a file
+                                 descriptor, so a burst risks descriptor exhaustion and places
+                                 unbounded load on the FHIR server.
+        :raises ValueError: if connection_limit is negative
         """
+        if connection_limit < 0:
+            raise ValueError(f"connection_limit must be 0 (unlimited) or greater, got {connection_limit}")
         trace_config = aiohttp.TraceConfig()
         # trace_config.on_request_start.append(on_request_start)
         if self._log_level == "DEBUG":
@@ -866,7 +886,7 @@ class FhirClient(
         ssl_context = ssl.create_default_context(cafile=certifi.where())
         timeout = aiohttp.ClientTimeout(total=60 * 60, sock_read=240)
         session: ClientSession = aiohttp.ClientSession(
-            connector=TCPConnector(ssl=ssl_context),
+            connector=TCPConnector(ssl=ssl_context, limit=connection_limit),
             trace_configs=[trace_config],
             headers={"Connection": "keep-alive"},
             timeout=timeout,
