@@ -1041,6 +1041,30 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         ):
             yield child_response
 
+    @staticmethod
+    def _format_if_modified_since(if_modified_since: datetime) -> str:
+        """
+        Format an ifModifiedSince value for a FHIR date search parameter.
+
+        Emits midnight UTC of that date with an explicit time component, e.g.
+        "2026-09-14T00:00:00.000Z".
+
+        The time is spelled out because Cerner rejects a bare date on Encounter
+        and Procedure searches with "date: must have a time" (DCON-5571). It is
+        pinned to midnight rather than the value's own time so the search window
+        is never narrowed: using the exact last-run instant would skip records
+        whose clinical date falls earlier that same day.
+
+        :param if_modified_since: value to format, treated as UTC when naive
+        :return: url-encoded timestamp, with colons left literal
+        """
+        if if_modified_since.tzinfo is None:
+            if_modified_since = if_modified_since.replace(tzinfo=UTC)
+        else:
+            if_modified_since = if_modified_since.astimezone(UTC)
+        # safe=":" keeps the colons literal, matching the format Oracle documents
+        return quote(f"{if_modified_since.date().isoformat()}T00:00:00.000Z", safe=":")
+
     async def _process_target_async(
         self,
         *,
@@ -1250,14 +1274,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             ref_param = [p for p in param_list if p.endswith("{ref}")][0]
             # replace any parameters with {ifModifiedSince} with the actual value
             if ifModifiedSince:
-                if_modified_since_date: datetime = ifModifiedSince
-                # if ifModifiedSince is missing timezone then set it to utc
-                if if_modified_since_date.tzinfo is None:
-                    if_modified_since_date = ifModifiedSince.replace(tzinfo=UTC)
-                else:
-                    if_modified_since_date = ifModifiedSince.astimezone(UTC)
-                # convert to isoformat
-                if_modified_since_isoformat = quote(if_modified_since_date.date().isoformat())
+                if_modified_since_isoformat = self._format_if_modified_since(ifModifiedSince)
                 param_list = [p.replace("{ifModifiedSince}", if_modified_since_isoformat) for p in param_list]
             else:
                 # remove any parameters with {ifModifiedSince}
