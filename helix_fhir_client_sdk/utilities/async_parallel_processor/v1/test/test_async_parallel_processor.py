@@ -151,3 +151,55 @@ async def test_process_rows_in_parallel_does_not_create_all_tasks_up_front() -> 
         await consumer_task
 
     assert sorted(results) == list(range(total_rows))
+
+
+@pytest.mark.asyncio
+async def test_cancelled_siblings_are_awaited_before_the_error_propagates() -> None:
+    """When one row fails, the cleanup cancels its still-pending siblings. It
+    must also wait for those cancellations to actually finish.
+
+    task.cancel() only schedules CancelledError for the task's next suspension
+    point; it does not stop the task. Returning straight after cancelling left
+    those tasks orphaned mid-flight, still holding whatever the row function was
+    using -- for graph traversal, an in-flight aiohttp request on a session the
+    caller is about to close. That is the client-side half of the
+    "Cannot write to closing transport" failures in DCON-5572.
+    """
+    sibling_cleanup_finished = asyncio.Event()
+    started = asyncio.Event()
+
+    async def fail_or_hang(
+        *,
+        context: ParallelFunctionContext,
+        row: str,
+        parameters: None,
+        additional_parameters: dict[str, Any] | None,
+    ) -> str:
+        if row == "fail":
+            # Let the sibling reach its await first, so it is genuinely pending
+            # rather than already finished when the failure lands.
+            await started.wait()
+            raise ValueError("boom")
+        started.set()
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            # Stands in for releasing an in-flight request/connection.
+            sibling_cleanup_finished.set()
+            raise
+        return row
+
+    processor = AsyncParallelProcessor(name="test", max_concurrent_tasks=2)
+
+    with pytest.raises(ValueError, match="boom"):
+        async for _ in processor.process_rows_in_parallel(
+            rows=["hang", "fail"], process_row_fn=fail_or_hang, parameters=None
+        ):
+            pass
+
+    # No await between the generator raising and this line, so the sibling's
+    # cleanup can only have run if the cleanup itself waited for it.
+    assert sibling_cleanup_finished.is_set(), (
+        "a cancelled sibling task was left running after process_rows_in_parallel "
+        "returned, so its in-flight work outlived the caller's cleanup"
+    )

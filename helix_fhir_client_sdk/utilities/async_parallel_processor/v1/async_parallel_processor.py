@@ -190,6 +190,14 @@ class AsyncParallelProcessor:
                     pending.add(task)
 
         finally:
-            # Cancel any pending tasks if something goes wrong
+            # Cancel any pending tasks if something goes wrong, then wait for
+            # those cancellations to actually finish. task.cancel() only
+            # schedules CancelledError for the task's next suspension point, so
+            # returning straight after cancelling leaves the tasks running
+            # mid-flight - for graph traversal, still holding an in-flight
+            # aiohttp request on a session the caller is about to close, which
+            # then fails with "Cannot write to closing transport" (DCON-5572).
             for task in pending:
                 task.cancel()
+            if pending:
+                await asyncio.gather(*pending, return_exceptions=True)
