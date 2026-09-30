@@ -1118,12 +1118,17 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             child_ids = []
             for parent_bundle_entry in parent_bundle_entries:
                 parent_resource = parent_bundle_entry.resource
-                references: list[dict[str, Any]] | dict[str, Any] | str | None = (
+                references: list[Any] | dict[str, Any] | str | None = (
                     DictionaryParser.get_nested_property(parent_resource.dict(), path) if parent_resource else None
                 )
                 # remove null references
                 if references and isinstance(references, list):
                     references = [r for r in references if r is not None]
+                elif references is not None:
+                    # `[x]` is a no-op on a non-repeating (0..1) element, so get_nested_property
+                    # hands back a bare value instead of a list.  Wrap it so the loop below
+                    # iterates the value itself rather than its characters (str) or keys (dict).
+                    references = [references]
 
                 if parent_resource and references and target_type:
                     parent_resource_type = parent_resource.get("resourceType", "")
