@@ -13,7 +13,7 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P2D"
 
 [options.exclude-newer-package]
-compressedfhir = false
+fhirschemapy = { timestamp = "0001-01-01T00:00:00Z", span = "PT0S" }
 
 [manifest]
 constraints = [{ name = "msgpack", specifier = ">=1.2.1" }]
@@ -613,15 +613,15 @@ wheels = [
 
 [[package]]
 name = "fhirschemapy"
-version = "0.0.11"
+version = "0.0.13"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9d/b1/18edef780c5775c1370924c74ee6b66171c4466ede022757d9d7d97c3329/fhirschemapy-0.0.11.tar.gz", hash = "sha256:6d8a775db05862fbc7b304b26d09f75344428edc7e83c41d231fefe1757ef289", size = 128043, upload-time = "2026-06-25T03:50:02.541Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/97/40/9a0dc93b4ee2ceb36734bb08fae2c9013961b21e8623a19a9bcc5bb10cc1/fhirschemapy-0.0.13.tar.gz", hash = "sha256:d6f33d67ba883767f360e6418c268e447631573a4da45959e76c1d9fb1eeec81", size = 127276, upload-time = "2026-10-06T22:58:55.988Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5f/1d/1478cb3ad3b062365bdbfec2cb520807bcab21d7c77797ea7582947e471f/fhirschemapy-0.0.11-py3-none-any.whl", hash = "sha256:e01c8d417ed89145032d3028893eb157899af875fa535484a2709bf770b9ee2f", size = 251483, upload-time = "2026-06-25T03:50:00.901Z" },
+    { url = "https://files.pythonhosted.org/packages/9b/ee/000770b5ffb3dda8804520bd3f04493449206256a5f1c2a4b7e064fead4f/fhirschemapy-0.0.13-py3-none-any.whl", hash = "sha256:ea49b09fd4f84299bbea5b2f1fb0dcb023c92c7102067a03543073c90df7f445", size = 249649, upload-time = "2026-10-06T22:58:54.489Z" },
 ]
 
 [[package]]
