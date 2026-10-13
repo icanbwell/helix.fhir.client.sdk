@@ -27,8 +27,9 @@ def _common_names(ssl_context: ssl.SSLContext) -> set[str]:
     """Common names of every CA certificate the context accepts as an issuer."""
     names: set[str] = set()
     for ca in ssl_context.get_ca_certs():
-        # typeshed types every field of the cert dict as a union, so narrow "subject" to
-        # its documented shape: a tuple of RDNs, each a tuple of (attribute, value) pairs.
+        # The stub for get_ca_certs() declares every field of the cert dict as a union,
+        # so narrow "subject" to its documented shape: a tuple of RDNs, each a tuple
+        # of (attribute, value) pairs.
         subject = cast(tuple[tuple[tuple[str, str], ...], ...], ca["subject"])
         for rdn in subject:
             for key, value in rdn:
