@@ -1253,7 +1253,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # add a stage to get that
             param_list: list[str] = target.params.split("&")
             ref_param = [p for p in param_list if p.endswith("{ref}")][0]
-            # replace any parameters with {ifModifiedSince} with the actual value
+            # replace any parameters with {ifModifiedSince} or {ifModifiedSinceDateTime} with the actual value
             if ifModifiedSince:
                 if_modified_since_date: datetime = ifModifiedSince
                 # if ifModifiedSince is missing timezone then set it to utc
@@ -1263,10 +1263,21 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     if_modified_since_date = ifModifiedSince.astimezone(UTC)
                 # convert to isoformat
                 if_modified_since_isoformat = quote(if_modified_since_date.date().isoformat())
-                param_list = [p.replace("{ifModifiedSince}", if_modified_since_isoformat) for p in param_list]
+                # {ifModifiedSinceDateTime} is the same UTC day at midnight as a full instant
+                # (2023-10-01T00:00:00Z), for servers that reject a date without a time on a search
+                # parameter, e.g. Cerner Encounter's date returns 400 "date: must have a time"
+                if_modified_since_datetime_isoformat = quote(f"{if_modified_since_date.date().isoformat()}T00:00:00Z")
+                param_list = [
+                    p.replace("{ifModifiedSinceDateTime}", if_modified_since_datetime_isoformat).replace(
+                        "{ifModifiedSince}", if_modified_since_isoformat
+                    )
+                    for p in param_list
+                ]
             else:
-                # remove any parameters with {ifModifiedSince}
-                param_list = [p for p in param_list if not p.endswith("{ifModifiedSince}")]
+                # remove any parameters with {ifModifiedSince} or {ifModifiedSinceDateTime}
+                param_list = [
+                    p for p in param_list if not p.endswith(("{ifModifiedSince}", "{ifModifiedSinceDateTime}"))
+                ]
             # now get all the parameters that are not {ref}
             additional_parameters = [p for p in param_list if not p.endswith("{ref}")]
             # get the property name of the ref parameter
