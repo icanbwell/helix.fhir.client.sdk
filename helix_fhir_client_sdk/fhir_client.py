@@ -848,6 +848,24 @@ class FhirClient(
             full_url += f"id:above={id_above}"
         return full_url
 
+    @staticmethod
+    def create_ssl_context() -> ssl.SSLContext:
+        """
+        Builds the TLS context the SDK uses to verify FHIR servers.
+
+        The context trusts the union of the operating system's CA store and certifi's
+        bundle. Passing ``cafile=certifi.where()`` to ``create_default_context`` would
+        skip the OS store entirely, so a CA installed in the runtime image (for example
+        with ``update-ca-certificates``) would be ignored. Loading certifi on top of the
+        OS defaults keeps everything certifi trusts and adds whatever the image trusts.
+
+        Callers that build their own persistent ``aiohttp.ClientSession`` can pass this
+        context to ``TCPConnector(ssl=...)`` to get the same trust policy.
+        """
+        ssl_context = ssl.create_default_context()
+        ssl_context.load_verify_locations(cafile=certifi.where())
+        return ssl_context
+
     def create_http_session(self, connection_limit: int = 100) -> ClientSession:
         """
         Creates the SDK's default HTTP Session.
@@ -883,7 +901,7 @@ class FhirClient(
             trace_config.on_request_end.append(FhirClient.on_request_end)
             trace_config.on_response_chunk_received.append(FhirClient.on_response_chunk_received)
         # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
-        ssl_context = ssl.create_default_context(cafile=certifi.where())
+        ssl_context = FhirClient.create_ssl_context()
         timeout = aiohttp.ClientTimeout(total=60 * 60, sock_read=240)
         session: ClientSession = aiohttp.ClientSession(
             connector=TCPConnector(ssl=ssl_context, limit=connection_limit),
