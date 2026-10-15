@@ -14,6 +14,9 @@ from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
     SimulatedGraphProcessorMixin,
 )
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
+from helix_fhir_client_sdk.responses.get.fhir_get_error_response import (
+    FhirGetErrorResponse,
+)
 from helix_fhir_client_sdk.responses.get.fhir_get_single_response import (
     FhirGetSingleResponse,
 )
@@ -446,3 +449,146 @@ async def test_items_added_to_input_cache() -> None:
     resource = result.get_bundle_entries()[0].resource
     assert resource is not None
     assert resource.get("id") == "test-id"
+
+
+def _error_response(*, status: int, ids: list[str] | None) -> FhirGetErrorResponse:
+    return FhirGetErrorResponse(
+        request_id=None,
+        url="http://example.com/fhir/Practitioner",
+        response_text="",
+        error=f"server returned {status}",
+        access_token=None,
+        total_count=0,
+        status=status,
+        next_url=None,
+        extra_context_to_return=None,
+        resource_type="Practitioner",
+        id_=ids,
+        response_headers=None,
+        chunk_number=0,
+        cache_hits=0,
+        results_by_url=[],
+        storage_mode=CompressedDictStorageMode.raw(),
+        create_operation_outcome_for_error=None,
+    )
+
+
+@pytest.mark.asyncio
+async def test_failed_single_id_fetch_is_cached_with_its_status_not_404() -> None:
+    """A failed fetch is cached with its own status, not as 404."""
+    processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
+    cache = RequestCache()
+
+    # noinspection PyUnusedLocal
+    async def mock_async_generator(
+        page_number: int | None,
+        ids: list[str] | None,
+        id_above: str | None,
+        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
+        additional_parameters: list[str] | None,
+        resource_type: str | None,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        yield _error_response(status=500, ids=ids)
+
+    processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
+
+    await processor._get_resources_by_parameters_async(
+        id_="p1",
+        resource_type="Practitioner",
+        parameters=None,
+        cache=cache,
+        scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
+        logger=None,
+        id_search_unsupported_resources=[],
+    )
+
+    entry = await cache.get_async(resource_type="Practitioner", resource_id="p1")
+    assert entry is not None
+    assert entry.status == 500
+
+
+@pytest.mark.asyncio
+async def test_failed_batch_then_one_by_one_fetch_keeps_each_ids_failure_status() -> None:
+    """Statuses recorded by the one-by-one fallback are not overwritten with 404."""
+    processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
+    cache = RequestCache()
+
+    # noinspection PyUnusedLocal
+    async def mock_async_generator(
+        page_number: int | None,
+        ids: list[str] | None,
+        id_above: str | None,
+        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
+        additional_parameters: list[str] | None,
+        resource_type: str | None,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        yield _error_response(status=503, ids=ids)
+
+    processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
+
+    await processor._get_resources_by_parameters_async(
+        id_=["p1", "p2"],
+        resource_type="Practitioner",
+        parameters=None,
+        cache=cache,
+        scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
+        logger=None,
+        id_search_unsupported_resources=[],
+    )
+
+    for resource_id in ("p1", "p2"):
+        entry = await cache.get_async(resource_type="Practitioner", resource_id=resource_id)
+        assert entry is not None, resource_id
+        assert entry.status == 503, resource_id
+
+
+@pytest.mark.asyncio
+async def test_id_missing_from_successful_batch_is_still_cached_as_404() -> None:
+    """A successful batch that simply does not contain an id is a genuine not-found."""
+    processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
+    cache = RequestCache()
+
+    # noinspection PyUnusedLocal
+    async def mock_async_generator(
+        page_number: int | None,
+        ids: list[str] | None,
+        id_above: str | None,
+        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
+        additional_parameters: list[str] | None,
+        resource_type: str | None,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        yield FhirGetSingleResponse(
+            response_text=json.dumps({"id": "p1", "resourceType": "Practitioner"}),
+            status=200,
+            total_count=1,
+            next_url=None,
+            resource_type="Practitioner",
+            id_="p1",
+            response_headers=None,
+            chunk_number=0,
+            cache_hits=0,
+            results_by_url=[],
+            storage_mode=CompressedDictStorageMode.raw(),
+            error=None,
+            access_token=None,
+            extra_context_to_return=None,
+            request_id=None,
+            url="http://example.com/fhir/Practitioner?_id=p1,p2",
+        )
+
+    processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
+
+    await processor._get_resources_by_parameters_async(
+        id_=["p1", "p2"],
+        resource_type="Practitioner",
+        parameters=None,
+        cache=cache,
+        scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
+        logger=None,
+        id_search_unsupported_resources=[],
+    )
+
+    found = await cache.get_async(resource_type="Practitioner", resource_id="p1")
+    missing = await cache.get_async(resource_type="Practitioner", resource_id="p2")
+    assert found is not None and found.status == 200
+    assert missing is not None and missing.status == 404
