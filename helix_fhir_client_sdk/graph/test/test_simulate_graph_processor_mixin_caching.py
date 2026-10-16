@@ -536,6 +536,11 @@ async def test_failed_batch_then_one_by_one_fetch_keeps_each_ids_failure_status(
         id_search_unsupported_resources=[],
     )
 
+    # the not-found pass must not count as cache reuse: the only lookups were the
+    # initial misses for p1 and p2 (by-param pass, then one-by-one pass)
+    assert cache.cache_hits == 0
+    assert cache.cache_misses == 4
+
     for resource_id in ("p1", "p2"):
         entry = await cache.get_async(resource_type="Practitioner", resource_id=resource_id)
         assert entry is not None, resource_id

@@ -79,6 +79,17 @@ class RequestCache:
         self.cache_misses += 1
         return None
 
+    async def peek_async(self, *, resource_type: str, resource_id: str) -> RequestCacheEntry | None:
+        """
+        Returns the cached entry for the given resource type and id without counting a hit or miss.
+        For bookkeeping checks that are not a cache reuse.
+
+        :param resource_type: The resource type to look up.
+        :param resource_id: The resource id to look up.
+        :return: The cached entry, or None if there is none.
+        """
+        return self._cache.get(f"{resource_type}/{resource_id}")
+
     async def add_async(
         self,
         *,

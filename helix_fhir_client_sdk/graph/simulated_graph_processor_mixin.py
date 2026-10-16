@@ -1424,7 +1424,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             if (
                 result_for_id is not None
                 and result_for_id.successful
-                and await cache.get_async(resource_type=resource_type, resource_id=single_id) is None
+                and await cache.peek_async(resource_type=resource_type, resource_id=single_id) is None
             ):
                 # fetched successfully but the response held no resource: the id does not exist
                 cache_updated = await cache.add_async(
@@ -1649,7 +1649,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         for non_cached_id in non_cached_id_list:
             if non_cached_id in found_non_cached_id_list:
                 continue
-            existing_entry: RequestCacheEntry | None = await cache.get_async(
+            existing_entry: RequestCacheEntry | None = await cache.peek_async(
                 resource_type=resource_type, resource_id=non_cached_id
             )
             if existing_entry is not None and not existing_entry.from_input_cache:
