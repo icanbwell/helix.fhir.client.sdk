@@ -1437,6 +1437,24 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     result2 = FhirGetErrorResponse.from_response(other_response=result2)
                 result_for_id = result_for_id.append(result2) if result_for_id else result2
                 await _cache_one_by_one_result_async(single_id=single_id, result2=result2)
+            if (
+                result_for_id is not None
+                and result_for_id.successful
+                and await cache.peek_async(resource_type=resource_type, resource_id=single_id) is None
+            ):
+                # fetched successfully but the response held no resource: the id does not exist
+                cache_updated = await cache.add_async(
+                    resource_type=resource_type,
+                    resource_id=single_id,
+                    bundle_entry=None,
+                    status=404,
+                    last_modified=datetime.now(UTC),
+                    etag=None,
+                    from_input_cache=False,
+                    raw_hash="",
+                )
+                if cache_updated and logger:
+                    logger.info(f"Inserted 404 for {resource_type}/{single_id} into cache (1by1)")
             return result_for_id
 
         # Fetch every non-cached id concurrently (bounded by max_concurrent_tasks)
@@ -1638,21 +1656,33 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             logger.debug(f"Inserted {resource_type}/{non_cached_resource_id} into cache (ByParam)")
                         found_non_cached_id_list.append(non_cached_resource_id)
 
-        # now add all the non-cached ids that were NOT found to the cache too so we don't look for them again
+        # now add all the non-cached ids that were NOT found to the cache too so we don't look for them again.
+        # 404 is recorded only when the fetch succeeded and the id was absent; a failed fetch records its
+        # own status so callers can tell the two apart. Ids fetched one by one were each recorded with
+        # their own outcome above and are left as they are; the aggregate status is only used for ids
+        # covered by a single request.
+        fetch_failed: bool = all_result is not None and not all_result.successful
         for non_cached_id in non_cached_id_list:
-            if non_cached_id not in found_non_cached_id_list:
-                cache_updated = await cache.add_async(
-                    resource_type=resource_type,
-                    resource_id=non_cached_id,
-                    bundle_entry=None,
-                    status=404,
-                    last_modified=datetime.now(UTC),
-                    etag=None,
-                    from_input_cache=False,
-                    raw_hash="",
-                )
-                if cache_updated and logger:
-                    logger.info(f"Inserted 404 for {resource_type}/{non_cached_id} into cache (ByParam)")
+            if non_cached_id in found_non_cached_id_list:
+                continue
+            existing_entry: RequestCacheEntry | None = await cache.peek_async(
+                resource_type=resource_type, resource_id=non_cached_id
+            )
+            if existing_entry is not None and not existing_entry.from_input_cache:
+                continue
+            not_found_status: int = all_result.status if fetch_failed and all_result else 404
+            cache_updated = await cache.add_async(
+                resource_type=resource_type,
+                resource_id=non_cached_id,
+                bundle_entry=None,
+                status=not_found_status,
+                last_modified=datetime.now(UTC),
+                etag=None,
+                from_input_cache=False,
+                raw_hash="",
+            )
+            if cache_updated and logger:
+                logger.info(f"Inserted {not_found_status} for {resource_type}/{non_cached_id} into cache (ByParam)")
 
         bundle_response: FhirGetBundleResponse = (
             FhirGetBundleResponse.from_response(other_response=all_result)
