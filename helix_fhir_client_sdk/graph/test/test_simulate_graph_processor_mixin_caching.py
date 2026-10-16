@@ -648,3 +648,60 @@ async def test_one_by_one_fallback_with_mixed_results_keeps_each_ids_own_status(
     failed = await cache.get_async(resource_type="Practitioner", resource_id="p2")
     assert found is not None and found.status == 200
     assert failed is not None and failed.status == 503
+
+
+@pytest.mark.asyncio
+async def test_one_by_one_fallback_absent_id_is_404_even_when_another_id_failed() -> None:
+    """An id that fetched successfully but returned nothing is not found (404), whatever happened to other ids."""
+    processor = MockSimulatedGraphProcessor()  # type: ignore[abstract]
+    cache = RequestCache()
+
+    # noinspection PyUnusedLocal
+    async def mock_async_generator(
+        page_number: int | None,
+        ids: list[str] | None,
+        id_above: str | None,
+        fn_handle_streaming_chunk: HandleStreamingChunkFunction | None,
+        additional_parameters: list[str] | None,
+        resource_type: str | None,
+    ) -> AsyncGenerator[FhirGetResponse, None]:
+        if ids == ["p2"]:
+            # success with no resource: genuinely absent
+            yield FhirGetSingleResponse(
+                response_text="",
+                status=200,
+                total_count=0,
+                next_url=None,
+                resource_type="Practitioner",
+                id_="p2",
+                response_headers=None,
+                chunk_number=0,
+                cache_hits=0,
+                results_by_url=[],
+                storage_mode=CompressedDictStorageMode.raw(),
+                error=None,
+                access_token=None,
+                extra_context_to_return=None,
+                request_id=None,
+                url="http://example.com/fhir/Practitioner/p2",
+            )
+        else:
+            # the ?_id=p1,p2 batch and the one-by-one fetch of p1 both fail
+            yield _error_response(status=500, ids=ids)
+
+    processor._get_with_session_async = mock_async_generator  # type: ignore[method-assign]
+
+    await processor._get_resources_by_parameters_async(
+        id_=["p1", "p2"],
+        resource_type="Practitioner",
+        parameters=None,
+        cache=cache,
+        scope_parser=MagicMock(scope_allows=MagicMock(return_value=True)),
+        logger=None,
+        id_search_unsupported_resources=[],
+    )
+
+    failed = await cache.get_async(resource_type="Practitioner", resource_id="p1")
+    absent = await cache.get_async(resource_type="Practitioner", resource_id="p2")
+    assert failed is not None and failed.status == 500
+    assert absent is not None and absent.status == 404
