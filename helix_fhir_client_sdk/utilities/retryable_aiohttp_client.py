@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -126,6 +126,24 @@ class RetryableAioHttpClient:
             return await response.text() if (response and response.status != 504) else ""
         except Exception as e:
             return str(e)
+
+    @staticmethod
+    def get_headers_as_dict(*, headers: Mapping[str, str] | None) -> dict[str, str]:
+        """
+        Converts response headers into a plain dict, joining repeated header values with a comma.
+
+        :param headers: the headers (a multidict such as ClientResponseError.headers, or a plain mapping)
+        :return: dict of header name to comma-joined values (empty dict if there are no headers)
+        """
+        if not headers:
+            return {}
+        if isinstance(headers, MultiMapping):
+            return {k: ",".join(headers.getall(k)) for k in headers.keys()}
+        # plain mapping: join any repeated keys defensively
+        result: dict[str, str] = {}
+        for k, v in headers.items():
+            result[k] = f"{result[k]},{v}" if k in result else str(v)
+        return result
 
     async def fetch(
         self,
@@ -281,12 +299,14 @@ class RetryableAioHttpClient:
                                 retry_count=retry_attempts,
                             )
                             if refresh_token_result.abort_request or refresh_token_result.access_token is None:
+                                # keep the server's headers (e.g. X-Request-ID) and body so callers can
+                                # correlate the failure with the source server's logs
                                 return RetryableAioHttpResponse(
                                     ok=False,
                                     status=401,
-                                    response_headers={},
-                                    response_text="Unauthorized",
-                                    content=None,
+                                    response_headers=response_headers,
+                                    response_text=await self.get_safe_response_text_async(response=response),
+                                    content=response.content,
                                     use_data_streaming=self.use_data_streaming,
                                     results_by_url=results_by_url,
                                     access_token=access_token,
@@ -343,10 +363,15 @@ class RetryableAioHttpClient:
                     if self._throw_exception_on_error:
                         raise
                     else:
+                        # keep the server's headers (e.g. X-Request-ID) when the error came from an HTTP response
                         return RetryableAioHttpResponse(
                             ok=False,
                             status=500,
-                            response_headers={},
+                            response_headers=(
+                                self.get_headers_as_dict(headers=e.headers)
+                                if isinstance(e, ClientResponseError)
+                                else {}
+                            ),
                             response_text=str(e),
                             content=None,
                             use_data_streaming=self.use_data_streaming,
