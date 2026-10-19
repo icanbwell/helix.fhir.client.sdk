@@ -110,6 +110,8 @@ async def test_async_fhir_client_patient_list_auth_fail_abort_keeps_request_id(
     )
     assert response.status == 401
     assert response.request_id == request_id
+    # the mocked 401 has no body, so the error text falls back to "Unauthorized"
+    assert response.error == "Unauthorized"
 
 
 async def test_async_fhir_client_patient_list_auth_fail_retries_exhausted_keeps_request_id() -> None:

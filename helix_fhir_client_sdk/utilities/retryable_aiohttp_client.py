@@ -162,6 +162,8 @@ class RetryableAioHttpClient:
         # run with retry
         while retry_attempts < self.retries:
             retry_attempts += 1
+            # headers of this attempt's response, kept on the error paths below (e.g. X-Request-ID)
+            response_headers: dict[str, str] = {}
             try:
                 if headers:
                     kwargs["headers"] = headers
@@ -204,7 +206,7 @@ class RetryableAioHttpClient:
                                     end_time=time.time(),
                                 )
                             )
-                        response_headers: dict[str, str] = {
+                        response_headers = {
                             k: ",".join(response.headers.getall(k)) for k in response.headers.keys()
                         }
                         response_headers_multi_mapping: MultiMapping[str] = cast(MultiMapping[str], response.headers)
@@ -300,12 +302,15 @@ class RetryableAioHttpClient:
                             )
                             if refresh_token_result.abort_request or refresh_token_result.access_token is None:
                                 # keep the server's headers (e.g. X-Request-ID) and body so callers can
-                                # correlate the failure with the source server's logs
+                                # correlate the failure with the source server's logs; a 401 often has no
+                                # body, so fall back to "Unauthorized" to keep the error text non-empty
                                 return RetryableAioHttpResponse(
                                     ok=False,
                                     status=401,
                                     response_headers=response_headers,
-                                    response_text=await self.get_safe_response_text_async(response=response),
+                                    response_text=(
+                                        await self.get_safe_response_text_async(response=response) or "Unauthorized"
+                                    ),
                                     content=response.content,
                                     use_data_streaming=self.use_data_streaming,
                                     results_by_url=results_by_url,
@@ -369,8 +374,8 @@ class RetryableAioHttpClient:
                             status=500,
                             response_headers=(
                                 self.get_headers_as_dict(headers=e.headers)
-                                if isinstance(e, ClientResponseError)
-                                else {}
+                                if isinstance(e, ClientResponseError) and e.headers
+                                else response_headers
                             ),
                             response_text=str(e),
                             content=None,
@@ -385,10 +390,11 @@ class RetryableAioHttpClient:
                 if self._throw_exception_on_error:
                     raise
                 else:
+                    # keep the headers when the error came after a response (e.g. the refresh or trace function raised)
                     return RetryableAioHttpResponse(
                         ok=False,
                         status=500,
-                        response_headers={},
+                        response_headers=response_headers,
                         response_text=str(e),
                         content=None,
                         use_data_streaming=self.use_data_streaming,
