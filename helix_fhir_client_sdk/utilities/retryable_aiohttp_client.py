@@ -206,9 +206,7 @@ class RetryableAioHttpClient:
                                     end_time=time.time(),
                                 )
                             )
-                        response_headers = {
-                            k: ",".join(response.headers.getall(k)) for k in response.headers.keys()
-                        }
+                        response_headers = {k: ",".join(response.headers.getall(k)) for k in response.headers.keys()}
                         response_headers_multi_mapping: MultiMapping[str] = cast(MultiMapping[str], response.headers)
 
                         if self.trace_function_async:
