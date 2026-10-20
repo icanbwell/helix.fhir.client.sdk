@@ -288,6 +288,16 @@ class RetryableAioHttpClient:
                                 retry_count=retry_attempts,
                             )
                         elif response.status == 429:
+                            if retry_attempts >= self.retries:
+                                # no retry is left, so do not wait for Retry-After; the exhausted-retry
+                                # handling below keeps the server's headers (e.g. X-Request-ID)
+                                raise ClientResponseError(
+                                    status=response.status,
+                                    message="Too Many Requests",
+                                    headers=response_headers_multi_mapping,
+                                    history=response.history,
+                                    request_info=response.request_info,
+                                )
                             await self._handle_429(response=response, full_url=url)
                         elif response.status == 401 and self.refresh_token_func_async:
                             # Call the token refresh function if status code is 401

@@ -1,11 +1,12 @@
 # test_retryable_aiohttp_client.py
+import asyncio
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from aiohttp import ClientConnectionError, ClientSession
+from aiohttp import ClientConnectionError, ClientResponseError, ClientSession
 from aioresponses import aioresponses
 from multidict import CIMultiDict, CIMultiDictProxy
 
@@ -133,6 +134,39 @@ async def test_handle_429() -> None:
             assert response.ok
             assert response.status == 200
             assert await response.get_text_async() == '{"key": "value"}'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("throw_exception_on_error", [False, True])
+async def test_handle_429_retries_exhausted_keeps_response_headers(throw_exception_on_error: bool) -> None:
+    """When every attempt gets 429, the last attempt does not wait and the server's headers are kept."""
+    request_id = "/8FF8FDBF04C44383D71A07CDACED9FD5+ref1_tOkq"
+
+    async with RetryableAioHttpClient(
+        retries=1,
+        throw_exception_on_error=throw_exception_on_error,
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        tracer_request_func=None,
+        refresh_token_func=None,
+    ) as client:
+        with aioresponses() as m:
+            m.get("http://test.com", status=429, headers={"Retry-After": "0", "X-Request-ID": request_id})
+            # a long Retry-After on the last attempt: waiting for it would hit the timeout below
+            m.get("http://test.com", status=429, headers={"Retry-After": "3600", "X-Request-ID": request_id})
+
+            if throw_exception_on_error:
+                with pytest.raises(ClientResponseError) as exc_info:
+                    await asyncio.wait_for(client.get(url="http://test.com", headers=None), timeout=10)
+                assert exc_info.value.status == 429
+                assert exc_info.value.headers is not None
+                assert exc_info.value.headers.get("X-Request-ID") == request_id
+            else:
+                response = await asyncio.wait_for(client.get(url="http://test.com", headers=None), timeout=10)
+                assert not response.ok
+                assert response.status == 500
+                assert response.response_headers.get("X-Request-ID") == request_id
 
 
 @pytest.mark.asyncio
