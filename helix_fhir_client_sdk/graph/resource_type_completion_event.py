@@ -1,5 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
+
+from helix_fhir_client_sdk.graph.resource_type_target_outcome import (
+    ResourceTypeTargetOutcome,
+)
 
 
 @dataclass(slots=True)
@@ -93,7 +97,8 @@ class ResourceTypeCompletionEvent:
     this field reports one outcome for the whole link event using the
     precedence above (success beats everything; a single successful target
     makes the whole link "success" even if a sibling target within the same
-    link was denied or not found)."""
+    link was denied or not found). See target_outcomes for each target's
+    own outcome."""
 
     error_type: str | None
     """The failed fetch's exception class name (e.g. "RuntimeError"), set
@@ -108,3 +113,12 @@ class ResourceTypeCompletionEvent:
     """str(exception) for the failed fetch, or "Fetch failed with HTTP
     status <code>" for a returned-not-raised HTTP error status. Set only
     when outcome == "error"; None for every other outcome."""
+
+    target_outcomes: list[ResourceTypeTargetOutcome] = field(default_factory=list)
+    """One entry per declared target type of the completed link, sorted by
+    resource_type, each classified on that target's own responses. Unlike
+    outcome, a sibling target's success does not hide a target that was
+    denied, not found or failed. Empty for the start resource
+    (link_index == -1), which has exactly one type, so this event's own
+    fields already describe it, and for a link that declares no target
+    types."""

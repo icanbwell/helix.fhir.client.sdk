@@ -33,6 +33,9 @@ from helix_fhir_client_sdk.graph.resource_type_completion_event import (
 from helix_fhir_client_sdk.graph.resource_type_started_event import (
     ResourceTypeStartedEvent,
 )
+from helix_fhir_client_sdk.graph.resource_type_target_outcome import (
+    ResourceTypeTargetOutcome,
+)
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
@@ -70,11 +73,14 @@ class _LinkFetchResult:
     consumer loop in _process_simulate_graph_by_resource_type_async can
     classify and fire the matching completion event itself (with
     outcome="error") instead of process_link_async_parallel_function firing
-    it and re-raising. Not part of this SDK's public API.
+    it and re-raising. `responses_by_target` holds the same responses
+    grouped by the declared target type that fetched them, so each target
+    can be classified on its own. Not part of this SDK's public API.
     """
 
     responses: list[FhirGetResponse]
     error: Exception | None = None
+    responses_by_target: dict[str, list[FhirGetResponse]] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -504,6 +510,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             await self._record_link_batch_outcome(
                                 rollup=rollup,
                                 link_responses=link_responses,
+                                responses_by_target=link_fetch_result.responses_by_target,
                                 link_queried_urls=link_queried_urls,
                                 links=link,
                                 context=context,
@@ -643,11 +650,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Initialize result list to store retrieved responses
         result: list[FhirGetResponse] = []
+        responses_by_target: dict[str, list[FhirGetResponse]] = {}
 
         # Process the link asynchronously and collect responses
         link_result: FhirGetResponse
         try:
-            async for link_result in self._process_link_async(
+            async for target_type, link_result in self._process_link_async(
                 link=row,
                 parent_bundle_entries=parameters.parent_bundle_entries,
                 logger=parameters.logger,
@@ -669,6 +677,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             ):
                 # Collect each link result
                 result.append(link_result)
+                responses_by_target.setdefault(target_type, []).append(link_result)
         except asyncio.CancelledError:
             # Fire a matching completion event (if registered) before letting
             # the cancellation propagate, so a caller that already received
@@ -698,6 +707,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         outcome="empty",
                         error_type=None,
                         error_message=None,
+                        target_outcomes=self._uniform_target_outcomes(
+                            resource_types=failed_resource_types,
+                            outcome="empty",
+                            error_type=None,
+                            error_message=None,
+                        ),
                     )
                 )
             raise
@@ -742,6 +757,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         outcome="error",
                         error_type=type(exc).__name__,
                         error_message=str(exc),
+                        target_outcomes=self._uniform_target_outcomes(
+                            resource_types=failed_resource_types,
+                            outcome="error",
+                            error_type=type(exc).__name__,
+                            error_message=str(exc),
+                        ),
                     )
                 )
             raise
@@ -762,7 +783,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             )
 
         # Return the list of retrieved responses
-        return _LinkFetchResult(responses=result)
+        return _LinkFetchResult(responses=result, responses_by_target=responses_by_target)
 
     async def _process_link_async(
         self,
@@ -778,7 +799,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         max_concurrent_tasks: int | None,
         add_cached_bundles_to_result: bool = True,
         ifModifiedSince: datetime | None,
-    ) -> AsyncGenerator[FhirGetResponse, None]:
+    ) -> AsyncGenerator[tuple[str, FhirGetResponse], None]:
         """
         Process a GraphDefinition link object with advanced traversal capabilities.
 
@@ -808,7 +829,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             ifModifiedSince: Optional timestamp for conditional requests
 
         Yields:
-            FhirGetResponse objects for each processed target
+            (target type, FhirGetResponse) for each response, so the caller
+            knows which declared target fetched it
         """
         # Validate input link
         assert link, "GraphDefinitionLink must be provided"
@@ -818,8 +840,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Extract targets from the link
         targets: list[GraphDefinitionTarget] = link.target
+        target_context: ParallelFunctionContext
         target_responses: list[FhirGetResponse]
-        async for target_responses in AsyncParallelProcessor(
+        async for target_context, target_responses in AsyncParallelProcessor(  # type: ignore[assignment]
             name="process_target_async",
             max_concurrent_tasks=max_concurrent_tasks,
         ).process_rows_in_parallel(
@@ -842,10 +865,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             id_search_unsupported_resources=id_search_unsupported_resources,
             add_cached_bundles_to_result=add_cached_bundles_to_result,
             ifModifiedSince=ifModifiedSince,
+            yield_context=True,
         ):
+            target_type = targets[target_context.task_index].type_ or ""
             # Yield each target response individually
             for target_response in target_responses:
-                yield target_response
+                yield target_type, target_response
 
     # noinspection PyUnusedLocal
     async def process_target_async_parallel_function(
@@ -2138,6 +2163,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         *,
         rollup: _GraphTraversalRollup,
         link_responses: list[FhirGetResponse],
+        responses_by_target: dict[str, list[FhirGetResponse]],
         link_queried_urls: list[str],
         links: list[GraphDefinitionLink],
         context: ParallelFunctionContext,
@@ -2176,6 +2202,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             resource_count_for_link=resource_count_for_link,
             link_queried_urls=link_queried_urls,
             link_responses=link_responses,
+            responses_by_target=responses_by_target,
             scope_parser=scope_parser,
             graph_depth=graph_depth,
             on_resource_type_completed=on_resource_type_completed,
@@ -2198,6 +2225,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         resource_count_for_link: int,
         link_queried_urls: list[str],
         link_responses: list[FhirGetResponse],
+        responses_by_target: dict[str, list[FhirGetResponse]],
         scope_parser: FhirScopeParser,
         graph_depth: int,
         on_resource_type_completed: Callable[[ResourceTypeCompletionEvent], Awaitable[None]] | None,
@@ -2226,41 +2254,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         """
         declared_types = sorted({target.type_ for target in links[context.task_index].target if target.type_})
 
-        # Separate from resource_count_for_link (which still drives the event's own
-        # resource_count field and the caller's total_resource_count rollup): an
-        # OperationOutcome error placeholder from a 404 response counts as "1
-        # resource" via get_resource_count(), which would otherwise make a
-        # 404-only link misclassify as "success" here.
-        successful_resource_count_for_link = sum(r.get_resource_count() for r in link_responses if r.successful)
-
-        outcome: Literal["success", "empty", "not_found", "scope_denied", "error"]
-        computed_error_type: str | None = None
-        computed_error_message: str | None = None
-        if error is not None:
-            outcome = "error"
-            computed_error_type = type(error).__name__
-            computed_error_message = str(error)
-        elif successful_resource_count_for_link > 0:
-            outcome = "success"
-        elif any(r.status == 404 for r in link_responses):
-            outcome = "not_found"
-        elif any(not r.successful for r in link_responses):
-            # This SDK's retry client returns (rather than raises) for non-5xx
-            # HTTP errors such as 400/403, so there is no exception to read an
-            # error_type/error_message off of — without this branch a
-            # server-side permission denial would be indistinguishable from
-            # "genuinely no data" (outcome="empty"). The synthesized
-            # error_type deliberately uses an HttpStatus<code> form so callers
-            # can tell it apart from a raised-exception error, whose
-            # error_type is the exception's class name.
-            outcome = "error"
-            failed_status = next(r.status for r in link_responses if not r.successful)
-            computed_error_type = f"HttpStatus{failed_status}"
-            computed_error_message = f"Fetch failed with HTTP status {failed_status}"
-        elif declared_types and not any(scope_parser.scope_allows(resource_type=t) for t in declared_types):
-            outcome = "scope_denied"
-        else:
-            outcome = "empty"
+        outcome, computed_error_type, computed_error_message = self._classify_outcome(
+            responses=link_responses,
+            declared_types=declared_types,
+            scope_parser=scope_parser,
+            error=error,
+        )
 
         if on_resource_type_completed:
             reported_resource_types = resource_types or declared_types
@@ -2276,9 +2275,123 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     outcome=outcome,
                     error_type=computed_error_type,
                     error_message=computed_error_message,
+                    target_outcomes=[
+                        self._target_outcome(
+                            resource_type=target_type,
+                            responses=responses_by_target.get(target_type, []),
+                            scope_parser=scope_parser,
+                            error=error,
+                        )
+                        for target_type in declared_types
+                    ],
                 )
             )
         return outcome
+
+    @staticmethod
+    def _target_outcome(
+        *,
+        resource_type: str,
+        responses: list[FhirGetResponse],
+        scope_parser: FhirScopeParser,
+        error: Exception | None,
+    ) -> ResourceTypeTargetOutcome:
+        """
+        Classifies one declared target of a link on that target's own
+        responses, with the same rules as the link as a whole, so a target
+        that was denied, not found or failed is reported even when a sibling
+        target succeeded.
+        """
+        outcome, error_type, error_message = SimulatedGraphProcessorMixin._classify_outcome(
+            responses=responses,
+            declared_types=[resource_type],
+            scope_parser=scope_parser,
+            error=error,
+        )
+        return ResourceTypeTargetOutcome(
+            resource_type=resource_type,
+            # Only successful responses count, so a 404's OperationOutcome
+            # body isn't reported as one resource for a not_found target.
+            resource_count=sum(r.get_resource_count() for r in responses if r.successful),
+            outcome=outcome,
+            error_type=error_type,
+            error_message=error_message,
+        )
+
+    @staticmethod
+    def _uniform_target_outcomes(
+        *,
+        resource_types: list[str],
+        outcome: Literal["success", "empty", "not_found", "scope_denied", "error"],
+        error_type: str | None,
+        error_message: str | None,
+    ) -> list[ResourceTypeTargetOutcome]:
+        """
+        The same zero-count outcome for every target of a link, for a fetch
+        that was cancelled or raised before any target could be told apart.
+        """
+        return [
+            ResourceTypeTargetOutcome(
+                resource_type=resource_type,
+                resource_count=0,
+                outcome=outcome,
+                error_type=error_type,
+                error_message=error_message,
+            )
+            for resource_type in resource_types
+        ]
+
+    @staticmethod
+    def _classify_outcome(
+        *,
+        responses: list[FhirGetResponse],
+        declared_types: list[str],
+        scope_parser: FhirScopeParser,
+        error: Exception | None,
+    ) -> tuple[Literal["success", "empty", "not_found", "scope_denied", "error"], str | None, str | None]:
+        """
+        Returns (outcome, error_type, error_message) for a set of responses
+        fetched for the given declared types, using the precedence documented
+        on ResourceTypeCompletionEvent.outcome. Used for a whole link and for
+        each of its targets.
+        """
+        # Separate from resource_count_for_link (which still drives the event's own
+        # resource_count field and the caller's total_resource_count rollup): an
+        # OperationOutcome error placeholder from a 404 response counts as "1
+        # resource" via get_resource_count(), which would otherwise make a
+        # 404-only link misclassify as "success" here.
+        successful_resource_count = sum(r.get_resource_count() for r in responses if r.successful)
+
+        outcome: Literal["success", "empty", "not_found", "scope_denied", "error"]
+        computed_error_type: str | None = None
+        computed_error_message: str | None = None
+        if error is not None:
+            outcome = "error"
+            computed_error_type = type(error).__name__
+            computed_error_message = str(error)
+        elif successful_resource_count > 0:
+            outcome = "success"
+        elif any(r.status == 404 for r in responses):
+            outcome = "not_found"
+        elif any(not r.successful for r in responses):
+            # This SDK's retry client returns (rather than raises) for non-5xx
+            # HTTP errors such as 400/403, so there is no exception to read an
+            # error_type/error_message off of — without this branch a
+            # server-side permission denial would be indistinguishable from
+            # "genuinely no data" (outcome="empty"). The synthesized
+            # error_type deliberately uses an HttpStatus<code> form so callers
+            # can tell it apart from a raised-exception error, whose
+            # error_type is the exception's class name.
+            outcome = "error"
+            failed_status = next(r.status for r in responses if not r.successful)
+            computed_error_type = f"HttpStatus{failed_status}"
+            computed_error_message = f"Fetch failed with HTTP status {failed_status}"
+        elif declared_types and not any(scope_parser.scope_allows(resource_type=t) for t in declared_types):
+            outcome = "scope_denied"
+        else:
+            outcome = "empty"
+
+        return outcome, computed_error_type, computed_error_message
 
     # noinspection PyPep8Naming
     async def _process_simulate_graph_by_resource_type_async(
@@ -2611,6 +2724,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             await self._record_link_batch_outcome(
                                 rollup=rollup,
                                 link_responses=link_responses,
+                                responses_by_target=link_fetch_result.responses_by_target,
                                 link_queried_urls=link_queried_urls,
                                 links=links,
                                 context=context,
