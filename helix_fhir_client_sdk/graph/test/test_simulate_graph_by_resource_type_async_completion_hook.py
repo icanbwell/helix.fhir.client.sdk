@@ -1608,3 +1608,237 @@ async def test_callback_exception_is_not_counted_as_a_fetch_failure() -> None:
 
     assert len(graph_completed_events) == 1
     assert graph_completed_events[0].total_error_count == 0
+
+
+async def _collect_multi_target_completions(
+    graph_processor: SimulatedGraphProcessorMixin,
+    *,
+    continue_on_resource_type_error: bool = False,
+) -> list[ResourceTypeCompletionEvent]:
+    completed_events: list[ResourceTypeCompletionEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    async for _ in graph_processor.simulate_graph_by_resource_type_async(
+        id_="1",
+        graph_json=MULTI_TARGET_LINK_GRAPH,
+        contained=False,
+        max_concurrent_tasks=1,
+        continue_on_resource_type_error=continue_on_resource_type_error,
+        on_resource_type_completed=on_completed,
+    ):
+        pass
+    return completed_events
+
+
+def _target_outcomes_by_type(event: ResourceTypeCompletionEvent) -> dict[str, tuple[str, int, str | None]]:
+    return {t.resource_type: (t.outcome, t.resource_count, t.error_type) for t in event.target_outcomes}
+
+
+@pytest.mark.asyncio
+async def test_target_outcomes_report_sibling_not_found_under_link_success() -> None:
+    # The link stays "success" (see the test above), but each target keeps
+    # its own outcome, so the 404 is not hidden by the sibling's success.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    with aioresponses() as m:
+        m.get("http://example.com/fhir/Patient/1", payload={"resourceType": "Patient", "id": "1"})
+        m.get(
+            "http://example.com/fhir/AllergyIntolerance?patient=1",
+            payload={"resourceType": "AllergyIntolerance", "id": "1"},
+        )
+        m.get(
+            "http://example.com/fhir/CarePlan?patient=1",
+            status=404,
+            payload={"resourceType": "OperationOutcome"},
+        )
+        completed_events = await _collect_multi_target_completions(graph_processor)
+
+    link_completed = [e for e in completed_events if e.link_index == 0]
+    assert len(link_completed) == 1
+    assert link_completed[0].outcome == "success"
+    assert [t.resource_type for t in link_completed[0].target_outcomes] == ["AllergyIntolerance", "CarePlan"]
+    outcomes = _target_outcomes_by_type(link_completed[0])
+    assert outcomes["AllergyIntolerance"][:2] == ("success", 1)
+    assert outcomes["CarePlan"][0] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_target_outcomes_report_scope_denied_target_under_link_success() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+    graph_processor._auth_scopes = ["patient/Patient.read", "patient/AllergyIntolerance.read"]
+
+    with aioresponses() as m:
+        m.get("http://example.com/fhir/Patient/1", payload={"resourceType": "Patient", "id": "1"})
+        m.get(
+            "http://example.com/fhir/AllergyIntolerance?patient=1",
+            payload={"resourceType": "AllergyIntolerance", "id": "1"},
+        )
+        # CarePlan is not mocked: the scope must stop it before any HTTP call.
+        completed_events = await _collect_multi_target_completions(graph_processor)
+
+    link_completed = [e for e in completed_events if e.link_index == 0]
+    assert len(link_completed) == 1
+    assert link_completed[0].outcome == "success"
+    assert _target_outcomes_by_type(link_completed[0]) == {
+        "AllergyIntolerance": ("success", 1, None),
+        "CarePlan": ("scope_denied", 0, None),
+    }
+
+
+@pytest.mark.asyncio
+async def test_target_outcomes_tell_not_found_from_empty() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    with aioresponses() as m:
+        m.get("http://example.com/fhir/Patient/1", payload={"resourceType": "Patient", "id": "1"})
+        m.get(
+            "http://example.com/fhir/AllergyIntolerance?patient=1",
+            status=404,
+            payload={"resourceType": "OperationOutcome"},
+        )
+        m.get(
+            "http://example.com/fhir/CarePlan?patient=1",
+            payload={"resourceType": "Bundle", "type": "searchset", "entry": []},
+        )
+        completed_events = await _collect_multi_target_completions(graph_processor)
+
+    link_completed = [e for e in completed_events if e.link_index == 0]
+    assert len(link_completed) == 1
+    assert link_completed[0].outcome == "not_found"
+    outcomes = _target_outcomes_by_type(link_completed[0])
+    assert outcomes["AllergyIntolerance"][0] == "not_found"
+    assert outcomes["CarePlan"] == ("empty", 0, None)
+
+
+@pytest.mark.asyncio
+async def test_target_outcomes_report_http_error_per_target() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    with aioresponses() as m:
+        m.get("http://example.com/fhir/Patient/1", payload={"resourceType": "Patient", "id": "1"})
+        m.get(
+            "http://example.com/fhir/AllergyIntolerance?patient=1",
+            status=403,
+            payload={"resourceType": "OperationOutcome"},
+        )
+        m.get(
+            "http://example.com/fhir/CarePlan?patient=1",
+            payload={"resourceType": "Bundle", "type": "searchset", "entry": []},
+        )
+        completed_events = await _collect_multi_target_completions(graph_processor)
+
+    link_completed = [e for e in completed_events if e.link_index == 0]
+    assert len(link_completed) == 1
+    assert link_completed[0].outcome == "error"
+    allergy = next(t for t in link_completed[0].target_outcomes if t.resource_type == "AllergyIntolerance")
+    assert allergy.outcome == "error"
+    assert allergy.error_type == "HttpStatus403"
+    assert allergy.error_message == "Fetch failed with HTTP status 403"
+    assert _target_outcomes_by_type(link_completed[0])["CarePlan"] == ("empty", 0, None)
+
+
+@pytest.mark.asyncio
+async def test_target_outcomes_mark_every_target_error_when_link_fetch_raises() -> None:
+    # A raised fetch fails the whole link task, so it can't be pinned on one
+    # target: every declared target is reported as error.
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    with aioresponses() as m:
+        m.get("http://example.com/fhir/Patient/1", payload={"resourceType": "Patient", "id": "1"})
+        m.get(
+            "http://example.com/fhir/AllergyIntolerance?patient=1",
+            exception=RuntimeError("simulated network failure fetching link"),
+        )
+        m.get(
+            "http://example.com/fhir/CarePlan?patient=1",
+            payload={"resourceType": "CarePlan", "id": "1"},
+        )
+        completed_events = await _collect_multi_target_completions(
+            graph_processor, continue_on_resource_type_error=True
+        )
+
+    link_completed = [e for e in completed_events if e.link_index == 0]
+    assert len(link_completed) == 1
+    assert link_completed[0].outcome == "error"
+    assert _target_outcomes_by_type(link_completed[0]) == {
+        "AllergyIntolerance": ("error", 0, "FhirSenderException"),
+        "CarePlan": ("error", 0, "FhirSenderException"),
+    }
+    assert all(t.error_message for t in link_completed[0].target_outcomes)
+
+
+@pytest.mark.asyncio
+async def test_target_outcomes_are_empty_for_every_target_on_cancellation() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    async def raise_cancelled(**kwargs: Any) -> AsyncGenerator[Any, None]:
+        raise asyncio.CancelledError()
+        yield  # pragma: no cover - unreachable; makes this an async generator function
+
+    graph_processor._process_link_async = raise_cancelled  # type: ignore[method-assign]
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    with aioresponses() as m:
+        m.get("http://example.com/fhir/Patient/1", payload={"resourceType": "Patient", "id": "1"})
+
+        with pytest.raises(asyncio.CancelledError):
+            async for _ in graph_processor.simulate_graph_by_resource_type_async(
+                id_="1",
+                graph_json=MULTI_TARGET_LINK_GRAPH,
+                contained=False,
+                max_concurrent_tasks=1,
+                on_resource_type_completed=on_completed,
+            ):
+                pass
+
+    link_completed = [e for e in completed_events if e.link_index == 0]
+    assert len(link_completed) == 1
+    assert _target_outcomes_by_type(link_completed[0]) == {
+        "AllergyIntolerance": ("empty", 0, None),
+        "CarePlan": ("empty", 0, None),
+    }
+
+
+@pytest.mark.asyncio
+async def test_target_outcomes_match_link_for_single_target_links_and_skip_start_resource() -> None:
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor(max_concurrent_requests=1)
+
+    completed_events: list[ResourceTypeCompletionEvent] = []
+
+    async def on_completed(event: ResourceTypeCompletionEvent) -> None:
+        completed_events.append(event)
+
+    with aioresponses() as m:
+        mock_two_link_graph_responses(m)
+
+        async for _ in graph_processor.simulate_graph_by_resource_type_async(
+            id_="1",
+            graph_json=TWO_LINK_GRAPH,
+            contained=False,
+            max_concurrent_tasks=1,
+            on_resource_type_completed=on_completed,
+        ):
+            pass
+
+    start_completed = [e for e in completed_events if e.link_index == -1]
+    assert len(start_completed) == 1
+    assert start_completed[0].target_outcomes == []
+
+    link_completed = [e for e in completed_events if e.link_index >= 0]
+    assert len(link_completed) == 2
+    for event in link_completed:
+        assert len(event.target_outcomes) == 1
+        target = event.target_outcomes[0]
+        assert [target.resource_type] == event.resource_types
+        assert (target.outcome, target.resource_count, target.error_type, target.error_message) == (
+            event.outcome,
+            event.resource_count,
+            event.error_type,
+            event.error_message,
+        )
