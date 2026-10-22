@@ -16,8 +16,10 @@ class ResourceTypeTargetOutcome:
     """The declared target type this outcome is for."""
 
     resource_count: int
-    """Total resource count across every FhirGetResponse chunk this target
-    retrieved, counted the same way as ResourceTypeCompletionEvent.resource_count."""
+    """Total resource count across the successful FhirGetResponse chunks this
+    target retrieved. Unlike ResourceTypeCompletionEvent.resource_count,
+    unsuccessful responses are left out, so a not_found target reports 0
+    rather than counting its 404's OperationOutcome body."""
 
     outcome: Literal["success", "empty", "not_found", "scope_denied", "error"]
     """Same values and precedence as ResourceTypeCompletionEvent.outcome,

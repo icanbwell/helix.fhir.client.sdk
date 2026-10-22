@@ -707,16 +707,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         outcome="empty",
                         error_type=None,
                         error_message=None,
-                        target_outcomes=[
-                            ResourceTypeTargetOutcome(
-                                resource_type=t,
-                                resource_count=0,
-                                outcome="empty",
-                                error_type=None,
-                                error_message=None,
-                            )
-                            for t in failed_resource_types
-                        ],
+                        target_outcomes=self._uniform_target_outcomes(
+                            resource_types=failed_resource_types,
+                            outcome="empty",
+                            error_type=None,
+                            error_message=None,
+                        ),
                     )
                 )
             raise
@@ -761,16 +757,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         outcome="error",
                         error_type=type(exc).__name__,
                         error_message=str(exc),
-                        target_outcomes=[
-                            ResourceTypeTargetOutcome(
-                                resource_type=t,
-                                resource_count=0,
-                                outcome="error",
-                                error_type=type(exc).__name__,
-                                error_message=str(exc),
-                            )
-                            for t in failed_resource_types
-                        ],
+                        target_outcomes=self._uniform_target_outcomes(
+                            resource_types=failed_resource_types,
+                            outcome="error",
+                            error_type=type(exc).__name__,
+                            error_message=str(exc),
+                        ),
                     )
                 )
             raise
@@ -2318,11 +2310,36 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         )
         return ResourceTypeTargetOutcome(
             resource_type=resource_type,
-            resource_count=sum(r.get_resource_count() for r in responses),
+            # Only successful responses count, so a 404's OperationOutcome
+            # body isn't reported as one resource for a not_found target.
+            resource_count=sum(r.get_resource_count() for r in responses if r.successful),
             outcome=outcome,
             error_type=error_type,
             error_message=error_message,
         )
+
+    @staticmethod
+    def _uniform_target_outcomes(
+        *,
+        resource_types: list[str],
+        outcome: Literal["success", "empty", "not_found", "scope_denied", "error"],
+        error_type: str | None,
+        error_message: str | None,
+    ) -> list[ResourceTypeTargetOutcome]:
+        """
+        The same zero-count outcome for every target of a link, for a fetch
+        that was cancelled or raised before any target could be told apart.
+        """
+        return [
+            ResourceTypeTargetOutcome(
+                resource_type=resource_type,
+                resource_count=0,
+                outcome=outcome,
+                error_type=error_type,
+                error_message=error_message,
+            )
+            for resource_type in resource_types
+        ]
 
     @staticmethod
     def _classify_outcome(

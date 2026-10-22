@@ -1659,9 +1659,13 @@ async def test_target_outcomes_report_sibling_not_found_under_link_success() -> 
     assert len(link_completed) == 1
     assert link_completed[0].outcome == "success"
     assert [t.resource_type for t in link_completed[0].target_outcomes] == ["AllergyIntolerance", "CarePlan"]
-    outcomes = _target_outcomes_by_type(link_completed[0])
-    assert outcomes["AllergyIntolerance"][:2] == ("success", 1)
-    assert outcomes["CarePlan"][0] == "not_found"
+    # The link's resource_count still counts the 404's OperationOutcome body;
+    # the target's count leaves it out.
+    assert link_completed[0].resource_count == 2
+    assert _target_outcomes_by_type(link_completed[0]) == {
+        "AllergyIntolerance": ("success", 1, None),
+        "CarePlan": ("not_found", 0, None),
+    }
 
 
 @pytest.mark.asyncio
@@ -1707,9 +1711,10 @@ async def test_target_outcomes_tell_not_found_from_empty() -> None:
     link_completed = [e for e in completed_events if e.link_index == 0]
     assert len(link_completed) == 1
     assert link_completed[0].outcome == "not_found"
-    outcomes = _target_outcomes_by_type(link_completed[0])
-    assert outcomes["AllergyIntolerance"][0] == "not_found"
-    assert outcomes["CarePlan"] == ("empty", 0, None)
+    assert _target_outcomes_by_type(link_completed[0]) == {
+        "AllergyIntolerance": ("not_found", 0, None),
+        "CarePlan": ("empty", 0, None),
+    }
 
 
 @pytest.mark.asyncio
@@ -1734,6 +1739,7 @@ async def test_target_outcomes_report_http_error_per_target() -> None:
     assert link_completed[0].outcome == "error"
     allergy = next(t for t in link_completed[0].target_outcomes if t.resource_type == "AllergyIntolerance")
     assert allergy.outcome == "error"
+    assert allergy.resource_count == 0
     assert allergy.error_type == "HttpStatus403"
     assert allergy.error_message == "Fetch failed with HTTP status 403"
     assert _target_outcomes_by_type(link_completed[0])["CarePlan"] == ("empty", 0, None)
