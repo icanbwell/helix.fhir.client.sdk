@@ -63,6 +63,15 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.hash_util import ResourceHash
 
 
+def _validate_max_query_chars(max_query_chars: int | None) -> None:
+    """Reject anything but None (no cap) or a positive int: 0 would silently disable the cap and a
+    negative value would send every id in its own request."""
+    if max_query_chars is None:
+        return
+    if isinstance(max_query_chars, bool) or not isinstance(max_query_chars, int) or max_query_chars <= 0:
+        raise ValueError(f"max_query_chars must be None or a positive integer, got {max_query_chars!r}")
+
+
 @dataclass(slots=True)
 class _LinkFetchResult:
     """
@@ -134,6 +143,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         expand_fhir_bundle: bool | None,
         auth_scopes: list[str] | None,
         request_size: int | None = 1,
+        max_query_chars: int | None = None,
         max_concurrent_tasks: int | None,
         sort_resources: bool | None,
         add_cached_bundles_to_result: bool = True,
@@ -238,6 +248,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         assert graph_definition.start, "Graph definition must have a start resource"
 
         # Parse authentication scopes for resource access control
+        _validate_max_query_chars(max_query_chars)
+
         scope_parser: FhirScopeParser = FhirScopeParser(scopes=auth_scopes)
 
         # Ensure bundle resources are not separated by default
@@ -499,6 +511,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             yield_context=True,
                             parent_link_map=new_parent_link_map,
                             request_size=request_size,
+                            max_query_chars=max_query_chars,
                             id_search_unsupported_resources=id_search_unsupported_resources,
                             add_cached_bundles_to_result=add_cached_bundles_to_result,
                             ifModifiedSince=ifModifiedSince,
@@ -665,6 +678,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 parent_link_map=(additional_parameters["parent_link_map"] if additional_parameters else []),
                 # Determine request size, default to 1 if not specified
                 request_size=(additional_parameters["request_size"] if additional_parameters else 1),
+                max_query_chars=(additional_parameters.get("max_query_chars") if additional_parameters else None),
                 # Track unsupported resources for ID-based search
                 id_search_unsupported_resources=(
                     additional_parameters["id_search_unsupported_resources"] if additional_parameters else []
@@ -795,6 +809,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         scope_parser: FhirScopeParser,
         parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]],
         request_size: int,
+        max_query_chars: int | None = None,
         id_search_unsupported_resources: list[str],
         max_concurrent_tasks: int | None,
         add_cached_bundles_to_result: bool = True,
@@ -862,6 +877,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # Additional parameters for extended processing
             parent_link_map=parent_link_map,
             request_size=request_size,
+            max_query_chars=max_query_chars,
             id_search_unsupported_resources=id_search_unsupported_resources,
             add_cached_bundles_to_result=add_cached_bundles_to_result,
             ifModifiedSince=ifModifiedSince,
@@ -929,6 +945,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             parent_link_map=(additional_parameters["parent_link_map"] if additional_parameters else []),
             # Request size configuration
             request_size=(additional_parameters["request_size"] if additional_parameters else 1),
+            max_query_chars=(additional_parameters.get("max_query_chars") if additional_parameters else None),
             # Track resources with limited ID search capabilities
             id_search_unsupported_resources=(
                 additional_parameters["id_search_unsupported_resources"] if additional_parameters else []
@@ -1077,6 +1094,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         scope_parser: FhirScopeParser,
         parent_link_map: list[tuple[list[GraphDefinitionLink], list[FhirBundleEntry]]],
         request_size: int,
+        max_query_chars: int | None = None,
         id_search_unsupported_resources: list[str],
         add_cached_bundles_to_result: bool = True,
         ifModifiedSince: datetime | None = None,
@@ -1138,6 +1156,28 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # requests than before as well as concurrency-safe.
         seen_child_ids: set[str] = set()
 
+        def over_query_budget(ids: list[str]) -> bool:
+            """True when more than one id is batched and their comma-joined list passes max_query_chars.
+
+            A single id is never split, so an id longer than the budget is still sent on its own.
+            """
+            return bool(max_query_chars) and len(ids) > 1 and len(",".join(ids)) > cast(int, max_query_chars)
+
+        def child_batch(ids: list[str], batch_parent_ids: list[str]) -> dict[str, Any]:
+            return {
+                "resource_type": target_type,
+                "id_": ids,
+                "parent_ids": batch_parent_ids,
+                "parent_resource_type": parent_resource_type,
+                "path": path,
+                "cache": cache,
+                "scope_parser": scope_parser,
+                "logger": logger,
+                "id_search_unsupported_resources": id_search_unsupported_resources,
+                "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                "max_concurrent_tasks": max_concurrent_tasks,
+            }
+
         # forward link and iterate over list
         if path and "[x]" in path and parent_bundle_entries:
             child_ids = []
@@ -1179,6 +1219,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 ):
                                     child_ids.append(reference_parts[-2])
                                     seen_child_ids.add(reference_parts[-2])
+                        if over_query_budget(child_ids):
+                            # The id just added pushed the list past max_query_chars: send the
+                            # batch without it and start the next batch with it.
+                            overflow_id = child_ids.pop()
+                            child_group_batches.append(child_batch(child_ids, parent_ids))
+                            child_ids = [overflow_id]
+                            parent_ids = parent_ids[-1:]
                         if request_size and len(child_ids) == request_size:
                             child_group_batches.append(
                                 {
@@ -1238,6 +1285,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 ):
                                     child_ids.append(reference_parts[-2])
                                     seen_child_ids.add(reference_parts[-2])
+                            if over_query_budget(child_ids):
+                                # The id just added pushed the list past max_query_chars: send the
+                                # batch without it and start the next batch with it.
+                                overflow_id = child_ids.pop()
+                                child_group_batches.append(child_batch(child_ids, parent_ids))
+                                child_ids = [overflow_id]
+                                parent_ids = parent_ids[-1:]
                             if request_size and len(child_ids) == request_size:
                                 child_group_batches.append(
                                     {
@@ -1323,6 +1377,24 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         if parent_id and parent_id not in seen_parent_ids:
                             parent_ids.append(parent_id)
                             seen_parent_ids.add(parent_id)
+                    if over_query_budget(parent_ids):
+                        overflow_id = parent_ids.pop()
+                        child_group_batches.append(
+                            {
+                                "resource_type": target_type,
+                                "parent_ids": parent_ids,
+                                "parent_resource_type": parent_resource_type,
+                                "parameters": [f"{property_name}={','.join(parent_ids)}"] + additional_parameters,
+                                "path": path,
+                                "cache": cache,
+                                "scope_parser": scope_parser,
+                                "logger": logger,
+                                "id_search_unsupported_resources": id_search_unsupported_resources,
+                                "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                                "max_concurrent_tasks": max_concurrent_tasks,
+                            }
+                        )
+                        parent_ids = [overflow_id]
                     if request_size and len(parent_ids) == request_size:
                         request_parameters = [f"{property_name}={','.join(parent_ids)}"] + additional_parameters
                         child_group_batches.append(
@@ -1736,6 +1808,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         ifModifiedSince: datetime | None = None,
         eTag: str | None = None,
         request_size: int | None = 1,
+        max_query_chars: int | None = None,
         max_concurrent_tasks: int | None = 1,
         sort_resources: bool | None = False,
         add_cached_bundles_to_result: bool = True,
@@ -1766,6 +1839,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
         :param eTag: Optional ETag to use for If-None-Match header
         :param request_size: Optional Count of resources to request in one request
+        :param max_query_chars: Optional cap on the characters of the comma-joined id list in one batched
+                                request (``_id=a,b,c`` or ``{ref}=a,b,c``), so id-heavy types stay under the
+                                server's URL limit. None means only request_size limits a batch.
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially.
         :param sort_resources: Optional flag to sort resources
         :param add_cached_bundles_to_result: Optional flag to add cached bundles to result
@@ -1837,6 +1913,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 logger=self._logger,
                 auth_scopes=self._auth_scopes,
                 request_size=request_size,
+                max_query_chars=max_query_chars,
                 max_concurrent_tasks=max_concurrent_tasks,
                 sort_resources=sort_resources,
                 add_cached_bundles_to_result=add_cached_bundles_to_result,
@@ -1870,6 +1947,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         ifModifiedSince: datetime | None = None,
         eTag: str | None = None,
         request_size: int | None = 1,
+        max_query_chars: int | None = None,
         max_concurrent_tasks: int | None = 1,
         sort_resources: bool | None = False,
         input_cache: RequestCache | None = None,
@@ -1897,6 +1975,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
         :param eTag: Optional ETag to use for If-None-Match header
         :param request_size: Optional Count of resources to request in one request
+        :param max_query_chars: Optional cap on the characters of the comma-joined id list in one batched
+                                request (``_id=a,b,c`` or ``{ref}=a,b,c``), so id-heavy types stay under the
+                                server's URL limit. None means only request_size limits a batch.
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially
         :param sort_resources: Optional flag to sort resources
         :param input_cache: Optional cache to use for input
@@ -1972,6 +2053,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             logger=self._logger,
             auth_scopes=self._auth_scopes,
             request_size=request_size,
+            max_query_chars=max_query_chars,
             max_concurrent_tasks=max_concurrent_tasks,
             sort_resources=sort_resources,
             input_cache=input_cache,
@@ -2009,6 +2091,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         ifModifiedSince: datetime | None = None,
         eTag: str | None = None,
         request_size: int | None = 1,
+        max_query_chars: int | None = None,
         max_concurrent_tasks: int | None = 1,
         sort_resources: bool | None = False,
         add_cached_bundles_to_result: bool = True,
@@ -2041,6 +2124,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
         :param eTag: Optional ETag to use for If-None-Match header
         :param request_size: Optional Count of resources to request in one request
+        :param max_query_chars: Optional cap on the characters of the comma-joined id list in one batched
+                                request (``_id=a,b,c`` or ``{ref}=a,b,c``), so id-heavy types stay under the
+                                server's URL limit. None means only request_size limits a batch.
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially.
         :param sort_resources: Optional flag to sort resources
         :param add_cached_bundles_to_result: Optional flag to add cached bundles to result
@@ -2118,6 +2204,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             logger=self._logger,
             auth_scopes=self._auth_scopes,
             request_size=request_size,
+            max_query_chars=max_query_chars,
             max_concurrent_tasks=max_concurrent_tasks,
             sort_resources=sort_resources,
             add_cached_bundles_to_result=add_cached_bundles_to_result,
@@ -2412,6 +2499,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         expand_fhir_bundle: bool | None,
         auth_scopes: list[str] | None,
         request_size: int | None = 1,
+        max_query_chars: int | None = None,
         max_concurrent_tasks: int | None,
         sort_resources: bool | None,
         add_cached_bundles_to_result: bool = True,
@@ -2433,6 +2521,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
         assert isinstance(graph_definition, GraphDefinition)
         assert graph_definition.start, "Graph definition must have a start resource"
+
+        _validate_max_query_chars(max_query_chars)
 
         scope_parser: FhirScopeParser = FhirScopeParser(scopes=auth_scopes)
         self.separate_bundle_resources(False)
@@ -2704,6 +2794,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             yield_context=True,
                             parent_link_map=new_parent_link_map,
                             request_size=request_size,
+                            max_query_chars=max_query_chars,
                             id_search_unsupported_resources=id_search_unsupported_resources,
                             add_cached_bundles_to_result=add_cached_bundles_to_result,
                             ifModifiedSince=ifModifiedSince,
