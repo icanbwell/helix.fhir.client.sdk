@@ -63,6 +63,15 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.hash_util import ResourceHash
 
 
+def _validate_max_query_chars(max_query_chars: int | None) -> None:
+    """Reject anything but None (no cap) or a positive int: 0 would silently disable the cap and a
+    negative value would send every id in its own request."""
+    if max_query_chars is None:
+        return
+    if isinstance(max_query_chars, bool) or not isinstance(max_query_chars, int) or max_query_chars <= 0:
+        raise ValueError(f"max_query_chars must be None or a positive integer, got {max_query_chars!r}")
+
+
 @dataclass(slots=True)
 class _LinkFetchResult:
     """
@@ -239,6 +248,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         assert graph_definition.start, "Graph definition must have a start resource"
 
         # Parse authentication scopes for resource access control
+        _validate_max_query_chars(max_query_chars)
+
         scope_parser: FhirScopeParser = FhirScopeParser(scopes=auth_scopes)
 
         # Ensure bundle resources are not separated by default
@@ -2510,6 +2521,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
         assert isinstance(graph_definition, GraphDefinition)
         assert graph_definition.start, "Graph definition must have a start resource"
+
+        _validate_max_query_chars(max_query_chars)
 
         scope_parser: FhirScopeParser = FhirScopeParser(scopes=auth_scopes)
         self.separate_bundle_resources(False)

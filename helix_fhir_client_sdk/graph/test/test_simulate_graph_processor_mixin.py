@@ -1817,3 +1817,27 @@ async def test_max_query_chars_splits_reverse_link_batches(
     )
 
     assert batches == sorted([parent_ids[i] for i in batch] for batch in expected)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("max_query_chars", [0, -1, -500, True, 2.5])
+async def test_max_query_chars_must_be_none_or_a_positive_int(max_query_chars: Any) -> None:
+    """0 would silently turn the cap off and a negative value would send every id alone,
+    so a bad value is rejected up front instead of changing the request count."""
+    graph_json: dict[str, Any] = {
+        "id": "1",
+        "name": "Test Graph",
+        "resourceType": "GraphDefinition",
+        "start": "Patient",
+        "link": [{"target": [{"type": "MedicationRequest", "params": "patient={ref}"}]}],
+    }
+
+    with pytest.raises(ValueError, match="max_query_chars"):
+        await _run_batching_graph(
+            graph_json=graph_json,
+            parent_resources=[{"resourceType": "MedicationRequest", "id": "mr1"}],
+            child_resource_type="Medication",
+            child_query_key="_id",
+            request_size=25,
+            max_query_chars=max_query_chars,
+        )
