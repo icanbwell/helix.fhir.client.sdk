@@ -24,9 +24,9 @@ class TestFhirGraphMixin:
                 self.resource("Patient")
                 self.log_level("DEBUG")
 
-            def create_http_session(self) -> aiohttp.ClientSession:
+            def create_http_session(self, connection_limit: int = 100) -> aiohttp.ClientSession:
                 # Mocking the HTTP session creation
-                return aiohttp.ClientSession()
+                return aiohttp.ClientSession(connector=aiohttp.TCPConnector(limit=connection_limit))
 
         return TestClient()
 
@@ -70,7 +70,7 @@ class TestFhirGraphMixin:
         with aioresponses() as m:
             # Mocking the HTTP response
             m.post(
-                "https://fhir-server/Patient/$graph?contained=true&_id=123%252C456",
+                "https://fhir-server/Patient/$graph?contained=true&_id=123,456",
                 payload={"resourceType": "Bundle", "type": "searchset"},
             )
             result = [
@@ -116,7 +116,7 @@ class TestFhirGraphMixin:
         with aioresponses() as m:
             # Mocking the HTTP response
             m.post(
-                "https://fhir-server/Patient/$graph?_id=123%252C456%252C789",
+                "https://fhir-server/Patient/$graph?_id=123,456,789",
                 payload={"resourceType": "Bundle", "type": "searchset"},
             )
 

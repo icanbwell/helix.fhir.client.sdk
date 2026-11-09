@@ -1,0 +1,17 @@
+{
+    "resourceType": "GraphDefinition",
+    "id": "media_binary",
+    "name": "media_binary_content",
+    "status": "active",
+    "start": "Media",
+    "link": [
+        {
+            "path": "content[x].url",
+            "target": [
+                {
+                    "type": "Binary"
+                }
+            ]
+        }
+    ]
+}

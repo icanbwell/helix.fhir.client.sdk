@@ -1,5 +1,4 @@
 import dataclasses
-import json
 from typing import Any, override
 
 from compressedfhir.fhir.fhir_resource import FhirResource
@@ -10,6 +9,7 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
 from helix_fhir_client_sdk.responses.merge.base_fhir_merge_resource_response_entry import (
     BaseFhirMergeResourceResponseEntry,
 )
+from helix_fhir_client_sdk.utilities.json_helpers import parse_json_or_ndjson
 
 
 @dataclasses.dataclass(kw_only=True, slots=True)
@@ -76,13 +76,43 @@ class FhirMergeResourceResponseEntry(BaseFhirMergeResourceResponseEntry):
         )
 
     @classmethod
+    def from_dict_uncompressed(cls, data: dict[str, Any]) -> "FhirMergeResourceResponseEntry":
+        """
+        Creates a FhirMergeResourceResponseEntry from a dictionary without storage_mode overhead.
+        Uses FhirResource.construct for faster object creation.
+
+        :param data: Dictionary containing the response entry data
+        :return: FhirMergeResourceResponseEntry instance
+        """
+        resource_payload = data.get("resource")
+        resource_obj: FhirResource | None = (
+            FhirResource.construct(**resource_payload) if isinstance(resource_payload, dict) else None
+        )
+        return FhirMergeResourceResponseEntry(
+            created=data.get("created"),
+            updated=data.get("updated"),
+            deleted=data.get("deleted"),
+            id_=data.get("id"),
+            uuid=data.get("uuid"),
+            resource_type=data.get("resourceType"),
+            source_assigning_authority=data.get("source_assigning_authority"),
+            resource_version=data.get("resource_version"),
+            message=data.get("message"),
+            issue=data.get("issue"),
+            error=data.get("error"),
+            token=data.get("token"),
+            resource=resource_obj,
+            status=data.get("status"),
+        )
+
+    @classmethod
     @override
     def from_json(
         cls, data: str, *, storage_mode: CompressedDictStorageMode
     ) -> list[BaseFhirMergeResourceResponseEntry]:
         if not data:
             return []
-        loaded_data: dict[str, Any] | list[dict[str, Any]] = json.loads(data)
+        loaded_data: dict[str, Any] | list[dict[str, Any]] = parse_json_or_ndjson(data)
         if isinstance(loaded_data, list):
             return [FhirMergeResourceResponseEntry.from_dict(d, storage_mode=storage_mode) for d in loaded_data]
         else:

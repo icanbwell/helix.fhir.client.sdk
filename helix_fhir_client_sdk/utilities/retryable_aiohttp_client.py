@@ -1,24 +1,31 @@
 import asyncio
+import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, cast
 
 import async_timeout
 from aiohttp import ClientError, ClientResponse, ClientResponseError, ClientSession
 from multidict import MultiMapping
+from opentelemetry import trace
 
 from helix_fhir_client_sdk.function_types import (
     RefreshTokenFunction,
     RefreshTokenResult,
     TraceRequestFunction,
 )
+from helix_fhir_client_sdk.open_telemetry.attribute_names import FhirClientSdkOpenTelemetryAttributeNames
+from helix_fhir_client_sdk.open_telemetry.span_names import FhirClientSdkOpenTelemetrySpanNames
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
+
+TRACER = trace.get_tracer(__name__)
+logger = logging.getLogger(__name__)
 
 
 class RetryableAioHttpClient:
@@ -32,6 +39,7 @@ class RetryableAioHttpClient:
         refresh_token_func: RefreshTokenFunction | None,
         tracer_request_func: TraceRequestFunction | None,
         fn_get_session: Callable[[], ClientSession] | None = None,
+        caller_managed_session: bool = False,
         exclude_status_codes_from_retry: list[int] | None = None,
         use_data_streaming: bool | None,
         compress: bool | None = False,
@@ -40,11 +48,34 @@ class RetryableAioHttpClient:
         log_all_url_results: bool = False,
         access_token: str | None,
         access_token_expiry_date: datetime | None,
-        close_session_on_exit: bool = True,
     ) -> None:
         """
-        RetryableClient provides a way to make HTTP calls with automatic retry and automatic refreshing of access tokens
+        RetryableClient provides a way to make HTTP calls with automatic retry and automatic refreshing of access tokens.
 
+        Session Lifecycle Management:
+        - If caller_managed_session is False (default): The SDK manages the session lifecycle.
+          The session will be automatically closed when exiting the context manager.
+        - If caller_managed_session is True: The caller is responsible for managing the session lifecycle.
+          The SDK will NOT close the session - the caller must close it themselves.
+
+        :param retries: Number of retry attempts for failed requests
+        :param timeout_in_seconds: Timeout for HTTP requests
+        :param backoff_factor: Factor for exponential backoff between retries
+        :param retry_status_codes: HTTP status codes that trigger a retry
+        :param refresh_token_func: Function to refresh authentication tokens
+        :param tracer_request_func: Function to trace/log requests
+        :param fn_get_session: Optional callable that returns a ClientSession. If None, a basic
+                               ClientSession will be created internally.
+        :param caller_managed_session: If True, the caller is responsible for closing the session.
+                                       If False (default), the SDK will close the session on exit.
+        :param exclude_status_codes_from_retry: Status codes to exclude from retry logic
+        :param use_data_streaming: Whether to stream response data
+        :param compress: Whether to compress request data
+        :param send_data_as_chunked: Whether to use chunked transfer encoding
+        :param throw_exception_on_error: Whether to raise exceptions on HTTP errors
+        :param log_all_url_results: Whether to log all URL results
+        :param access_token: Access token for authentication
+        :param access_token_expiry_date: Expiry date of the access token
         """
         self.retries: int = retries
         self.timeout_in_seconds: float | None = timeout_in_seconds
@@ -54,6 +85,8 @@ class RetryableAioHttpClient:
         )
         self.refresh_token_func_async: RefreshTokenFunction | None = refresh_token_func
         self.trace_function_async: TraceRequestFunction | None = tracer_request_func
+        self._caller_managed_session: bool = caller_managed_session
+        # If no session factory provided, use a default one that creates a basic ClientSession
         self.fn_get_session: Callable[[], ClientSession] = (
             fn_get_session if fn_get_session is not None else lambda: ClientSession()
         )
@@ -66,7 +99,6 @@ class RetryableAioHttpClient:
         self.log_all_url_results: bool = log_all_url_results
         self.access_token: str | None = access_token
         self.access_token_expiry_date: datetime | None = access_token_expiry_date
-        self.close_session_on_exit: bool = close_session_on_exit
 
     async def __aenter__(self) -> "RetryableAioHttpClient":
         self.session = self.fn_get_session()
@@ -78,7 +110,9 @@ class RetryableAioHttpClient:
         exc_val: BaseException | None,
         exc_tb: type[BaseException] | None | None,
     ) -> None:
-        if self.session is not None and self.close_session_on_exit:
+        # Only close the session if SDK created it (fn_get_session was not provided)
+        # If the caller provided fn_get_session, they are responsible for closing the session
+        if not self._caller_managed_session and self.session is not None:
             await self.session.close()
 
     @staticmethod
@@ -93,12 +127,31 @@ class RetryableAioHttpClient:
         except Exception as e:
             return str(e)
 
+    @staticmethod
+    def get_headers_as_dict(*, headers: Mapping[str, str] | None) -> dict[str, str]:
+        """
+        Converts response headers into a plain dict, joining repeated header values with a comma.
+
+        :param headers: the headers (a multidict such as ClientResponseError.headers, or a plain mapping)
+        :return: dict of header name to comma-joined values (empty dict if there are no headers)
+        """
+        if not headers:
+            return {}
+        if isinstance(headers, MultiMapping):
+            return {k: ",".join(headers.getall(k)) for k in headers.keys()}
+        # plain mapping: join any repeated keys defensively
+        result: dict[str, str] = {}
+        for k, v in headers.items():
+            result[k] = f"{result[k]},{v}" if k in result else str(v)
+        return result
+
     async def fetch(
         self,
         *,
         url: str,
         method: str = "GET",
         headers: dict[str, str] | None,
+        resource_type: str | None = None,
         **kwargs: Any,
     ) -> RetryableAioHttpResponse:
         retry_attempts: int = -1
@@ -109,10 +162,12 @@ class RetryableAioHttpClient:
         # run with retry
         while retry_attempts < self.retries:
             retry_attempts += 1
+            # headers of this attempt's response, kept on the error paths below (e.g. X-Request-ID)
+            response_headers: dict[str, str] = {}
             try:
                 if headers:
                     kwargs["headers"] = headers
-                # if there is no data then remove from kwargs so as not to confuse aiohttp
+                # if there is no data, then remove from kwargs so as not to confuse aiohttp
                 if "data" in kwargs and kwargs["data"] is None:
                     del kwargs["data"]
                 # compression and chunked can only be enabled if there is content sent
@@ -122,164 +177,78 @@ class RetryableAioHttpClient:
                     if self.compress:
                         kwargs["compress"] = self.compress
                 assert self.session is not None
-                async with async_timeout.timeout(self.timeout_in_seconds):
-                    start_time: float = time.time()
-                    response: ClientResponse = await self.session.request(
-                        method,
+                with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.HTTP_GET) as span:
+                    span.set_attribute(
+                        FhirClientSdkOpenTelemetryAttributeNames.URL,
                         url,
-                        **kwargs,
                     )
-                    # Append the result to the list of results
-                    if self.log_all_url_results:
-                        results_by_url.append(
-                            RetryableAioHttpUrlResult(
+                    if resource_type:
+                        span.set_attribute(
+                            FhirClientSdkOpenTelemetryAttributeNames.RESOURCE,
+                            resource_type,
+                        )
+                    async with async_timeout.timeout(self.timeout_in_seconds):
+                        start_time: float = time.time()
+                        response: ClientResponse = await self.session.request(
+                            method,
+                            url,
+                            **kwargs,
+                        )
+                        # Append the result to the list of results
+                        if self.log_all_url_results:
+                            results_by_url.append(
+                                RetryableAioHttpUrlResult(
+                                    ok=response.ok,
+                                    url=url,
+                                    status_code=response.status,
+                                    retry_count=retry_attempts,
+                                    start_time=start_time,
+                                    end_time=time.time(),
+                                )
+                            )
+                        response_headers = {k: ",".join(response.headers.getall(k)) for k in response.headers.keys()}
+                        response_headers_multi_mapping: MultiMapping[str] = cast(MultiMapping[str], response.headers)
+
+                        if self.trace_function_async:
+                            request_headers: dict[str, str] = {
+                                k: ",".join(response.request_info.headers.getall(k))
+                                for k in response.request_info.headers.keys()
+                            }
+                            await self.trace_function_async(
                                 ok=response.ok,
                                 url=url,
                                 status_code=response.status,
+                                access_token=access_token,
+                                expiry_date=expiry_date,
                                 retry_count=retry_attempts,
                                 start_time=start_time,
                                 end_time=time.time(),
+                                request_headers=request_headers,
+                                response_headers=response_headers,
                             )
-                        )
-                    response_headers: dict[str, str] = {
-                        k: ",".join(response.headers.getall(k)) for k in response.headers.keys()
-                    }
-                    response_headers_multi_mapping: MultiMapping[str] = cast(MultiMapping[str], response.headers)
 
-                    if self.trace_function_async:
-                        request_headers: dict[str, str] = {
-                            k: ",".join(response.request_info.headers.getall(k))
-                            for k in response.request_info.headers.keys()
-                        }
-                        await self.trace_function_async(
-                            ok=response.ok,
-                            url=url,
-                            status_code=response.status,
-                            access_token=access_token,
-                            expiry_date=expiry_date,
-                            retry_count=retry_attempts,
-                            start_time=start_time,
-                            end_time=time.time(),
-                            request_headers=request_headers,
-                            response_headers=response_headers,
-                        )
-
-                    if response.ok:
-                        # If the response is successful, return the response
-                        return RetryableAioHttpResponse(
-                            ok=response.ok,
-                            status=response.status,
-                            response_headers=response_headers,
-                            response_text=(
-                                await self.get_safe_response_text_async(response=response)
-                                if not self.use_data_streaming
-                                else ""
-                            ),
-                            content=response.content,
-                            use_data_streaming=self.use_data_streaming,
-                            results_by_url=results_by_url,
-                            access_token=access_token,
-                            access_token_expiry_date=expiry_date,
-                            retry_count=retry_attempts,
-                        )
-                    elif (
-                        self.exclude_status_codes_from_retry and response.status in self.exclude_status_codes_from_retry
-                    ):
-                        return RetryableAioHttpResponse(
-                            ok=response.ok,
-                            status=response.status,
-                            response_headers=response_headers,
-                            response_text=await self.get_safe_response_text_async(response=response),
-                            content=response.content,
-                            use_data_streaming=self.use_data_streaming,
-                            results_by_url=results_by_url,
-                            access_token=access_token,
-                            access_token_expiry_date=expiry_date,
-                            retry_count=retry_attempts,
-                        )
-                    elif response.status == 400:
-                        return RetryableAioHttpResponse(
-                            ok=response.ok,
-                            status=response.status,
-                            response_headers=response_headers,
-                            response_text=await self.get_safe_response_text_async(response=response),
-                            content=response.content,
-                            use_data_streaming=self.use_data_streaming,
-                            results_by_url=results_by_url,
-                            access_token=access_token,
-                            access_token_expiry_date=expiry_date,
-                            retry_count=retry_attempts,
-                        )
-                    elif response.status in [403, 404]:
-                        return RetryableAioHttpResponse(
-                            ok=response.ok,
-                            status=response.status,
-                            response_headers=response_headers,
-                            response_text=await self.get_safe_response_text_async(response=response),
-                            content=response.content,
-                            use_data_streaming=self.use_data_streaming,
-                            results_by_url=results_by_url,
-                            access_token=access_token,
-                            access_token_expiry_date=expiry_date,
-                            retry_count=retry_attempts,
-                        )
-                    elif response.status == 429:
-                        await self._handle_429(response=response, full_url=url)
-                    elif self.retry_status_codes and response.status in self.retry_status_codes:
-                        raise ClientResponseError(
-                            status=response.status,
-                            message="Retryable status code received",
-                            headers=response_headers_multi_mapping,
-                            history=response.history,
-                            request_info=response.request_info,
-                        )
-                    elif response.status == 401 and self.refresh_token_func_async:
-                        # Call the token refresh function if status code is 401
-                        refresh_token_result: RefreshTokenResult = await self.refresh_token_func_async(
-                            current_token=access_token,
-                            expiry_date=expiry_date,
-                            url=url,
-                            status_code=response.status,
-                            retry_count=retry_attempts,
-                        )
-                        if refresh_token_result.abort_request or refresh_token_result.access_token is None:
+                        if response.ok:
+                            # If the response is successful, return the response
                             return RetryableAioHttpResponse(
-                                ok=False,
-                                status=401,
-                                response_headers={},
-                                response_text="Unauthorized",
-                                content=None,
+                                ok=response.ok,
+                                status=response.status,
+                                response_headers=response_headers,
+                                response_text=(
+                                    await self.get_safe_response_text_async(response=response)
+                                    if not self.use_data_streaming
+                                    else ""
+                                ),
+                                content=response.content,
                                 use_data_streaming=self.use_data_streaming,
                                 results_by_url=results_by_url,
                                 access_token=access_token,
                                 access_token_expiry_date=expiry_date,
                                 retry_count=retry_attempts,
                             )
-                        else:  # we got a valid token
-                            access_token = refresh_token_result.access_token
-                            expiry_date = refresh_token_result.expiry_date
-                            if not headers:
-                                headers = {}
-                            headers["Authorization"] = f"Bearer {access_token}"
-                            if retry_attempts >= self.retries:
-                                raise ClientResponseError(
-                                    status=response.status,
-                                    message="Unauthorized",
-                                    headers=response_headers_multi_mapping,
-                                    history=response.history,
-                                    request_info=response.request_info,
-                                )
-                            await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
-                    else:
-                        if self._throw_exception_on_error:
-                            raise ClientResponseError(
-                                status=response.status,
-                                message="Non-retryable status code received",
-                                headers=response_headers_multi_mapping,
-                                history=response.history,
-                                request_info=response.request_info,
-                            )
-                        else:
+                        elif (
+                            self.exclude_status_codes_from_retry
+                            and response.status in self.exclude_status_codes_from_retry
+                        ):
                             return RetryableAioHttpResponse(
                                 ok=response.ok,
                                 status=response.status,
@@ -292,15 +261,130 @@ class RetryableAioHttpClient:
                                 access_token_expiry_date=expiry_date,
                                 retry_count=retry_attempts,
                             )
+                        elif response.status == 400:
+                            return RetryableAioHttpResponse(
+                                ok=response.ok,
+                                status=response.status,
+                                response_headers=response_headers,
+                                response_text=await self.get_safe_response_text_async(response=response),
+                                content=response.content,
+                                use_data_streaming=self.use_data_streaming,
+                                results_by_url=results_by_url,
+                                access_token=access_token,
+                                access_token_expiry_date=expiry_date,
+                                retry_count=retry_attempts,
+                            )
+                        elif response.status in [403, 404]:
+                            return RetryableAioHttpResponse(
+                                ok=response.ok,
+                                status=response.status,
+                                response_headers=response_headers,
+                                response_text=await self.get_safe_response_text_async(response=response),
+                                content=response.content,
+                                use_data_streaming=self.use_data_streaming,
+                                results_by_url=results_by_url,
+                                access_token=access_token,
+                                access_token_expiry_date=expiry_date,
+                                retry_count=retry_attempts,
+                            )
+                        elif response.status == 429:
+                            if retry_attempts >= self.retries:
+                                # no retry is left, so do not wait for Retry-After; the exhausted-retry
+                                # handling below keeps the server's headers (e.g. X-Request-ID)
+                                raise ClientResponseError(
+                                    status=response.status,
+                                    message="Too Many Requests",
+                                    headers=response_headers_multi_mapping,
+                                    history=response.history,
+                                    request_info=response.request_info,
+                                )
+                            await self._handle_429(response=response, full_url=url)
+                        elif response.status == 401 and self.refresh_token_func_async:
+                            # Call the token refresh function if status code is 401
+                            refresh_token_result: RefreshTokenResult = await self.refresh_token_func_async(
+                                current_token=access_token,
+                                expiry_date=expiry_date,
+                                url=url,
+                                status_code=response.status,
+                                retry_count=retry_attempts,
+                            )
+                            if refresh_token_result.abort_request or refresh_token_result.access_token is None:
+                                # keep the server's headers (e.g. X-Request-ID) and body so callers can
+                                # correlate the failure with the source server's logs; a 401 often has no
+                                # body, so fall back to "Unauthorized" to keep the error text non-empty
+                                return RetryableAioHttpResponse(
+                                    ok=False,
+                                    status=401,
+                                    response_headers=response_headers,
+                                    response_text=(
+                                        await self.get_safe_response_text_async(response=response) or "Unauthorized"
+                                    ),
+                                    content=response.content,
+                                    use_data_streaming=self.use_data_streaming,
+                                    results_by_url=results_by_url,
+                                    access_token=access_token,
+                                    access_token_expiry_date=expiry_date,
+                                    retry_count=retry_attempts,
+                                )
+                            else:  # we got a valid token
+                                access_token = refresh_token_result.access_token
+                                expiry_date = refresh_token_result.expiry_date
+                                if not headers:
+                                    headers = {}
+                                headers["Authorization"] = f"Bearer {access_token}"
+                                if retry_attempts >= self.retries:
+                                    raise ClientResponseError(
+                                        status=response.status,
+                                        message="Unauthorized",
+                                        headers=response_headers_multi_mapping,
+                                        history=response.history,
+                                        request_info=response.request_info,
+                                    )
+                                await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
+                        elif self.retry_status_codes and response.status in self.retry_status_codes:
+                            raise ClientResponseError(
+                                status=response.status,
+                                message="Retryable status code received",
+                                headers=response_headers_multi_mapping,
+                                history=response.history,
+                                request_info=response.request_info,
+                            )
+                        else:
+                            if self._throw_exception_on_error:
+                                raise ClientResponseError(
+                                    status=response.status,
+                                    message="Non-retryable status code received",
+                                    headers=response_headers_multi_mapping,
+                                    history=response.history,
+                                    request_info=response.request_info,
+                                )
+                            else:
+                                return RetryableAioHttpResponse(
+                                    ok=response.ok,
+                                    status=response.status,
+                                    response_headers=response_headers,
+                                    response_text=await self.get_safe_response_text_async(response=response),
+                                    content=response.content,
+                                    use_data_streaming=self.use_data_streaming,
+                                    results_by_url=results_by_url,
+                                    access_token=access_token,
+                                    access_token_expiry_date=expiry_date,
+                                    retry_count=retry_attempts,
+                                )
             except (TimeoutError, ClientError, ClientResponseError) as e:
                 if retry_attempts >= self.retries:
                     if self._throw_exception_on_error:
                         raise
                     else:
+                        # keep the server's headers (e.g. X-Request-ID) when the error came from an HTTP response
                         return RetryableAioHttpResponse(
                             ok=False,
                             status=500,
-                            response_headers={},
+                            response_headers=(
+                                self.get_headers_as_dict(headers=e.headers)
+                                if isinstance(e, ClientResponseError) and e.headers
+                                else response_headers
+                            ),
                             response_text=str(e),
                             content=None,
                             use_data_streaming=self.use_data_streaming,
@@ -314,10 +398,11 @@ class RetryableAioHttpClient:
                 if self._throw_exception_on_error:
                     raise
                 else:
+                    # keep the headers when the error came after a response (e.g. the refresh or trace function raised)
                     return RetryableAioHttpResponse(
                         ok=False,
                         status=500,
-                        response_headers={},
+                        response_headers=response_headers,
                         response_text=str(e),
                         content=None,
                         use_data_streaming=self.use_data_streaming,
@@ -330,8 +415,15 @@ class RetryableAioHttpClient:
         # Raise an exception if all retries fail
         raise Exception("All retries failed")
 
-    async def get(self, *, url: str, headers: dict[str, str] | None = None, **kwargs: Any) -> RetryableAioHttpResponse:
-        return await self.fetch(url=url, method="GET", headers=headers, **kwargs)
+    async def get(
+        self,
+        *,
+        url: str,
+        headers: dict[str, str] | None = None,
+        resource_type: str | None = None,
+        **kwargs: Any,
+    ) -> RetryableAioHttpResponse:
+        return await self.fetch(url=url, method="GET", headers=headers, resource_type=resource_type, **kwargs)
 
     async def post(
         self,
@@ -390,8 +482,13 @@ class RetryableAioHttpClient:
         if retry_after_text:
             # noinspection PyBroadException
             try:
-                if retry_after_text.isnumeric():  # it is number of seconds
-                    await asyncio.sleep(int(retry_after_text))
+                if retry_after_text.isnumeric():  # it is a number of seconds
+                    wait_seconds = int(retry_after_text)
+                    logger.warning(
+                        f"Received 429 (Too Many Requests) for {full_url}."
+                        f" Retry-After={retry_after_text}s. Sleeping for {wait_seconds}s."
+                    )
+                    await asyncio.sleep(wait_seconds)
                 else:
                     wait_till: datetime = datetime.strptime(retry_after_text, "%a, %d %b %Y %H:%M:%S GMT")
                     # Ensure the parsed time is in UTC
@@ -402,9 +499,23 @@ class RetryableAioHttpClient:
 
                     # If the time difference is positive, sleep for that amount of time
                     if time_diff > 0:
+                        logger.warning(
+                            f"Received 429 (Too Many Requests) for {full_url}."
+                            f" Retry-After={retry_after_text}. Sleeping for {time_diff:.1f}s."
+                        )
                         await asyncio.sleep(time_diff)
-            except Exception:
-                # if there was some exception parsing the Retry-After header, sleep for 60 seconds
+                    else:
+                        logger.warning(
+                            f"Received 429 (Too Many Requests) for {full_url}."
+                            f" Retry-After={retry_after_text} is already in the past. Not sleeping."
+                        )
+            except Exception as e:
+                # if there was some exception, parsing the Retry-After header, sleep for 60 seconds
+                logger.warning(
+                    f"Received 429 (Too Many Requests) for {full_url}."
+                    f" Failed to parse Retry-After header ({retry_after_text!r}): {e}. Sleeping for 60s."
+                )
                 await asyncio.sleep(60)
         else:
+            logger.warning(f"Received 429 (Too Many Requests) for {full_url}. No Retry-After header. Sleeping for 60s.")
             await asyncio.sleep(60)

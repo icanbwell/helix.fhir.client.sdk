@@ -63,11 +63,10 @@ class AsyncParallelProcessor:
         :param max_concurrent_tasks: maximum number of concurrent tasks. If None, there is no limit.
                                     If 1 then the tasks are processed sequentially else they are processed in parallel
         """
+        if max_concurrent_tasks is not None and max_concurrent_tasks < 1:
+            raise ValueError(f"max_concurrent_tasks must be None or >= 1, got {max_concurrent_tasks}")
         self.name: str = name
         self.max_concurrent_tasks: int | None = max_concurrent_tasks
-        self.semaphore: asyncio.Semaphore | None = (
-            asyncio.Semaphore(max_concurrent_tasks) if max_concurrent_tasks else None
-        )
 
     async def process_rows_in_parallel[
         TInput,
@@ -80,6 +79,7 @@ class AsyncParallelProcessor:
         process_row_fn: ParallelFunction[TInput, TOutput, TParameters],
         parameters: TParameters | None,
         log_level: str | None = None,
+        yield_context: bool = False,
         **kwargs: Any,
     ) -> AsyncGenerator[TOutput, None]:
         """
@@ -89,86 +89,115 @@ class AsyncParallelProcessor:
         :param process_row_fn: function to process each row
         :param parameters: parameters to pass to the process_row_fn
         :param log_level: log level
+        :param yield_context: if False (the default, preserving existing behavior for every
+                               pre-existing caller), yields bare TOutput values exactly as
+                               before. If True, yields (ParallelFunctionContext, TOutput)
+                               tuples instead, so callers can recover which row (via
+                               context.task_index) each result belongs to.
         :param kwargs: additional parameters
         :return: results of processing
         """
 
         if self.max_concurrent_tasks == 1:
             for i, row in enumerate(rows):
-                yield await process_row_fn(
-                    context=ParallelFunctionContext(
-                        name=self.name,
-                        log_level=log_level,
-                        task_index=i,
-                        total_task_count=len(rows),
-                    ),
+                context = ParallelFunctionContext(
+                    name=self.name,
+                    log_level=log_level,
+                    task_index=i,
+                    total_task_count=len(rows),
+                )
+                result = await process_row_fn(
+                    context=context,
                     row=row,
                     parameters=parameters,
                     additional_parameters=kwargs,
                 )
+                yield (context, result) if yield_context else result  # type: ignore[misc]
             return
 
         # noinspection PyShadowingNames
-        async def process_with_semaphore_async(
-            *, name: str, row1: TInput, task_index: int, total_task_count: int
-        ) -> TOutput:
-            if self.semaphore is None:
-                return await process_row_fn(
-                    context=ParallelFunctionContext(
-                        name=name,
-                        log_level=log_level,
-                        task_index=task_index,
-                        total_task_count=total_task_count,
-                    ),
-                    row=row1,
-                    parameters=parameters,
-                    additional_parameters=kwargs,
-                )
-            else:
-                async with self.semaphore:
-                    return await process_row_fn(
-                        context=ParallelFunctionContext(
-                            name=name,
-                            log_level=log_level,
-                            task_index=task_index,
-                            total_task_count=total_task_count,
-                        ),
-                        row=row1,
-                        parameters=parameters,
-                        additional_parameters=kwargs,
-                    )
+        async def process_one_async(
+            *, row1: TInput, task_index: int, total_task_count: int
+        ) -> tuple[ParallelFunctionContext, TOutput]:
+            context = ParallelFunctionContext(
+                name=self.name,
+                log_level=log_level,
+                task_index=task_index,
+                total_task_count=total_task_count,
+            )
+            result = await process_row_fn(
+                context=context, row=row1, parameters=parameters, additional_parameters=kwargs
+            )
+            return context, result
 
         total_task_count: int = len(rows)
 
-        # Create all tasks at once with their indices
-        pending: set[Task[TOutput]] = {
-            asyncio.create_task(
-                process_with_semaphore_async(
-                    name=self.name,
-                    row1=row,
-                    task_index=i,
-                    total_task_count=total_task_count,
-                ),
-                name=f"task_{i}",  # Optionally set task name for easier debugging
+        # Bounded worker pool: at most `max_concurrent_tasks` Task objects (or
+        # `total_task_count` if unbounded) exist at any moment, refilled one-for-one
+        # as each completes. A prior version created one Task per row up front and
+        # relied on a semaphore only to gate entry into process_row_fn's body - that
+        # left every not-yet-scheduled row's Task object (and its captured closure
+        # state) resident in memory simultaneously regardless of max_concurrent_tasks,
+        # which is real, avoidable memory pressure for graph traversals with many
+        # thousands of child references.
+        limit: int = self.max_concurrent_tasks if self.max_concurrent_tasks else total_task_count
+        row_iterator = enumerate(rows)
+
+        def _start_next_task() -> Task[tuple[ParallelFunctionContext, TOutput]] | None:
+            try:
+                i, row = next(row_iterator)
+            except StopIteration:
+                return None
+            return asyncio.create_task(
+                process_one_async(row1=row, task_index=i, total_task_count=total_task_count),
+                name=f"task_{i}",
             )
-            for i, row in enumerate(rows)
-        }
+
+        pending: set[Task[tuple[ParallelFunctionContext, TOutput]]] = set()
+        for _ in range(min(limit, total_task_count)):
+            task = _start_next_task()
+            if task is not None:
+                pending.add(task)
 
         try:
             while pending:
-                done: set[Task[TOutput]]
+                done: set[Task[tuple[ParallelFunctionContext, TOutput]]]
                 done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
 
-                # Process completed tasks
+                # asyncio.wait() can return more than one simultaneously-completed
+                # task in `done`, and iterating a set does not preserve completion
+                # order. Yield every already-succeeded result in this batch before
+                # raising, so a failing task never causes an already-succeeded
+                # sibling task's result to be silently discarded.
+                first_error: BaseException | None = None
                 for task in done:
                     try:
-                        yield await task
-                    except Exception:
-                        # Handle or re-raise error
-                        # logger.error(f"Error processing row: {e}")
-                        raise
+                        context, result = await task
+                    except Exception as exc:
+                        if first_error is None:
+                            first_error = exc
+                        continue
+                    yield (context, result) if yield_context else result  # type: ignore[misc]
+
+                if first_error is not None:
+                    raise first_error
+
+                # Top the pool back up to `limit` with the next not-yet-started rows.
+                for _ in range(len(done)):
+                    task = _start_next_task()
+                    if task is None:
+                        break
+                    pending.add(task)
 
         finally:
-            # Cancel any pending tasks if something goes wrong
+            # Cancel any pending tasks if something goes wrong, then wait for
+            # those cancellations to actually finish. task.cancel() only
+            # schedules CancelledError for the task's next suspension point, so
+            # returning straight after cancelling leaves the tasks running
+            # mid-flight - for graph traversal, still holding an in-flight
+            # aiohttp request on a session the caller is about to close, which
+            # then fails with "Cannot write to closing transport" (DCON-5572).
             for task in pending:
                 task.cancel()
+            if pending:
+                await asyncio.gather(*pending, return_exceptions=True)

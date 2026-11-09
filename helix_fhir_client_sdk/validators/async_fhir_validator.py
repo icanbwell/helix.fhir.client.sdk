@@ -23,6 +23,7 @@ class AsyncFhirValidator:
         resource_name: str,
         validation_server_url: str,
         access_token: str | None,
+        caller_managed_session: bool = False,
     ) -> None:
         """
         Calls the validation server url to validate the given resource
@@ -32,6 +33,7 @@ class AsyncFhirValidator:
         :param resource_name: name of resource
         :param validation_server_url: url to validation server
         :param access_token: access token to use
+        :param caller_managed_session: if True, the caller is responsible for closing the session
         """
         # check each resource against the validation server
         headers = {"Content-Type": "application/fhir+json"}
@@ -42,6 +44,7 @@ class AsyncFhirValidator:
         full_validation_uri /= "$validate"
         async with RetryableAioHttpClient(
             fn_get_session=fn_get_session,
+            caller_managed_session=caller_managed_session,
             use_data_streaming=False,
             access_token=access_token,
             access_token_expiry_date=None,

@@ -8,11 +8,13 @@ from threading import Lock
 from typing import TYPE_CHECKING, Any, cast
 
 from furl import furl
+from opentelemetry import trace
 
 from helix_fhir_client_sdk.function_types import (
     RefreshTokenFunction,
     RefreshTokenResult,
 )
+from helix_fhir_client_sdk.open_telemetry.span_names import FhirClientSdkOpenTelemetrySpanNames
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
@@ -29,6 +31,9 @@ from helix_fhir_client_sdk.well_known_configuration import (
 
 if TYPE_CHECKING:
     from helix_fhir_client_sdk.fhir_client import FhirClient
+
+
+TRACER = trace.get_tracer(__name__)
 
 
 class FhirAuthMixin(FhirClientProtocol):
@@ -119,15 +124,15 @@ class FhirAuthMixin(FhirClientProtocol):
                 access_token=self._access_token,
                 expiry_date=self._access_token_expiry_date,
             )
+        with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.GET_ACCESS_TOKEN):
+            refresh_token_result: RefreshTokenResult = await self._refresh_token_function(
+                url=None, status_code=0, current_token=None, expiry_date=None, retry_count=0
+            )
+            assert isinstance(refresh_token_result, RefreshTokenResult)
 
-        refresh_token_result: RefreshTokenResult = await self._refresh_token_function(
-            url=None, status_code=0, current_token=None, expiry_date=None, retry_count=0
-        )
-        assert isinstance(refresh_token_result, RefreshTokenResult)
-
-        self.set_access_token(refresh_token_result.access_token)
-        self.set_access_token_expiry_date(refresh_token_result.expiry_date)
-        return GetAccessTokenResult(access_token=self._access_token, expiry_date=self._access_token_expiry_date)
+            self.set_access_token(refresh_token_result.access_token)
+            self.set_access_token_expiry_date(refresh_token_result.expiry_date)
+            return GetAccessTokenResult(access_token=self._access_token, expiry_date=self._access_token_expiry_date)
 
     def authenticate_async_wrapper(self) -> RefreshTokenFunction:
         """
@@ -165,7 +170,8 @@ class FhirAuthMixin(FhirClientProtocol):
         :return: auth server url or None
         """
         async with RetryableAioHttpClient(
-            fn_get_session=lambda: self.create_http_session(),
+            fn_get_session=self._fn_create_http_session or self.create_http_session,
+            caller_managed_session=self._fn_create_http_session is not None,
             exclude_status_codes_from_retry=[404],
             throw_exception_on_error=False,
             use_data_streaming=False,
@@ -267,7 +273,8 @@ class FhirAuthMixin(FhirClientProtocol):
         }
 
         async with RetryableAioHttpClient(
-            fn_get_session=lambda: self.create_http_session(),
+            fn_get_session=self._fn_create_http_session or self.create_http_session,
+            caller_managed_session=self._fn_create_http_session is not None,
             use_data_streaming=False,
             compress=False,
             exclude_status_codes_from_retry=None,

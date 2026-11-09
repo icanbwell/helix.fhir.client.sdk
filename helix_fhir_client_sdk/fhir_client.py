@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import ssl
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from datetime import datetime
 from logging import Logger
 from os import environ
@@ -26,6 +26,8 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
     CompressedDictStorageMode,
 )
 from furl import furl
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 from requests.adapters import BaseAdapter
 
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
@@ -46,6 +48,7 @@ from helix_fhir_client_sdk.graph.fhir_graph_mixin import FhirGraphMixin
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
     SimulatedGraphProcessorMixin,
 )
+from helix_fhir_client_sdk.open_telemetry.span_names import FhirClientSdkOpenTelemetrySpanNames
 from helix_fhir_client_sdk.queue.request_queue_mixin import RequestQueueMixin
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -54,6 +57,8 @@ from helix_fhir_client_sdk.structures.get_access_token_result import (
 )
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
+
+TRACER = trace.get_tracer(__name__)
 
 
 class FhirClient(
@@ -145,9 +150,13 @@ class FhirClient(
         self._log_all_response_urls: bool = False
         """ If True, logs all response URLs and status codes.  Can take a lot of memory for when there are many responses. """
 
-        self._storage_mode = CompressedDictStorageMode(storage_type="raw")
+        # Default to "raw" storage mode - no in-memory compression, resources stored as plain Python dicts
+        self._storage_mode: CompressedDictStorageMode = CompressedDictStorageMode(storage_type="raw")
 
-        self._create_operation_outcome_for_error = False
+        self._create_operation_outcome_for_error: bool | None = False
+
+        # Optional callable to create HTTP sessions. When set, create_http_session() will use this.
+        self._fn_create_http_session: Callable[[], ClientSession] | None = None
 
     def action(self, action: str) -> FhirClient:
         """
@@ -352,8 +361,12 @@ class FhirClient(
         self._use_data_streaming = use
         # The b.well FHIR server as of version 5.3.16 has a bug that it cannot parse an accept string with multiple
         # accepts.  We should remove this when that is fixed.
-        if use:
-            self._accept = "application/fhir+ndjson"
+        # Like every other header setter on this builder, this unconditionally overwrites Accept/Content-Type
+        # (last call wins) rather than trying to detect and preserve an unrelated explicit override - a value-based
+        # heuristic can't distinguish "streaming set this" from "the caller happened to choose the same string".
+        # Call .accept()/.content_type() after use_data_streaming() if you need a custom value.
+        self._accept = "application/fhir+ndjson" if use else "application/fhir+json"
+        self._content_type = "application/fhir+ndjson" if use else "application/fhir+json"
 
         return self
 
@@ -450,9 +463,14 @@ class FhirClient(
 
     def compress(self, compress: bool) -> FhirClient:
         """
-        Sets the compress flag
+        Sets whether to use HTTP compression (gzip) when sending request data to the server.
 
-        :param compress: whether to compress the response
+        This controls compression of the HTTP request body only, not in-memory storage.
+        Default is True (compression enabled).
+
+        To disable all compression, call: .compress(False)
+
+        :param compress: whether to compress HTTP request body (default: True)
         """
         self._compress = compress
         return self
@@ -466,13 +484,48 @@ class FhirClient(
         self._throw_exception_on_error = throw_exception_on_error
         return self
 
-    def close_session_after_request(self, value: bool) -> FhirClient:
+    def use_http_session(self, fn_create_http_session: Callable[[], ClientSession] | None) -> FhirClient:
         """
-        Sets the _close_session flag (default is True)
+        Sets a custom callable to create HTTP sessions.
 
-        :param value: whether to close the session after each request
+        When set, create_http_session() will use this callable instead of the default
+        implementation. This allows for custom session management, connection pooling,
+        or persistent session support.
+
+        **Important**: When you provide a custom session factory, YOU are responsible
+        for managing the session lifecycle, including closing it when done. The SDK
+        will NOT automatically close user-provided sessions.
+
+        Example with a persistent session for connection reuse (~4× performance boost):
+
+        .. code-block:: python
+
+            import aiohttp
+            from helix_fhir_client_sdk.fhir_client import FhirClient
+
+            # Create persistent session
+            session = aiohttp.ClientSession()
+
+            try:
+                # Configure FhirClient to use persistent session
+                fhir_client = (
+                    FhirClient()
+                    .url("http://fhir.example.com")
+                    .resource("Patient")
+                    .use_http_session(lambda: session)  # User provides session
+                )
+
+                # Multiple requests reuse the same connection
+                response1 = await fhir_client.get_async()
+                response2 = await fhir_client.clone().resource("Observation").get_async()
+
+            finally:
+                # User must close the session when done
+                await session.close()
+
+        :param fn_create_http_session: callable that returns a ClientSession, or None to use default
         """
-        self._close_session = value
+        self._fn_create_http_session = fn_create_http_session
         return self
 
     # noinspection PyUnusedLocal
@@ -588,33 +641,34 @@ class FhirClient(
 
         :return: response
         """
-        instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
-        if self._logger:
-            # self._logger.info(f"LOGLEVEL: {self._log_level}")
-            self._logger.debug(f"parameters: {instance_variables_text}")
-        else:
-            self._internal_logger.debug(f"LOGLEVEL (InternalLogger): {self._log_level}")
-            self._internal_logger.debug(f"parameters: {instance_variables_text}")
-        ids: list[str] | None = None
-        if self._id:
-            ids = self._id if isinstance(self._id, list) else [self._id]
-        # actually make the request
-        full_response: FhirGetResponse | None = None
-        async for response in self._get_with_session_async(
-            ids=ids,
-            fn_handle_streaming_chunk=data_chunk_handler,
-            page_number=None,
-            id_above=None,
-            additional_parameters=None,
-            resource_type=None,
-        ):
-            if response:
-                if full_response:
-                    full_response = full_response.append(response)
-                else:
-                    full_response = response
-        assert full_response
-        return full_response
+        with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.GET):
+            instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
+            if self._logger:
+                # self._logger.info(f"LOGLEVEL: {self._log_level}")
+                self._logger.debug(f"parameters: {instance_variables_text}")
+            else:
+                self._internal_logger.debug(f"LOGLEVEL (InternalLogger): {self._log_level}")
+                self._internal_logger.debug(f"parameters: {instance_variables_text}")
+            ids: list[str] | None = None
+            if self._id:
+                ids = self._id if isinstance(self._id, list) else [self._id]
+            # actually make the request
+            full_response: FhirGetResponse | None = None
+            async for response in self._get_with_session_async(
+                ids=ids,
+                fn_handle_streaming_chunk=data_chunk_handler,
+                page_number=None,
+                id_above=None,
+                additional_parameters=None,
+                resource_type=None,
+            ):
+                if response:
+                    if full_response:
+                        full_response = full_response.append(response)
+                    else:
+                        full_response = response
+            assert full_response
+            return full_response
 
     async def get_raw_resources_async(
         self,
@@ -655,27 +709,37 @@ class FhirClient(
 
         :return: async generator of responses
         """
-        instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
-        if self._logger:
-            # self._logger.info(f"LOGLEVEL: {self._log_level}")
-            self._logger.info(f"parameters: {instance_variables_text}")
-        else:
-            self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
-            self._internal_logger.info(f"parameters: {instance_variables_text}")
-        ids: list[str] | None = None
-        if self._id:
-            ids = self._id if isinstance(self._id, list) else [self._id]
-        # actually make the request
-        response: FhirGetResponse | None
-        async for response in self._get_with_session_async(
-            ids=ids,
-            fn_handle_streaming_chunk=data_chunk_handler,
-            page_number=None,
-            id_above=None,
-            additional_parameters=None,
-            resource_type=None,
-        ):
-            yield response
+        span = TRACER.start_span(FhirClientSdkOpenTelemetrySpanNames.GET_STREAMING)
+        try:
+            instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
+            if self._logger:
+                # self._logger.info(f"LOGLEVEL: {self._log_level}")
+                self._logger.info(f"parameters: {instance_variables_text}")
+            else:
+                self._internal_logger.info(f"LOGLEVEL (InternalLogger): {self._log_level}")
+                self._internal_logger.info(f"parameters: {instance_variables_text}")
+            ids: list[str] | None = None
+            if self._id:
+                ids = self._id if isinstance(self._id, list) else [self._id]
+            # actually make the request
+            response: FhirGetResponse | None
+            async for response in self._get_with_session_async(
+                ids=ids,
+                fn_handle_streaming_chunk=data_chunk_handler,
+                page_number=None,
+                id_above=None,
+                additional_parameters=None,
+                resource_type=None,
+            ):
+                yield response
+        except BaseException as exc:  # propagate cancellation/errors but keep span informative
+            # Record exception in span
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, str(exc)))
+            raise
+        finally:
+            # Ensure span is ended after generator is exhausted or error occurs
+            span.end()
 
     def get(self) -> FhirGetResponse:
         """
@@ -784,21 +848,63 @@ class FhirClient(
             full_url += f"id:above={id_above}"
         return full_url
 
-    def create_http_session(self) -> ClientSession:
+    @staticmethod
+    def create_ssl_context() -> ssl.SSLContext:
         """
-        Creates an HTTP Session
+        Builds the TLS context the SDK uses to verify FHIR servers.
 
+        The context trusts the union of the operating system's CA store and certifi's
+        bundle. Passing ``cafile=certifi.where()`` to ``create_default_context`` would
+        skip the OS store entirely, so a CA installed in the runtime image (for example
+        with ``update-ca-certificates``) would be ignored. Loading certifi on top of the
+        OS defaults keeps everything certifi trusts and adds whatever the image trusts.
+
+        Callers that build their own persistent ``aiohttp.ClientSession`` can pass this
+        context to ``TCPConnector(ssl=...)`` to get the same trust policy.
         """
+        ssl_context = ssl.create_default_context()
+        ssl_context.load_verify_locations(cafile=certifi.where())
+        return ssl_context
+
+    def create_http_session(self, connection_limit: int = 100) -> ClientSession:
+        """
+        Creates the SDK's default HTTP Session.
+
+        This method always creates a new aiohttp ClientSession with standard configuration.
+        The SDK manages the lifecycle of sessions created by this method.
+
+        Note: If you want to provide your own session factory, use use_http_session() instead.
+
+        Raising connection_limit matters when the returned session is shared across many
+        parallel requests, since that session's pool caps in-flight connections:
+
+        .. code-block:: python
+
+            session = fhir_client.create_http_session(connection_limit=500)
+            fhir_client.use_http_session(lambda: session)  # caller closes it when done
+
+        The SDK itself calls this with no arguments, building and discarding a session per
+        request, so the default is never reached on that path.
+
+        :param connection_limit: total pooled connections allowed, or 0 for unlimited.
+                                 Defaults to 100, matching aiohttp's own default. Unlimited
+                                 removes all backpressure: each pooled connection is a file
+                                 descriptor, so a burst risks descriptor exhaustion and places
+                                 unbounded load on the FHIR server.
+        :raises ValueError: if connection_limit is negative
+        """
+        if connection_limit < 0:
+            raise ValueError(f"connection_limit must be 0 (unlimited) or greater, got {connection_limit}")
         trace_config = aiohttp.TraceConfig()
         # trace_config.on_request_start.append(on_request_start)
         if self._log_level == "DEBUG":
             trace_config.on_request_end.append(FhirClient.on_request_end)
             trace_config.on_response_chunk_received.append(FhirClient.on_response_chunk_received)
         # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
-        ssl_context = ssl.create_default_context(cafile=certifi.where())
+        ssl_context = FhirClient.create_ssl_context()
         timeout = aiohttp.ClientTimeout(total=60 * 60, sock_read=240)
         session: ClientSession = aiohttp.ClientSession(
-            connector=TCPConnector(ssl=ssl_context),
+            connector=TCPConnector(ssl=ssl_context, limit=connection_limit),
             trace_configs=[trace_config],
             headers={"Connection": "keep-alive"},
             timeout=timeout,
@@ -810,17 +916,17 @@ class FhirClient(
         Whether to ask the server to include the total count in the result
 
 
-        :param include_total: whether to include total count
+        :param include_total: whether to include the total count
         """
         self._include_total = include_total
         return self
 
     def filter(self, filter_: list[BaseFilter]) -> FhirClient:
         """
-        Allows adding in a custom filters that derives from BaseFilter
+        Allows adding in custom filters that derive from BaseFilter
 
 
-        :param filter_: list of custom filter instances that derives from BaseFilter.
+        :param filter_: list of custom filter instances that derive from BaseFilter.
         """
         assert isinstance(filter_, list), "This function requires a list"
         self._filters.extend(filter_)
@@ -861,6 +967,8 @@ class FhirClient(
         fhir_client._client_id = self._client_id
         fhir_client._auth_server_url = self._auth_server_url
         fhir_client._login_token = self._login_token
+        fhir_client._access_token = self._access_token
+        fhir_client._access_token_expiry_date = self._access_token_expiry_date
         fhir_client._refresh_token_function = self._refresh_token_function
         fhir_client._exclude_status_codes_from_retry = self._exclude_status_codes_from_retry
         fhir_client._chunk_size = self._chunk_size
@@ -873,6 +981,19 @@ class FhirClient(
         fhir_client._time_to_live_in_secs_for_cache = self._time_to_live_in_secs_for_cache
         fhir_client._validation_server_url = self._validation_server_url
         fhir_client._smart_merge = self._smart_merge
+        fhir_client._compress = self._compress
+        fhir_client._storage_mode = self._storage_mode
+        fhir_client._send_data_as_chunked = self._send_data_as_chunked
+        fhir_client._use_post_for_search = self._use_post_for_search
+        fhir_client._maximum_time_to_retry_on_429 = self._maximum_time_to_retry_on_429
+        fhir_client._retry_count = self._retry_count
+        fhir_client._throw_exception_on_error = self._throw_exception_on_error
+        fhir_client._trace_request_function = self._trace_request_function
+        fhir_client._log_all_response_urls = self._log_all_response_urls
+        fhir_client._create_operation_outcome_for_error = self._create_operation_outcome_for_error
+        fhir_client._fn_create_http_session = self._fn_create_http_session
+        if self._max_concurrent_requests is not None:
+            fhir_client.set_max_concurrent_requests(self._max_concurrent_requests)
         return fhir_client
 
     def set_log_all_response_urls(self, value: bool) -> FhirClient:
@@ -895,18 +1016,30 @@ class FhirClient(
 
     def set_storage_mode(self, value: CompressedDictStorageMode) -> FhirClient:
         """
-        Sets the storage mode
+        Sets the in-memory storage mode for FHIR resources.
 
-        :param value: storage mode
+        This controls how FHIR resources are stored in memory after being received.
+        The default is "raw" (no compression - resources stored as plain Python dicts).
+
+        Available storage types:
+        - "raw": No compression, standard Python dictionaries (default)
+        - "compressed": Zlib/gzip compression in memory
+        - "msgpack": MessagePack binary serialization
+        - "compressed_msgpack": MessagePack + compression
+
+        Note: This is separate from HTTP compression (controlled by .compress()).
+        With default settings, no in-memory compression is applied.
+
+        :param value: storage mode (default: raw)
         """
         self._storage_mode = value
         return self
 
-    def set_create_operation_outcome_for_error(self, value: bool) -> FhirClient:
+    def set_create_operation_outcome_for_error(self, value: bool | None) -> FhirClient:
         """
         Sets the create_operation_outcome_for_error flag
 
-        :param value: whether to create operation outcome for error
+        :param value: whether to create an operation outcome for error (True, False, or None)
         """
         self._create_operation_outcome_for_error = value
         return self

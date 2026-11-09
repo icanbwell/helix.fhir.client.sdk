@@ -1,8 +1,3 @@
-.. Helix Project documentation master file, created by
-   sphinx-quickstart on Thu Mar 25 11:58:19 2021.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 helix.fhir.client.sdk
 =====================
 Fluent API to call the FHIR server that handles:
@@ -39,12 +34,14 @@ Example
    for resource in resource_list:
       print(resource['id'])
 
-Contents:
-==================
-.. toctree::
-   :maxdepth: 6
-   :titlesonly:
+API Reference
+=============
 
+.. autosummary::
+   :toctree: api
+   :recursive:
+
+   helix_fhir_client_sdk
 
 Indices and tables
 ==================

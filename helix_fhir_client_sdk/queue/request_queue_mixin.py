@@ -74,6 +74,15 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         request_id: str | None = None
         total_results = 0  # total number of resources returned so far
 
+        limit_count: int | None = self._limit
+
+        # if _count parameter is present in additional_parameters then set limit_count to it
+        if additional_parameters:
+            for param in additional_parameters:
+                if self._limit is None:
+                    if param.startswith("_count="):
+                        limit_count = int(param.split("=")[1])
+
         # create url and query to request from FHIR server
         resources_json: str = ""
         full_url = await self.build_url(
@@ -88,7 +97,12 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         payload: dict[str, str] | None = self._action_payload if self._action_payload else None
         headers = {
             "Accept": self._accept,
-            "Content-Type": self._content_type,
+            # Not self._content_type: that field describes $merge's resource-list request
+            # body and is repurposed to ndjson when streaming. This request's body (when
+            # present) is always the action_payload (e.g. a GraphDefinition for $graph),
+            # which is never ndjson - advertising Content-Type: application/fhir+ndjson
+            # here caused the FHIR server to mis-parse the body and truncate the response.
+            "Content-Type": "application/fhir+json",
             "Accept-Encoding": self._accept_encoding,
         }
         headers.update(self._additional_request_headers)
@@ -110,7 +124,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
             )
 
             async with RetryableAioHttpClient(
-                fn_get_session=lambda: self.create_http_session(),
+                fn_get_session=self._fn_create_http_session or self.create_http_session,
+                caller_managed_session=self._fn_create_http_session is not None,
                 refresh_token_func=self._refresh_token_function,
                 tracer_request_func=self._trace_request_function,
                 retries=self._retry_count,
@@ -121,7 +136,6 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 log_all_url_results=self._log_all_response_urls,
                 access_token=self._access_token,
                 access_token_expiry_date=self._access_token_expiry_date,
-                close_session_on_exit=self._close_session,
             ) as client:
                 while next_url:
                     # set access token in request if present
@@ -143,6 +157,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         full_url=next_url,
                         headers=headers,
                         payload=payload,
+                        resource_type=resource_type or self._resource,
                     )
                     assert isinstance(response, RetryableAioHttpResponse)
 
@@ -166,7 +181,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                     )
 
                     request_id = response.response_headers.get("X-Request-ID", None)
-                    self._internal_logger.info(f"X-Request-ID={request_id}")
+                    self._internal_logger.debug(f"X-Request-ID={request_id}")
 
                     async for r in FhirResponseProcessor.handle_response(
                         internal_logger=self._internal_logger,
@@ -196,9 +211,9 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         total_results += resource_count
 
                         # Stop if limit reached
-                        if self._limit and total_results >= self._limit:
+                        if limit_count and total_results >= limit_count:
                             self._internal_logger.info(
-                                f"Reached limit={self._limit} after collecting {total_results} "
+                                f"Reached limit={limit_count} after collecting {total_results} "
                                 f"resources, stopping pagination"
                             )
                             return
@@ -256,7 +271,12 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         payload: dict[str, str] | None = self._action_payload if self._action_payload else None
         headers = {
             "Accept": self._accept,
-            "Content-Type": self._content_type,
+            # Not self._content_type: that field describes $merge's resource-list request
+            # body and is repurposed to ndjson when streaming. This request's body (when
+            # present) is always the action_payload (e.g. a GraphDefinition for $graph),
+            # which is never ndjson - advertising Content-Type: application/fhir+ndjson
+            # here caused the FHIR server to mis-parse the body and truncate the response.
+            "Content-Type": "application/fhir+json",
             "Accept-Encoding": self._accept_encoding,
         }
         headers.update(self._additional_request_headers)
@@ -279,7 +299,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
             )
 
             async with RetryableAioHttpClient(
-                fn_get_session=lambda: self.create_http_session(),
+                fn_get_session=self._fn_create_http_session or self.create_http_session,
+                caller_managed_session=self._fn_create_http_session is not None,
                 refresh_token_func=self._refresh_token_function,
                 tracer_request_func=self._trace_request_function,
                 retries=self._retry_count,
@@ -311,6 +332,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         full_url=next_url,
                         headers=headers,
                         payload=payload,
+                        resource_type=resource_type or self._resource,
                     )
                     assert isinstance(response, RetryableAioHttpResponse)
 
@@ -334,7 +356,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                     )
 
                     request_id = response.response_headers.get("X-Request-ID", None)
-                    self._internal_logger.info(f"X-Request-ID={request_id}")
+                    self._internal_logger.debug(f"X-Request-ID={request_id}")
 
                     if response.status == 200:
                         response_next_url = None
@@ -410,6 +432,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         full_url: str,
         headers: dict[str, str],
         payload: dict[str, Any] | None,
+        resource_type: str | None = None,
     ) -> RetryableAioHttpResponse:
         """
         Sends a request to the server
@@ -418,6 +441,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         :param full_url: url to call
         :param headers: headers to send
         :param payload: payload to send
+        :param resource_type: FHIR resource type being requested, set as an OTel span
+                                attribute on the underlying HTTP GET span for observability
         """
         if self._max_concurrent_requests_semaphore:
             async with self._max_concurrent_requests_semaphore:
@@ -426,10 +451,15 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                     full_url=full_url,
                     headers=headers,
                     payload=payload,
+                    resource_type=resource_type,
                 )
         else:
             return await self._send_fhir_request_internal_async(
-                client=client, full_url=full_url, headers=headers, payload=payload
+                client=client,
+                full_url=full_url,
+                headers=headers,
+                payload=payload,
+                resource_type=resource_type,
             )
 
     async def _send_fhir_request_internal_async(
@@ -439,6 +469,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         full_url: str,
         headers: dict[str, str],
         payload: dict[str, Any] | None,
+        resource_type: str | None = None,
     ) -> RetryableAioHttpResponse:
         """
         Sends a request to the server
@@ -447,6 +478,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         :param full_url: url to call
         :param headers: headers to send
         :param payload: payload to send
+        :param resource_type: FHIR resource type being requested, set as an OTel span
+                                attribute on the underlying HTTP GET span for observability
         """
         assert client is not None
         assert full_url
@@ -479,4 +512,4 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         f"sending a get: {full_url} with client_id={self._client_id} "
                         + f"and scopes={self._auth_scopes} instance_id={self._uuid}"
                     )
-            return await client.get(url=full_url, headers=headers, data=payload)
+            return await client.get(url=full_url, headers=headers, data=payload, resource_type=resource_type)

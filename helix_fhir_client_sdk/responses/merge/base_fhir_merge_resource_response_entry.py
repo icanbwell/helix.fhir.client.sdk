@@ -114,12 +114,12 @@ class BaseFhirMergeResourceResponseEntry(ABC):
         """Set the resource type for the entry."""
         self.resource_type = value
 
-    @property
-    def id(self) -> str | None:
+    @property  # noqa: A003
+    def id(self) -> str | None:  # noqa: A003
         """Get the ID from the entry."""
         return self.id_
 
-    @id.setter
-    def id(self, value: str | None) -> None:
+    @id.setter  # noqa: A003
+    def id(self, value: str | None) -> None:  # noqa: A003
         """Set the ID for the entry."""
         self.id_ = value

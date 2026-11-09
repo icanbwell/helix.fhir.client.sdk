@@ -1,5 +1,5 @@
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from datetime import datetime
 from logging import Logger
 from threading import Lock
@@ -89,8 +89,6 @@ class FhirClientProtocol(Protocol):
     _send_data_as_chunked: bool = False
     _last_page_lock: Lock
 
-    _close_session: bool = True
-
     _use_post_for_search: bool = False
 
     _accept: str
@@ -128,6 +126,12 @@ class FhirClientProtocol(Protocol):
     _create_operation_outcome_for_error: bool | None
     """ whether to create OperationOutcome resource for errors """
 
+    _max_concurrent_requests: int | None
+    """ maximum number of concurrent requests to make to the FHIR server """
+
+    _fn_create_http_session: Callable[[], ClientSession] | None
+    """ optional callable to create HTTP sessions """
+
     async def get_access_token_async(self) -> GetAccessTokenResult: ...
 
     async def _send_fhir_request_async(
@@ -137,9 +141,10 @@ class FhirClientProtocol(Protocol):
         full_url: str,
         headers: dict[str, str],
         payload: dict[str, Any] | None,
+        resource_type: str | None = None,
     ) -> RetryableAioHttpResponse: ...
 
-    def create_http_session(self) -> ClientSession: ...
+    def create_http_session(self, connection_limit: int = 100) -> ClientSession: ...
 
     async def _get_with_session_async(
         self,
@@ -210,3 +215,5 @@ class FhirClientProtocol(Protocol):
     ) -> AsyncGenerator[FhirMergeResourceResponse, None]:
         # this is just here to tell Python this returns a generator
         yield None  # type: ignore[misc]
+
+    def use_http_session(self, fn_create_http_session: Callable[[], ClientSession] | None) -> "FhirClientProtocol": ...

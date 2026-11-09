@@ -125,6 +125,15 @@ class FhirGetResponse:
     @abstractmethod
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse": ...
 
+    def _append_without_duplicate_removal(self, others: list["FhirGetResponse"]) -> "FhirGetResponse":
+        """
+        Append the responses from others to self without duplicate removal.
+
+        :param others: list of FhirGetResponse objects to append to current one
+        :return: self
+        """
+        return self._extend(others=others)
+
     def append(self, other_response: "FhirGetResponse") -> "FhirGetResponse":
         """
         Append the responses from other to self
@@ -170,9 +179,8 @@ class FhirGetResponse:
         """
         result: FhirGetResponse = self._extend(others=others)
 
-        latest_chunk_number: list[int] = sorted([o.chunk_number for o in others if o.chunk_number], reverse=True)
-        if len(latest_chunk_number) > 0:
-            result.chunk_number = latest_chunk_number[0]
+        if others and others[-1].chunk_number:
+            result.chunk_number = others[-1].chunk_number
         return result
 
     @abstractmethod

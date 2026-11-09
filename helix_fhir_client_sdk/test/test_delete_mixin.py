@@ -49,7 +49,9 @@ class TestFhirDeleteMixin:
         """Test successful delete_async"""
         async with aiohttp.ClientSession() as session:
             with aioresponses() as m:
-                fhir_delete_mixin.create_http_session = lambda: session  # type: ignore[method-assign]
+                fhir_delete_mixin.create_http_session = (  # type: ignore[method-assign]
+                    lambda connection_limit=100: session
+                )
                 url = furl(fhir_delete_mixin._url) / fhir_delete_mixin._resource / fhir_delete_mixin._id
                 m.delete(
                     url.tostr(),
@@ -156,7 +158,9 @@ class TestFhirDeleteMixin:
 
         async with aiohttp.ClientSession() as session:
             with aioresponses() as m:
-                fhir_delete_mixin.create_http_session = lambda: session  # type: ignore[method-assign]
+                fhir_delete_mixin.create_http_session = (  # type: ignore[method-assign]
+                    lambda connection_limit=100: session
+                )
                 url = "https://example.com/Patient?_query=example"
                 m.delete(
                     url,
