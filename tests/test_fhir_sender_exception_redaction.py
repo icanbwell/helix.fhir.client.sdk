@@ -62,7 +62,7 @@ def test_exception_message_shows_a_url_template_and_url_keeps_the_raw_url(
     assert f"URL: {expected_url_template}" in str(exception)
     assert [value for value in VALUES_THAT_MUST_NOT_LEAK if value in str(exception)] == []
     assert [value for value in VALUES_THAT_MUST_NOT_LEAK if value in repr(exception)] == []
-    # SparkPipelineFramework and ats-event-consumer read the raw URL
+    # consumers read the raw URL
     assert exception.url == url
 
 
