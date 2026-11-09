@@ -1,7 +1,8 @@
 import asyncio
 import logging
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -9,6 +10,7 @@ import async_timeout
 from aiohttp import ClientError, ClientResponse, ClientResponseError, ClientSession
 from multidict import MultiMapping
 from opentelemetry import trace
+from opentelemetry.trace import Span, Status, StatusCode
 
 from helix_fhir_client_sdk.function_types import (
     RefreshTokenFunction,
@@ -23,6 +25,7 @@ from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
+from helix_fhir_client_sdk.utilities.url_redactor import UrlRedactor
 
 TRACER = trace.get_tracer(__name__)
 logger = logging.getLogger(__name__)
@@ -145,6 +148,22 @@ class RetryableAioHttpClient:
             result[k] = f"{result[k]},{v}" if k in result else str(v)
         return result
 
+    @staticmethod
+    @contextmanager
+    def _set_error_status(*, span: Span) -> Iterator[None]:
+        """
+        Sets the status of the span to ERROR when the block raises an exception. The description is
+        the type of the exception only: aiohttp puts the full request URL, with its query values, in
+        the exception message.
+
+        :param span: the span of the HTTP request
+        """
+        try:
+            yield
+        except Exception as e:
+            span.set_status(Status(StatusCode.ERROR, description=type(e).__name__))
+            raise
+
     async def fetch(
         self,
         *,
@@ -177,11 +196,26 @@ class RetryableAioHttpClient:
                     if self.compress:
                         kwargs["compress"] = self.compress
                 assert self.session is not None
-                with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.HTTP_GET) as span:
+                # aiohttp puts the full URL, with its query values, in its exception messages,
+                # so the span records only the type of an exception (see _set_error_status)
+                with (
+                    TRACER.start_as_current_span(
+                        FhirClientSdkOpenTelemetrySpanNames.HTTP_GET,
+                        record_exception=False,
+                        set_status_on_exception=False,
+                    ) as span,
+                    self._set_error_status(span=span),
+                ):
+                    # a URL template and the host only: the path and the query of the URL can
+                    # carry patient identifiers and tokens
                     span.set_attribute(
                         FhirClientSdkOpenTelemetryAttributeNames.URL,
-                        url,
+                        UrlRedactor.get_url_template(url=url),
                     )
+                    server_address: str | None = UrlRedactor.get_host(url=url)
+                    if server_address:
+                        span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.SERVER_ADDRESS, server_address)
+                    span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.ATTEMPT, retry_attempts + 1)
                     if resource_type:
                         span.set_attribute(
                             FhirClientSdkOpenTelemetryAttributeNames.RESOURCE,
@@ -193,6 +227,9 @@ class RetryableAioHttpClient:
                             method,
                             url,
                             **kwargs,
+                        )
+                        span.set_attribute(
+                            FhirClientSdkOpenTelemetryAttributeNames.HTTP_RESPONSE_STATUS_CODE, response.status
                         )
                         # Append the result to the list of results
                         if self.log_all_url_results:
@@ -478,6 +515,8 @@ class RetryableAioHttpClient:
         # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
         # read the Retry-After header
         # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
+        # log only the host: the path and the query of the URL can carry patient identifiers and tokens
+        host: str = UrlRedactor.get_host(url=full_url) or "an unknown host"
         retry_after_text: str = str(response.headers.get("Retry-After", ""))
         if retry_after_text:
             # noinspection PyBroadException
@@ -485,7 +524,7 @@ class RetryableAioHttpClient:
                 if retry_after_text.isnumeric():  # it is a number of seconds
                     wait_seconds = int(retry_after_text)
                     logger.warning(
-                        f"Received 429 (Too Many Requests) for {full_url}."
+                        f"Received 429 (Too Many Requests) for {host}."
                         f" Retry-After={retry_after_text}s. Sleeping for {wait_seconds}s."
                     )
                     await asyncio.sleep(wait_seconds)
@@ -500,22 +539,22 @@ class RetryableAioHttpClient:
                     # If the time difference is positive, sleep for that amount of time
                     if time_diff > 0:
                         logger.warning(
-                            f"Received 429 (Too Many Requests) for {full_url}."
+                            f"Received 429 (Too Many Requests) for {host}."
                             f" Retry-After={retry_after_text}. Sleeping for {time_diff:.1f}s."
                         )
                         await asyncio.sleep(time_diff)
                     else:
                         logger.warning(
-                            f"Received 429 (Too Many Requests) for {full_url}."
+                            f"Received 429 (Too Many Requests) for {host}."
                             f" Retry-After={retry_after_text} is already in the past. Not sleeping."
                         )
             except Exception as e:
                 # if there was some exception, parsing the Retry-After header, sleep for 60 seconds
                 logger.warning(
-                    f"Received 429 (Too Many Requests) for {full_url}."
+                    f"Received 429 (Too Many Requests) for {host}."
                     f" Failed to parse Retry-After header ({retry_after_text!r}): {e}. Sleeping for 60s."
                 )
                 await asyncio.sleep(60)
         else:
-            logger.warning(f"Received 429 (Too Many Requests) for {full_url}. No Retry-After header. Sleeping for 60s.")
+            logger.warning(f"Received 429 (Too Many Requests) for {host}. No Retry-After header. Sleeping for 60s.")
             await asyncio.sleep(60)

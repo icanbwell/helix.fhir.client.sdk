@@ -645,9 +645,8 @@ async def test_get_sets_resource_type_span_attribute_when_provided(monkeypatch: 
             assert response.ok
 
     mock_span.set_attribute.assert_any_call(FhirClientSdkOpenTelemetryAttributeNames.RESOURCE, "Patient")
-    mock_span.set_attribute.assert_any_call(
-        FhirClientSdkOpenTelemetryAttributeNames.URL, "http://test.com/Patient?_id=1"
-    )
+    # DCON-6540: the span keeps a URL template without query values
+    mock_span.set_attribute.assert_any_call(FhirClientSdkOpenTelemetryAttributeNames.URL, "http://test.com/Patient")
 
 
 @pytest.mark.asyncio
