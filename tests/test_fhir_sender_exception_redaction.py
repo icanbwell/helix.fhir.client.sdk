@@ -4,7 +4,7 @@ import json
 from typing import Any
 
 import pytest
-from aiohttp import ClientResponseError, RequestInfo
+from aiohttp import ClientResponseError, InvalidUrlClientError, RequestInfo
 from multidict import CIMultiDict, CIMultiDictProxy
 from yarl import URL
 
@@ -63,6 +63,33 @@ def test_exception_message_shows_a_url_template_and_url_keeps_the_raw_url(
     assert [value for value in VALUES_THAT_MUST_NOT_LEAK if value in str(exception)] == []
     assert [value for value in VALUES_THAT_MUST_NOT_LEAK if value in repr(exception)] == []
     # consumers read the raw URL
+    assert exception.url == url
+
+
+def _raise_sender_exception_for(*, url: str) -> None:
+    # the way the merge mixin raises it: message=f"Unknown Error: {e}", exception=e, from e
+    try:
+        raise InvalidUrlClientError(url)
+    except InvalidUrlClientError as e:
+        raise FhirSenderException(message=f"Unknown Error: {e}", url=url, exception=e) from e
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["[http://host]", "http://[::1/path", "http://host]/x", "https://[bad", "http://[not-an-ip]/x"],
+)
+def test_exception_with_a_url_that_urlsplit_rejects_keeps_the_original_error(url: str) -> None:
+    # Act
+    with pytest.raises(FhirSenderException) as exception_info:
+        _raise_sender_exception_for(url=url)
+    text = str(exception_info.value)
+
+    # Assert: no ValueError from the redaction, the text without URLs stays, and the original error stays
+    exception = exception_info.value
+    assert text.startswith("Unknown Error: ")
+    assert "Type: InvalidUrlClientError" in text
+    assert isinstance(exception.original_exception, InvalidUrlClientError)
+    assert exception.__cause__ is exception.original_exception
     assert exception.url == url
 
 

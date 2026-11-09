@@ -108,3 +108,30 @@ def test_replace_urls_with_templates_changes_every_url_in_the_text(text: str, ex
 
     # Assert
     assert redacted_text == expected_text
+
+
+@pytest.mark.parametrize(
+    "url, expected_template, expected_host, expected_text",
+    [
+        # urlsplit accepts it alone, but the URL that the text pattern finds in it is "http://host]"
+        pytest.param(
+            "[http://host]", "[http://host]", None, "Unknown Error: [{url} at the source", id="url-in-brackets"
+        ),
+        pytest.param("http://[::1/path", "{url}", None, "Unknown Error: {url} at the source", id="unclosed-bracket"),
+        pytest.param("http://host]/x", "{url}", None, "Unknown Error: {url} at the source", id="unopened-bracket"),
+        pytest.param("https://[bad", "{url}", None, "Unknown Error: {url} at the source", id="unclosed-bracket-only"),
+        pytest.param(
+            "http://[not-an-ip]/x", "{url}", None, "Unknown Error: {url} at the source", id="bracketed-host-not-an-ip"
+        ),
+    ],
+)
+def test_redaction_does_not_raise_for_a_url_that_urlsplit_rejects(
+    url: str, expected_template: str, expected_host: str | None, expected_text: str
+) -> None:
+    # Act
+    template = UrlRedactor.get_url_template(url=url)
+    host = UrlRedactor.get_host(url=url)
+    text = UrlRedactor.replace_urls_with_templates(text=f"Unknown Error: {url} at the source")
+
+    # Assert
+    assert (template, host, text) == (expected_template, expected_host, expected_text)

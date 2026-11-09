@@ -13,6 +13,8 @@ class UrlRedactor:
     ID_PLACEHOLDER: str = "{id}"
     VERSION_ID_PLACEHOLDER: str = "{vid}"
     VALUE_PLACEHOLDER: str = "{value}"
+    # the template of a URL that urlsplit cannot parse: the redaction must never raise
+    URL_PLACEHOLDER: str = "{url}"
     # a FHIR resource type is one or more capitalized words, for example Patient or AllergyIntolerance
     _RESOURCE_TYPE_PATTERN: re.Pattern[str] = re.compile(r"(?:[A-Z][a-z]+)+")
     # a FHIR id has at most 64 characters, so a longer path segment is an opaque value such as a page token
@@ -37,9 +39,12 @@ class UrlRedactor:
         Returns the host name of the URL, without user info and port.
 
         :param url: the URL
-        :return: the host name in lowercase, or None when the URL has no host
+        :return: the host name in lowercase, or None when the URL has no host or urlsplit cannot parse it
         """
-        return urlsplit(url).hostname
+        try:
+            return urlsplit(url).hostname
+        except ValueError:  # for example "Invalid IPv6 URL" for an unbalanced bracket
+            return None
 
     @staticmethod
     def get_url_template(*, url: str) -> str:
@@ -52,9 +57,12 @@ class UrlRedactor:
         gives https://fhir.example.com/4_0_0/Patient/{id}/$everything
 
         :param url: the URL
-        :return: the URL template
+        :return: the URL template, or {url} when urlsplit cannot parse the URL
         """
-        parts = urlsplit(url)
+        try:
+            parts = urlsplit(url)
+        except ValueError:  # for example "Invalid IPv6 URL" for an unbalanced bracket
+            return UrlRedactor.URL_PLACEHOLDER
         template_segments: list[str] = []
         previous_segment_is_resource_type = False
         previous_segment_is_history = False

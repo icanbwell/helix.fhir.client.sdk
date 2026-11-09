@@ -15,7 +15,7 @@ from email.utils import format_datetime
 from typing import Any
 
 import pytest
-from aiohttp import ClientResponseError, RequestInfo, TooManyRedirects
+from aiohttp import ClientResponseError, InvalidUrlClientError, RequestInfo, TooManyRedirects
 from aioresponses import aioresponses
 from multidict import CIMultiDict, CIMultiDictProxy
 from opentelemetry.trace import StatusCode
@@ -310,6 +310,33 @@ async def test_client_response_error_has_no_authorization_value(
     assert error.request_info.headers["Authorization"] == REDACTED
     assert error.request_info.headers["Accept"] == "application/fhir+json"
     assert str(error.request_info.real_url) == FIRST_PAGE_URL
+
+
+@pytest.mark.parametrize("url", ["http://[::1/path", "http://host]/x", "https://[bad", "http://[not-an-ip]/x"])
+async def test_get_span_for_a_url_that_urlsplit_rejects_keeps_the_aiohttp_error(
+    url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Arrange: aiohttp rejects these URLs before it opens a connection, so no server is needed
+    span_recorder = SpanRecorder()
+    monkeypatch.setattr(retryable_aiohttp_client, "TRACER", span_recorder)
+
+    # Act
+    async with RetryableAioHttpClient(
+        retries=0,
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
+    ) as client:
+        with pytest.raises(InvalidUrlClientError):
+            await client.get(url=url, headers={"Authorization": f"Bearer {ACCESS_TOKEN}"})
+
+    # Assert
+    [span] = span_recorder.spans_named(HTTP_GET_SPAN_NAME)
+    assert span.attributes == {"fhir.client_sdk.url": "{url}", "fhir.client_sdk.attempt": 1}
+    assert span.status.status_code == StatusCode.ERROR
+    assert span.status.description == "InvalidUrlClientError"
 
 
 def _http_date(*, seconds_from_now: int) -> str:
