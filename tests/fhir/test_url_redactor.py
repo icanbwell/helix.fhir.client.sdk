@@ -31,6 +31,11 @@ BASE_URL = "http://fhir.example.test/4_0_0"
             f"{BASE_URL}/Patient/{{id}}/Observation/{{id}}",
             id="compartment",
         ),
+        pytest.param(
+            "https://fhir.example.test/PatientAccess/Patient/patient-test-001",
+            "https://fhir.example.test/PatientAccess/{id}/{id}",
+            id="capitalized-base-segment",
+        ),
         pytest.param(f"{BASE_URL}/Patient/$merge", f"{BASE_URL}/Patient/$merge", id="type-operation"),
         pytest.param(f"{BASE_URL}/Patient/_search", f"{BASE_URL}/Patient/_search", id="search-by-post"),
         pytest.param(f"{BASE_URL}/metadata", f"{BASE_URL}/metadata", id="no-resource-type"),
@@ -70,3 +75,36 @@ def test_get_host_returns_only_the_host_name(url: str, expected_host: str | None
 
     # Assert
     assert host == expected_host
+
+
+@pytest.mark.parametrize(
+    "text, expected_text",
+    [
+        pytest.param(
+            f"500, message='Retryable status code received', url='{BASE_URL}/Observation?patient=patient-test-001'",
+            f"500, message='Retryable status code received', url='{BASE_URL}/Observation'",
+            id="aiohttp-client-response-error",
+        ),
+        pytest.param(
+            f"HttpError: 500 Server Error for url: {BASE_URL}/Patient/patient-test-001/$merge?smartMerge=false",
+            f"HttpError: 500 Server Error for url: {BASE_URL}/Patient/{{id}}/$merge",
+            id="requests-http-error",
+        ),
+        pytest.param(
+            f"from {BASE_URL}/Patient/patient-test-001 to {BASE_URL}?_getpages=synthetic-page-cursor-0001",
+            f"from {BASE_URL}/Patient/{{id}} to {BASE_URL}",
+            id="two-urls",
+        ),
+        pytest.param(
+            "Cannot connect to host fhir.example.test:443",
+            "Cannot connect to host fhir.example.test:443",
+            id="no-url",
+        ),
+    ],
+)
+def test_replace_urls_with_templates_changes_every_url_in_the_text(text: str, expected_text: str) -> None:
+    # Act
+    redacted_text = UrlRedactor.replace_urls_with_templates(text=text)
+
+    # Assert
+    assert redacted_text == expected_text

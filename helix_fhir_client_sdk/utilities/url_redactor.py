@@ -17,6 +17,19 @@ class UrlRedactor:
     _RESOURCE_TYPE_PATTERN: re.Pattern[str] = re.compile(r"(?:[A-Z][a-z]+)+")
     # a FHIR id has at most 64 characters, so a longer path segment is an opaque value such as a page token
     _MAX_FHIR_ID_LENGTH: int = 64
+    # an absolute URL in a text, up to the first space, quote or angle bracket
+    _URL_IN_TEXT_PATTERN: re.Pattern[str] = re.compile(r"https?://[^\s'\"<>]+")
+
+    @staticmethod
+    def replace_urls_with_templates(*, text: str) -> str:
+        """
+        Returns the text with each absolute URL in it replaced by its URL template (see get_url_template),
+        for example in an exception message.
+
+        :param text: the text
+        :return: the text with URL templates
+        """
+        return UrlRedactor._URL_IN_TEXT_PATTERN.sub(lambda match: UrlRedactor.get_url_template(url=match[0]), text)
 
     @staticmethod
     def get_host(*, url: str) -> str | None:
@@ -55,9 +68,8 @@ class UrlRedactor:
             else:
                 template_segment = segment
             template_segments.append(template_segment)
-            previous_segment_is_resource_type = (
-                template_segment == segment and UrlRedactor._RESOURCE_TYPE_PATTERN.fullmatch(segment) is not None
-            )
+            # from the segment as the URL gives it, so that an id also follows a capitalized base segment
+            previous_segment_is_resource_type = UrlRedactor._RESOURCE_TYPE_PATTERN.fullmatch(segment) is not None
             previous_segment_is_history = segment == "_history"
         path_template = "/".join(template_segments)
 

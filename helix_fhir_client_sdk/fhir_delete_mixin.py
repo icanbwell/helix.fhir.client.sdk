@@ -2,9 +2,9 @@ import json
 
 from furl import furl
 from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
 
 from helix_fhir_client_sdk.open_telemetry.attribute_names import FhirClientSdkOpenTelemetryAttributeNames
+from helix_fhir_client_sdk.open_telemetry.span_error_status import SpanErrorStatus
 from helix_fhir_client_sdk.open_telemetry.span_names import FhirClientSdkOpenTelemetrySpanNames
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_delete_response import FhirDeleteResponse
@@ -36,7 +36,9 @@ class FhirDeleteMixin(FhirClientProtocol):
         if not self._resource:
             raise ValueError("delete requires a FHIR resource type")
 
-        with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.DELETE) as span:
+        with TRACER.start_as_current_span(
+            FhirClientSdkOpenTelemetrySpanNames.DELETE, record_exception=False, set_status_on_exception=False
+        ) as span:
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.URL, self._url or "")
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.RESOURCE, self._resource or "")
             try:
@@ -86,8 +88,8 @@ class FhirDeleteMixin(FhirClientProtocol):
                         resource_type=self._resource,
                     )
             except Exception as e:
-                span.record_exception(e)
-                span.set_status(Status(StatusCode.ERROR, str(e)))
+                # the type of the exception only: its message contains the request URL (see SpanErrorStatus)
+                SpanErrorStatus.set(span=span, exception=e)
                 raise
 
     def delete(self) -> FhirDeleteResponse:

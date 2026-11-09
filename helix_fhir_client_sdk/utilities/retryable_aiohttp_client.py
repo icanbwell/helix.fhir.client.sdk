@@ -1,16 +1,14 @@
 import asyncio
 import logging
 import time
-from collections.abc import Callable, Iterator, Mapping
-from contextlib import contextmanager
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, cast
 
 import async_timeout
-from aiohttp import ClientError, ClientResponse, ClientResponseError, ClientSession
-from multidict import MultiMapping
+from aiohttp import ClientError, ClientResponse, ClientResponseError, ClientSession, RequestInfo
+from multidict import CIMultiDict, CIMultiDictProxy, MultiMapping
 from opentelemetry import trace
-from opentelemetry.trace import Span, Status, StatusCode
 
 from helix_fhir_client_sdk.function_types import (
     RefreshTokenFunction,
@@ -18,7 +16,9 @@ from helix_fhir_client_sdk.function_types import (
     TraceRequestFunction,
 )
 from helix_fhir_client_sdk.open_telemetry.attribute_names import FhirClientSdkOpenTelemetryAttributeNames
+from helix_fhir_client_sdk.open_telemetry.span_error_status import SpanErrorStatus
 from helix_fhir_client_sdk.open_telemetry.span_names import FhirClientSdkOpenTelemetrySpanNames
+from helix_fhir_client_sdk.utilities.header_redactor import HeaderRedactor
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
@@ -149,20 +149,24 @@ class RetryableAioHttpClient:
         return result
 
     @staticmethod
-    @contextmanager
-    def _set_error_status(*, span: Span) -> Iterator[None]:
+    def _redact_request_info(request_info: RequestInfo) -> RequestInfo:
         """
-        Sets the status of the span to ERROR when the block raises an exception. The description is
-        the type of the exception only: aiohttp puts the full request URL, with its query values, in
-        the exception message.
+        Returns a copy of the request info in which the values of the credential headers are redacted
+        (see HeaderRedactor). The repr of ClientResponseError shows its request info, headers included.
 
-        :param span: the span of the HTTP request
+        :param request_info: the request info of a response
+        :return: the redacted copy
         """
-        try:
-            yield
-        except Exception as e:
-            span.set_status(Status(StatusCode.ERROR, description=type(e).__name__))
-            raise
+        redacted_headers: CIMultiDict[str] = CIMultiDict(
+            (name, HeaderRedactor.REDACTED if HeaderRedactor.is_credential_header(name=name) else value)
+            for name, value in request_info.headers.items()
+        )
+        return RequestInfo(
+            url=request_info.url,
+            method=request_info.method,
+            headers=CIMultiDictProxy(redacted_headers),
+            real_url=request_info.real_url,
+        )
 
     async def fetch(
         self,
@@ -197,14 +201,14 @@ class RetryableAioHttpClient:
                         kwargs["compress"] = self.compress
                 assert self.session is not None
                 # aiohttp puts the full URL, with its query values, in its exception messages,
-                # so the span records only the type of an exception (see _set_error_status)
+                # so the span records only the type of an exception (see SpanErrorStatus)
                 with (
                     TRACER.start_as_current_span(
                         FhirClientSdkOpenTelemetrySpanNames.HTTP_GET,
                         record_exception=False,
                         set_status_on_exception=False,
                     ) as span,
-                    self._set_error_status(span=span),
+                    SpanErrorStatus.on_exception(span=span),
                 ):
                     # a URL template and the host only: the path and the query of the URL can
                     # carry patient identifiers and tokens
@@ -333,7 +337,7 @@ class RetryableAioHttpClient:
                                     message="Too Many Requests",
                                     headers=response_headers_multi_mapping,
                                     history=response.history,
-                                    request_info=response.request_info,
+                                    request_info=self._redact_request_info(response.request_info),
                                 )
                             await self._handle_429(response=response, full_url=url)
                         elif response.status == 401 and self.refresh_token_func_async:
@@ -375,7 +379,7 @@ class RetryableAioHttpClient:
                                         message="Unauthorized",
                                         headers=response_headers_multi_mapping,
                                         history=response.history,
-                                        request_info=response.request_info,
+                                        request_info=self._redact_request_info(response.request_info),
                                     )
                                 await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
                         elif self.retry_status_codes and response.status in self.retry_status_codes:
@@ -384,7 +388,7 @@ class RetryableAioHttpClient:
                                 message="Retryable status code received",
                                 headers=response_headers_multi_mapping,
                                 history=response.history,
-                                request_info=response.request_info,
+                                request_info=self._redact_request_info(response.request_info),
                             )
                         else:
                             if self._throw_exception_on_error:
@@ -393,7 +397,7 @@ class RetryableAioHttpClient:
                                     message="Non-retryable status code received",
                                     headers=response_headers_multi_mapping,
                                     history=response.history,
-                                    request_info=response.request_info,
+                                    request_info=self._redact_request_info(response.request_info),
                                 )
                             else:
                                 return RetryableAioHttpResponse(
@@ -411,6 +415,15 @@ class RetryableAioHttpClient:
             except (TimeoutError, ClientError, ClientResponseError) as e:
                 if retry_attempts >= self.retries:
                     if self._throw_exception_on_error:
+                        if isinstance(e, ClientResponseError):
+                            # aiohttp also raises these errors itself, with the request headers in their
+                            # request info: TooManyRedirects, ClientHttpProxyError, and any error status
+                            # when the session uses raise_for_status
+                            e.request_info = self._redact_request_info(e.request_info)
+                            e.args = tuple(
+                                self._redact_request_info(arg) if isinstance(arg, RequestInfo) else arg
+                                for arg in e.args
+                            )
                         raise
                     else:
                         # keep the server's headers (e.g. X-Request-ID) when the error came from an HTTP response

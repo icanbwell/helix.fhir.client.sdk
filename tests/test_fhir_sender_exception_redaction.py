@@ -4,12 +4,66 @@ import json
 from typing import Any
 
 import pytest
+from aiohttp import ClientResponseError, RequestInfo
+from multidict import CIMultiDict, CIMultiDictProxy
+from yarl import URL
 
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
 from helix_fhir_client_sdk.filters.identifier_filter import IdentifierFilter
 
 ACCESS_TOKEN = "synthetic-access-token-0001"
 REDACTED = "[REDACTED]"
+BASE_URL = "http://fhir.example.test/4_0_0"
+SEARCH_URL = f"{BASE_URL}/Observation?patient=patient-test-001"
+READ_URL = f"{BASE_URL}/Patient/patient-test-001/$everything"
+NEXT_PAGE_URL = f"{BASE_URL}/Observation?_getpages=synthetic-page-cursor-0001"
+VALUES_THAT_MUST_NOT_LEAK = ("patient-test-001", "synthetic-page-cursor-0001", "?")
+
+
+def _client_response_error(*, url: str) -> ClientResponseError:
+    return ClientResponseError(
+        request_info=RequestInfo(
+            url=URL(url), method="GET", headers=CIMultiDictProxy(CIMultiDict()), real_url=URL(url)
+        ),
+        history=(),
+        status=500,
+        message="Retryable status code received",
+    )
+
+
+@pytest.mark.parametrize(
+    "url, message, original_exception, expected_url_template",
+    [
+        pytest.param(
+            SEARCH_URL, "", _client_response_error(url=SEARCH_URL), f"{BASE_URL}/Observation", id="aiohttp-error"
+        ),
+        pytest.param(READ_URL, "", TimeoutError(), f"{BASE_URL}/Patient/{{id}}/$everything", id="timeout"),
+        pytest.param(
+            READ_URL,
+            f"Unknown Error: 500 Server Error for url: {READ_URL}",
+            Exception(f"500 Server Error for url: {READ_URL}"),
+            f"{BASE_URL}/Patient/{{id}}/$everything",
+            id="url-in-the-message",
+        ),
+        pytest.param(
+            NEXT_PAGE_URL, "", Exception(f"failed: {NEXT_PAGE_URL}"), f"{BASE_URL}/Observation", id="next-page"
+        ),
+    ],
+)
+def test_exception_message_shows_a_url_template_and_url_keeps_the_raw_url(
+    url: str, message: str, original_exception: Exception, expected_url_template: str
+) -> None:
+    # Act
+    exception = FhirSenderException(
+        message=message, url=url, exception=original_exception, request_id="request-test-001"
+    )
+
+    # Assert
+    assert f"URL: {expected_url_template}" in str(exception)
+    assert [value for value in VALUES_THAT_MUST_NOT_LEAK if value in str(exception)] == []
+    assert [value for value in VALUES_THAT_MUST_NOT_LEAK if value in repr(exception)] == []
+    # SparkPipelineFramework and ats-event-consumer read the raw URL
+    assert exception.url == url
 
 
 @pytest.mark.parametrize(
@@ -23,6 +77,8 @@ REDACTED = "[REDACTED]"
         "X-Api-Key",
         "Ocp-Apim-Subscription-Key",
         "X-Auth-Token",
+        "X-JWT-Assertion",
+        "X-IBM-Client-Id",
     ],
 )
 def test_credential_header_is_redacted_when_the_exception_is_created(header_name: str) -> None:

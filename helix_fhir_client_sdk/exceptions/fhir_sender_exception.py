@@ -3,6 +3,9 @@ import traceback
 from collections.abc import Mapping
 from typing import Any
 
+from helix_fhir_client_sdk.utilities.header_redactor import HeaderRedactor
+from helix_fhir_client_sdk.utilities.url_redactor import UrlRedactor
+
 
 class FhirSenderException(Exception):
     """
@@ -10,23 +13,10 @@ class FhirSenderException(Exception):
     exception's call stack and provides detailed error context.
 
     The exception keeps redacted copies of the request headers and of the variables:
-    credentials and identifiers do not go into it.
+    credentials and identifiers do not go into it. Its message (str) shows URL templates
+    (see UrlRedactor); the url attribute keeps the raw URL, which must not be logged.
     """
 
-    _REDACTED: str = "[REDACTED]"
-    # a header whose name, in lowercase, contains one of these parts carries a credential,
-    # for example Authorization, Cookie, X-Api-Key or X-Auth-Token
-    _CREDENTIAL_HEADER_NAME_PARTS: tuple[str, ...] = (
-        "auth",
-        "cookie",
-        "credential",
-        "key",
-        "password",
-        "secret",
-        "session",
-        "signature",
-        "token",
-    )
     # variables of the FHIR client that carry resource ids or search values
     _IDENTIFIER_VARIABLE_NAMES: frozenset[str] = frozenset({"_id", "_obj_id", "_additional_parameters", "_filters"})
     # variables of the FHIR client that hold request headers
@@ -66,7 +56,7 @@ class FhirSenderException(Exception):
         self.request_id = request_id
         self.url = url
         # a copy: the request code writes the bearer token of the next request into the headers dict
-        self.headers = self._redact_headers(headers)
+        self.headers = HeaderRedactor.redact(headers=headers)
         self.json_data = json_data
         self.response_text = response_text
         self.response_status_code = response_status_code
@@ -82,17 +72,18 @@ class FhirSenderException(Exception):
             self.original_exception = None
             self.original_traceback = traceback.extract_tb(sys.exc_info()[2])
 
-        # Construct a comprehensive error message
+        # Construct a comprehensive error message, with URL templates: the raw URLs can carry patient
+        # identifiers and tokens in their paths and queries
         error_details = []
         if request_id:
             error_details.append(f"Request ID: {request_id}")
         if url:
-            error_details.append(f"URL: {url}")
+            error_details.append(f"URL: {UrlRedactor.get_url_template(url=url)}")
         if response_status_code:
             error_details.append(f"Status Code: {response_status_code}")
 
         # Combine the main message with additional details
-        full_message = message
+        full_message = UrlRedactor.replace_urls_with_templates(text=message)
         if error_details:
             full_message += " | " + " | ".join(error_details)
 
@@ -112,7 +103,8 @@ class FhirSenderException(Exception):
         if self.original_exception:
             error_str.append("\nOriginal Exception:")
             error_str.append(f"Type: {type(self.original_exception).__name__}")
-            error_str.append(f"Details: {str(self.original_exception)}")
+            # aiohttp and requests put the full request URL in their exception messages
+            error_str.append(f"Details: {UrlRedactor.replace_urls_with_templates(text=str(self.original_exception))}")
 
         # Add traceback information
         error_str.append("\nTraceback:")
@@ -141,19 +133,6 @@ class FhirSenderException(Exception):
         }
 
     @classmethod
-    def _redact_headers(cls, headers: Mapping[str, str] | None) -> dict[str, str]:
-        """
-        Returns a copy of the headers in which the value of each credential header is redacted.
-
-        :param headers: the request headers
-        :return: the redacted copy
-        """
-        return {
-            name: cls._REDACTED if any(part in name.lower() for part in cls._CREDENTIAL_HEADER_NAME_PARTS) else value
-            for name, value in (headers or {}).items()
-        }
-
-    @classmethod
     def _redact_variables(cls, variables: Mapping[str, Any] | None) -> dict[str, Any]:
         """
         Returns a copy of the variables in which the identifier values and the credential headers
@@ -165,9 +144,9 @@ class FhirSenderException(Exception):
         redacted_variables: dict[str, Any] = {}
         for name, value in (variables or {}).items():
             if name in cls._IDENTIFIER_VARIABLE_NAMES and value:
-                redacted_variables[name] = cls._REDACTED
+                redacted_variables[name] = HeaderRedactor.REDACTED
             elif name in cls._HEADER_VARIABLE_NAMES and isinstance(value, Mapping):
-                redacted_variables[name] = cls._redact_headers(value)
+                redacted_variables[name] = HeaderRedactor.redact(headers=value)
             else:
                 redacted_variables[name] = value
         return redacted_variables
