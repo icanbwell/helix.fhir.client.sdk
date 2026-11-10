@@ -553,18 +553,24 @@ async def test_closing_the_traversal_inside_a_group_ends_the_link_group_span_wit
     assert open_group.events == []
 
 
+class _TraversalOnly(simulated_graph_processor_mixin.SimulatedGraphProcessorMixin):
+    """A class that has the graph traversal but not RequestQueueMixin, so it has no request counter."""
+
+
 def test_link_group_span_of_a_client_without_a_request_counter_ends_and_keeps_the_error(
     span_recorder: SpanRecorder,
 ) -> None:
     # Arrange
-    # as for a class that mixes in the traversal without running RequestQueueMixin.__init__
-    fhir_client = FhirClient()
-    del fhir_client._sent_request_count
+    # mypy counts the FhirClientProtocol members that the mixin does not set as abstract; at run time the class has
+    # no abstract method (test_simulate_graph_processor_mixin_caching.py makes its mixin class in the same way)
+    traversal_only = _TraversalOnly()  # type: ignore[abstract]
+    # the case of this test: no counter on the instance and none on its classes
+    assert not hasattr(traversal_only, "_sent_request_count")
 
     # Act
     with (
         pytest.raises(ValueError, match="^synthetic failure$"),
-        fhir_client._link_group_span(graph_depth=0, group_index=0, link_count=1),
+        traversal_only._link_group_span(graph_depth=0, group_index=0, link_count=1),
     ):
         raise ValueError("synthetic failure")
 
