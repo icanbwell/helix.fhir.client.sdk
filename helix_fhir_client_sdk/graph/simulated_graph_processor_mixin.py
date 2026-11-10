@@ -275,7 +275,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Track resources that don't support ID-based search
         id_search_unsupported_resources: list[str] = []
-        cache: RequestCache = input_cache if input_cache is not None else RequestCache()
+        # The SDK's own cache is private and cleared at the end, so no code can read its raw_hash values.
+        cache: RequestCache = input_cache if input_cache is not None else RequestCache(compute_raw_hash=False)
 
         # Aggregation state for the graph-level completion event. Initialized
         # here — before anything below that can raise — so the `finally`
@@ -1488,7 +1489,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 etag=result2.etag,
                 from_input_cache=False,
                 raw_hash=ResourceHash().hash_value(json.dumps(json.loads(entry._resource.json()), sort_keys=True))
-                if compare_hash and entry._resource
+                if compare_hash and cache.compute_raw_hash and entry._resource
                 else "",
             )
             if cache_updated and logger:
@@ -1728,7 +1729,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             raw_hash=ResourceHash().hash_value(
                                 json.dumps(json.loads(non_cached_bundle_entry.resource.json()), sort_keys=True)
                             )
-                            if compare_hash
+                            if compare_hash and cache.compute_raw_hash
                             else "",
                         )
                         if cache_updated and logger:
@@ -2546,7 +2547,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         base_url_value: str = url or ""
 
         id_search_unsupported_resources: list[str] = []
-        cache: RequestCache = input_cache if input_cache is not None else RequestCache()
+        # The SDK's own cache is private and cleared at the end, so no code can read its raw_hash values.
+        cache: RequestCache = input_cache if input_cache is not None else RequestCache(compute_raw_hash=False)
 
         # Aggregation state for the graph-level completion event. Initialized
         # here — before anything below that can raise — so the `finally`

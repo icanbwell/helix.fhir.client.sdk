@@ -20,6 +20,7 @@ class RequestCache:
         "cache_misses",
         "_cache",
         "_clear_cache_at_the_end",
+        "_compute_raw_hash",
     ]
 
     def __init__(
@@ -27,11 +28,24 @@ class RequestCache:
         *,
         initial_dict: dict[str, Any] | None = None,
         clear_cache_at_the_end: bool | None = True,
+        compute_raw_hash: bool = True,
     ) -> None:
+        """
+        :param compute_raw_hash: whether the SDK calculates raw_hash for each resource that it adds to this cache.
+            Keep the default (True) when the entries are compared with resources later, for example when the
+            cache is saved and passed back as input_cache. The SDK sets it to False for the private cache that it
+            creates when no input_cache is passed, because no code can read those values.
+        """
         self.cache_hits: int = 0
         self.cache_misses: int = 0
         self._cache: dict[str, RequestCacheEntry] = initial_dict or {}
         self._clear_cache_at_the_end: bool | None = clear_cache_at_the_end
+        self._compute_raw_hash: bool = compute_raw_hash
+
+    @property
+    def compute_raw_hash(self) -> bool:
+        """Whether the SDK calculates raw_hash for each resource that it adds to this cache."""
+        return self._compute_raw_hash
 
     async def __aenter__(self) -> "RequestCache":
         """
