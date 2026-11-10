@@ -214,6 +214,10 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         :param request_cache: The cache to remove the entries from
         :return: self
         """
+        # Caches that are not a RequestCache (duck-typed) have no has_input_cache_entries(); scan them.
+        has_input_cache_entries = getattr(request_cache, "has_input_cache_entries", None)
+        if callable(has_input_cache_entries) and not has_input_cache_entries():
+            return self
         async for cached_entry in request_cache.get_entries_async():
             if cached_entry.from_input_cache:
                 for _, resource_list in self._resource_map.items():
