@@ -523,6 +523,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             max_query_chars=max_query_chars,
                             id_search_unsupported_resources=id_search_unsupported_resources,
                             add_cached_bundles_to_result=add_cached_bundles_to_result,
+                            compare_hash=compare_hash,
                             ifModifiedSince=ifModifiedSince,
                         ):
                             link_responses = link_fetch_result.responses
@@ -696,6 +697,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 add_cached_bundles_to_result=(
                     additional_parameters.get("add_cached_bundles_to_result", True) if additional_parameters else True
                 ),
+                compare_hash=(additional_parameters.get("compare_hash", True) if additional_parameters else True),
                 ifModifiedSince=(additional_parameters.get("ifModifiedSince", None) if additional_parameters else None),
             ):
                 # Collect each link result
@@ -822,6 +824,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         id_search_unsupported_resources: list[str],
         max_concurrent_tasks: int | None,
         add_cached_bundles_to_result: bool = True,
+        compare_hash: bool = True,
         ifModifiedSince: datetime | None,
     ) -> AsyncGenerator[tuple[str, FhirGetResponse], None]:
         """
@@ -850,6 +853,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             id_search_unsupported_resources: List of resources with limited ID search
             max_concurrent_tasks: Maximum number of concurrent processing tasks
             add_cached_bundles_to_result: Flag to add cached bundles to result
+            compare_hash: Flag to compare resource hashes with the input cache (passed to every fetch)
             ifModifiedSince: Optional timestamp for conditional requests
 
         Yields:
@@ -889,6 +893,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             max_query_chars=max_query_chars,
             id_search_unsupported_resources=id_search_unsupported_resources,
             add_cached_bundles_to_result=add_cached_bundles_to_result,
+            compare_hash=compare_hash,
             ifModifiedSince=ifModifiedSince,
             yield_context=True,
         ):
@@ -962,6 +967,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             add_cached_bundles_to_result=(
                 additional_parameters.get("add_cached_bundles_to_result", True) if additional_parameters else True
             ),
+            compare_hash=(additional_parameters.get("compare_hash", True) if additional_parameters else True),
             ifModifiedSince=(additional_parameters.get("ifModifiedSince", None) if additional_parameters else None),
             max_concurrent_tasks=parameters.max_concurrent_tasks,
         ):
@@ -985,6 +991,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         logger: Logger | None,
         id_search_unsupported_resources: list[str],
         add_cached_bundles_to_result: bool = True,
+        compare_hash: bool = True,
         max_concurrent_tasks: int | None = None,
     ) -> FhirGetResponse:
         """
@@ -1012,6 +1019,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             scope_parser: Scope-based access control parser
             logger: Optional logger for debugging
             id_search_unsupported_resources: List of resources with limited ID search
+            compare_hash: Flag to compare resource hashes with the input cache
 
         Returns:
             FhirGetResponse containing retrieved child resources
@@ -1036,6 +1044,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # Track resources with limited ID search
             id_search_unsupported_resources=id_search_unsupported_resources,
             add_cached_bundles_to_result=add_cached_bundles_to_result,
+            compare_hash=compare_hash,
             max_concurrent_tasks=max_concurrent_tasks,
         )
 
@@ -1106,6 +1115,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         max_query_chars: int | None = None,
         id_search_unsupported_resources: list[str],
         add_cached_bundles_to_result: bool = True,
+        compare_hash: bool = True,
         ifModifiedSince: datetime | None = None,
         max_concurrent_tasks: int | None = None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
@@ -1120,6 +1130,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param cache: cache to use
         :param scope_parser: scope parser to use
         :param add_cached_bundles_to_result: whether to add cached bundles to result
+        :param compare_hash: whether to compare resource hashes with the input cache
         :param request_size: number of resources to request at once
         :param id_search_unsupported_resources: list of resources that do not support id search
         :param ifModifiedSince: ifModifiedSince to use
@@ -1184,6 +1195,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 "logger": logger,
                 "id_search_unsupported_resources": id_search_unsupported_resources,
                 "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                "compare_hash": compare_hash,
                 "max_concurrent_tasks": max_concurrent_tasks,
             }
 
@@ -1248,6 +1260,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                     "logger": logger,
                                     "id_search_unsupported_resources": id_search_unsupported_resources,
                                     "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                                    "compare_hash": compare_hash,
                                     "max_concurrent_tasks": max_concurrent_tasks,
                                 }
                             )
@@ -1266,6 +1279,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         "logger": logger,
                         "id_search_unsupported_resources": id_search_unsupported_resources,
                         "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                        "compare_hash": compare_hash,
                         "max_concurrent_tasks": max_concurrent_tasks,
                     }
                 )
@@ -1314,6 +1328,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                         "logger": logger,
                                         "id_search_unsupported_resources": id_search_unsupported_resources,
                                         "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                                        "compare_hash": compare_hash,
                                         "max_concurrent_tasks": max_concurrent_tasks,
                                     }
                                 )
@@ -1332,6 +1347,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         "logger": logger,
                         "id_search_unsupported_resources": id_search_unsupported_resources,
                         "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                        "compare_hash": compare_hash,
                         "max_concurrent_tasks": max_concurrent_tasks,
                     }
                 )
@@ -1400,6 +1416,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 "logger": logger,
                                 "id_search_unsupported_resources": id_search_unsupported_resources,
                                 "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                                "compare_hash": compare_hash,
                                 "max_concurrent_tasks": max_concurrent_tasks,
                             }
                         )
@@ -1418,6 +1435,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 "logger": logger,
                                 "id_search_unsupported_resources": id_search_unsupported_resources,
                                 "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                                "compare_hash": compare_hash,
                                 "max_concurrent_tasks": max_concurrent_tasks,
                             }
                         )
@@ -1436,6 +1454,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             "logger": logger,
                             "id_search_unsupported_resources": id_search_unsupported_resources,
                             "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                            "compare_hash": compare_hash,
                             "max_concurrent_tasks": max_concurrent_tasks,
                         }
                     )
@@ -2859,6 +2878,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             max_query_chars=max_query_chars,
                             id_search_unsupported_resources=id_search_unsupported_resources,
                             add_cached_bundles_to_result=add_cached_bundles_to_result,
+                            compare_hash=compare_hash,
                             ifModifiedSince=ifModifiedSince,
                         ):
                             link_responses = link_fetch_result.responses

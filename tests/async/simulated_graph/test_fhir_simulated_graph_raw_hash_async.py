@@ -334,9 +334,11 @@ def returned_resources(entries: list[FhirBundleEntry]) -> list[tuple[str, dict[s
     ]
 
 
-def expected_returned_keys(cache_kind: CacheKind) -> list[str]:
+def expected_returned_keys(cache_kind: CacheKind, compare_hash: bool | None = None) -> list[str]:
     # The seeded cache holds Encounter/8 unchanged, so the remove path drops it; the changed Encounter/10 stays.
-    return sorted(key for key in SERVED if not (cache_kind == "seeded" and key == "Encounter/8"))
+    # With compare_hash False the remove path does not compare hashes, so it drops every key the seeded cache holds.
+    removed = {"Encounter/8"} | ({"Encounter/10"} if compare_hash is False else set())
+    return sorted(key for key in SERVED if not (cache_kind == "seeded" and key in removed))
 
 
 async def stored_raw_hashes(cache: RequestCache) -> dict[str, tuple[str, bool]]:
@@ -352,12 +354,14 @@ async def stored_raw_hashes(cache: RequestCache) -> dict[str, tuple[str, bool]]:
 
 def expected_stored_raw_hashes(cache_kind: CacheKind, compare_hash: bool | None) -> dict[str, tuple[str, bool]]:
     """What a cache that keeps its entries holds after the traversal: the values the SDK has always stored."""
-    stored: dict[str, tuple[str, bool]] = {key: (key, False) for key in SERVED}
-    # compare_hash reaches only the start resource; the child links always hash.
-    stored["Patient/1"] = ("Patient/1" if compare_hash is not False else "", False)
+    # compare_hash reaches the start resource and every link fetch: with False nothing is hashed.
+    stored: dict[str, tuple[str, bool]] = {key: (key if compare_hash is not False else "", False) for key in SERVED}
     if cache_kind == "seeded":
         # Encounter/8 is removed before the cache add, so the entry loaded from the saved cache stays.
         stored["Encounter/8"] = ("Encounter/8", True)
+        if compare_hash is False:
+            # Without the hash comparison the changed Encounter/10 is removed too, so its saved entry stays.
+            stored["Encounter/10"] = ("Encounter/10 (saved version)", True)
     # The 404 entries (by-id fetch, and one-by-one read) never have a hash.
     return stored | {"Organization/99": ("", False), "Binary/13": ("", False)}
 
@@ -419,6 +423,63 @@ async def test_persisted_input_cache_keeps_raw_hash_values_and_remove_path(
 
     returned = returned_resources(entries)
     assert await stored_raw_hashes(input_cache) == expected_stored_raw_hashes(cache_kind, compare_hash)
+    assert sorted(key for key, _ in returned) == expected_returned_keys(cache_kind, compare_hash)
+    assert all(resource == SERVED[key] for key, resource in returned)
+    assert recorded_requests(mock_client, case_path) == EXPECTED_REQUESTS
+
+
+@pytest.mark.parametrize("cache_kind", ["empty", "empty_flag_none"])
+@pytest.mark.parametrize("max_concurrent_tasks", [1, 15])
+@pytest.mark.parametrize(
+    ("entry_point", "compare_hash", "expected_hashed"),
+    [
+        pytest.param("simulate_graph_async", False, [], id="simulate_graph_async-compare_hash_false"),
+        pytest.param(
+            "simulate_graph_by_resource_type_async",
+            False,
+            [],
+            id="simulate_graph_by_resource_type_async-compare_hash_false",
+        ),
+        pytest.param(
+            "simulate_graph_async",
+            True,
+            sorted(SERVED),
+            id="simulate_graph_async-compare_hash_true",
+        ),
+        pytest.param(
+            "simulate_graph_by_resource_type_async",
+            None,
+            sorted(SERVED),
+            id="simulate_graph_by_resource_type_async-compare_hash_not_passed",
+        ),
+    ],
+)
+async def test_compare_hash_false_skips_hashing_on_link_fetches(
+    entry_point: EntryPoint,
+    compare_hash: bool | None,
+    expected_hashed: list[str],
+    max_concurrent_tasks: int,
+    cache_kind: CacheKind,
+    hash_calls: list[str],
+) -> None:
+    # Arrange
+    case_path = f"raw_hash_link_fetches_{cache_kind}_{entry_point}_{compare_hash}_{max_concurrent_tasks}"
+    mock_client = serve_synthetic_patient(case_path)
+    input_cache = await input_cache_for(cache_kind)
+
+    # Act
+    entries = await run_entry_point(
+        entry_point=entry_point,
+        case_path=case_path,
+        input_cache=input_cache,
+        compare_hash=compare_hash,
+        max_concurrent_tasks=max_concurrent_tasks,
+    )
+
+    # Assert: the start resource and every linked resource are hashed only when compare_hash is not False
+    # (some resources are hashed more than once, so compare the set of hashed resources)
+    assert sorted(set(resource_names(hash_calls))) == expected_hashed
+    returned = returned_resources(entries)
     assert sorted(key for key, _ in returned) == expected_returned_keys(cache_kind)
     assert all(resource == SERVED[key] for key, resource in returned)
     assert recorded_requests(mock_client, case_path) == EXPECTED_REQUESTS
