@@ -2336,8 +2336,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         """
         # the groups of a traversal run one after the other, so the requests that this client starts during the
         # group are the GET requests of its links. getattr, and before start_span: a class that mixes in the
-        # traversal without running RequestQueueMixin.__init__ has no counter, and must not raise or leave the
-        # span open
+        # traversal without RequestQueueMixin has no counter, and must not raise or leave the span open
         sent_request_count_at_start: int = getattr(self, "_sent_request_count", 0)
         span: Span = TRACER.start_span(
             FhirClientSdkOpenTelemetrySpanNames.GRAPH_LINK_GROUP,

@@ -33,6 +33,10 @@ from helix_fhir_client_sdk.utilities.url_checker import UrlChecker
 
 
 class RequestQueueMixin(ABC, FhirClientProtocol):
+    # the requests that this client started (see FhirClientProtocol). The class default lets a subclass that does
+    # not run __init__ send and count its requests
+    _sent_request_count: int = 0
+
     def __init__(self) -> None:
         self._max_concurrent_requests: int | None = None
         self._max_concurrent_requests_semaphore: Semaphore | None = None

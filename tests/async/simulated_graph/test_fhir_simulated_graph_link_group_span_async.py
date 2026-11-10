@@ -576,6 +576,28 @@ def test_link_group_span_of_a_client_without_a_request_counter_ends_and_keeps_th
 
 
 @pytest.mark.parametrize("traversal", TRAVERSALS, ids=[traversal.name for traversal in TRAVERSALS])
+async def test_client_that_skips_the_request_queue_init_sends_its_requests_and_counts_them(
+    traversal: Traversal, span_recorder: SpanRecorder
+) -> None:
+    # Arrange
+    # as for a class that inherits RequestQueueMixin but does not run its __init__: the instance has no counter of
+    # its own, and each request still increments the counter
+    fhir_server = MockFhirServer(answers=ONE_GROUP.answers)
+    fhir_client = FhirClient().url(BASE_URL)
+    del fhir_client._sent_request_count
+
+    # Act
+    with aioresponses() as mocked_fhir_server:
+        fhir_server.install(mocked_fhir_server)
+        responses = await traversal.run(fhir_client, ONE_GROUP.graph, 1, False)
+
+    # Assert
+    assert _resource_keys(responses) == ONE_GROUP.resources
+    assert fhir_server.requests == ONE_GROUP.requests
+    assert _link_groups(span_recorder.spans_named(LINK_GROUP_SPAN)) == ONE_GROUP.link_groups
+
+
+@pytest.mark.parametrize("traversal", TRAVERSALS, ids=[traversal.name for traversal in TRAVERSALS])
 async def test_child_get_count_counts_a_retried_request_one_time(
     traversal: Traversal, span_recorder: SpanRecorder
 ) -> None:
