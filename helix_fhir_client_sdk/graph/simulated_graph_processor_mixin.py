@@ -72,6 +72,15 @@ def _validate_max_query_chars(max_query_chars: int | None) -> None:
         raise ValueError(f"max_query_chars must be None or a positive integer, got {max_query_chars!r}")
 
 
+def _cache_keeps_entries(cache: RequestCache) -> bool:
+    """True if the cache keeps its entries after the traversal, so a caller can save their raw_hash and compare it
+    on a later run. A RequestCache with clear_cache_at_the_end set (the default, and the cache the SDK creates when
+    no input_cache is passed) clears its entries when the traversal starts and ends, so no code can read their
+    raw_hash. An object without the attribute, such as a subclass that skips RequestCache.__init__, a duck-typed
+    cache or one unpickled from an older SDK, counts as keeping them, so it is hashed as before."""
+    return not getattr(cache, "_clear_cache_at_the_end", False)
+
+
 @dataclass(slots=True)
 class _LinkFetchResult:
     """
@@ -275,8 +284,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Track resources that don't support ID-based search
         id_search_unsupported_resources: list[str] = []
-        # The SDK's own cache is private and cleared at the end, so no code can read its raw_hash values.
-        cache: RequestCache = input_cache if input_cache is not None else RequestCache(compute_raw_hash=False)
+        cache: RequestCache = input_cache if input_cache is not None else RequestCache()
 
         # Aggregation state for the graph-level completion event. Initialized
         # here — before anything below that can raise — so the `finally`
@@ -1489,7 +1497,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 etag=result2.etag,
                 from_input_cache=False,
                 raw_hash=ResourceHash().hash_value(json.dumps(json.loads(entry._resource.json()), sort_keys=True))
-                if compare_hash and cache.compute_raw_hash and entry._resource
+                if compare_hash and _cache_keeps_entries(cache) and entry._resource
                 else "",
             )
             if cache_updated and logger:
@@ -1729,7 +1737,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             raw_hash=ResourceHash().hash_value(
                                 json.dumps(json.loads(non_cached_bundle_entry.resource.json()), sort_keys=True)
                             )
-                            if compare_hash and cache.compute_raw_hash
+                            if compare_hash and _cache_keeps_entries(cache)
                             else "",
                         )
                         if cache_updated and logger:
@@ -2547,8 +2555,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         base_url_value: str = url or ""
 
         id_search_unsupported_resources: list[str] = []
-        # The SDK's own cache is private and cleared at the end, so no code can read its raw_hash values.
-        cache: RequestCache = input_cache if input_cache is not None else RequestCache(compute_raw_hash=False)
+        cache: RequestCache = input_cache if input_cache is not None else RequestCache()
 
         # Aggregation state for the graph-level completion event. Initialized
         # here — before anything below that can raise — so the `finally`

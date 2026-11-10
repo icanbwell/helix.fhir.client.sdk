@@ -1,9 +1,12 @@
 """
-The SDK calculates RequestCacheEntry.raw_hash only for a cache that the caller passes in.
+The SDK calculates RequestCacheEntry.raw_hash only for a cache that keeps its entries.
 
-Without an input_cache, the SDK makes a private RequestCache and clears it at the end, so no code can read its
-raw_hash values. With an input_cache, the hash calls, the stored raw_hash values and the remove path stay as
-they were. Only the HTTP boundary is mocked (mock-server). All data is synthetic.
+A RequestCache with clear_cache_at_the_end set clears its entries when the traversal starts and when it ends. That
+is the private cache the SDK makes when no input_cache is passed, and a caller's RequestCache() with the default.
+No code can read the raw_hash values of such a cache, so the SDK doesn't calculate them. A cache that keeps its
+entries (clear_cache_at_the_end False or None) can be saved and compared on a later run, so its stored raw_hash
+values, the remove path and the results stay as they were. Only the HTTP boundary is mocked (mock-server). All data
+is synthetic.
 """
 
 import copy
@@ -11,6 +14,7 @@ import hashlib
 import inspect
 import json
 from dataclasses import fields
+from types import TracebackType
 from typing import Any, Literal
 
 import pytest
@@ -41,7 +45,9 @@ EntryPoint = Literal[
     "simulate_graph_streaming_async",
     "simulate_graph_by_resource_type_async",
 ]
-CacheKind = Literal["none", "empty", "seeded"]
+# none: no input_cache. default: RequestCache(), which clears its entries at the start and the end.
+# empty and seeded: RequestCache(clear_cache_at_the_end=False), which keeps them; empty_flag_none: the same with None.
+CacheKind = Literal["none", "default", "empty", "empty_flag_none", "seeded"]
 
 # One graph that reaches every place where the SDK adds a fetched resource to the cache:
 # the start resource read by id, a forward link with two ids in one ?_id= request, a forward link to an id the
@@ -176,7 +182,10 @@ def resource_names(raw_hashes: list[str]) -> list[str]:
 
 @pytest.fixture
 def hash_calls(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """Spy on ResourceHash.hash_value: calls the real method and records every digest it returns."""
+    """Spy on ResourceHash.hash_value: calls the real method and records every digest it returns.
+
+    Used only where no hash at all is the behavior under test. Elsewhere the tests assert the stored raw_hash values.
+    """
     calls: list[str] = []
     real_hash_value = ResourceHash.hash_value
 
@@ -249,8 +258,31 @@ async def seed_saved_encounters(cache: RequestCache) -> RequestCache:
 async def input_cache_for(cache_kind: CacheKind) -> RequestCache | None:
     if cache_kind == "none":
         return None
-    cache = RequestCache(clear_cache_at_the_end=False)
+    if cache_kind == "default":
+        return RequestCache()
+    cache = RequestCache(clear_cache_at_the_end=None if cache_kind == "empty_flag_none" else False)
     return await seed_saved_encounters(cache) if cache_kind == "seeded" else cache
+
+
+class CacheWithoutClearSetting(RequestCache):
+    """A cache with no _clear_cache_at_the_end, like a subclass that skips RequestCache.__init__, a duck-typed cache
+    or one unpickled from an older SDK. It keeps its entries, as RequestCache(clear_cache_at_the_end=False) does."""
+
+    def __init__(self) -> None:  # does not call RequestCache.__init__, so _clear_cache_at_the_end is never set
+        self.cache_hits = 0
+        self.cache_misses = 0
+        self._cache = {}
+
+    async def __aenter__(self) -> "CacheWithoutClearSetting":
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> bool | None:
+        return None
 
 
 async def run_entry_point(
@@ -307,20 +339,6 @@ def expected_returned_keys(cache_kind: CacheKind) -> list[str]:
     return sorted(key for key in SERVED if not (cache_kind == "seeded" and key == "Encounter/8"))
 
 
-def expected_hash_calls(cache_kind: CacheKind, compare_hash: bool | None) -> list[str]:
-    """Whose hash the SDK calculates with an input cache: one item per ResourceHash.hash_value call, sorted."""
-    # Cache adds. Binary/12 twice: the one-by-one read hashes it, then the cache add after that fetch again.
-    # compare_hash reaches only the start resource; the child links always hash.
-    cache_adds = ["Practitioner/5", "Practitioner/6", "Encounter/10", "Encounter/11"]
-    cache_adds += ["DocumentReference/20", "Binary/12", "Binary/12", "Binary/14"]
-    if compare_hash is not False:
-        cache_adds.append("Patient/1")
-    if cache_kind == "seeded":
-        # The remove path hashes each fetched resource that has a loaded entry; Encounter/8 is then removed.
-        return sorted(["Encounter/8", "Encounter/10"] + cache_adds)
-    return sorted(["Encounter/8"] + cache_adds)
-
-
 async def stored_raw_hashes(cache: RequestCache) -> dict[str, tuple[str, bool]]:
     """resourceType/id -> (whose hash raw_hash is, from_input_cache) for every entry in the cache."""
     return {
@@ -333,7 +351,9 @@ async def stored_raw_hashes(cache: RequestCache) -> dict[str, tuple[str, bool]]:
 
 
 def expected_stored_raw_hashes(cache_kind: CacheKind, compare_hash: bool | None) -> dict[str, tuple[str, bool]]:
+    """What a cache that keeps its entries holds after the traversal: the values the SDK has always stored."""
     stored: dict[str, tuple[str, bool]] = {key: (key, False) for key in SERVED}
+    # compare_hash reaches only the start resource; the child links always hash.
     stored["Patient/1"] = ("Patient/1" if compare_hash is not False else "", False)
     if cache_kind == "seeded":
         # Encounter/8 is removed before the cache add, so the entry loaded from the saved cache stays.
@@ -342,45 +362,49 @@ def expected_stored_raw_hashes(cache_kind: CacheKind, compare_hash: bool | None)
     return stored | {"Organization/99": ("", False), "Binary/13": ("", False)}
 
 
+@pytest.mark.parametrize("cache_kind", ["none", "default"])
 @pytest.mark.parametrize("max_concurrent_tasks", [1, 15])
 @pytest.mark.parametrize(("entry_point", "compare_hash"), ENTRY_POINTS_AND_COMPARE_HASH)
-async def test_no_input_cache_calculates_no_raw_hash(
-    entry_point: EntryPoint,
-    compare_hash: bool | None,
-    max_concurrent_tasks: int,
-    hash_calls: list[str],
-) -> None:
-    case_path = f"raw_hash_no_input_cache_{entry_point}_{compare_hash}_{max_concurrent_tasks}"
-    mock_client = serve_synthetic_patient(case_path)
-
-    entries = await run_entry_point(
-        entry_point=entry_point,
-        case_path=case_path,
-        input_cache=None,
-        compare_hash=compare_hash,
-        max_concurrent_tasks=max_concurrent_tasks,
-    )
-
-    returned = returned_resources(entries)
-    assert sorted(key for key, _ in returned) == expected_returned_keys("none")
-    assert all(resource == SERVED[key] for key, resource in returned)
-    if max_concurrent_tasks == 1:
-        assert [key for key, _ in returned] == SEQUENTIAL_ORDER
-    assert recorded_requests(mock_client, case_path) == EXPECTED_REQUESTS
-    assert resource_names(hash_calls) == []
-
-
-@pytest.mark.parametrize("cache_kind", ["empty", "seeded"])
-@pytest.mark.parametrize("max_concurrent_tasks", [1, 15])
-@pytest.mark.parametrize(("entry_point", "compare_hash"), ENTRY_POINTS_AND_COMPARE_HASH)
-async def test_input_cache_keeps_raw_hash_calls_values_and_remove_path(
+async def test_no_raw_hash_for_a_cache_cleared_at_the_end(
     entry_point: EntryPoint,
     compare_hash: bool | None,
     max_concurrent_tasks: int,
     cache_kind: CacheKind,
     hash_calls: list[str],
 ) -> None:
-    case_path = f"raw_hash_input_cache_{cache_kind}_{entry_point}_{compare_hash}_{max_concurrent_tasks}"
+    case_path = f"raw_hash_cleared_{cache_kind}_{entry_point}_{compare_hash}_{max_concurrent_tasks}"
+    mock_client = serve_synthetic_patient(case_path)
+    input_cache = await input_cache_for(cache_kind)
+
+    entries = await run_entry_point(
+        entry_point=entry_point,
+        case_path=case_path,
+        input_cache=input_cache,
+        compare_hash=compare_hash,
+        max_concurrent_tasks=max_concurrent_tasks,
+    )
+
+    returned = returned_resources(entries)
+    assert sorted(key for key, _ in returned) == expected_returned_keys(cache_kind)
+    assert all(resource == SERVED[key] for key, resource in returned)
+    if max_concurrent_tasks == 1:
+        assert [key for key, _ in returned] == SEQUENTIAL_ORDER
+    assert recorded_requests(mock_client, case_path) == EXPECTED_REQUESTS
+    # The caller's default RequestCache() is empty afterwards, like the SDK's own cache: nothing can read a hash.
+    assert input_cache is None or len(input_cache) == 0
+    assert resource_names(hash_calls) == []
+
+
+@pytest.mark.parametrize("cache_kind", ["empty", "empty_flag_none", "seeded"])
+@pytest.mark.parametrize("max_concurrent_tasks", [1, 15])
+@pytest.mark.parametrize(("entry_point", "compare_hash"), ENTRY_POINTS_AND_COMPARE_HASH)
+async def test_persisted_input_cache_keeps_raw_hash_values_and_remove_path(
+    entry_point: EntryPoint,
+    compare_hash: bool | None,
+    max_concurrent_tasks: int,
+    cache_kind: CacheKind,
+) -> None:
+    case_path = f"raw_hash_persisted_{cache_kind}_{entry_point}_{compare_hash}_{max_concurrent_tasks}"
     mock_client = serve_synthetic_patient(case_path)
     input_cache = await input_cache_for(cache_kind)
     assert input_cache is not None
@@ -394,7 +418,6 @@ async def test_input_cache_keeps_raw_hash_calls_values_and_remove_path(
     )
 
     returned = returned_resources(entries)
-    assert resource_names(hash_calls) == expected_hash_calls(cache_kind, compare_hash)
     assert await stored_raw_hashes(input_cache) == expected_stored_raw_hashes(cache_kind, compare_hash)
     assert sorted(key for key, _ in returned) == expected_returned_keys(cache_kind)
     assert all(resource == SERVED[key] for key, resource in returned)
@@ -405,13 +428,10 @@ async def test_input_cache_keeps_raw_hash_calls_values_and_remove_path(
     "entry_point",
     ["simulate_graph_async", "simulate_graph_streaming_async", "simulate_graph_by_resource_type_async"],
 )
-async def test_input_cache_without_raw_hash_still_compares_loaded_entries(
-    entry_point: EntryPoint,
-    hash_calls: list[str],
-) -> None:
-    case_path = f"raw_hash_input_cache_opt_out_{entry_point}"
+async def test_cache_without_the_clear_setting_hashes_as_today(entry_point: EntryPoint) -> None:
+    case_path = f"raw_hash_cache_without_clear_setting_{entry_point}"
     mock_client = serve_synthetic_patient(case_path)
-    input_cache = await seed_saved_encounters(RequestCache(clear_cache_at_the_end=False, compute_raw_hash=False))
+    input_cache = CacheWithoutClearSetting()
 
     entries = await run_entry_point(
         entry_point=entry_point,
@@ -422,14 +442,9 @@ async def test_input_cache_without_raw_hash_still_compares_loaded_entries(
     )
 
     returned = returned_resources(entries)
-    # Only the remove path hashes: it compares the fetched resources that have a loaded entry.
-    assert resource_names(hash_calls) == ["Encounter/10", "Encounter/8"]
-    assert await stored_raw_hashes(input_cache) == dict.fromkeys(SERVED, ("", False)) | {
-        "Encounter/8": ("Encounter/8", True),
-        "Organization/99": ("", False),
-        "Binary/13": ("", False),
-    }
-    assert sorted(key for key, _ in returned) == expected_returned_keys("seeded")
+    assert await stored_raw_hashes(input_cache) == expected_stored_raw_hashes("empty", None)
+    assert sorted(key for key, _ in returned) == expected_returned_keys("empty")
+    assert all(resource == SERVED[key] for key, resource in returned)
     assert recorded_requests(mock_client, case_path) == EXPECTED_REQUESTS
 
 
@@ -474,11 +489,15 @@ async def test_remove_entries_in_cache_meaning_of_compare_hash(compare_hash: boo
     assert [key for key, _ in returned_resources(list(response.get_bundle_entries()))] == expected_kept
 
 
-def test_request_cache_compute_raw_hash_defaults_to_todays_behavior() -> None:
-    compute_raw_hash = inspect.signature(RequestCache).parameters["compute_raw_hash"]
+def test_request_cache_constructor_and_entry_are_unchanged() -> None:
+    parameters = [
+        (parameter.name, parameter.kind, parameter.default, parameter.annotation)
+        for parameter in inspect.signature(RequestCache).parameters.values()
+    ]
     raw_hash_type = {field.name: field.type for field in fields(RequestCacheEntry)}["raw_hash"]
 
-    assert RequestCache().compute_raw_hash is True
-    assert compute_raw_hash.kind is inspect.Parameter.KEYWORD_ONLY
-    assert compute_raw_hash.default is True
+    assert parameters == [
+        ("initial_dict", inspect.Parameter.KEYWORD_ONLY, None, dict[str, Any] | None),
+        ("clear_cache_at_the_end", inspect.Parameter.KEYWORD_ONLY, True, bool | None),
+    ]
     assert raw_hash_type is str
