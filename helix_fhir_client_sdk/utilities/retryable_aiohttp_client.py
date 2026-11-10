@@ -33,6 +33,7 @@ class RetryableAioHttpClient:
         self,
         *,
         retries: int = 3,
+        timeout_retries: int | None = None,
         timeout_in_seconds: float | None = None,
         backoff_factor: float = 0.5,
         retry_status_codes: list[int] | None = None,
@@ -59,6 +60,10 @@ class RetryableAioHttpClient:
           The SDK will NOT close the session - the caller must close it themselves.
 
         :param retries: Number of retry attempts for failed requests
+        :param timeout_retries: Number of retry attempts for a request that timed out, at most ``retries``.
+                                None (default) retries timeouts like any other transient error. A request
+                                that hangs once usually hangs again, so a lower value stops one stuck
+                                request from holding the caller for ``retries + 1`` full read timeouts.
         :param timeout_in_seconds: Timeout for HTTP requests
         :param backoff_factor: Factor for exponential backoff between retries
         :param retry_status_codes: HTTP status codes that trigger a retry
@@ -78,6 +83,9 @@ class RetryableAioHttpClient:
         :param access_token_expiry_date: Expiry date of the access token
         """
         self.retries: int = retries
+        if timeout_retries is not None and timeout_retries < 0:
+            raise ValueError(f"timeout_retries must be 0 or greater, got {timeout_retries}")
+        self.timeout_retries: int | None = timeout_retries
         self.timeout_in_seconds: float | None = timeout_in_seconds
         self.backoff_factor: float = backoff_factor
         self.retry_status_codes: list[int] | None = (
@@ -155,6 +163,7 @@ class RetryableAioHttpClient:
         **kwargs: Any,
     ) -> RetryableAioHttpResponse:
         retry_attempts: int = -1
+        timeout_attempts: int = 0
         results_by_url: list[RetryableAioHttpUrlResult] = []
         access_token: str | None = self.access_token
         expiry_date: datetime | None = self.access_token_expiry_date
@@ -372,7 +381,12 @@ class RetryableAioHttpClient:
                                     retry_count=retry_attempts,
                                 )
             except (TimeoutError, ClientError, ClientResponseError) as e:
-                if retry_attempts >= self.retries:
+                # aiohttp's read and connect timeouts subclass TimeoutError
+                if isinstance(e, TimeoutError):
+                    timeout_attempts += 1
+                if retry_attempts >= self.retries or (
+                    self.timeout_retries is not None and timeout_attempts > self.timeout_retries
+                ):
                     if self._throw_exception_on_error:
                         raise
                     else:
