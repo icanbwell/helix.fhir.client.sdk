@@ -50,6 +50,9 @@ class FhirGetResponse:
         "cache_hits",
         "results_by_url",
         "storage_mode",
+        # (response_headers snapshot, value) for lastModified and etag, so they are not parsed on every call
+        "_last_modified_cache",
+        "_etag_cache",
     ]
 
     def __init__(
@@ -313,14 +316,27 @@ class FhirGetResponse:
         instance_variables_text = json.dumps(self.to_dict())
         return f"FhirGetResponse: {instance_variables_text}"
 
+    def _response_headers_key(self) -> tuple[str, ...] | None:
+        return tuple(self.response_headers) if self.response_headers is not None else None
+
     # noinspection PyPep8Naming
     @property
     def lastModified(self) -> datetime | None:
         """
-        Returns the last modified date from the response headers
+        Returns the last modified date from the response headers.
+        The value is parsed once and reused until response_headers changes.
 
         :return: last modified date
         """
+        key = self._response_headers_key()
+        cached: tuple[tuple[str, ...] | None, datetime | None] | None = getattr(self, "_last_modified_cache", None)
+        if cached is not None and cached[0] == key:
+            return cached[1]
+        value = self._parse_last_modified()
+        self._last_modified_cache = (key, value)
+        return value
+
+    def _parse_last_modified(self) -> datetime | None:
         if self.response_headers is None:
             return None
         header: str
@@ -346,10 +362,20 @@ class FhirGetResponse:
     @property
     def etag(self) -> str | None:
         """
-        Returns the etag from the response headers
+        Returns the etag from the response headers.
+        The value is parsed once and reused until response_headers changes.
 
         :return: etag
         """
+        key = self._response_headers_key()
+        cached: tuple[tuple[str, ...] | None, str | None] | None = getattr(self, "_etag_cache", None)
+        if cached is not None and cached[0] == key:
+            return cached[1]
+        value = self._parse_etag()
+        self._etag_cache = (key, value)
+        return value
+
+    def _parse_etag(self) -> str | None:
         if self.response_headers is None:
             return None
         header: str
