@@ -129,6 +129,9 @@ class FhirClientProtocol(Protocol):
     _max_concurrent_requests: int | None
     """ maximum number of concurrent requests to make to the FHIR server """
 
+    _sent_request_count: int
+    """ number of requests that this client sent to the FHIR server: one for each page; retries are not counted """
+
     _fn_create_http_session: Callable[[], ClientSession] | None
     """ optional callable to create HTTP sessions """
 

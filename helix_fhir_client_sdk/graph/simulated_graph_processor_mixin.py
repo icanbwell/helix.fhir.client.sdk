@@ -2,7 +2,8 @@ import asyncio
 import json
 import time
 from abc import ABC
-from collections.abc import AsyncGenerator, Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from logging import Logger
@@ -12,6 +13,8 @@ from urllib.parse import quote
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
 from compressedfhir.fhir.fhir_bundle_entry_list import FhirBundleEntryList
 from compressedfhir.fhir.fhir_resource import FhirResource
+from opentelemetry import trace
+from opentelemetry.trace import Span
 
 from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
 from helix_fhir_client_sdk.graph.graph_definition import (
@@ -36,6 +39,9 @@ from helix_fhir_client_sdk.graph.resource_type_started_event import (
 from helix_fhir_client_sdk.graph.resource_type_target_outcome import (
     ResourceTypeTargetOutcome,
 )
+from helix_fhir_client_sdk.open_telemetry.attribute_names import FhirClientSdkOpenTelemetryAttributeNames
+from helix_fhir_client_sdk.open_telemetry.span_error_status import SpanErrorStatus
+from helix_fhir_client_sdk.open_telemetry.span_names import FhirClientSdkOpenTelemetrySpanNames
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
@@ -61,6 +67,8 @@ from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.hash_util import ResourceHash
+
+TRACER = trace.get_tracer(__name__)
 
 
 def _validate_max_query_chars(max_query_chars: int | None) -> None:
@@ -492,57 +500,63 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     new_parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
 
                     # Parallel processing of links for each parent bundle
-                    for link, parent_bundle_entries in parent_link_map:
+                    for group_index, (link, parent_bundle_entries) in enumerate(parent_link_map):
                         context: ParallelFunctionContext
                         link_fetch_result: _LinkFetchResult
-                        async for context, link_fetch_result in AsyncParallelProcessor(  # type: ignore[misc]
-                            name="process_link_async_parallel_function",
-                            max_concurrent_tasks=max_concurrent_tasks,
-                        ).process_rows_in_parallel(
-                            rows=link,
-                            process_row_fn=self.process_link_async_parallel_function,
-                            parameters=GraphLinkParameters(
-                                parent_bundle_entries=parent_bundle_entries,
-                                logger=logger,
-                                cache=cache,
-                                scope_parser=scope_parser,
+                        with self._link_group_span(
+                            graph_depth=graph_depth, group_index=group_index, link_count=len(link)
+                        ) as link_group_span:
+                            async for context, link_fetch_result in AsyncParallelProcessor(  # type: ignore[misc]
+                                name="process_link_async_parallel_function",
                                 max_concurrent_tasks=max_concurrent_tasks,
-                                on_resource_type_started=on_resource_type_started,
-                                on_resource_type_completed=on_resource_type_completed,
-                                graph_depth=graph_depth,
-                                url=url or "",
-                                client_person_id=client_person_id,
-                                connection_name=connection_name,
-                                continue_on_resource_type_error=continue_on_resource_type_error,
-                                on_link_fetch_error=lambda: self._record_link_fetch_error(rollup),
-                            ),
-                            log_level=self._log_level,
-                            yield_context=True,
-                            parent_link_map=new_parent_link_map,
-                            request_size=request_size,
-                            max_query_chars=max_query_chars,
-                            id_search_unsupported_resources=id_search_unsupported_resources,
-                            add_cached_bundles_to_result=add_cached_bundles_to_result,
-                            ifModifiedSince=ifModifiedSince,
-                        ):
-                            link_responses = link_fetch_result.responses
-                            link_queried_urls = [r.url for r in link_responses if r.url]
-                            child_responses.extend(link_responses)
+                            ).process_rows_in_parallel(
+                                rows=link,
+                                process_row_fn=self.process_link_async_parallel_function,
+                                parameters=GraphLinkParameters(
+                                    parent_bundle_entries=parent_bundle_entries,
+                                    logger=logger,
+                                    cache=cache,
+                                    scope_parser=scope_parser,
+                                    max_concurrent_tasks=max_concurrent_tasks,
+                                    on_resource_type_started=on_resource_type_started,
+                                    on_resource_type_completed=on_resource_type_completed,
+                                    graph_depth=graph_depth,
+                                    url=url or "",
+                                    client_person_id=client_person_id,
+                                    connection_name=connection_name,
+                                    continue_on_resource_type_error=continue_on_resource_type_error,
+                                    on_link_fetch_error=lambda: self._record_link_fetch_error(rollup),
+                                ),
+                                log_level=self._log_level,
+                                yield_context=True,
+                                parent_link_map=new_parent_link_map,
+                                request_size=request_size,
+                                max_query_chars=max_query_chars,
+                                id_search_unsupported_resources=id_search_unsupported_resources,
+                                add_cached_bundles_to_result=add_cached_bundles_to_result,
+                                ifModifiedSince=ifModifiedSince,
+                            ):
+                                if link_fetch_result.error is not None:
+                                    # continue_on_resource_type_error: the traversal continues past this link
+                                    SpanErrorStatus.set(span=link_group_span, exception=link_fetch_result.error)
+                                link_responses = link_fetch_result.responses
+                                link_queried_urls = [r.url for r in link_responses if r.url]
+                                child_responses.extend(link_responses)
 
-                            await self._record_link_batch_outcome(
-                                rollup=rollup,
-                                link_responses=link_responses,
-                                responses_by_target=link_fetch_result.responses_by_target,
-                                link_queried_urls=link_queried_urls,
-                                links=link,
-                                context=context,
-                                graph_depth=graph_depth,
-                                scope_parser=scope_parser,
-                                on_resource_type_completed=on_resource_type_completed,
-                                client_person_id=client_person_id,
-                                connection_name=connection_name,
-                                error=link_fetch_result.error,
-                            )
+                                await self._record_link_batch_outcome(
+                                    rollup=rollup,
+                                    link_responses=link_responses,
+                                    responses_by_target=link_fetch_result.responses_by_target,
+                                    link_queried_urls=link_queried_urls,
+                                    links=link,
+                                    context=context,
+                                    graph_depth=graph_depth,
+                                    scope_parser=scope_parser,
+                                    on_resource_type_completed=on_resource_type_completed,
+                                    client_person_id=client_person_id,
+                                    connection_name=connection_name,
+                                    error=link_fetch_result.error,
+                                )
 
                     # Update parent link map for next iteration
                     parent_link_map = new_parent_link_map
@@ -2291,6 +2305,45 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # or already-closed generator is a safe, idempotent no-op.
             await inner_generator.aclose()
 
+    @contextmanager
+    def _link_group_span(self, *, graph_depth: int, group_index: int, link_count: int) -> Iterator[Span]:
+        """
+        Starts the span of one link group of the traversal, and ends it when the block ends. Shared by
+        process_simulate_graph_async() and _process_simulate_graph_by_resource_type_async(), which run the
+        groups of one depth one after the other.
+
+        The attributes are numbers only: no URLs and no ids. The span is not made the current span, because
+        _process_simulate_graph_by_resource_type_async() yields to its caller inside a group, and the spans of
+        the caller must not become children of this span. An exception that ends the group (a failed fetch, or
+        an exception from a callback that runs in the group) sets the ERROR status with the type of the
+        exception only (see SpanErrorStatus). Cancellation and an early close of the traversal are not errors.
+
+        :param graph_depth: the depth of the links of the group: 0 for the links of the start resource
+        :param group_index: the position of the group in the groups of its depth: 0 for the first
+        :param link_count: the number of links in the group
+        :return: the span, so that the traversal can set the ERROR status for a link error that it continues past
+        """
+        span: Span = TRACER.start_span(
+            FhirClientSdkOpenTelemetrySpanNames.GRAPH_LINK_GROUP,
+            record_exception=False,
+            set_status_on_exception=False,
+        )
+        # no other group of the traversal runs at the same time, so the requests that this client sends during the
+        # group are the GET requests of its links (a client that runs two traversals at the same time counts both)
+        sent_request_count_at_start: int = self._sent_request_count
+        try:
+            span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.GRAPH_DEPTH, graph_depth)
+            span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.GRAPH_LINK_GROUP_INDEX, group_index)
+            span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.GRAPH_LINK_COUNT, link_count)
+            with SpanErrorStatus.on_exception(span=span):
+                yield span
+        finally:
+            span.set_attribute(
+                FhirClientSdkOpenTelemetryAttributeNames.GRAPH_CHILD_GET_COUNT,
+                self._sent_request_count - sent_request_count_at_start,
+            )
+            span.end()
+
     @staticmethod
     def _record_link_fetch_error(rollup: _GraphTraversalRollup) -> None:
         """
@@ -2828,66 +2881,72 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 while len(parent_link_map):
                     new_parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]] = []
 
-                    for links, current_parent_bundle_entries in parent_link_map:
+                    for group_index, (links, current_parent_bundle_entries) in enumerate(parent_link_map):
                         context: ParallelFunctionContext
                         link_fetch_result: _LinkFetchResult
-                        async for context, link_fetch_result in AsyncParallelProcessor(  # type: ignore[misc]
-                            name="process_link_async_parallel_function",
-                            max_concurrent_tasks=max_concurrent_tasks,
-                        ).process_rows_in_parallel(
-                            rows=links,
-                            process_row_fn=self.process_link_async_parallel_function,
-                            parameters=GraphLinkParameters(
-                                parent_bundle_entries=current_parent_bundle_entries,
-                                logger=logger,
-                                cache=cache,
-                                scope_parser=scope_parser,
+                        with self._link_group_span(
+                            graph_depth=graph_depth, group_index=group_index, link_count=len(links)
+                        ) as link_group_span:
+                            async for context, link_fetch_result in AsyncParallelProcessor(  # type: ignore[misc]
+                                name="process_link_async_parallel_function",
                                 max_concurrent_tasks=max_concurrent_tasks,
-                                on_resource_type_started=on_resource_type_started,
-                                on_resource_type_completed=on_resource_type_completed,
-                                graph_depth=graph_depth,
-                                url=base_url_value,
-                                client_person_id=client_person_id,
-                                connection_name=connection_name,
-                                continue_on_resource_type_error=continue_on_resource_type_error,
-                                on_link_fetch_error=lambda: self._record_link_fetch_error(rollup),
-                            ),
-                            log_level=self._log_level,
-                            yield_context=True,
-                            parent_link_map=new_parent_link_map,
-                            request_size=request_size,
-                            max_query_chars=max_query_chars,
-                            id_search_unsupported_resources=id_search_unsupported_resources,
-                            add_cached_bundles_to_result=add_cached_bundles_to_result,
-                            ifModifiedSince=ifModifiedSince,
-                        ):
-                            link_responses = link_fetch_result.responses
+                            ).process_rows_in_parallel(
+                                rows=links,
+                                process_row_fn=self.process_link_async_parallel_function,
+                                parameters=GraphLinkParameters(
+                                    parent_bundle_entries=current_parent_bundle_entries,
+                                    logger=logger,
+                                    cache=cache,
+                                    scope_parser=scope_parser,
+                                    max_concurrent_tasks=max_concurrent_tasks,
+                                    on_resource_type_started=on_resource_type_started,
+                                    on_resource_type_completed=on_resource_type_completed,
+                                    graph_depth=graph_depth,
+                                    url=base_url_value,
+                                    client_person_id=client_person_id,
+                                    connection_name=connection_name,
+                                    continue_on_resource_type_error=continue_on_resource_type_error,
+                                    on_link_fetch_error=lambda: self._record_link_fetch_error(rollup),
+                                ),
+                                log_level=self._log_level,
+                                yield_context=True,
+                                parent_link_map=new_parent_link_map,
+                                request_size=request_size,
+                                max_query_chars=max_query_chars,
+                                id_search_unsupported_resources=id_search_unsupported_resources,
+                                add_cached_bundles_to_result=add_cached_bundles_to_result,
+                                ifModifiedSince=ifModifiedSince,
+                            ):
+                                if link_fetch_result.error is not None:
+                                    # continue_on_resource_type_error: the traversal continues past this link
+                                    SpanErrorStatus.set(span=link_group_span, exception=link_fetch_result.error)
+                                link_responses = link_fetch_result.responses
 
-                            # Capture each response's actual queried URL before the
-                            # loop below overwrites it with the base URL, filtering
-                            # out empty strings (scope-denied / fully cached
-                            # responses have url == "").
-                            link_queried_urls = [r.url for r in link_responses if r.url]
+                                # Capture each response's actual queried URL before the
+                                # loop below overwrites it with the base URL, filtering
+                                # out empty strings (scope-denied / fully cached
+                                # responses have url == "").
+                                link_queried_urls = [r.url for r in link_responses if r.url]
 
-                            # Yield each link's responses individually instead of accumulating
-                            for link_response in link_responses:
-                                link_response.url = url or link_response.url
-                                yield link_response
+                                # Yield each link's responses individually instead of accumulating
+                                for link_response in link_responses:
+                                    link_response.url = url or link_response.url
+                                    yield link_response
 
-                            await self._record_link_batch_outcome(
-                                rollup=rollup,
-                                link_responses=link_responses,
-                                responses_by_target=link_fetch_result.responses_by_target,
-                                link_queried_urls=link_queried_urls,
-                                links=links,
-                                context=context,
-                                graph_depth=graph_depth,
-                                scope_parser=scope_parser,
-                                on_resource_type_completed=on_resource_type_completed,
-                                client_person_id=client_person_id,
-                                connection_name=connection_name,
-                                error=link_fetch_result.error,
-                            )
+                                await self._record_link_batch_outcome(
+                                    rollup=rollup,
+                                    link_responses=link_responses,
+                                    responses_by_target=link_fetch_result.responses_by_target,
+                                    link_queried_urls=link_queried_urls,
+                                    links=links,
+                                    context=context,
+                                    graph_depth=graph_depth,
+                                    scope_parser=scope_parser,
+                                    on_resource_type_completed=on_resource_type_completed,
+                                    client_person_id=client_person_id,
+                                    connection_name=connection_name,
+                                    error=link_fetch_result.error,
+                                )
 
                     parent_link_map = new_parent_link_map
                     graph_depth += 1
