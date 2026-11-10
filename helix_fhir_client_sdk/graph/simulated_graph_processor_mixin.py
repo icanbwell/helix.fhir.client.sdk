@@ -5,7 +5,7 @@ from abc import ABC
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from logging import Logger
+from logging import DEBUG, Logger
 from typing import Any, Literal, cast
 from urllib.parse import quote
 
@@ -1041,15 +1041,29 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Log detailed retrieval information if logger is available
         if logger:
+            # The id lists can run to thousands of entries per batch, so they are only built at DEBUG.
+            child_resource_type_and_ids = child_response.get_resource_type_and_ids()
             logger.info(
-                # Construct a detailed log message with retrieval context
-                "Received child resources"
-                + f" from parent {parent_resource_type}/{parent_ids}"
-                + f" path:[{path}]. id_:{id_}. resource_type:{resource_type}"
-                + f", count:{len(child_response.get_resource_type_and_ids())}"
-                + f", cached:{cache_hits}"
-                + f", {','.join(child_response.get_resource_type_and_ids())}"
+                "Received child resources from parent %s (%d) path:[%s]. ids requested:%d."
+                " resource_type:%s, count:%d, cached:%s",
+                parent_resource_type,
+                len(parent_ids),
+                path,
+                len(id_) if isinstance(id_, list) else (1 if id_ else 0),
+                resource_type,
+                len(child_resource_type_and_ids),
+                cache_hits,
             )
+            if logger.isEnabledFor(DEBUG):
+                logger.debug(
+                    "Received child resources from parent %s/%s path:[%s]. id_:%s. resource_type:%s, %s",
+                    parent_resource_type,
+                    parent_ids,
+                    path,
+                    id_,
+                    resource_type,
+                    ",".join(child_resource_type_and_ids),
+                )
 
         # Return the retrieved child resources
         return child_response
@@ -1495,10 +1509,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 )
                 if cache_entry:
                     if logger:
-                        logger.info(f"{cache_entry.status} Returning {resource_type}/{resource_id} from cache (1by1)")
+                        logger.debug(
+                            "%s Returning %s/%s from cache (1by1)", cache_entry.status, resource_type, resource_id
+                        )
                 else:
                     if logger:
-                        logger.info(f"Cache entry not found for {resource_type}/{resource_id} (1by1)")
+                        logger.debug("Cache entry not found for %s/%s (1by1)", resource_type, resource_id)
                     non_cached_id_list.append(resource_id)
 
         if not non_cached_id_list:
@@ -1520,7 +1536,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 else "",
             )
             if cache_updated and logger:
-                logger.info(f"Inserted {resource_type}/{single_id} into cache (1by1)")
+                logger.debug("Inserted %s/%s into cache (1by1)", resource_type, single_id)
 
         async def _cache_one_by_one_result_async(*, single_id: str, result2: FhirGetResponse) -> None:
             if result2.successful:
@@ -1651,12 +1667,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     # if there is an entry then it means we tried to get it in the past
                     # so don't get it again whether we were successful or not
                     if logger:
-                        logger.info(
-                            f"{cache_entry.status} Returning {resource_type}/{resource_id} from cache (ByParam)"
+                        logger.debug(
+                            "%s Returning %s/%s from cache (ByParam)", cache_entry.status, resource_type, resource_id
                         )
                 else:
                     if logger:
-                        logger.info(f"Cache entry not found for {resource_type}/{resource_id} (ByParam)")
+                        logger.debug("Cache entry not found for %s/%s (ByParam)", resource_type, resource_id)
                     non_cached_id_list.append(resource_id)
         all_result: FhirGetResponse | None = None
         # ids the server refused (403) both as a batch and when probed alone; already cached as 403
