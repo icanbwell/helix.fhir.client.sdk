@@ -32,6 +32,7 @@ from helix_fhir_client_sdk.responses.merge.fhir_merge_response_entry_issue impor
 from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
 )
+from helix_fhir_client_sdk.utilities.fhir_bundle_json import fhir_bundle_json
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 from helix_fhir_client_sdk.utilities.json_helpers import parse_json_or_ndjson
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
@@ -60,7 +61,8 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                 assert entry.resource is not None
                 entry_resources.append(entry.resource)
             return "\n".join(resource.json() for resource in entry_resources)
-        return bundle.json()
+        # same text as bundle.json(), without re-serializing every resource through dict()
+        return fhir_bundle_json(bundle)
 
     async def merge_bundle_uncompressed(
         self,
