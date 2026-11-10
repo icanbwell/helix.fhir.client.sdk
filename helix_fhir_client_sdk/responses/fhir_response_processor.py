@@ -428,6 +428,37 @@ class FhirResponseProcessor:
                             next_link: dict[str, Any] = next_links[0]
                             next_url = next_link.get("url")
 
+                if not separate_bundle_resources:
+                    # Hand the already parsed resources to the factory instead of serializing them to text
+                    # for the factory to parse again.  The result is the same as the text path below.
+                    parsed_resources: dict[str, Any] | list[dict[str, Any]]
+                    (
+                        parsed_resources,
+                        total_count,
+                    ) = await FhirResponseProcessor._expand_bundle_parsed_async(
+                        expand_fhir_bundle=expand_fhir_bundle,
+                        resource_or_bundle=response_json,
+                        total_count=total_count,
+                    )
+                    yield FhirGetResponseFactory.create_from_parsed_json(
+                        request_id=request_id,
+                        url=full_url,
+                        parsed_json=parsed_resources,
+                        error=None,
+                        access_token=access_token,
+                        total_count=total_count,
+                        status=response.status,
+                        next_url=next_url,
+                        extra_context_to_return=extra_context_to_return,
+                        resource_type=resource,
+                        id_=id_,
+                        response_headers=response_headers,
+                        results_by_url=response.results_by_url,
+                        storage_mode=storage_mode,
+                        create_operation_outcome_for_error=create_operation_outcome_for_error,
+                    )
+                    return
+
                 (
                     resources_json,
                     total_count,
@@ -490,20 +521,11 @@ class FhirResponseProcessor:
         url: str | None,
     ) -> tuple[str, int]:
         # see if this is a Resource Bundle and un-bundle it
-        if (
-            expand_fhir_bundle
-            and "resourceType" in resource_or_bundle
-            and resource_or_bundle["resourceType"] == "Bundle"
-        ):
-            bundle_expander_result: BundleExpanderResult = await BundleExpander.expand_bundle_async(
-                total_count=total_count,
-                bundle=resource_or_bundle,
-            )
-            resources = bundle_expander_result.resources
-            total_count = bundle_expander_result.total_count
-        else:
-            resources = [resource_or_bundle]
-            total_count = 1
+        resources, total_count = await FhirResponseProcessor._expand_bundle_async(
+            expand_fhir_bundle=expand_fhir_bundle,
+            resource_or_bundle=resource_or_bundle,
+            total_count=total_count,
+        )
 
         if separate_bundle_resources:
             resource_separator_result: ResourceSeparatorResult = (
@@ -526,6 +548,51 @@ class FhirResponseProcessor:
             resources_json = json.dumps(resources)
 
         return resources_json, total_count
+
+    @staticmethod
+    async def _expand_bundle_async(
+        *,
+        expand_fhir_bundle: bool | None,
+        resource_or_bundle: dict[str, Any],
+        total_count: int,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """
+        Returns the resources in the bundle if expand_fhir_bundle is set and this is a Bundle,
+        otherwise a list holding resource_or_bundle.
+        """
+        if (
+            expand_fhir_bundle
+            and "resourceType" in resource_or_bundle
+            and resource_or_bundle["resourceType"] == "Bundle"
+        ):
+            bundle_expander_result: BundleExpanderResult = await BundleExpander.expand_bundle_async(
+                total_count=total_count,
+                bundle=resource_or_bundle,
+            )
+            return bundle_expander_result.resources, bundle_expander_result.total_count
+        return [resource_or_bundle], 1
+
+    @staticmethod
+    async def _expand_bundle_parsed_async(
+        *,
+        expand_fhir_bundle: bool | None,
+        resource_or_bundle: dict[str, Any],
+        total_count: int,
+    ) -> tuple[dict[str, Any] | list[dict[str, Any]], int]:
+        """
+        Same as expand_or_separate_bundle_async() with separate_bundle_resources=False, but returns the
+        parsed value instead of its JSON text: json.dumps() of the result equals the text that method returns.
+        """
+        resources, total_count = await FhirResponseProcessor._expand_bundle_async(
+            expand_fhir_bundle=expand_fhir_bundle,
+            resource_or_bundle=resource_or_bundle,
+            total_count=total_count,
+        )
+        if len(resources) == 1:
+            return resources[0], len(resources)
+        if len(resources) > 0:
+            return resources, len(resources)
+        return resources, total_count
 
     @staticmethod
     async def _handle_response_200_streaming(

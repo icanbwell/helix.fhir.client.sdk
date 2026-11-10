@@ -60,7 +60,11 @@ class FhirGetBundleResponse(FhirGetResponse):
         cache_hits: int | None = None,
         results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
+        parsed_json: dict[str, Any] | None = None,
     ) -> None:
+        """
+        :param parsed_json: response_text already parsed; when set, response_text is not parsed again
+        """
         super().__init__(
             request_id=request_id,
             url=url,
@@ -82,6 +86,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         bundle: FhirBundle
         bundle_entries, bundle = self._parse_bundle_entries(
             responses=response_text,
+            parsed_json=parsed_json,
             url=url,
             status=status,
             last_modified=self.lastModified,
@@ -198,6 +203,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         last_modified: datetime | None,
         etag: str | None,
         storage_mode: CompressedDictStorageMode,
+        parsed_json: dict[str, Any] | None = None,
     ) -> tuple[FhirBundleEntryList, FhirBundle]:
         """
         Gets the Bundle entries from the response
@@ -209,7 +215,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             f"Expected CompressedDictStorageMode but got {type(storage_mode)}"
         )
 
-        if not responses:
+        if parsed_json is None and not responses:
             return FhirBundleEntryList(), FhirBundle(
                 id_=None,
                 timestamp=None,
@@ -217,7 +223,9 @@ class FhirGetBundleResponse(FhirGetResponse):
             )
         try:
             # This is either a list of resources or a Bundle resource containing a list of resources
-            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(responses)
+            child_response_resources: dict[str, Any] | list[dict[str, Any]] = (
+                parsed_json if parsed_json is not None else cls.parse_json(responses)
+            )
             assert isinstance(child_response_resources, dict)
 
             timestamp: str | None = cast(str | None, child_response_resources.get("timestamp"))
@@ -273,7 +281,7 @@ class FhirGetBundleResponse(FhirGetResponse):
                 )
                 return result, bundle
         except Exception as e:
-            raise Exception(f"Could not get bundle entries from: {responses}") from e
+            raise Exception(f"Could not get bundle entries from: {responses or json.dumps(parsed_json)}") from e
 
     def create_bundle(self) -> FhirBundle:
         bundle_entries: FhirBundleEntryList = self.get_bundle_entries()

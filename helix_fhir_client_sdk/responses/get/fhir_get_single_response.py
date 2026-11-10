@@ -1,3 +1,4 @@
+import json
 from collections.abc import AsyncGenerator, Generator
 from logging import Logger
 from typing import (
@@ -60,7 +61,11 @@ class FhirGetSingleResponse(FhirGetResponse):
         cache_hits: int | None = None,
         results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
+        parsed_json: dict[str, Any] | None = None,
     ) -> None:
+        """
+        :param parsed_json: response_text already parsed; when set, response_text is not parsed again
+        """
         super().__init__(
             request_id=request_id,
             url=url,
@@ -79,7 +84,7 @@ class FhirGetSingleResponse(FhirGetResponse):
             storage_mode=storage_mode,
         )
         self._resource: FhirResource | None = self._parse_single_resource(
-            responses=response_text, storage_mode=storage_mode
+            responses=response_text, storage_mode=storage_mode, parsed_json=parsed_json
         )
 
     @override
@@ -190,20 +195,24 @@ class FhirGetSingleResponse(FhirGetResponse):
         return self
 
     @classmethod
-    def _parse_single_resource(cls, *, responses: str, storage_mode: CompressedDictStorageMode) -> FhirResource | None:
+    def _parse_single_resource(
+        cls, *, responses: str, storage_mode: CompressedDictStorageMode, parsed_json: dict[str, Any] | None = None
+    ) -> FhirResource | None:
         """
         Gets the single resource from the response
 
         :return: single resource
         """
-        if not responses:
+        if parsed_json is None and not responses:
             return None
         try:
-            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(responses)
+            child_response_resources: dict[str, Any] | list[dict[str, Any]] = (
+                parsed_json if parsed_json is not None else cls.parse_json(responses)
+            )
             assert isinstance(child_response_resources, dict)
             return FhirResource(initial_dict=child_response_resources, storage_mode=storage_mode)
         except Exception as e:
-            raise Exception(f"Could not get resources from: {responses}") from e
+            raise Exception(f"Could not get resources from: {responses or json.dumps(parsed_json)}") from e
 
     @classmethod
     @override

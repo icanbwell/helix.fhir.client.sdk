@@ -60,7 +60,11 @@ class FhirGetListResponse(FhirGetResponse):
         cache_hits: int | None = None,
         results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
+        parsed_json: list[dict[str, Any]] | None = None,
     ) -> None:
+        """
+        :param parsed_json: response_text already parsed; when set, response_text is not parsed again
+        """
         super().__init__(
             request_id=request_id,
             url=url,
@@ -79,7 +83,7 @@ class FhirGetListResponse(FhirGetResponse):
             storage_mode=storage_mode,
         )
         self._resources: FhirResourceList | None = self._parse_resources(
-            response_text=response_text, storage_mode=storage_mode
+            response_text=response_text, storage_mode=storage_mode, parsed_json=parsed_json
         )
 
     @override
@@ -132,25 +136,33 @@ class FhirGetListResponse(FhirGetResponse):
         )
 
     @classmethod
-    def _parse_resources(cls, *, response_text: str, storage_mode: CompressedDictStorageMode) -> FhirResourceList:
+    def _parse_resources(
+        cls,
+        *,
+        response_text: str,
+        storage_mode: CompressedDictStorageMode,
+        parsed_json: list[dict[str, Any]] | None = None,
+    ) -> FhirResourceList:
         """
         Gets the resources from the response
 
 
         :return: list of resources
         """
-        if not response_text:
+        if parsed_json is None and not response_text:
             return FhirResourceList()
         try:
             # THis is either a list of resources or a Bundle resource containing a list of resources
-            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(response_text)
+            child_response_resources: dict[str, Any] | list[dict[str, Any]] = (
+                parsed_json if parsed_json is not None else cls.parse_json(response_text)
+            )
             assert isinstance(child_response_resources, list)
             result: FhirResourceList = FhirResourceList()
             for r in child_response_resources:
                 result.append(FhirResource(initial_dict=r, storage_mode=storage_mode))
             return result
         except Exception as e:
-            raise Exception(f"Could not get resources from: {response_text}") from e
+            raise Exception(f"Could not get resources from: {response_text or json.dumps(parsed_json)}") from e
 
     def get_bundle_entries(self) -> FhirBundleEntryList:
         """
