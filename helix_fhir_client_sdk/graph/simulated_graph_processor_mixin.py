@@ -1440,6 +1440,25 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         if target.link:
             parent_link_map.append((target.link, children))
 
+    @staticmethod
+    async def _cache_forbidden_ids_async(
+        *, resource_type: str, ids: list[str], cache: RequestCache, logger: Logger | None
+    ) -> None:
+        """Caches each id as 403 so later references to it are answered from the cache instead of the server."""
+        for forbidden_id in ids:
+            cache_updated = await cache.add_async(
+                resource_type=resource_type,
+                resource_id=forbidden_id,
+                bundle_entry=None,
+                status=403,
+                last_modified=datetime.now(UTC),
+                etag=None,
+                from_input_cache=False,
+                raw_hash="",
+            )
+            if cache_updated and logger:
+                logger.debug(f"Inserted 403 for {resource_type}/{forbidden_id} into cache (ByParam)")
+
     async def _get_resources_by_id_one_by_one_async(
         self,
         *,
@@ -1631,6 +1650,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         logger.info(f"Cache entry not found for {resource_type}/{resource_id} (ByParam)")
                     non_cached_id_list.append(resource_id)
         all_result: FhirGetResponse | None = None
+        # ids the server refused (403) both as a batch and when probed alone; already cached as 403
+        forbidden_id_list: list[str] = []
         # either we have non-cached ids or this is a query without id but has other parameters
         if (
             (len(non_cached_id_list) > 1 and resource_type.lower() not in id_search_unsupported_resources)
@@ -1649,8 +1670,36 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 resource_type=resource_type,
             ):
                 result = result1
+                # A 403 on ?_id=a,b,c can mean the token may not read this resource type at all,
+                # or that only some of the ids are forbidden. Read the first id on its own to tell
+                # the two apart before paying for one request per id.
+                probe_result: FhirGetResponse | None = None
+                if result and result.status == 403 and len(non_cached_id_list) > 1:
+                    probe_result = await self._get_resources_by_id_one_by_one_async(
+                        resource_type=resource_type,
+                        ids=non_cached_id_list[:1],
+                        additional_parameters=parameters,
+                        cache=cache,
+                        logger=logger,
+                        compare_hash=compare_hash,
+                        max_concurrent_tasks=max_concurrent_tasks,
+                    )
+                if probe_result is not None and probe_result.status == 403:
+                    # Forbidden on its own too: reading the rest one by one would only return more
+                    # 403s. Keep the batch's 403 as the result so callers still see the denial, and
+                    # don't mark the type as unsupporting _id, since the server rejected the token,
+                    # not the search.
+                    await self._cache_forbidden_ids_async(
+                        resource_type=resource_type, ids=non_cached_id_list[1:], cache=cache, logger=logger
+                    )
+                    forbidden_id_list.extend(non_cached_id_list)
+                    if logger:
+                        logger.info(
+                            f"403 for {resource_type} on a batch of {len(non_cached_id_list)} ids and on the"
+                            f" first id alone for url {self._url}; not fetching the rest one by one"
+                        )
                 # if we got a failure then check if we can get it one by one
-                if (not result or result.status != 200) and len(non_cached_id_list) > 1:
+                elif (not result or result.status != 200) and len(non_cached_id_list) > 1:
                     if result:
                         if resource_type.lower() not in id_search_unsupported_resources:
                             id_search_unsupported_resources.append(resource_type.lower())
@@ -1660,6 +1709,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 f" Fetching one by one ids: {non_cached_id_list}"
                             )
                     # For some resources if search by _id doesn't work then fetch one by one.
+                    # An id already read by the probe above is in the cache, so it is skipped here
+                    # and its response is put back in front.
                     result = await self._get_resources_by_id_one_by_one_async(
                         resource_type=resource_type,
                         ids=non_cached_id_list,
@@ -1669,6 +1720,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         compare_hash=compare_hash,
                         max_concurrent_tasks=max_concurrent_tasks,
                     )
+                    if probe_result is not None:
+                        result = probe_result.append(result) if result else probe_result
                 else:
                     if logger:
                         logger.info(f"Fetched {resource_type} resources using _id for url {self._url}")
@@ -1737,7 +1790,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # now add all the non-cached ids that were NOT found to the cache too so we don't look for them again
         for non_cached_id in non_cached_id_list:
-            if non_cached_id not in found_non_cached_id_list:
+            if non_cached_id not in found_non_cached_id_list and non_cached_id not in forbidden_id_list:
                 cache_updated = await cache.add_async(
                     resource_type=resource_type,
                     resource_id=non_cached_id,
