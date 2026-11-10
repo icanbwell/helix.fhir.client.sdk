@@ -2312,25 +2312,38 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         process_simulate_graph_async() and _process_simulate_graph_by_resource_type_async(), which run the
         groups of one depth one after the other.
 
-        The attributes are numbers only: no URLs and no ids. The span is not made the current span, because
-        _process_simulate_graph_by_resource_type_async() yields to its caller inside a group, and the spans of
-        the caller must not become children of this span. An exception that ends the group (a failed fetch, or
-        an exception from a callback that runs in the group) sets the ERROR status with the type of the
-        exception only (see SpanErrorStatus). Cancellation and an early close of the traversal are not errors.
+        The attributes are numbers only: no URLs and no ids. For what the child GET count counts, and when it is
+        exact, see FhirClientSdkOpenTelemetryAttributeNames.GRAPH_CHILD_GET_COUNT.
+
+        The duration is the time of the whole block. In both traversal methods it includes the
+        on_resource_type_started and on_resource_type_completed callbacks of the links of the group. In
+        _process_simulate_graph_by_resource_type_async() the traversal also yields each response to its caller
+        inside the group, so the duration includes the time that the caller takes with each yielded response.
+        Because of that yield, the span is not made the current span: the spans of the caller must not become
+        children of this span.
+
+        An exception that ends the group (a failed fetch, or an exception from a callback that runs in the
+        group) sets the ERROR status with the type of the exception only (see SpanErrorStatus), and so does a
+        link error that the traversal continues past (continue_on_resource_type_error). When several links
+        fail, the description is the type of the last exception. A returned HTTP error status, such as a 400 or
+        a 403 that the client returns without an exception, does not set ERROR; the HTTP GET span of the SDK
+        does the same. Cancellation and an early close of the traversal are not errors.
 
         :param graph_depth: the depth of the links of the group: 0 for the links of the start resource
         :param group_index: the position of the group in the groups of its depth: 0 for the first
         :param link_count: the number of links in the group
         :return: the span, so that the traversal can set the ERROR status for a link error that it continues past
         """
+        # the groups of a traversal run one after the other, so the requests that this client starts during the
+        # group are the GET requests of its links. getattr, and before start_span: a class that mixes in the
+        # traversal without running RequestQueueMixin.__init__ has no counter, and must not raise or leave the
+        # span open
+        sent_request_count_at_start: int = getattr(self, "_sent_request_count", 0)
         span: Span = TRACER.start_span(
             FhirClientSdkOpenTelemetrySpanNames.GRAPH_LINK_GROUP,
             record_exception=False,
             set_status_on_exception=False,
         )
-        # no other group of the traversal runs at the same time, so the requests that this client sends during the
-        # group are the GET requests of its links (a client that runs two traversals at the same time counts both)
-        sent_request_count_at_start: int = self._sent_request_count
         try:
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.GRAPH_DEPTH, graph_depth)
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.GRAPH_LINK_GROUP_INDEX, group_index)
@@ -2340,7 +2353,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         finally:
             span.set_attribute(
                 FhirClientSdkOpenTelemetryAttributeNames.GRAPH_CHILD_GET_COUNT,
-                self._sent_request_count - sent_request_count_at_start,
+                getattr(self, "_sent_request_count", 0) - sent_request_count_at_start,
             )
             span.end()
 

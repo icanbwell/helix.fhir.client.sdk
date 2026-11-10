@@ -553,6 +553,28 @@ async def test_closing_the_traversal_inside_a_group_ends_the_link_group_span_wit
     assert open_group.events == []
 
 
+def test_link_group_span_of_a_client_without_a_request_counter_ends_and_keeps_the_error(
+    span_recorder: SpanRecorder,
+) -> None:
+    # Arrange
+    # as for a class that mixes in the traversal without running RequestQueueMixin.__init__
+    fhir_client = FhirClient()
+    del fhir_client._sent_request_count
+
+    # Act
+    with (
+        pytest.raises(ValueError, match="^synthetic failure$"),
+        fhir_client._link_group_span(graph_depth=0, group_index=0, link_count=1),
+    ):
+        raise ValueError("synthetic failure")
+
+    # Assert
+    [span] = span_recorder.spans_named(LINK_GROUP_SPAN)
+    assert span.ended
+    assert span.attributes[CHILD_GET_COUNT] == 0
+    assert span.status.description == "ValueError"
+
+
 @pytest.mark.parametrize("traversal", TRAVERSALS, ids=[traversal.name for traversal in TRAVERSALS])
 async def test_child_get_count_counts_a_retried_request_one_time(
     traversal: Traversal, span_recorder: SpanRecorder

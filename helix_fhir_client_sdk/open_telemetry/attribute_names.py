@@ -12,5 +12,7 @@ class FhirClientSdkOpenTelemetryAttributeNames:
     GRAPH_LINK_GROUP_INDEX: str = "fhir.client_sdk.graph.link_group.index"
     # the number of links in the group
     GRAPH_LINK_COUNT: str = "fhir.client_sdk.graph.link.count"
-    # the number of GET requests that the links of the group sent: one for each page; retries are not counted
+    # the number of requests that the client started while the group ran: one for each page, retries not counted.
+    # Exact only when the client runs one traversal at a time and its caller sends no requests on the same client
+    # during the group
     GRAPH_CHILD_GET_COUNT: str = "fhir.client_sdk.graph.child_get.count"
