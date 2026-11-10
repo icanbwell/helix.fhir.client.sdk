@@ -334,6 +334,13 @@ class FhirGetBundleResponse(FhirGetResponse):
         :param compare_hash: if True, compare the hash of the resource with the hash in the cache
         :return: self
         """
+        # Only entries that came from an input cache can be removed; skip scanning the whole
+        # cache (once per search page) when there are none. Duck-typed caches without
+        # has_input_cache_entries() are scanned as before.
+        has_input_cache_entries = getattr(request_cache, "has_input_cache_entries", None)
+        if callable(has_input_cache_entries) and not has_input_cache_entries():
+            return self
+
         # Build a lookup of cache entries by (resource_type, id)
         cache_map: dict[tuple[str, str], str | None] = {}
         async for cached_entry in request_cache.get_entries_async():

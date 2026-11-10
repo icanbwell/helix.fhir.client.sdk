@@ -1,7 +1,7 @@
 from collections.abc import AsyncGenerator
 from datetime import datetime
 from types import TracebackType
-from typing import Any
+from typing import Any, cast
 
 from compressedfhir.fhir.fhir_bundle_entry import FhirBundleEntry
 
@@ -20,6 +20,7 @@ class RequestCache:
         "cache_misses",
         "_cache",
         "_clear_cache_at_the_end",
+        "_input_cache_keys",
     ]
 
     def __init__(
@@ -32,6 +33,9 @@ class RequestCache:
         self.cache_misses: int = 0
         self._cache: dict[str, RequestCacheEntry] = initial_dict or {}
         self._clear_cache_at_the_end: bool | None = clear_cache_at_the_end
+        # keys of entries added from an input cache, so callers can skip scanning the whole
+        # cache when there are none (the common case for a first retrieval)
+        self._input_cache_keys: set[str] = {k for k, v in self._cache.items() if v.from_input_cache}
 
     async def __aenter__(self) -> "RequestCache":
         """
@@ -40,6 +44,7 @@ class RequestCache:
         """
         if self._clear_cache_at_the_end:
             self._cache.clear()
+            self._clear_input_cache_keys()
         return self
 
     async def __aexit__(
@@ -54,6 +59,7 @@ class RequestCache:
         """
         if self._clear_cache_at_the_end:
             self._cache.clear()
+            self._clear_input_cache_keys()
 
         if exc_value is not None:
             raise exc_value.with_traceback(traceback)
@@ -119,6 +125,12 @@ class RequestCache:
 
         # Add to the dictionary
         self._cache[key] = cache_entry
+        input_cache_keys = self._tracked_input_cache_keys()
+        if input_cache_keys is not None:
+            if from_input_cache:
+                input_cache_keys.add(key)
+            else:
+                input_cache_keys.discard(key)
 
         return True
 
@@ -131,6 +143,9 @@ class RequestCache:
             return False
 
         del self._cache[resource_key]
+        input_cache_keys = self._tracked_input_cache_keys()
+        if input_cache_keys is not None:
+            input_cache_keys.discard(resource_key)
 
         return True
 
@@ -139,6 +154,25 @@ class RequestCache:
         This method clears the cache.
         """
         self._cache.clear()
+        self._clear_input_cache_keys()
+
+    def has_input_cache_entries(self) -> bool:
+        """
+        Returns True if any entry in the cache was added from an input cache (from_input_cache=True).
+        """
+        input_cache_keys = self._tracked_input_cache_keys()
+        if input_cache_keys is None:
+            # set up without RequestCache.__init__ (a subclass, or unpickled from an older SDK): scan instead
+            return any(entry.from_input_cache for entry in self._cache.values())
+        return bool(input_cache_keys)
+
+    def _tracked_input_cache_keys(self) -> set[str] | None:
+        return cast(set[str] | None, getattr(self, "_input_cache_keys", None))
+
+    def _clear_input_cache_keys(self) -> None:
+        input_cache_keys = self._tracked_input_cache_keys()
+        if input_cache_keys is not None:
+            input_cache_keys.clear()
 
     async def get_entries_async(self) -> AsyncGenerator[RequestCacheEntry, None]:
         """

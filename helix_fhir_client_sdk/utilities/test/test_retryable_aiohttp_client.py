@@ -6,7 +6,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from aiohttp import ClientConnectionError, ClientResponseError, ClientSession
+from aiohttp import ClientConnectionError, ClientResponseError, ClientSession, SocketTimeoutError
 from aioresponses import aioresponses
 from multidict import CIMultiDict, CIMultiDictProxy
 
@@ -804,3 +804,63 @@ async def test_token_refresh_raising_keeps_response_headers() -> None:
 )
 def test_get_headers_as_dict(headers: Mapping[str, str] | None, expected: dict[str, str]) -> None:
     assert RetryableAioHttpClient.get_headers_as_dict(headers=headers) == expected
+
+
+@pytest.mark.parametrize(
+    "timeout_retries,error,expected_attempts",
+    [
+        (None, TimeoutError(), 3),
+        (0, TimeoutError(), 1),
+        (1, TimeoutError(), 2),
+        (5, TimeoutError(), 3),
+        (0, SocketTimeoutError(), 1),
+        (0, ClientConnectionError(), 3),
+    ],
+    ids=[
+        "timeouts-retried-like-other-errors-by-default",
+        "no-timeout-retries",
+        "one-timeout-retry",
+        "timeout-retries-capped-by-retries",
+        "aiohttp-read-timeout-counts-as-timeout",
+        "non-timeout-errors-keep-all-retries",
+    ],
+)
+@pytest.mark.asyncio
+async def test_timeout_retries_limit_attempts_for_timeouts(
+    timeout_retries: int | None, error: Exception, expected_attempts: int
+) -> None:
+    # Arrange
+    async with RetryableAioHttpClient(
+        retries=2,
+        timeout_retries=timeout_retries,
+        backoff_factor=0,
+        use_data_streaming=False,
+        throw_exception_on_error=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
+    ) as client:
+        with aioresponses() as m:
+            m.get("http://test.com", exception=error, repeat=True)
+
+            # Act
+            response = await client.get(url="http://test.com", headers=None)
+
+            # Assert
+            attempts = sum(len(calls) for calls in m.requests.values())
+            assert attempts == expected_attempts
+            assert not response.ok
+            assert response.status == 500
+
+
+def test_negative_timeout_retries_is_rejected() -> None:
+    with pytest.raises(ValueError, match="timeout_retries"):
+        RetryableAioHttpClient(
+            timeout_retries=-1,
+            use_data_streaming=False,
+            access_token=None,
+            access_token_expiry_date=None,
+            refresh_token_func=None,
+            tracer_request_func=None,
+        )
