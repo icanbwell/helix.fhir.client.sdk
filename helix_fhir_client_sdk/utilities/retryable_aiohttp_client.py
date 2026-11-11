@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 import async_timeout
-from aiohttp import ClientError, ClientResponse, ClientResponseError, ClientSession
-from multidict import MultiMapping
+from aiohttp import ClientError, ClientResponse, ClientResponseError, ClientSession, RequestInfo
+from multidict import CIMultiDict, CIMultiDictProxy, MultiMapping
 from opentelemetry import trace
 
 from helix_fhir_client_sdk.function_types import (
@@ -16,13 +16,16 @@ from helix_fhir_client_sdk.function_types import (
     TraceRequestFunction,
 )
 from helix_fhir_client_sdk.open_telemetry.attribute_names import FhirClientSdkOpenTelemetryAttributeNames
+from helix_fhir_client_sdk.open_telemetry.span_error_status import SpanErrorStatus
 from helix_fhir_client_sdk.open_telemetry.span_names import FhirClientSdkOpenTelemetrySpanNames
+from helix_fhir_client_sdk.utilities.header_redactor import HeaderRedactor
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
+from helix_fhir_client_sdk.utilities.url_redactor import UrlRedactor
 
 TRACER = trace.get_tracer(__name__)
 logger = logging.getLogger(__name__)
@@ -145,6 +148,26 @@ class RetryableAioHttpClient:
             result[k] = f"{result[k]},{v}" if k in result else str(v)
         return result
 
+    @staticmethod
+    def _redact_request_info(request_info: RequestInfo) -> RequestInfo:
+        """
+        Returns a copy of the request info in which the values of the credential headers are redacted
+        (see HeaderRedactor). The repr of ClientResponseError shows its request info, headers included.
+
+        :param request_info: the request info of a response
+        :return: the redacted copy
+        """
+        redacted_headers: CIMultiDict[str] = CIMultiDict(
+            (name, HeaderRedactor.REDACTED if HeaderRedactor.is_credential_header(name=name) else value)
+            for name, value in request_info.headers.items()
+        )
+        return RequestInfo(
+            url=request_info.url,
+            method=request_info.method,
+            headers=CIMultiDictProxy(redacted_headers),
+            real_url=request_info.real_url,
+        )
+
     async def fetch(
         self,
         *,
@@ -177,11 +200,26 @@ class RetryableAioHttpClient:
                     if self.compress:
                         kwargs["compress"] = self.compress
                 assert self.session is not None
-                with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.HTTP_GET) as span:
+                # aiohttp puts the full URL, with its query values, in its exception messages,
+                # so the span records only the type of an exception (see SpanErrorStatus)
+                with (
+                    TRACER.start_as_current_span(
+                        FhirClientSdkOpenTelemetrySpanNames.HTTP_GET,
+                        record_exception=False,
+                        set_status_on_exception=False,
+                    ) as span,
+                    SpanErrorStatus.on_exception(span=span),
+                ):
+                    # a URL template and the host only: the path and the query of the URL can
+                    # carry patient identifiers and tokens
                     span.set_attribute(
                         FhirClientSdkOpenTelemetryAttributeNames.URL,
-                        url,
+                        UrlRedactor.get_url_template(url=url),
                     )
+                    server_address: str | None = UrlRedactor.get_host(url=url)
+                    if server_address:
+                        span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.SERVER_ADDRESS, server_address)
+                    span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.ATTEMPT, retry_attempts + 1)
                     if resource_type:
                         span.set_attribute(
                             FhirClientSdkOpenTelemetryAttributeNames.RESOURCE,
@@ -193,6 +231,9 @@ class RetryableAioHttpClient:
                             method,
                             url,
                             **kwargs,
+                        )
+                        span.set_attribute(
+                            FhirClientSdkOpenTelemetryAttributeNames.HTTP_RESPONSE_STATUS_CODE, response.status
                         )
                         # Append the result to the list of results
                         if self.log_all_url_results:
@@ -296,7 +337,7 @@ class RetryableAioHttpClient:
                                     message="Too Many Requests",
                                     headers=response_headers_multi_mapping,
                                     history=response.history,
-                                    request_info=response.request_info,
+                                    request_info=self._redact_request_info(response.request_info),
                                 )
                             await self._handle_429(response=response, full_url=url)
                         elif response.status == 401 and self.refresh_token_func_async:
@@ -338,7 +379,7 @@ class RetryableAioHttpClient:
                                         message="Unauthorized",
                                         headers=response_headers_multi_mapping,
                                         history=response.history,
-                                        request_info=response.request_info,
+                                        request_info=self._redact_request_info(response.request_info),
                                     )
                                 await asyncio.sleep(self.backoff_factor * (2 ** (retry_attempts - 1)))
                         elif self.retry_status_codes and response.status in self.retry_status_codes:
@@ -347,7 +388,7 @@ class RetryableAioHttpClient:
                                 message="Retryable status code received",
                                 headers=response_headers_multi_mapping,
                                 history=response.history,
-                                request_info=response.request_info,
+                                request_info=self._redact_request_info(response.request_info),
                             )
                         else:
                             if self._throw_exception_on_error:
@@ -356,7 +397,7 @@ class RetryableAioHttpClient:
                                     message="Non-retryable status code received",
                                     headers=response_headers_multi_mapping,
                                     history=response.history,
-                                    request_info=response.request_info,
+                                    request_info=self._redact_request_info(response.request_info),
                                 )
                             else:
                                 return RetryableAioHttpResponse(
@@ -374,6 +415,15 @@ class RetryableAioHttpClient:
             except (TimeoutError, ClientError, ClientResponseError) as e:
                 if retry_attempts >= self.retries:
                     if self._throw_exception_on_error:
+                        if isinstance(e, ClientResponseError):
+                            # aiohttp also raises these errors itself, with the request headers in their
+                            # request info: TooManyRedirects, ClientHttpProxyError, and any error status
+                            # when the session uses raise_for_status
+                            e.request_info = self._redact_request_info(e.request_info)
+                            e.args = tuple(
+                                self._redact_request_info(arg) if isinstance(arg, RequestInfo) else arg
+                                for arg in e.args
+                            )
                         raise
                     else:
                         # keep the server's headers (e.g. X-Request-ID) when the error came from an HTTP response
@@ -478,6 +528,8 @@ class RetryableAioHttpClient:
         # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
         # read the Retry-After header
         # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
+        # log only the host: the path and the query of the URL can carry patient identifiers and tokens
+        host: str = UrlRedactor.get_host(url=full_url) or "an unknown host"
         retry_after_text: str = str(response.headers.get("Retry-After", ""))
         if retry_after_text:
             # noinspection PyBroadException
@@ -485,7 +537,7 @@ class RetryableAioHttpClient:
                 if retry_after_text.isnumeric():  # it is a number of seconds
                     wait_seconds = int(retry_after_text)
                     logger.warning(
-                        f"Received 429 (Too Many Requests) for {full_url}."
+                        f"Received 429 (Too Many Requests) for {host}."
                         f" Retry-After={retry_after_text}s. Sleeping for {wait_seconds}s."
                     )
                     await asyncio.sleep(wait_seconds)
@@ -500,22 +552,22 @@ class RetryableAioHttpClient:
                     # If the time difference is positive, sleep for that amount of time
                     if time_diff > 0:
                         logger.warning(
-                            f"Received 429 (Too Many Requests) for {full_url}."
+                            f"Received 429 (Too Many Requests) for {host}."
                             f" Retry-After={retry_after_text}. Sleeping for {time_diff:.1f}s."
                         )
                         await asyncio.sleep(time_diff)
                     else:
                         logger.warning(
-                            f"Received 429 (Too Many Requests) for {full_url}."
+                            f"Received 429 (Too Many Requests) for {host}."
                             f" Retry-After={retry_after_text} is already in the past. Not sleeping."
                         )
             except Exception as e:
                 # if there was some exception, parsing the Retry-After header, sleep for 60 seconds
                 logger.warning(
-                    f"Received 429 (Too Many Requests) for {full_url}."
+                    f"Received 429 (Too Many Requests) for {host}."
                     f" Failed to parse Retry-After header ({retry_after_text!r}): {e}. Sleeping for 60s."
                 )
                 await asyncio.sleep(60)
         else:
-            logger.warning(f"Received 429 (Too Many Requests) for {full_url}. No Retry-After header. Sleeping for 60s.")
+            logger.warning(f"Received 429 (Too Many Requests) for {host}. No Retry-After header. Sleeping for 60s.")
             await asyncio.sleep(60)

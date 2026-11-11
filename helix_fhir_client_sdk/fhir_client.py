@@ -27,7 +27,6 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
 )
 from furl import furl
 from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
 from requests.adapters import BaseAdapter
 
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
@@ -48,6 +47,7 @@ from helix_fhir_client_sdk.graph.fhir_graph_mixin import FhirGraphMixin
 from helix_fhir_client_sdk.graph.simulated_graph_processor_mixin import (
     SimulatedGraphProcessorMixin,
 )
+from helix_fhir_client_sdk.open_telemetry.span_error_status import SpanErrorStatus
 from helix_fhir_client_sdk.open_telemetry.span_names import FhirClientSdkOpenTelemetrySpanNames
 from helix_fhir_client_sdk.queue.request_queue_mixin import RequestQueueMixin
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
@@ -641,7 +641,13 @@ class FhirClient(
 
         :return: response
         """
-        with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.GET):
+        # exception messages contain the request URL, so the span records only the type (see SpanErrorStatus)
+        with (
+            TRACER.start_as_current_span(
+                FhirClientSdkOpenTelemetrySpanNames.GET, record_exception=False, set_status_on_exception=False
+            ) as span,
+            SpanErrorStatus.on_exception(span=span),
+        ):
             instance_variables_text = convert_dict_to_str(FhirClientLogger.get_variables_to_log(vars(self)))
             if self._logger:
                 # self._logger.info(f"LOGLEVEL: {self._log_level}")
@@ -733,9 +739,8 @@ class FhirClient(
             ):
                 yield response
         except BaseException as exc:  # propagate cancellation/errors but keep span informative
-            # Record exception in span
-            span.record_exception(exc)
-            span.set_status(Status(StatusCode.ERROR, str(exc)))
+            # the type of the exception only: its message contains the request URL (see SpanErrorStatus)
+            SpanErrorStatus.set(span=span, exception=exc)
             raise
         finally:
             # Ensure span is ended after generator is exhausted or error occurs

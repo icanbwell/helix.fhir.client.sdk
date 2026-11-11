@@ -9,7 +9,6 @@ from typing import (
 import requests
 from furl import furl
 from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
 
 from helix_fhir_client_sdk.dictionary_writer import convert_dict_to_str
 from helix_fhir_client_sdk.exceptions.fhir_sender_exception import FhirSenderException
@@ -17,6 +16,7 @@ from helix_fhir_client_sdk.exceptions.fhir_validation_exception import (
     FhirValidationException,
 )
 from helix_fhir_client_sdk.open_telemetry.attribute_names import FhirClientSdkOpenTelemetryAttributeNames
+from helix_fhir_client_sdk.open_telemetry.span_error_status import SpanErrorStatus
 from helix_fhir_client_sdk.open_telemetry.span_names import FhirClientSdkOpenTelemetrySpanNames
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_merge_response import FhirMergeResponse
@@ -114,7 +114,9 @@ class FhirMergeMixin(FhirClientProtocol):
         assert self._url, "No FHIR server url was set"
         assert isinstance(json_data_list, list), "This function requires a list"
 
-        with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.MERGE) as span:
+        with TRACER.start_as_current_span(
+            FhirClientSdkOpenTelemetrySpanNames.MERGE, record_exception=False, set_status_on_exception=False
+        ) as span:
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.URL, self._url or "")
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.RESOURCE, self._resource or "")
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.BATCH_SIZE, batch_size or 0)
@@ -314,8 +316,8 @@ class FhirMergeMixin(FhirClientProtocol):
                         )
                     raise e
             except Exception as e:
-                span.record_exception(e)
-                span.set_status(Status(StatusCode.ERROR, str(e)))
+                # the type of the exception only: its message contains the request URL (see SpanErrorStatus)
+                SpanErrorStatus.set(span=span, exception=e)
                 raise
 
     def merge(
