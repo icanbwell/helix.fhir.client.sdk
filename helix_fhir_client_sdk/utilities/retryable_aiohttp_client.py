@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 import async_timeout
-from aiohttp import ClientError, ClientResponse, ClientResponseError, ClientSession
+from aiohttp import ClientError, ClientResponse, ClientResponseError, ClientSession, ClientTimeout
 from multidict import MultiMapping
 from opentelemetry import trace
 
@@ -33,7 +33,9 @@ class RetryableAioHttpClient:
         self,
         *,
         retries: int = 3,
+        timeout_retries: int | None = None,
         timeout_in_seconds: float | None = None,
+        read_timeout_in_seconds: float | None = None,
         backoff_factor: float = 0.5,
         retry_status_codes: list[int] | None = None,
         refresh_token_func: RefreshTokenFunction | None,
@@ -59,7 +61,14 @@ class RetryableAioHttpClient:
           The SDK will NOT close the session - the caller must close it themselves.
 
         :param retries: Number of retry attempts for failed requests
+        :param timeout_retries: Number of retry attempts for a request that timed out, at most ``retries``.
+                                None (default) retries timeouts like any other transient error. A request
+                                that hangs once usually hangs again, so a lower value stops one stuck
+                                request from holding the caller for ``retries + 1`` full read timeouts.
         :param timeout_in_seconds: Timeout for HTTP requests
+        :param read_timeout_in_seconds: Socket read timeout (aiohttp ``sock_read``) for each request, applied
+                                        per request so it holds whichever session is used, including one
+                                        shared with other clients. None (default) keeps the session's timeout.
         :param backoff_factor: Factor for exponential backoff between retries
         :param retry_status_codes: HTTP status codes that trigger a retry
         :param refresh_token_func: Function to refresh authentication tokens
@@ -78,7 +87,13 @@ class RetryableAioHttpClient:
         :param access_token_expiry_date: Expiry date of the access token
         """
         self.retries: int = retries
+        if timeout_retries is not None and timeout_retries < 0:
+            raise ValueError(f"timeout_retries must be 0 or greater, got {timeout_retries}")
+        self.timeout_retries: int | None = timeout_retries
         self.timeout_in_seconds: float | None = timeout_in_seconds
+        if read_timeout_in_seconds is not None and read_timeout_in_seconds <= 0:
+            raise ValueError(f"read_timeout_in_seconds must be greater than 0, got {read_timeout_in_seconds}")
+        self.read_timeout_in_seconds: float | None = read_timeout_in_seconds
         self.backoff_factor: float = backoff_factor
         self.retry_status_codes: list[int] | None = (
             retry_status_codes if retry_status_codes is not None else [500, 502, 503, 504]
@@ -124,8 +139,25 @@ class RetryableAioHttpClient:
         """
         try:
             return await response.text() if (response and response.status != 504) else ""
+        except TimeoutError:
+            # a body that stops arriving is a timed-out request: let the caller retry it
+            raise
         except Exception as e:
             return str(e)
+
+    @staticmethod
+    def _with_sock_read(*, timeout: ClientTimeout, sock_read: float) -> ClientTimeout:
+        """
+        Returns the session's timeout with only the socket read timeout replaced, because a
+        per-request timeout replaces the session's timeout as a whole in aiohttp.
+        """
+        return ClientTimeout(
+            total=timeout.total,
+            connect=timeout.connect,
+            sock_read=sock_read,
+            sock_connect=timeout.sock_connect,
+            ceil_threshold=timeout.ceil_threshold,
+        )
 
     @staticmethod
     def get_headers_as_dict(*, headers: Mapping[str, str] | None) -> dict[str, str]:
@@ -155,6 +187,7 @@ class RetryableAioHttpClient:
         **kwargs: Any,
     ) -> RetryableAioHttpResponse:
         retry_attempts: int = -1
+        timeout_attempts: int = 0
         results_by_url: list[RetryableAioHttpUrlResult] = []
         access_token: str | None = self.access_token
         expiry_date: datetime | None = self.access_token_expiry_date
@@ -177,6 +210,10 @@ class RetryableAioHttpClient:
                     if self.compress:
                         kwargs["compress"] = self.compress
                 assert self.session is not None
+                if self.read_timeout_in_seconds is not None and "timeout" not in kwargs:
+                    kwargs["timeout"] = self._with_sock_read(
+                        timeout=self.session.timeout, sock_read=self.read_timeout_in_seconds
+                    )
                 with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.HTTP_GET) as span:
                     span.set_attribute(
                         FhirClientSdkOpenTelemetryAttributeNames.URL,
@@ -372,7 +409,12 @@ class RetryableAioHttpClient:
                                     retry_count=retry_attempts,
                                 )
             except (TimeoutError, ClientError, ClientResponseError) as e:
-                if retry_attempts >= self.retries:
+                # aiohttp's read and connect timeouts subclass TimeoutError
+                if isinstance(e, TimeoutError):
+                    timeout_attempts += 1
+                if retry_attempts >= self.retries or (
+                    self.timeout_retries is not None and timeout_attempts > self.timeout_retries
+                ):
                     if self._throw_exception_on_error:
                         raise
                     else:

@@ -130,6 +130,10 @@ class FhirClient(
         self._extra_context_to_return: dict[str, Any] | None = None
 
         self._retry_count: int = 2
+        # None: a timed-out request is retried like any other transient error
+        self._timeout_retry_count: int | None = None
+        # None: requests keep the session's sock_read (240 seconds for sessions built by create_http_session())
+        self._read_timeout_seconds: float | None = None
         self._exclude_status_codes_from_retry: list[int] | None = None
 
         self._uuid = uuid.uuid4()
@@ -316,6 +320,34 @@ class FhirClient(
 
     def retry_count(self, count: int) -> FhirClient:
         self._retry_count = count
+        return self
+
+    def timeout_retry_count(self, count: int | None) -> FhirClient:
+        """
+        Sets how many times a GET that timed out is retried, at most retry_count.
+        None (the default) retries timeouts like any other transient error.
+
+        :param count: retries for a timed-out GET, 0 or greater, or None
+        :raises ValueError: if count is negative
+        """
+        if count is not None and count < 0:
+            raise ValueError(f"timeout_retry_count must be 0 or greater, got {count}")
+        self._timeout_retry_count = count
+        return self
+
+    def read_timeout(self, seconds: float) -> FhirClient:
+        """
+        Sets the socket read timeout (aiohttp ``sock_read``) of this client's GET requests. It is applied
+        to each request, so it holds on a session passed in with use_http_session() too, and other clients
+        sharing that session keep its timeout. Sessions built by create_http_session() also use it.
+        Unset, requests keep the session's timeout (240 seconds for sessions built by create_http_session()).
+
+        :param seconds: seconds to wait for more response data before the request times out
+        :raises ValueError: if seconds is not positive
+        """
+        if seconds <= 0:
+            raise ValueError(f"read_timeout must be greater than 0, got {seconds}")
+        self._read_timeout_seconds = seconds
         return self
 
     def logger(self, logger: Logger) -> FhirClient:
@@ -886,6 +918,12 @@ class FhirClient(
         The SDK itself calls this with no arguments, building and discarding a session per
         request, so the default is never reached on that path.
 
+        The socket read timeout comes from read_timeout() (240 seconds unless set):
+
+        .. code-block:: python
+
+            session = FhirClient().read_timeout(30).create_http_session()
+
         :param connection_limit: total pooled connections allowed, or 0 for unlimited.
                                  Defaults to 100, matching aiohttp's own default. Unlimited
                                  removes all backpressure: each pooled connection is a file
@@ -902,7 +940,8 @@ class FhirClient(
             trace_config.on_response_chunk_received.append(FhirClient.on_response_chunk_received)
         # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
         ssl_context = FhirClient.create_ssl_context()
-        timeout = aiohttp.ClientTimeout(total=60 * 60, sock_read=240)
+        sock_read: float = self._read_timeout_seconds if self._read_timeout_seconds is not None else 240
+        timeout = aiohttp.ClientTimeout(total=60 * 60, sock_read=sock_read)
         session: ClientSession = aiohttp.ClientSession(
             connector=TCPConnector(ssl=ssl_context, limit=connection_limit),
             trace_configs=[trace_config],
@@ -987,6 +1026,8 @@ class FhirClient(
         fhir_client._use_post_for_search = self._use_post_for_search
         fhir_client._maximum_time_to_retry_on_429 = self._maximum_time_to_retry_on_429
         fhir_client._retry_count = self._retry_count
+        fhir_client._timeout_retry_count = self._timeout_retry_count
+        fhir_client._read_timeout_seconds = self._read_timeout_seconds
         fhir_client._throw_exception_on_error = self._throw_exception_on_error
         fhir_client._trace_request_function = self._trace_request_function
         fhir_client._log_all_response_urls = self._log_all_response_urls
