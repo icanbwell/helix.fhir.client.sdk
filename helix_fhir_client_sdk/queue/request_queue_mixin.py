@@ -33,9 +33,14 @@ from helix_fhir_client_sdk.utilities.url_checker import UrlChecker
 
 
 class RequestQueueMixin(ABC, FhirClientProtocol):
+    # the requests that this client started (see FhirClientProtocol). The class default lets a subclass that does
+    # not run __init__ send and count its requests
+    _sent_request_count: int = 0
+
     def __init__(self) -> None:
         self._max_concurrent_requests: int | None = None
         self._max_concurrent_requests_semaphore: Semaphore | None = None
+        self._sent_request_count: int = 0
 
     def set_max_concurrent_requests(self, max_concurrent_requests: int | None) -> FhirClientProtocol:
         """
@@ -448,6 +453,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
         :param resource_type: FHIR resource type being requested, set as an OTel span
                                 attribute on the underlying HTTP GET span for observability
         """
+        # one for each request: the client retries a request inside this call, so a retry is not counted again
+        self._sent_request_count += 1
         if self._max_concurrent_requests_semaphore:
             async with self._max_concurrent_requests_semaphore:
                 return await self._send_fhir_request_internal_async(
