@@ -147,3 +147,24 @@ def test_create_parses_successful_response_text_once(response_text: str, monkeyp
     # Assert
     assert [c for c in calls if c == response_text] == ([response_text] if response_text else [])
     assert response is not None
+
+
+@pytest.mark.parametrize("storage_mode", STORAGE_MODES, ids=["raw", "compressed"])
+@pytest.mark.parametrize(
+    "status, error",
+    [(404, None), (500, None), (200, "synthetic error")],
+    ids=["not_found", "server_error", "error"],
+)
+def test_create_with_no_response_text_gives_the_same_error_response_as_empty_text(
+    status: int, error: str | None, storage_mode: CompressedDictStorageMode
+) -> None:
+    # Arrange: response_text is annotated str, but callers outside the SDK can pass None for an error
+    params = _params(status=status, error=error, storage_mode=storage_mode)
+
+    # Act
+    from_none = FhirGetResponseFactory.create(response_text=None, **params)  # type: ignore[arg-type]
+    from_empty = FhirGetResponseFactory.create(response_text="", **params)
+
+    # Assert
+    assert type(from_none).__name__ == "FhirGetErrorResponse"
+    assert _observable_output(from_none) == _observable_output(from_empty)

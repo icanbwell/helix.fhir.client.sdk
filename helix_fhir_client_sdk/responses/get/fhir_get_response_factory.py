@@ -146,6 +146,17 @@ class FhirGetResponseFactory:
         )
 
     @staticmethod
+    def _text_of(*, response_text: str | None, parsed_json: dict[str, Any] | list[dict[str, Any]] | None) -> str:
+        """
+        The text to keep on an error response or exception: the text the caller passed, or the text of
+        parsed_json when the caller passed only parsed JSON. A None text with no parsed JSON is passed on
+        as it is, as before create_from_parsed_json() existed (not as the string "null").
+        """
+        if response_text is None and parsed_json is not None:
+            return json.dumps(parsed_json)
+        return cast(str, response_text)
+
+    @staticmethod
     def _create(
         *,
         request_id: str | None,
@@ -177,7 +188,7 @@ class FhirGetResponseFactory:
                 return FhirGetErrorResponse(
                     request_id=request_id,
                     url=url,
-                    response_text=(response_text if response_text is not None else json.dumps(parsed_json)),
+                    response_text=FhirGetResponseFactory._text_of(response_text=response_text, parsed_json=parsed_json),
                     error=error,
                     access_token=access_token,
                     total_count=total_count,
@@ -272,7 +283,7 @@ class FhirGetResponseFactory:
                 e=e,
                 request_id=request_id,
                 url=url,
-                response_text=(response_text if response_text is not None else json.dumps(parsed_json)),
+                response_text=FhirGetResponseFactory._text_of(response_text=response_text, parsed_json=parsed_json),
                 error=error,
                 total_count=total_count,
                 status=status,
