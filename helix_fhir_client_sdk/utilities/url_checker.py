@@ -1,5 +1,5 @@
 from typing import cast
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 from furl import furl
 
@@ -50,6 +50,67 @@ class UrlChecker:
             return str(next_furl)
 
         return next_url
+
+    @staticmethod
+    def preserve_scheme_from_base_url(*, base_url: str, next_url: str) -> str:
+        """
+        DCON-6330: Use the scheme of the base URL when the next URL has the same host
+        but a different scheme and no explicit port.
+
+        A FHIR server builds pagination links from the request it received. Behind a
+        proxy that terminates TLS it writes https:// even when the client called it over
+        http://, so a client that can only reach the host over http fails on page two
+        (connection error to port 443). The client's configured scheme is the one known
+        to work, so a same-host next link keeps it.
+
+        Example:
+            base_url: http://fhir.example.com/4_0_0
+            next_url: https://fhir.example.com/4_0_0/Patient?id:above=abc
+            result:   http://fhir.example.com/4_0_0/Patient?id:above=abc
+
+        The query and fragment are kept exactly as the server sent them.
+
+        Args:
+            base_url (str): The base URL the client was configured with
+            next_url (str): The URL returned by the FHIR server
+
+        Returns:
+            str: The next URL with the scheme of the base URL if applicable
+        """
+        base_parsed = urlparse(base_url)
+        next_parsed = urlparse(next_url)
+
+        # Only apply fix if:
+        # 1. The schemes differ
+        # 2. Both URLs have the same hostname (case-insensitive, ignoring port)
+        # 3. The next URL does NOT have an explicit port (an explicit port means the
+        #    server chose the endpoint deliberately)
+        if (
+            base_parsed.scheme
+            and next_parsed.scheme != base_parsed.scheme
+            and base_parsed.hostname is not None
+            and base_parsed.hostname == next_parsed.hostname
+            and next_parsed.port is None
+        ):
+            return urlunparse(next_parsed._replace(scheme=base_parsed.scheme))
+
+        return next_url
+
+    @staticmethod
+    def align_next_url_with_base_url(*, base_url: str, next_url: str) -> str:
+        """
+        Make an absolute next URL on the same host use the scheme (DCON-6330) and then
+        the port (INC-285) of the base URL. Next URLs on another host are not changed.
+
+        Args:
+            base_url (str): The base URL the client was configured with
+            next_url (str): The absolute URL returned by the FHIR server
+
+        Returns:
+            str: The aligned next URL
+        """
+        with_scheme = UrlChecker.preserve_scheme_from_base_url(base_url=base_url, next_url=next_url)
+        return UrlChecker.preserve_port_from_base_url(base_url=base_url, next_url=with_scheme)
 
     @staticmethod
     def is_absolute_url(*, url: str | furl) -> bool:
