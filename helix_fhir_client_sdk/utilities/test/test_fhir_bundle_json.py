@@ -141,6 +141,84 @@ def test_other_content_falls_back_to_bundle_json(odd_entry: Any, storage_mode: C
     assert text == bundle.json()
 
 
+class _TaggedResource(FhirResource):
+    """A resource subclass whose dict() adds a field, so its serialized text differs from its raw dict."""
+
+    def dict(self) -> OrderedDict[str, Any]:
+        result = super().dict()
+        result["implicitRules"] = "https://example.com/tagged-resource"
+        return result
+
+
+class _TaggedEntry(FhirBundleEntry):
+    """An entry subclass whose dict() adds a field."""
+
+    def dict(self) -> OrderedDict[str, Any]:
+        result = super().dict()
+        result["fullUrl"] = "urn:uuid:tagged-entry"
+        return result
+
+
+class _TaggedBundle(FhirBundle):
+    """A bundle subclass whose json() adds a field."""
+
+    def json(self) -> str:
+        return json.dumps({"tagged": True, **json.loads(super().json())})
+
+
+@pytest.mark.parametrize(
+    "bundle_factory, marker",
+    [
+        pytest.param(
+            lambda: FhirBundle(
+                type_="collection",
+                entry=FhirBundleEntryList(
+                    [
+                        FhirBundleEntry(resource=FhirResource(PATIENT)),
+                        FhirBundleEntry(resource=_TaggedResource(PATIENT)),
+                    ]
+                ),
+            ),
+            "tagged-resource",
+            id="resource_subclass",
+        ),
+        pytest.param(
+            lambda: FhirBundle(
+                type_="collection",
+                entry=FhirBundleEntryList(
+                    [FhirBundleEntry(resource=FhirResource(PATIENT)), _TaggedEntry(resource=FhirResource(PATIENT))]
+                ),
+            ),
+            "tagged-entry",
+            id="entry_subclass",
+        ),
+        pytest.param(
+            lambda: _TaggedBundle(
+                type_="collection",
+                entry=FhirBundleEntryList(
+                    [
+                        FhirBundleEntry(resource=FhirResource(PATIENT)),
+                        FhirBundleEntry(resource=FhirResource(OBSERVATION)),
+                    ]
+                ),
+            ),
+            '"tagged": true',
+            id="bundle_subclass",
+        ),
+    ],
+)
+def test_subclasses_fall_back_to_their_own_serialization(bundle_factory: Any, marker: str) -> None:
+    # Arrange: a subclass that overrides dict()/json() must be serialized through its own methods
+    bundle = bundle_factory()
+
+    # Act
+    text = fhir_bundle_json(bundle)
+
+    # Assert
+    assert marker in text
+    assert text == bundle.json()
+
+
 def test_empty_bundle_gives_the_same_text_as_bundle_json() -> None:
     bundle = FhirBundle(type_="collection")
 

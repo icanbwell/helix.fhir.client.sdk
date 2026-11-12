@@ -43,7 +43,8 @@ def _resource_json_if_plain(entry: FhirBundleEntry | None) -> str | None:
     The entry's resource as JSON, serialized once from its raw dict, or None when the entry has anything but a
     resource or the resource holds anything but plain JSON values (so the caller falls back to FhirBundle.json()).
     """
-    if entry is None or not isinstance(entry.resource, FhirResource):
+    # exact types only: a subclass may override dict()/json(), which bundle.json() calls and this path skips
+    if type(entry) is not FhirBundleEntry or type(entry.resource) is not FhirResource:
         return None
     if (
         entry.fullUrl is not None
@@ -103,12 +104,13 @@ def fhir_bundle_json(bundle: FhirBundle) -> str:
     then serialize the whole bundle again) that FhirBundle.json() does for every resource.
 
     Each resource is serialized once and the texts are joined into the bundle text. This is used only when
-    every entry holds just a resource with plain JSON values; otherwise it returns bundle.json().
+    the bundle, its entries and their resources are the compressedfhir classes themselves (not subclasses)
+    and every entry holds just a resource with plain JSON values; otherwise it returns bundle.json().
 
     :param bundle: bundle to serialize
     :return: JSON text of the bundle, equal to bundle.json()
     """
-    if not bundle.entry:
+    if type(bundle) is not FhirBundle or not bundle.entry:
         return bundle.json()
     resource_texts: list[str] = []
     for entry in bundle.entry:
