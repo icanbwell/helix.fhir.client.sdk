@@ -132,8 +132,8 @@ class FhirClient(
         self._retry_count: int = 2
         # None: a timed-out request is retried like any other transient error
         self._timeout_retry_count: int | None = None
-        # sock_read timeout of sessions built by create_http_session()
-        self._read_timeout_seconds: float = 240
+        # None: requests keep the session's sock_read (240 seconds for sessions built by create_http_session())
+        self._read_timeout_seconds: float | None = None
         self._exclude_status_codes_from_retry: list[int] | None = None
 
         self._uuid = uuid.uuid4()
@@ -337,8 +337,10 @@ class FhirClient(
 
     def read_timeout(self, seconds: float) -> FhirClient:
         """
-        Sets the socket read timeout (aiohttp ``sock_read``) of sessions built by create_http_session().
-        Defaults to 240 seconds. Sessions passed in with use_http_session() keep their own timeout.
+        Sets the socket read timeout (aiohttp ``sock_read``) of this client's GET requests. It is applied
+        to each request, so it holds on a session passed in with use_http_session() too, and other clients
+        sharing that session keep its timeout. Sessions built by create_http_session() also use it.
+        Unset, requests keep the session's timeout (240 seconds for sessions built by create_http_session()).
 
         :param seconds: seconds to wait for more response data before the request times out
         :raises ValueError: if seconds is not positive
@@ -938,7 +940,8 @@ class FhirClient(
             trace_config.on_response_chunk_received.append(FhirClient.on_response_chunk_received)
         # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
         ssl_context = FhirClient.create_ssl_context()
-        timeout = aiohttp.ClientTimeout(total=60 * 60, sock_read=self._read_timeout_seconds)
+        sock_read: float = self._read_timeout_seconds if self._read_timeout_seconds is not None else 240
+        timeout = aiohttp.ClientTimeout(total=60 * 60, sock_read=sock_read)
         session: ClientSession = aiohttp.ClientSession(
             connector=TCPConnector(ssl=ssl_context, limit=connection_limit),
             trace_configs=[trace_config],
