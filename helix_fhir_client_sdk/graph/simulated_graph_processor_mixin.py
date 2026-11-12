@@ -1192,8 +1192,11 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             child_ids = []
             for parent_bundle_entry in parent_bundle_entries:
                 parent_resource = parent_bundle_entry.resource
+                # raw_dict() reads the stored dict without copying it; dict() would re-serialize and
+                # re-parse the whole parent once per link target. Only reference strings are read here,
+                # and the empty or non-dict values that dict() would have stripped are skipped below.
                 references: list[Any] | dict[str, Any] | str | None = (
-                    DictionaryParser.get_nested_property(parent_resource.dict(), path) if parent_resource else None
+                    DictionaryParser.get_nested_property(parent_resource.raw_dict(), path) if parent_resource else None
                 )
                 # remove null references
                 if references and isinstance(references, list):
