@@ -389,17 +389,13 @@ class FhirGetBundleResponse(FhirGetResponse):
         if isinstance(other_response, FhirGetBundleResponse):
             return other_response
 
-        # convert the resources from the other response into a bundle
-        bundle: FhirBundle = FhirBundle(
-            # create a new bundle with the entries from the other response
-            entry=other_response.get_bundle_entries(),  # this will be a list of resources from the other response
-            type_="collection",  # default to collection if type is not provided
-        )
-
+        # The entries are taken from the other response as they are, so there is no need to serialize them
+        # into a bundle and parse it back: with no response text the bundle metadata is the same
+        # (type collection, no id, timestamp or total) as what parsing such a bundle gives.
         response: FhirGetBundleResponse = FhirGetBundleResponse(
             request_id=other_response.request_id,
             url=other_response.url,
-            response_text=bundle.json(),
+            response_text="",
             error=other_response.error,
             access_token=other_response.access_token,
             total_count=other_response.total_count,

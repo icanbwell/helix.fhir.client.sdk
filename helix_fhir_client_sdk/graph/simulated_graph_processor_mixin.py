@@ -33,6 +33,9 @@ from helix_fhir_client_sdk.graph.resource_type_completion_event import (
 from helix_fhir_client_sdk.graph.resource_type_started_event import (
     ResourceTypeStartedEvent,
 )
+from helix_fhir_client_sdk.graph.resource_type_target_outcome import (
+    ResourceTypeTargetOutcome,
+)
 from helix_fhir_client_sdk.responses.fhir_client_protocol import FhirClientProtocol
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
@@ -60,6 +63,24 @@ from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
 from helix_fhir_client_sdk.utilities.hash_util import ResourceHash
 
 
+def _validate_max_query_chars(max_query_chars: int | None) -> None:
+    """Reject anything but None (no cap) or a positive int: 0 would silently disable the cap and a
+    negative value would send every id in its own request."""
+    if max_query_chars is None:
+        return
+    if isinstance(max_query_chars, bool) or not isinstance(max_query_chars, int) or max_query_chars <= 0:
+        raise ValueError(f"max_query_chars must be None or a positive integer, got {max_query_chars!r}")
+
+
+def _cache_keeps_entries(cache: RequestCache) -> bool:
+    """True if the cache keeps its entries after the traversal, so a caller can save their raw_hash and compare it
+    on a later run. A RequestCache with clear_cache_at_the_end set (the default, and the cache the SDK creates when
+    no input_cache is passed) clears its entries when the traversal starts and ends, so no code can read their
+    raw_hash. An object without the attribute, such as a subclass that skips RequestCache.__init__, a duck-typed
+    cache or one unpickled from an older SDK, counts as keeping them, so it is hashed as before."""
+    return not getattr(cache, "_clear_cache_at_the_end", False)
+
+
 @dataclass(slots=True)
 class _LinkFetchResult:
     """
@@ -70,11 +91,14 @@ class _LinkFetchResult:
     consumer loop in _process_simulate_graph_by_resource_type_async can
     classify and fire the matching completion event itself (with
     outcome="error") instead of process_link_async_parallel_function firing
-    it and re-raising. Not part of this SDK's public API.
+    it and re-raising. `responses_by_target` holds the same responses
+    grouped by the declared target type that fetched them, so each target
+    can be classified on its own. Not part of this SDK's public API.
     """
 
     responses: list[FhirGetResponse]
     error: Exception | None = None
+    responses_by_target: dict[str, list[FhirGetResponse]] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -128,6 +152,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         expand_fhir_bundle: bool | None,
         auth_scopes: list[str] | None,
         request_size: int | None = 1,
+        max_query_chars: int | None = None,
         max_concurrent_tasks: int | None,
         sort_resources: bool | None,
         add_cached_bundles_to_result: bool = True,
@@ -232,6 +257,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         assert graph_definition.start, "Graph definition must have a start resource"
 
         # Parse authentication scopes for resource access control
+        _validate_max_query_chars(max_query_chars)
+
         scope_parser: FhirScopeParser = FhirScopeParser(scopes=auth_scopes)
 
         # Ensure bundle resources are not separated by default
@@ -493,6 +520,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             yield_context=True,
                             parent_link_map=new_parent_link_map,
                             request_size=request_size,
+                            max_query_chars=max_query_chars,
                             id_search_unsupported_resources=id_search_unsupported_resources,
                             add_cached_bundles_to_result=add_cached_bundles_to_result,
                             ifModifiedSince=ifModifiedSince,
@@ -504,6 +532,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             await self._record_link_batch_outcome(
                                 rollup=rollup,
                                 link_responses=link_responses,
+                                responses_by_target=link_fetch_result.responses_by_target,
                                 link_queried_urls=link_queried_urls,
                                 links=link,
                                 context=context,
@@ -643,11 +672,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Initialize result list to store retrieved responses
         result: list[FhirGetResponse] = []
+        responses_by_target: dict[str, list[FhirGetResponse]] = {}
 
         # Process the link asynchronously and collect responses
         link_result: FhirGetResponse
         try:
-            async for link_result in self._process_link_async(
+            async for target_type, link_result in self._process_link_async(
                 link=row,
                 parent_bundle_entries=parameters.parent_bundle_entries,
                 logger=parameters.logger,
@@ -657,6 +687,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 parent_link_map=(additional_parameters["parent_link_map"] if additional_parameters else []),
                 # Determine request size, default to 1 if not specified
                 request_size=(additional_parameters["request_size"] if additional_parameters else 1),
+                max_query_chars=(additional_parameters.get("max_query_chars") if additional_parameters else None),
                 # Track unsupported resources for ID-based search
                 id_search_unsupported_resources=(
                     additional_parameters["id_search_unsupported_resources"] if additional_parameters else []
@@ -669,6 +700,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             ):
                 # Collect each link result
                 result.append(link_result)
+                responses_by_target.setdefault(target_type, []).append(link_result)
         except asyncio.CancelledError:
             # Fire a matching completion event (if registered) before letting
             # the cancellation propagate, so a caller that already received
@@ -698,6 +730,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         outcome="empty",
                         error_type=None,
                         error_message=None,
+                        target_outcomes=self._uniform_target_outcomes(
+                            resource_types=failed_resource_types,
+                            outcome="empty",
+                            error_type=None,
+                            error_message=None,
+                        ),
                     )
                 )
             raise
@@ -742,6 +780,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         outcome="error",
                         error_type=type(exc).__name__,
                         error_message=str(exc),
+                        target_outcomes=self._uniform_target_outcomes(
+                            resource_types=failed_resource_types,
+                            outcome="error",
+                            error_type=type(exc).__name__,
+                            error_message=str(exc),
+                        ),
                     )
                 )
             raise
@@ -762,7 +806,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             )
 
         # Return the list of retrieved responses
-        return _LinkFetchResult(responses=result)
+        return _LinkFetchResult(responses=result, responses_by_target=responses_by_target)
 
     async def _process_link_async(
         self,
@@ -774,11 +818,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         scope_parser: FhirScopeParser,
         parent_link_map: list[tuple[list[GraphDefinitionLink], FhirBundleEntryList]],
         request_size: int,
+        max_query_chars: int | None = None,
         id_search_unsupported_resources: list[str],
         max_concurrent_tasks: int | None,
         add_cached_bundles_to_result: bool = True,
         ifModifiedSince: datetime | None,
-    ) -> AsyncGenerator[FhirGetResponse, None]:
+    ) -> AsyncGenerator[tuple[str, FhirGetResponse], None]:
         """
         Process a GraphDefinition link object with advanced traversal capabilities.
 
@@ -808,7 +853,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             ifModifiedSince: Optional timestamp for conditional requests
 
         Yields:
-            FhirGetResponse objects for each processed target
+            (target type, FhirGetResponse) for each response, so the caller
+            knows which declared target fetched it
         """
         # Validate input link
         assert link, "GraphDefinitionLink must be provided"
@@ -818,8 +864,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         # Extract targets from the link
         targets: list[GraphDefinitionTarget] = link.target
+        target_context: ParallelFunctionContext
         target_responses: list[FhirGetResponse]
-        async for target_responses in AsyncParallelProcessor(
+        async for target_context, target_responses in AsyncParallelProcessor(  # type: ignore[assignment]
             name="process_target_async",
             max_concurrent_tasks=max_concurrent_tasks,
         ).process_rows_in_parallel(
@@ -839,13 +886,16 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # Additional parameters for extended processing
             parent_link_map=parent_link_map,
             request_size=request_size,
+            max_query_chars=max_query_chars,
             id_search_unsupported_resources=id_search_unsupported_resources,
             add_cached_bundles_to_result=add_cached_bundles_to_result,
             ifModifiedSince=ifModifiedSince,
+            yield_context=True,
         ):
+            target_type = targets[target_context.task_index].type_ or ""
             # Yield each target response individually
             for target_response in target_responses:
-                yield target_response
+                yield target_type, target_response
 
     # noinspection PyUnusedLocal
     async def process_target_async_parallel_function(
@@ -904,6 +954,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             parent_link_map=(additional_parameters["parent_link_map"] if additional_parameters else []),
             # Request size configuration
             request_size=(additional_parameters["request_size"] if additional_parameters else 1),
+            max_query_chars=(additional_parameters.get("max_query_chars") if additional_parameters else None),
             # Track resources with limited ID search capabilities
             id_search_unsupported_resources=(
                 additional_parameters["id_search_unsupported_resources"] if additional_parameters else []
@@ -1052,6 +1103,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         scope_parser: FhirScopeParser,
         parent_link_map: list[tuple[list[GraphDefinitionLink], list[FhirBundleEntry]]],
         request_size: int,
+        max_query_chars: int | None = None,
         id_search_unsupported_resources: list[str],
         add_cached_bundles_to_result: bool = True,
         ifModifiedSince: datetime | None = None,
@@ -1113,17 +1165,47 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # requests than before as well as concurrency-safe.
         seen_child_ids: set[str] = set()
 
+        def over_query_budget(ids: list[str]) -> bool:
+            """True when more than one id is batched and their comma-joined list passes max_query_chars.
+
+            A single id is never split, so an id longer than the budget is still sent on its own.
+            """
+            return bool(max_query_chars) and len(ids) > 1 and len(",".join(ids)) > cast(int, max_query_chars)
+
+        def child_batch(ids: list[str], batch_parent_ids: list[str]) -> dict[str, Any]:
+            return {
+                "resource_type": target_type,
+                "id_": ids,
+                "parent_ids": batch_parent_ids,
+                "parent_resource_type": parent_resource_type,
+                "path": path,
+                "cache": cache,
+                "scope_parser": scope_parser,
+                "logger": logger,
+                "id_search_unsupported_resources": id_search_unsupported_resources,
+                "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                "max_concurrent_tasks": max_concurrent_tasks,
+            }
+
         # forward link and iterate over list
         if path and "[x]" in path and parent_bundle_entries:
             child_ids = []
             for parent_bundle_entry in parent_bundle_entries:
                 parent_resource = parent_bundle_entry.resource
-                references: list[dict[str, Any]] | dict[str, Any] | str | None = (
-                    DictionaryParser.get_nested_property(parent_resource.dict(), path) if parent_resource else None
+                # raw_dict() reads the stored dict without copying it; dict() would re-serialize and
+                # re-parse the whole parent once per link target. Only reference strings are read here,
+                # and the empty or non-dict values that dict() would have stripped are skipped below.
+                references: list[Any] | dict[str, Any] | str | None = (
+                    DictionaryParser.get_nested_property(parent_resource.raw_dict(), path) if parent_resource else None
                 )
                 # remove null references
                 if references and isinstance(references, list):
                     references = [r for r in references if r is not None]
+                elif references is not None:
+                    # `[x]` is a no-op on a non-repeating (0..1) element, so get_nested_property
+                    # hands back a bare value instead of a list.  Wrap it so the loop below
+                    # iterates the value itself rather than its characters (str) or keys (dict).
+                    references = [references]
 
                 if parent_resource and references and target_type:
                     parent_resource_type = parent_resource.get("resourceType", "")
@@ -1149,6 +1231,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 ):
                                     child_ids.append(reference_parts[-2])
                                     seen_child_ids.add(reference_parts[-2])
+                        if over_query_budget(child_ids):
+                            # The id just added pushed the list past max_query_chars: send the
+                            # batch without it and start the next batch with it.
+                            overflow_id = child_ids.pop()
+                            child_group_batches.append(child_batch(child_ids, parent_ids))
+                            child_ids = [overflow_id]
+                            parent_ids = parent_ids[-1:]
                         if request_size and len(child_ids) == request_size:
                             child_group_batches.append(
                                 {
@@ -1208,6 +1297,13 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 ):
                                     child_ids.append(reference_parts[-2])
                                     seen_child_ids.add(reference_parts[-2])
+                            if over_query_budget(child_ids):
+                                # The id just added pushed the list past max_query_chars: send the
+                                # batch without it and start the next batch with it.
+                                overflow_id = child_ids.pop()
+                                child_group_batches.append(child_batch(child_ids, parent_ids))
+                                child_ids = [overflow_id]
+                                parent_ids = parent_ids[-1:]
                             if request_size and len(child_ids) == request_size:
                                 child_group_batches.append(
                                     {
@@ -1248,7 +1344,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             # add a stage to get that
             param_list: list[str] = target.params.split("&")
             ref_param = [p for p in param_list if p.endswith("{ref}")][0]
-            # replace any parameters with {ifModifiedSince} with the actual value
+            # replace any parameters with {ifModifiedSince} or {ifModifiedSinceDateTime} with the actual value
             if ifModifiedSince:
                 if_modified_since_date: datetime = ifModifiedSince
                 # if ifModifiedSince is missing timezone then set it to utc
@@ -1258,10 +1354,21 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     if_modified_since_date = ifModifiedSince.astimezone(UTC)
                 # convert to isoformat
                 if_modified_since_isoformat = quote(if_modified_since_date.date().isoformat())
-                param_list = [p.replace("{ifModifiedSince}", if_modified_since_isoformat) for p in param_list]
+                # {ifModifiedSinceDateTime} is the same UTC day at midnight as a full instant
+                # (2023-10-01T00:00:00Z), for servers that reject a date without a time on a search
+                # parameter, e.g. Cerner Encounter's date returns 400 "date: must have a time"
+                if_modified_since_datetime_isoformat = quote(f"{if_modified_since_date.date().isoformat()}T00:00:00Z")
+                param_list = [
+                    p.replace("{ifModifiedSinceDateTime}", if_modified_since_datetime_isoformat).replace(
+                        "{ifModifiedSince}", if_modified_since_isoformat
+                    )
+                    for p in param_list
+                ]
             else:
-                # remove any parameters with {ifModifiedSince}
-                param_list = [p for p in param_list if not p.endswith("{ifModifiedSince}")]
+                # remove any parameters with {ifModifiedSince} or {ifModifiedSinceDateTime}
+                param_list = [
+                    p for p in param_list if not p.endswith(("{ifModifiedSince}", "{ifModifiedSinceDateTime}"))
+                ]
             # now get all the parameters that are not {ref}
             additional_parameters = [p for p in param_list if not p.endswith("{ref}")]
             # get the property name of the ref parameter
@@ -1282,6 +1389,24 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         if parent_id and parent_id not in seen_parent_ids:
                             parent_ids.append(parent_id)
                             seen_parent_ids.add(parent_id)
+                    if over_query_budget(parent_ids):
+                        overflow_id = parent_ids.pop()
+                        child_group_batches.append(
+                            {
+                                "resource_type": target_type,
+                                "parent_ids": parent_ids,
+                                "parent_resource_type": parent_resource_type,
+                                "parameters": [f"{property_name}={','.join(parent_ids)}"] + additional_parameters,
+                                "path": path,
+                                "cache": cache,
+                                "scope_parser": scope_parser,
+                                "logger": logger,
+                                "id_search_unsupported_resources": id_search_unsupported_resources,
+                                "add_cached_bundles_to_result": add_cached_bundles_to_result,
+                                "max_concurrent_tasks": max_concurrent_tasks,
+                            }
+                        )
+                        parent_ids = [overflow_id]
                     if request_size and len(parent_ids) == request_size:
                         request_parameters = [f"{property_name}={','.join(parent_ids)}"] + additional_parameters
                         child_group_batches.append(
@@ -1326,6 +1451,25 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
 
         if target.link:
             parent_link_map.append((target.link, children))
+
+    @staticmethod
+    async def _cache_forbidden_ids_async(
+        *, resource_type: str, ids: list[str], cache: RequestCache, logger: Logger | None
+    ) -> None:
+        """Caches each id as 403 so later references to it are answered from the cache instead of the server."""
+        for forbidden_id in ids:
+            cache_updated = await cache.add_async(
+                resource_type=resource_type,
+                resource_id=forbidden_id,
+                bundle_entry=None,
+                status=403,
+                last_modified=datetime.now(UTC),
+                etag=None,
+                from_input_cache=False,
+                raw_hash="",
+            )
+            if cache_updated and logger:
+                logger.debug(f"Inserted 403 for {resource_type}/{forbidden_id} into cache (ByParam)")
 
     async def _get_resources_by_id_one_by_one_async(
         self,
@@ -1375,7 +1519,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 etag=result2.etag,
                 from_input_cache=False,
                 raw_hash=ResourceHash().hash_value(json.dumps(json.loads(entry._resource.json()), sort_keys=True))
-                if compare_hash and entry._resource
+                if compare_hash and _cache_keeps_entries(cache) and entry._resource
                 else "",
             )
             if cache_updated and logger:
@@ -1536,6 +1680,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         logger.info(f"Cache entry not found for {resource_type}/{resource_id} (ByParam)")
                     non_cached_id_list.append(resource_id)
         all_result: FhirGetResponse | None = None
+        # ids the server refused (403) both as a batch and when probed alone; already cached as 403
+        forbidden_id_list: list[str] = []
         # either we have non-cached ids or this is a query without id but has other parameters
         if (
             (len(non_cached_id_list) > 1 and resource_type.lower() not in id_search_unsupported_resources)
@@ -1554,8 +1700,36 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 resource_type=resource_type,
             ):
                 result = result1
+                # A 403 on ?_id=a,b,c can mean the token may not read this resource type at all,
+                # or that only some of the ids are forbidden. Read the first id on its own to tell
+                # the two apart before paying for one request per id.
+                probe_result: FhirGetResponse | None = None
+                if result and result.status == 403 and len(non_cached_id_list) > 1:
+                    probe_result = await self._get_resources_by_id_one_by_one_async(
+                        resource_type=resource_type,
+                        ids=non_cached_id_list[:1],
+                        additional_parameters=parameters,
+                        cache=cache,
+                        logger=logger,
+                        compare_hash=compare_hash,
+                        max_concurrent_tasks=max_concurrent_tasks,
+                    )
+                if probe_result is not None and probe_result.status == 403:
+                    # Forbidden on its own too: reading the rest one by one would only return more
+                    # 403s. Keep the batch's 403 as the result so callers still see the denial, and
+                    # don't mark the type as unsupporting _id, since the server rejected the token,
+                    # not the search.
+                    await self._cache_forbidden_ids_async(
+                        resource_type=resource_type, ids=non_cached_id_list[1:], cache=cache, logger=logger
+                    )
+                    forbidden_id_list.extend(non_cached_id_list)
+                    if logger:
+                        logger.info(
+                            f"403 for {resource_type} on a batch of {len(non_cached_id_list)} ids and on the"
+                            f" first id alone for url {self._url}; not fetching the rest one by one"
+                        )
                 # if we got a failure then check if we can get it one by one
-                if (not result or result.status != 200) and len(non_cached_id_list) > 1:
+                elif (not result or result.status != 200) and len(non_cached_id_list) > 1:
                     if result:
                         if resource_type.lower() not in id_search_unsupported_resources:
                             id_search_unsupported_resources.append(resource_type.lower())
@@ -1565,6 +1739,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 f" Fetching one by one ids: {non_cached_id_list}"
                             )
                     # For some resources if search by _id doesn't work then fetch one by one.
+                    # An id already read by the probe above is in the cache, so it is skipped here
+                    # and its response is put back in front.
                     result = await self._get_resources_by_id_one_by_one_async(
                         resource_type=resource_type,
                         ids=non_cached_id_list,
@@ -1574,6 +1750,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                         compare_hash=compare_hash,
                         max_concurrent_tasks=max_concurrent_tasks,
                     )
+                    if probe_result is not None:
+                        result = probe_result.append(result) if result else probe_result
                 else:
                     if logger:
                         logger.info(f"Fetched {resource_type} resources using _id for url {self._url}")
@@ -1633,7 +1811,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             raw_hash=ResourceHash().hash_value(
                                 json.dumps(json.loads(non_cached_bundle_entry.resource.json()), sort_keys=True)
                             )
-                            if compare_hash
+                            if compare_hash and _cache_keeps_entries(cache)
                             else "",
                         )
                         if cache_updated and logger:
@@ -1647,7 +1825,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         # covered by a single request.
         fetch_failed: bool = all_result is not None and not all_result.successful
         for non_cached_id in non_cached_id_list:
-            if non_cached_id in found_non_cached_id_list:
+            if non_cached_id in found_non_cached_id_list or non_cached_id in forbidden_id_list:
                 continue
             existing_entry: RequestCacheEntry | None = await cache.peek_async(
                 resource_type=resource_type, resource_id=non_cached_id
@@ -1725,6 +1903,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         ifModifiedSince: datetime | None = None,
         eTag: str | None = None,
         request_size: int | None = 1,
+        max_query_chars: int | None = None,
         max_concurrent_tasks: int | None = 1,
         sort_resources: bool | None = False,
         add_cached_bundles_to_result: bool = True,
@@ -1755,6 +1934,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
         :param eTag: Optional ETag to use for If-None-Match header
         :param request_size: Optional Count of resources to request in one request
+        :param max_query_chars: Optional cap on the characters of the comma-joined id list in one batched
+                                request (``_id=a,b,c`` or ``{ref}=a,b,c``), so id-heavy types stay under the
+                                server's URL limit. None means only request_size limits a batch.
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially.
         :param sort_resources: Optional flag to sort resources
         :param add_cached_bundles_to_result: Optional flag to add cached bundles to result
@@ -1826,6 +2008,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 logger=self._logger,
                 auth_scopes=self._auth_scopes,
                 request_size=request_size,
+                max_query_chars=max_query_chars,
                 max_concurrent_tasks=max_concurrent_tasks,
                 sort_resources=sort_resources,
                 add_cached_bundles_to_result=add_cached_bundles_to_result,
@@ -1859,6 +2042,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         ifModifiedSince: datetime | None = None,
         eTag: str | None = None,
         request_size: int | None = 1,
+        max_query_chars: int | None = None,
         max_concurrent_tasks: int | None = 1,
         sort_resources: bool | None = False,
         input_cache: RequestCache | None = None,
@@ -1886,6 +2070,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
         :param eTag: Optional ETag to use for If-None-Match header
         :param request_size: Optional Count of resources to request in one request
+        :param max_query_chars: Optional cap on the characters of the comma-joined id list in one batched
+                                request (``_id=a,b,c`` or ``{ref}=a,b,c``), so id-heavy types stay under the
+                                server's URL limit. None means only request_size limits a batch.
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially
         :param sort_resources: Optional flag to sort resources
         :param input_cache: Optional cache to use for input
@@ -1961,6 +2148,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             logger=self._logger,
             auth_scopes=self._auth_scopes,
             request_size=request_size,
+            max_query_chars=max_query_chars,
             max_concurrent_tasks=max_concurrent_tasks,
             sort_resources=sort_resources,
             input_cache=input_cache,
@@ -1998,6 +2186,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         ifModifiedSince: datetime | None = None,
         eTag: str | None = None,
         request_size: int | None = 1,
+        max_query_chars: int | None = None,
         max_concurrent_tasks: int | None = 1,
         sort_resources: bool | None = False,
         add_cached_bundles_to_result: bool = True,
@@ -2030,6 +2219,9 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param ifModifiedSince: Optional datetime to use for If-Modified-Since header
         :param eTag: Optional ETag to use for If-None-Match header
         :param request_size: Optional Count of resources to request in one request
+        :param max_query_chars: Optional cap on the characters of the comma-joined id list in one batched
+                                request (``_id=a,b,c`` or ``{ref}=a,b,c``), so id-heavy types stay under the
+                                server's URL limit. None means only request_size limits a batch.
         :param max_concurrent_tasks: Optional number of concurrent tasks.  If 1 then the tasks are processed sequentially.
         :param sort_resources: Optional flag to sort resources
         :param add_cached_bundles_to_result: Optional flag to add cached bundles to result
@@ -2107,6 +2299,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             logger=self._logger,
             auth_scopes=self._auth_scopes,
             request_size=request_size,
+            max_query_chars=max_query_chars,
             max_concurrent_tasks=max_concurrent_tasks,
             sort_resources=sort_resources,
             add_cached_bundles_to_result=add_cached_bundles_to_result,
@@ -2152,6 +2345,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         *,
         rollup: _GraphTraversalRollup,
         link_responses: list[FhirGetResponse],
+        responses_by_target: dict[str, list[FhirGetResponse]],
         link_queried_urls: list[str],
         links: list[GraphDefinitionLink],
         context: ParallelFunctionContext,
@@ -2190,6 +2384,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             resource_count_for_link=resource_count_for_link,
             link_queried_urls=link_queried_urls,
             link_responses=link_responses,
+            responses_by_target=responses_by_target,
             scope_parser=scope_parser,
             graph_depth=graph_depth,
             on_resource_type_completed=on_resource_type_completed,
@@ -2212,6 +2407,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         resource_count_for_link: int,
         link_queried_urls: list[str],
         link_responses: list[FhirGetResponse],
+        responses_by_target: dict[str, list[FhirGetResponse]],
         scope_parser: FhirScopeParser,
         graph_depth: int,
         on_resource_type_completed: Callable[[ResourceTypeCompletionEvent], Awaitable[None]] | None,
@@ -2240,41 +2436,12 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         """
         declared_types = sorted({target.type_ for target in links[context.task_index].target if target.type_})
 
-        # Separate from resource_count_for_link (which still drives the event's own
-        # resource_count field and the caller's total_resource_count rollup): an
-        # OperationOutcome error placeholder from a 404 response counts as "1
-        # resource" via get_resource_count(), which would otherwise make a
-        # 404-only link misclassify as "success" here.
-        successful_resource_count_for_link = sum(r.get_resource_count() for r in link_responses if r.successful)
-
-        outcome: Literal["success", "empty", "not_found", "scope_denied", "error"]
-        computed_error_type: str | None = None
-        computed_error_message: str | None = None
-        if error is not None:
-            outcome = "error"
-            computed_error_type = type(error).__name__
-            computed_error_message = str(error)
-        elif successful_resource_count_for_link > 0:
-            outcome = "success"
-        elif any(r.status == 404 for r in link_responses):
-            outcome = "not_found"
-        elif any(not r.successful for r in link_responses):
-            # This SDK's retry client returns (rather than raises) for non-5xx
-            # HTTP errors such as 400/403, so there is no exception to read an
-            # error_type/error_message off of — without this branch a
-            # server-side permission denial would be indistinguishable from
-            # "genuinely no data" (outcome="empty"). The synthesized
-            # error_type deliberately uses an HttpStatus<code> form so callers
-            # can tell it apart from a raised-exception error, whose
-            # error_type is the exception's class name.
-            outcome = "error"
-            failed_status = next(r.status for r in link_responses if not r.successful)
-            computed_error_type = f"HttpStatus{failed_status}"
-            computed_error_message = f"Fetch failed with HTTP status {failed_status}"
-        elif declared_types and not any(scope_parser.scope_allows(resource_type=t) for t in declared_types):
-            outcome = "scope_denied"
-        else:
-            outcome = "empty"
+        outcome, computed_error_type, computed_error_message = self._classify_outcome(
+            responses=link_responses,
+            declared_types=declared_types,
+            scope_parser=scope_parser,
+            error=error,
+        )
 
         if on_resource_type_completed:
             reported_resource_types = resource_types or declared_types
@@ -2290,9 +2457,123 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     outcome=outcome,
                     error_type=computed_error_type,
                     error_message=computed_error_message,
+                    target_outcomes=[
+                        self._target_outcome(
+                            resource_type=target_type,
+                            responses=responses_by_target.get(target_type, []),
+                            scope_parser=scope_parser,
+                            error=error,
+                        )
+                        for target_type in declared_types
+                    ],
                 )
             )
         return outcome
+
+    @staticmethod
+    def _target_outcome(
+        *,
+        resource_type: str,
+        responses: list[FhirGetResponse],
+        scope_parser: FhirScopeParser,
+        error: Exception | None,
+    ) -> ResourceTypeTargetOutcome:
+        """
+        Classifies one declared target of a link on that target's own
+        responses, with the same rules as the link as a whole, so a target
+        that was denied, not found or failed is reported even when a sibling
+        target succeeded.
+        """
+        outcome, error_type, error_message = SimulatedGraphProcessorMixin._classify_outcome(
+            responses=responses,
+            declared_types=[resource_type],
+            scope_parser=scope_parser,
+            error=error,
+        )
+        return ResourceTypeTargetOutcome(
+            resource_type=resource_type,
+            # Only successful responses count, so a 404's OperationOutcome
+            # body isn't reported as one resource for a not_found target.
+            resource_count=sum(r.get_resource_count() for r in responses if r.successful),
+            outcome=outcome,
+            error_type=error_type,
+            error_message=error_message,
+        )
+
+    @staticmethod
+    def _uniform_target_outcomes(
+        *,
+        resource_types: list[str],
+        outcome: Literal["success", "empty", "not_found", "scope_denied", "error"],
+        error_type: str | None,
+        error_message: str | None,
+    ) -> list[ResourceTypeTargetOutcome]:
+        """
+        The same zero-count outcome for every target of a link, for a fetch
+        that was cancelled or raised before any target could be told apart.
+        """
+        return [
+            ResourceTypeTargetOutcome(
+                resource_type=resource_type,
+                resource_count=0,
+                outcome=outcome,
+                error_type=error_type,
+                error_message=error_message,
+            )
+            for resource_type in resource_types
+        ]
+
+    @staticmethod
+    def _classify_outcome(
+        *,
+        responses: list[FhirGetResponse],
+        declared_types: list[str],
+        scope_parser: FhirScopeParser,
+        error: Exception | None,
+    ) -> tuple[Literal["success", "empty", "not_found", "scope_denied", "error"], str | None, str | None]:
+        """
+        Returns (outcome, error_type, error_message) for a set of responses
+        fetched for the given declared types, using the precedence documented
+        on ResourceTypeCompletionEvent.outcome. Used for a whole link and for
+        each of its targets.
+        """
+        # Separate from resource_count_for_link (which still drives the event's own
+        # resource_count field and the caller's total_resource_count rollup): an
+        # OperationOutcome error placeholder from a 404 response counts as "1
+        # resource" via get_resource_count(), which would otherwise make a
+        # 404-only link misclassify as "success" here.
+        successful_resource_count = sum(r.get_resource_count() for r in responses if r.successful)
+
+        outcome: Literal["success", "empty", "not_found", "scope_denied", "error"]
+        computed_error_type: str | None = None
+        computed_error_message: str | None = None
+        if error is not None:
+            outcome = "error"
+            computed_error_type = type(error).__name__
+            computed_error_message = str(error)
+        elif successful_resource_count > 0:
+            outcome = "success"
+        elif any(r.status == 404 for r in responses):
+            outcome = "not_found"
+        elif any(not r.successful for r in responses):
+            # This SDK's retry client returns (rather than raises) for non-5xx
+            # HTTP errors such as 400/403, so there is no exception to read an
+            # error_type/error_message off of — without this branch a
+            # server-side permission denial would be indistinguishable from
+            # "genuinely no data" (outcome="empty"). The synthesized
+            # error_type deliberately uses an HttpStatus<code> form so callers
+            # can tell it apart from a raised-exception error, whose
+            # error_type is the exception's class name.
+            outcome = "error"
+            failed_status = next(r.status for r in responses if not r.successful)
+            computed_error_type = f"HttpStatus{failed_status}"
+            computed_error_message = f"Fetch failed with HTTP status {failed_status}"
+        elif declared_types and not any(scope_parser.scope_allows(resource_type=t) for t in declared_types):
+            outcome = "scope_denied"
+        else:
+            outcome = "empty"
+
+        return outcome, computed_error_type, computed_error_message
 
     # noinspection PyPep8Naming
     async def _process_simulate_graph_by_resource_type_async(
@@ -2313,6 +2594,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         expand_fhir_bundle: bool | None,
         auth_scopes: list[str] | None,
         request_size: int | None = 1,
+        max_query_chars: int | None = None,
         max_concurrent_tasks: int | None,
         sort_resources: bool | None,
         add_cached_bundles_to_result: bool = True,
@@ -2334,6 +2616,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         graph_definition: GraphDefinition = GraphDefinition.from_dict(graph_json)
         assert isinstance(graph_definition, GraphDefinition)
         assert graph_definition.start, "Graph definition must have a start resource"
+
+        _validate_max_query_chars(max_query_chars)
 
         scope_parser: FhirScopeParser = FhirScopeParser(scopes=auth_scopes)
         self.separate_bundle_resources(False)
@@ -2605,6 +2889,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             yield_context=True,
                             parent_link_map=new_parent_link_map,
                             request_size=request_size,
+                            max_query_chars=max_query_chars,
                             id_search_unsupported_resources=id_search_unsupported_resources,
                             add_cached_bundles_to_result=add_cached_bundles_to_result,
                             ifModifiedSince=ifModifiedSince,
@@ -2625,6 +2910,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             await self._record_link_batch_outcome(
                                 rollup=rollup,
                                 link_responses=link_responses,
+                                responses_by_target=link_fetch_result.responses_by_target,
                                 link_queried_urls=link_queried_urls,
                                 links=links,
                                 context=context,

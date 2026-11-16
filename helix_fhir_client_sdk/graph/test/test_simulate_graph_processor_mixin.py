@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from logging import Logger
@@ -10,6 +11,7 @@ import aiohttp
 import pytest
 from aioresponses import CallbackResult, aioresponses
 from compressedfhir.fhir.fhir_resource_list import FhirResourceList
+from yarl import URL
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
 from helix_fhir_client_sdk.function_types import RefreshTokenResult
@@ -1576,3 +1578,266 @@ async def test_graph_definition_with_nested_links_concurrent_requests_401() -> N
                 "url": "http://example.com/fhir/Practitioner/12345",
             },
         ]
+
+
+def _long_ids(prefix: str, count: int, width: int = 40) -> list[str]:
+    """Distinct ids of exactly ``width`` characters, like Epic's long Medication ids."""
+    return [f"{prefix}{i}".ljust(width, "x") for i in range(count)]
+
+
+def _requested_id_batches(requests: dict[Any, Any], *, resource_type: str, query_key: str) -> list[list[str]]:
+    """The ``query_key=a,b,c`` id lists sent to ``resource_type``, in a stable order."""
+    batches: list[list[str]] = []
+    for _, url in requests:
+        if url.path.endswith(f"/{resource_type}") and query_key in url.query:
+            batches.append(url.query[query_key].split(","))
+        elif f"/{resource_type}/" in url.path:
+            # a batch of one id is read as ``{resource_type}/{id}``
+            batches.append([url.path.rsplit("/", 1)[-1]])
+    return sorted(batches)
+
+
+async def _run_batching_graph(
+    *,
+    graph_json: dict[str, Any],
+    parent_resources: list[dict[str, Any]],
+    child_resource_type: str,
+    child_query_key: str,
+    request_size: int,
+    max_query_chars: int | None,
+) -> tuple[list[list[str]], FhirResourceList]:
+    """Run ``graph_json`` for Patient/1 -> ``parent_resources`` and record the child batches sent."""
+    graph_processor: SimulatedGraphProcessorMixin = get_graph_processor()
+
+    def _children_callback(url: Any, **kwargs: Any) -> CallbackResult:
+        ids = URL(str(url)).query.get(child_query_key, "").split(",")
+        return CallbackResult(
+            status=200,
+            headers={},
+            body=json.dumps(
+                {
+                    "resourceType": "Bundle",
+                    "entry": [
+                        {"resource": {"resourceType": child_resource_type, "id": i}}
+                        for i in ids
+                        if i and child_resource_type == "Medication"
+                    ],
+                }
+            ),
+        )
+
+    def _single_read_callback(url: Any, **kwargs: Any) -> CallbackResult:
+        return CallbackResult(
+            status=200,
+            headers={},
+            body=json.dumps({"resourceType": child_resource_type, "id": URL(str(url)).path.rsplit("/", 1)[-1]}),
+        )
+
+    with aioresponses() as m:
+        m.get(
+            "http://example.com/fhir/Patient/1",
+            payload={"resourceType": "Patient", "id": "1"},
+        )
+        m.get(
+            f"http://example.com/fhir/{parent_resources[0]['resourceType']}?patient=1",
+            payload={"resourceType": "Bundle", "entry": [{"resource": r} for r in parent_resources]},
+        )
+        m.get(
+            re.compile(rf"^http://example\.com/fhir/{child_resource_type}\?.*"),
+            callback=_children_callback,
+            repeat=True,
+        )
+        m.get(
+            re.compile(rf"^http://example\.com/fhir/{child_resource_type}/[^?]+$"),
+            callback=_single_read_callback,
+            repeat=True,
+        )
+        responses = [
+            r
+            async for r in graph_processor.process_simulate_graph_async(
+                id_=["1"],
+                graph_json=graph_json,
+                contained=False,
+                separate_bundle_resources=False,
+                restrict_to_scope=None,
+                restrict_to_resources=None,
+                restrict_to_capability_statement=None,
+                retrieve_and_restrict_to_capability_statement=None,
+                ifModifiedSince=None,
+                eTag=None,
+                logger=LoggerForTest(),
+                url=None,
+                expand_fhir_bundle=False,
+                auth_scopes=[],
+                request_size=request_size,
+                max_query_chars=max_query_chars,
+                max_concurrent_tasks=None,
+                sort_resources=True,
+            )
+        ]
+        batches = _requested_id_batches(m.requests, resource_type=child_resource_type, query_key=child_query_key)
+    assert len(responses) == 1
+    return batches, responses[0].get_resources()
+
+
+# Five 40-character ids: 41 characters each once the comma is counted.
+_BATCHING_CASES = [
+    pytest.param(25, None, [[0, 1, 2, 3, 4]], id="no-budget-fills-to-request-size"),
+    pytest.param(25, 100, [[0, 1], [2, 3], [4]], id="budget-splits-before-an-id-would-overflow"),
+    pytest.param(2, 1000, [[0, 1], [2, 3], [4]], id="request-size-still-applies"),
+    pytest.param(25, 10, [[0], [1], [2], [3], [4]], id="id-longer-than-budget-goes-alone"),
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("request_size", "max_query_chars", "expected"), _BATCHING_CASES)
+async def test_max_query_chars_splits_single_reference_batches(
+    request_size: int, max_query_chars: int | None, expected: list[list[int]]
+) -> None:
+    """A referenced-read batch (``medicationReference`` -> ``Medication?_id=a,b,c``) stops
+    growing before its id list would pass ``max_query_chars``, so an id-heavy type no longer
+    produces one oversized query that the server rejects."""
+    ids = _long_ids("med", 5)
+    graph_json: dict[str, Any] = {
+        "id": "1",
+        "name": "Test Graph",
+        "resourceType": "GraphDefinition",
+        "start": "Patient",
+        "link": [
+            {
+                "target": [
+                    {
+                        "type": "MedicationRequest",
+                        "params": "patient={ref}",
+                        "link": [{"path": "medicationReference", "target": [{"type": "Medication"}]}],
+                    }
+                ]
+            }
+        ],
+    }
+    requests = [
+        {"resourceType": "MedicationRequest", "id": f"mr{i}", "medicationReference": {"reference": f"Medication/{m}"}}
+        for i, m in enumerate(ids)
+    ]
+
+    batches, resources = await _run_batching_graph(
+        graph_json=graph_json,
+        parent_resources=requests,
+        child_resource_type="Medication",
+        child_query_key="_id",
+        request_size=request_size,
+        max_query_chars=max_query_chars,
+    )
+
+    assert batches == sorted([ids[i] for i in batch] for batch in expected)
+    assert sorted(r["id"] for r in resources if r["resourceType"] == "Medication") == ids
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("request_size", "max_query_chars", "expected"), _BATCHING_CASES)
+async def test_max_query_chars_splits_array_reference_batches(
+    request_size: int, max_query_chars: int | None, expected: list[list[int]]
+) -> None:
+    """Same budget for a ``[x]`` path: ``MedicationRequest.reasonReference[x]`` style lists."""
+    ids = _long_ids("med", 5)
+    graph_json: dict[str, Any] = {
+        "id": "1",
+        "name": "Test Graph",
+        "resourceType": "GraphDefinition",
+        "start": "Patient",
+        "link": [
+            {
+                "target": [
+                    {
+                        "type": "MedicationRequest",
+                        "params": "patient={ref}",
+                        "link": [{"path": "supportingInformation[x]", "target": [{"type": "Medication"}]}],
+                    }
+                ]
+            }
+        ],
+    }
+    requests = [
+        {
+            "resourceType": "MedicationRequest",
+            "id": f"mr{i}",
+            "supportingInformation": [{"reference": f"Medication/{m}"}],
+        }
+        for i, m in enumerate(ids)
+    ]
+
+    batches, resources = await _run_batching_graph(
+        graph_json=graph_json,
+        parent_resources=requests,
+        child_resource_type="Medication",
+        child_query_key="_id",
+        request_size=request_size,
+        max_query_chars=max_query_chars,
+    )
+
+    assert batches == sorted([ids[i] for i in batch] for batch in expected)
+    assert sorted(r["id"] for r in resources if r["resourceType"] == "Medication") == ids
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("request_size", "max_query_chars", "expected"), _BATCHING_CASES)
+async def test_max_query_chars_splits_reverse_link_batches(
+    request_size: int, max_query_chars: int | None, expected: list[list[int]]
+) -> None:
+    """Same budget for a reverse link: ``MedicationDispense?prescription=a,b,c`` over parent ids."""
+    parent_ids = _long_ids("mr", 5)
+    graph_json: dict[str, Any] = {
+        "id": "1",
+        "name": "Test Graph",
+        "resourceType": "GraphDefinition",
+        "start": "Patient",
+        "link": [
+            {
+                "target": [
+                    {
+                        "type": "MedicationRequest",
+                        "params": "patient={ref}",
+                        "link": [
+                            {"target": [{"type": "MedicationDispense", "params": "prescription={ref}"}]},
+                        ],
+                    }
+                ]
+            }
+        ],
+    }
+    requests = [{"resourceType": "MedicationRequest", "id": i} for i in parent_ids]
+
+    batches, _ = await _run_batching_graph(
+        graph_json=graph_json,
+        parent_resources=requests,
+        child_resource_type="MedicationDispense",
+        child_query_key="prescription",
+        request_size=request_size,
+        max_query_chars=max_query_chars,
+    )
+
+    assert batches == sorted([parent_ids[i] for i in batch] for batch in expected)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("max_query_chars", [0, -1, -500, True, 2.5])
+async def test_max_query_chars_must_be_none_or_a_positive_int(max_query_chars: Any) -> None:
+    """0 would silently turn the cap off and a negative value would send every id alone,
+    so a bad value is rejected up front instead of changing the request count."""
+    graph_json: dict[str, Any] = {
+        "id": "1",
+        "name": "Test Graph",
+        "resourceType": "GraphDefinition",
+        "start": "Patient",
+        "link": [{"target": [{"type": "MedicationRequest", "params": "patient={ref}"}]}],
+    }
+
+    with pytest.raises(ValueError, match="max_query_chars"):
+        await _run_batching_graph(
+            graph_json=graph_json,
+            parent_resources=[{"resourceType": "MedicationRequest", "id": "mr1"}],
+            child_resource_type="Medication",
+            child_query_key="_id",
+            request_size=25,
+            max_query_chars=max_query_chars,
+        )

@@ -1,12 +1,12 @@
 import asyncio
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, cast
 
 import async_timeout
-from aiohttp import ClientError, ClientResponse, ClientResponseError, ClientSession
+from aiohttp import ClientError, ClientResponse, ClientResponseError, ClientSession, ClientTimeout
 from multidict import MultiMapping
 from opentelemetry import trace
 
@@ -33,7 +33,9 @@ class RetryableAioHttpClient:
         self,
         *,
         retries: int = 3,
+        timeout_retries: int | None = None,
         timeout_in_seconds: float | None = None,
+        read_timeout_in_seconds: float | None = None,
         backoff_factor: float = 0.5,
         retry_status_codes: list[int] | None = None,
         refresh_token_func: RefreshTokenFunction | None,
@@ -59,7 +61,14 @@ class RetryableAioHttpClient:
           The SDK will NOT close the session - the caller must close it themselves.
 
         :param retries: Number of retry attempts for failed requests
+        :param timeout_retries: Number of retry attempts for a request that timed out, at most ``retries``.
+                                None (default) retries timeouts like any other transient error. A request
+                                that hangs once usually hangs again, so a lower value stops one stuck
+                                request from holding the caller for ``retries + 1`` full read timeouts.
         :param timeout_in_seconds: Timeout for HTTP requests
+        :param read_timeout_in_seconds: Socket read timeout (aiohttp ``sock_read``) for each request, applied
+                                        per request so it holds whichever session is used, including one
+                                        shared with other clients. None (default) keeps the session's timeout.
         :param backoff_factor: Factor for exponential backoff between retries
         :param retry_status_codes: HTTP status codes that trigger a retry
         :param refresh_token_func: Function to refresh authentication tokens
@@ -78,7 +87,13 @@ class RetryableAioHttpClient:
         :param access_token_expiry_date: Expiry date of the access token
         """
         self.retries: int = retries
+        if timeout_retries is not None and timeout_retries < 0:
+            raise ValueError(f"timeout_retries must be 0 or greater, got {timeout_retries}")
+        self.timeout_retries: int | None = timeout_retries
         self.timeout_in_seconds: float | None = timeout_in_seconds
+        if read_timeout_in_seconds is not None and read_timeout_in_seconds <= 0:
+            raise ValueError(f"read_timeout_in_seconds must be greater than 0, got {read_timeout_in_seconds}")
+        self.read_timeout_in_seconds: float | None = read_timeout_in_seconds
         self.backoff_factor: float = backoff_factor
         self.retry_status_codes: list[int] | None = (
             retry_status_codes if retry_status_codes is not None else [500, 502, 503, 504]
@@ -124,8 +139,43 @@ class RetryableAioHttpClient:
         """
         try:
             return await response.text() if (response and response.status != 504) else ""
+        except TimeoutError:
+            # a body that stops arriving is a timed-out request: let the caller retry it
+            raise
         except Exception as e:
             return str(e)
+
+    @staticmethod
+    def _with_sock_read(*, timeout: ClientTimeout, sock_read: float) -> ClientTimeout:
+        """
+        Returns the session's timeout with only the socket read timeout replaced, because a
+        per-request timeout replaces the session's timeout as a whole in aiohttp.
+        """
+        return ClientTimeout(
+            total=timeout.total,
+            connect=timeout.connect,
+            sock_read=sock_read,
+            sock_connect=timeout.sock_connect,
+            ceil_threshold=timeout.ceil_threshold,
+        )
+
+    @staticmethod
+    def get_headers_as_dict(*, headers: Mapping[str, str] | None) -> dict[str, str]:
+        """
+        Converts response headers into a plain dict, joining repeated header values with a comma.
+
+        :param headers: the headers (a multidict such as ClientResponseError.headers, or a plain mapping)
+        :return: dict of header name to comma-joined values (empty dict if there are no headers)
+        """
+        if not headers:
+            return {}
+        if isinstance(headers, MultiMapping):
+            return {k: ",".join(headers.getall(k)) for k in headers.keys()}
+        # plain mapping: join any repeated keys defensively
+        result: dict[str, str] = {}
+        for k, v in headers.items():
+            result[k] = f"{result[k]},{v}" if k in result else str(v)
+        return result
 
     async def fetch(
         self,
@@ -137,6 +187,7 @@ class RetryableAioHttpClient:
         **kwargs: Any,
     ) -> RetryableAioHttpResponse:
         retry_attempts: int = -1
+        timeout_attempts: int = 0
         results_by_url: list[RetryableAioHttpUrlResult] = []
         access_token: str | None = self.access_token
         expiry_date: datetime | None = self.access_token_expiry_date
@@ -144,6 +195,8 @@ class RetryableAioHttpClient:
         # run with retry
         while retry_attempts < self.retries:
             retry_attempts += 1
+            # headers of this attempt's response, kept on the error paths below (e.g. X-Request-ID)
+            response_headers: dict[str, str] = {}
             try:
                 if headers:
                     kwargs["headers"] = headers
@@ -157,6 +210,10 @@ class RetryableAioHttpClient:
                     if self.compress:
                         kwargs["compress"] = self.compress
                 assert self.session is not None
+                if self.read_timeout_in_seconds is not None and "timeout" not in kwargs:
+                    kwargs["timeout"] = self._with_sock_read(
+                        timeout=self.session.timeout, sock_read=self.read_timeout_in_seconds
+                    )
                 with TRACER.start_as_current_span(FhirClientSdkOpenTelemetrySpanNames.HTTP_GET) as span:
                     span.set_attribute(
                         FhirClientSdkOpenTelemetryAttributeNames.URL,
@@ -186,9 +243,7 @@ class RetryableAioHttpClient:
                                     end_time=time.time(),
                                 )
                             )
-                        response_headers: dict[str, str] = {
-                            k: ",".join(response.headers.getall(k)) for k in response.headers.keys()
-                        }
+                        response_headers = {k: ",".join(response.headers.getall(k)) for k in response.headers.keys()}
                         response_headers_multi_mapping: MultiMapping[str] = cast(MultiMapping[str], response.headers)
 
                         if self.trace_function_async:
@@ -270,6 +325,16 @@ class RetryableAioHttpClient:
                                 retry_count=retry_attempts,
                             )
                         elif response.status == 429:
+                            if retry_attempts >= self.retries:
+                                # no retry is left, so do not wait for Retry-After; the exhausted-retry
+                                # handling below keeps the server's headers (e.g. X-Request-ID)
+                                raise ClientResponseError(
+                                    status=response.status,
+                                    message="Too Many Requests",
+                                    headers=response_headers_multi_mapping,
+                                    history=response.history,
+                                    request_info=response.request_info,
+                                )
                             await self._handle_429(response=response, full_url=url)
                         elif response.status == 401 and self.refresh_token_func_async:
                             # Call the token refresh function if status code is 401
@@ -281,12 +346,17 @@ class RetryableAioHttpClient:
                                 retry_count=retry_attempts,
                             )
                             if refresh_token_result.abort_request or refresh_token_result.access_token is None:
+                                # keep the server's headers (e.g. X-Request-ID) and body so callers can
+                                # correlate the failure with the source server's logs; a 401 often has no
+                                # body, so fall back to "Unauthorized" to keep the error text non-empty
                                 return RetryableAioHttpResponse(
                                     ok=False,
                                     status=401,
-                                    response_headers={},
-                                    response_text="Unauthorized",
-                                    content=None,
+                                    response_headers=response_headers,
+                                    response_text=(
+                                        await self.get_safe_response_text_async(response=response) or "Unauthorized"
+                                    ),
+                                    content=response.content,
                                     use_data_streaming=self.use_data_streaming,
                                     results_by_url=results_by_url,
                                     access_token=access_token,
@@ -339,14 +409,24 @@ class RetryableAioHttpClient:
                                     retry_count=retry_attempts,
                                 )
             except (TimeoutError, ClientError, ClientResponseError) as e:
-                if retry_attempts >= self.retries:
+                # aiohttp's read and connect timeouts subclass TimeoutError
+                if isinstance(e, TimeoutError):
+                    timeout_attempts += 1
+                if retry_attempts >= self.retries or (
+                    self.timeout_retries is not None and timeout_attempts > self.timeout_retries
+                ):
                     if self._throw_exception_on_error:
                         raise
                     else:
+                        # keep the server's headers (e.g. X-Request-ID) when the error came from an HTTP response
                         return RetryableAioHttpResponse(
                             ok=False,
                             status=500,
-                            response_headers={},
+                            response_headers=(
+                                self.get_headers_as_dict(headers=e.headers)
+                                if isinstance(e, ClientResponseError) and e.headers
+                                else response_headers
+                            ),
                             response_text=str(e),
                             content=None,
                             use_data_streaming=self.use_data_streaming,
@@ -360,10 +440,11 @@ class RetryableAioHttpClient:
                 if self._throw_exception_on_error:
                     raise
                 else:
+                    # keep the headers when the error came after a response (e.g. the refresh or trace function raised)
                     return RetryableAioHttpResponse(
                         ok=False,
                         status=500,
-                        response_headers={},
+                        response_headers=response_headers,
                         response_text=str(e),
                         content=None,
                         use_data_streaming=self.use_data_streaming,

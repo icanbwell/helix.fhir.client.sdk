@@ -63,6 +63,18 @@ from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
             "insurance[x].coverage.reference",
             ["Coverage/123", "Coverage/456"],
         ),
+        (
+            {"result": [None, "text", {}, {"item": [{"reference": "Observation/1"}]}]},
+            "result[x].item[x]",
+            [[{"reference": "Observation/1"}]],
+        ),
+        (
+            {"performer": [None, "text", {"actor": {"reference": "Practitioner/1"}}]},
+            "performer[x].actor",
+            [None, {"reference": "Practitioner/1"}],
+        ),
+        ({"code": "abc"}, "code.coding[x]", None),
+        ({"code": ["abc", {"text": "x"}]}, "code.text", [None, "x"]),
     ],
     ids=[
         "simple",
@@ -72,6 +84,10 @@ from helix_fhir_client_sdk.dictionary_parser import DictionaryParser
         "nested list two level",
         "nested property is a url",
         "real example",
+        "repeating field skips null, scalar and empty entries",
+        "child of a scalar list entry is None",
+        "scalar has no children",
+        "list with scalar entries",
     ],
 )
 def test_get_nested_property(

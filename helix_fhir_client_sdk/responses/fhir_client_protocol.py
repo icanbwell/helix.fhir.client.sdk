@@ -101,6 +101,8 @@ class FhirClientProtocol(Protocol):
     _extra_context_to_return: dict[str, Any] | None
 
     _retry_count: int
+    _timeout_retry_count: int | None
+    _read_timeout_seconds: float | None
     _exclude_status_codes_from_retry: list[int] | None
 
     _uuid: uuid.UUID

@@ -2,6 +2,7 @@ import json
 from logging import Logger
 from unittest.mock import AsyncMock
 
+import pytest
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
     mock_request,
@@ -64,3 +65,89 @@ async def test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_fun
     )
     logger.info(response.get_response_text())
     assert response.get_response_text() == response_text
+
+
+@pytest.mark.parametrize("request_id_header_name", ["X-Request-ID", "x-request-id"])
+async def test_async_fhir_client_patient_list_auth_fail_abort_keeps_request_id(
+    request_id_header_name: str,
+) -> None:
+    # Arrange
+    test_name = "test_async_fhir_client_patient_list_auth_fail_abort_keeps_request_id"
+    request_id: str = "/8FF8FDBF04C44383D71A07CDACED9FD5+ref1_tOkq"
+
+    mock_server_url = "http://mock-server:1080"
+    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(base_url=mock_server_url)
+
+    relative_url: str = test_name
+    absolute_url: str = mock_server_url + "/" + test_name
+
+    mock_client.clear(f"/{test_name}/*.*")
+    mock_client.reset()
+
+    mock_client.expect(
+        request=mock_request(path=f"/{relative_url}/Patient", method="GET"),
+        response=mock_response(code=401, headers={request_id_header_name: request_id}),
+        timing=times(1),
+    )
+
+    fhir_client = FhirClient()
+    fhir_client = fhir_client.url(absolute_url).resource("Patient")
+
+    mocked_authenticate_async = AsyncMock()
+    mocked_authenticate_async.return_value = RefreshTokenResult(access_token=None, expiry_date=None, abort_request=True)
+    fhir_client = fhir_client.refresh_token_function(mocked_authenticate_async)
+
+    # Act
+    response: FhirGetResponse = await fhir_client.get_async()
+
+    # Assert
+    mocked_authenticate_async.assert_called_with(
+        url=f"{absolute_url}/Patient",
+        status_code=401,
+        current_token=None,
+        expiry_date=None,
+        retry_count=0,
+    )
+    assert response.status == 401
+    assert response.request_id == request_id
+    # the mocked 401 has no body, so the error text falls back to "Unauthorized"
+    assert response.error == "Unauthorized"
+
+
+async def test_async_fhir_client_patient_list_auth_fail_retries_exhausted_keeps_request_id() -> None:
+    # Arrange
+    test_name = "test_async_fhir_client_patient_list_auth_fail_retries_exhausted_keeps_request_id"
+    request_id: str = "/8FF8FDBF04C44383D71A07CDACED9FD5+ref1_tOkq"
+
+    mock_server_url = "http://mock-server:1080"
+    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(base_url=mock_server_url)
+
+    relative_url: str = test_name
+    absolute_url: str = mock_server_url + "/" + test_name
+
+    mock_client.clear(f"/{test_name}/*.*")
+    mock_client.reset()
+
+    # server keeps rejecting the token: initial attempt + 1 retry
+    mock_client.expect(
+        request=mock_request(path=f"/{relative_url}/Patient", method="GET"),
+        response=mock_response(code=401, headers={"X-Request-ID": request_id}),
+        timing=times(2),
+    )
+
+    fhir_client = FhirClient()
+    fhir_client = fhir_client.url(absolute_url).resource("Patient")
+    fhir_client = fhir_client.retry_count(1).throw_exception_on_error(False)
+
+    mocked_authenticate_async = AsyncMock()
+    mocked_authenticate_async.return_value = RefreshTokenResult(
+        access_token="my_access_token", expiry_date=None, abort_request=False
+    )
+    fhir_client = fhir_client.refresh_token_function(mocked_authenticate_async)
+
+    # Act
+    response: FhirGetResponse = await fhir_client.get_async()
+
+    # Assert: status stays 500 on the exhausted-retries path, but the server's headers are kept
+    assert response.status == 500
+    assert response.request_id == request_id

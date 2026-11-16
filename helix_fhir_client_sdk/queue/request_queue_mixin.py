@@ -129,6 +129,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 refresh_token_func=self._refresh_token_function,
                 tracer_request_func=self._trace_request_function,
                 retries=self._retry_count,
+                timeout_retries=self._timeout_retry_count,
+                read_timeout_in_seconds=self._read_timeout_seconds,
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                 use_data_streaming=self._use_data_streaming,
                 compress=self._compress,
@@ -149,9 +151,10 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                             base_url=self._url, relative_url=next_url
                         )
                     else:
-                        # INC-285: Preserve port from base URL when next_url is absolute
-                        # but missing the port (FHIR server bug workaround)
-                        next_url = UrlChecker.preserve_port_from_base_url(base_url=self._url, next_url=next_url)
+                        # INC-285 / DCON-6330: a same-host next_url uses the scheme and port of the
+                        # base URL (the FHIR server builds it from the request it saw, which differs
+                        # behind a proxy)
+                        next_url = UrlChecker.align_next_url_with_base_url(base_url=self._url, next_url=next_url)
                     response: RetryableAioHttpResponse = await self._send_fhir_request_async(
                         client=client,
                         full_url=next_url,
@@ -304,6 +307,8 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 refresh_token_func=self._refresh_token_function,
                 tracer_request_func=self._trace_request_function,
                 retries=self._retry_count,
+                timeout_retries=self._timeout_retry_count,
+                read_timeout_in_seconds=self._read_timeout_seconds,
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                 use_data_streaming=self._use_data_streaming,
                 compress=self._compress,
@@ -324,9 +329,10 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                             base_url=self._url, relative_url=next_url
                         )
                     else:
-                        # INC-285: Preserve port from base URL when next_url is absolute
-                        # but missing the port (FHIR server bug workaround)
-                        next_url = UrlChecker.preserve_port_from_base_url(base_url=self._url, next_url=next_url)
+                        # INC-285 / DCON-6330: a same-host next_url uses the scheme and port of the
+                        # base URL (the FHIR server builds it from the request it saw, which differs
+                        # behind a proxy)
+                        next_url = UrlChecker.align_next_url_with_base_url(base_url=self._url, next_url=next_url)
                     response: RetryableAioHttpResponse = await self._send_fhir_request_async(
                         client=client,
                         full_url=next_url,

@@ -56,7 +56,11 @@ class DictionaryParser:
                     # result is a list of lists - flatten it first
                     result = DictionaryParser.flatten(result)
 
-                result = [value for result_entry in result if (value := result_entry.get(part[:-3]))]
+                result = [
+                    value
+                    for result_entry in result
+                    if isinstance(result_entry, dict) and (value := result_entry.get(part[:-3]))
+                ]
 
             # part is looking for a repeating field, but result is currently a dict.
             # We have gotten a part of the dictionary that we want to return.
@@ -71,8 +75,11 @@ class DictionaryParser:
                 result = DictionaryParser.flatten(
                     [DictionaryParser.get_nested_property(parent=r, path=part) for r in result if r is not None]
                 )
-            else:
+            elif isinstance(result, dict):
                 # if we get here, part should be the key for the value we want to return in result
                 result = result.get(part, None)
+            else:
+                # a scalar (e.g. a string) has no child named part
+                return None
 
         return result

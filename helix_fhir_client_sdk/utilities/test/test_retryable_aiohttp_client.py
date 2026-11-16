@@ -1,11 +1,15 @@
 # test_retryable_aiohttp_client.py
+import asyncio
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from aiohttp import ClientConnectionError, ClientSession
+from aiohttp import ClientConnectionError, ClientResponseError, ClientSession, ClientTimeout, SocketTimeoutError, web
+from aiohttp.test_utils import TestServer
 from aioresponses import aioresponses
+from multidict import CIMultiDict, CIMultiDictProxy
 
 from helix_fhir_client_sdk.function_types import RefreshTokenResult
 from helix_fhir_client_sdk.graph.test.test_simulate_graph_processor_mixin import (
@@ -131,6 +135,39 @@ async def test_handle_429() -> None:
             assert response.ok
             assert response.status == 200
             assert await response.get_text_async() == '{"key": "value"}'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("throw_exception_on_error", [False, True])
+async def test_handle_429_retries_exhausted_keeps_response_headers(throw_exception_on_error: bool) -> None:
+    """When every attempt gets 429, the last attempt does not wait and the server's headers are kept."""
+    request_id = "/8FF8FDBF04C44383D71A07CDACED9FD5+ref1_tOkq"
+
+    async with RetryableAioHttpClient(
+        retries=1,
+        throw_exception_on_error=throw_exception_on_error,
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        tracer_request_func=None,
+        refresh_token_func=None,
+    ) as client:
+        with aioresponses() as m:
+            m.get("http://test.com", status=429, headers={"Retry-After": "0", "X-Request-ID": request_id})
+            # a long Retry-After on the last attempt: waiting for it would hit the timeout below
+            m.get("http://test.com", status=429, headers={"Retry-After": "3600", "X-Request-ID": request_id})
+
+            if throw_exception_on_error:
+                with pytest.raises(ClientResponseError) as exc_info:
+                    await asyncio.wait_for(client.get(url="http://test.com", headers=None), timeout=10)
+                assert exc_info.value.status == 429
+                assert exc_info.value.headers is not None
+                assert exc_info.value.headers.get("X-Request-ID") == request_id
+            else:
+                response = await asyncio.wait_for(client.get(url="http://test.com", headers=None), timeout=10)
+                assert not response.ok
+                assert response.status == 500
+                assert response.response_headers.get("X-Request-ID") == request_id
 
 
 @pytest.mark.asyncio
@@ -641,3 +678,307 @@ async def test_get_does_not_set_resource_type_span_attribute_when_omitted(monkey
         if call.args and call.args[0] == FhirClientSdkOpenTelemetryAttributeNames.RESOURCE
     ]
     assert resource_calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "body, expected_text",
+    [
+        ("invalid_token", "invalid_token"),
+        # a 401 often has no body; the error text must stay non-empty
+        ("", "Unauthorized"),
+    ],
+)
+async def test_token_refresh_abort_keeps_response_headers_and_body(body: str, expected_text: str) -> None:
+    """When the refresh function aborts on a 401, the server's headers (e.g. X-Request-ID) and body are kept."""
+    request_id = "/8FF8FDBF04C44383D71A07CDACED9FD5+ref1_tOkq"
+
+    # noinspection PyUnusedLocal
+    async def abort_refresh_token(
+        url: str | None,
+        status_code: int | None,
+        current_token: str | None,
+        expiry_date: datetime | None,
+        retry_count: int | None,
+    ) -> RefreshTokenResult:
+        return RefreshTokenResult(access_token=None, expiry_date=None, abort_request=True)
+
+    async with RetryableAioHttpClient(
+        refresh_token_func=abort_refresh_token,
+        retries=2,
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        tracer_request_func=None,
+    ) as client:
+        with aioresponses() as m:
+            m.get("http://test.com", status=401, body=body, headers={"X-Request-ID": request_id})
+
+            response = await client.get(url="http://test.com", headers=None)
+
+            assert not response.ok
+            assert response.status == 401
+            assert response.response_headers.get("X-Request-ID") == request_id
+            assert response.response_headers.get("x-request-id") == request_id
+            assert await response.get_text_async() == expected_text
+
+
+@pytest.mark.asyncio
+async def test_token_refresh_retries_exhausted_keeps_response_headers() -> None:
+    """When 401 retries are exhausted and errors are not raised, the server's headers are kept (status stays 500)."""
+    request_id = "/8FF8FDBF04C44383D71A07CDACED9FD5+ref1_tOkq"
+
+    # noinspection PyUnusedLocal
+    async def mock_refresh_token(
+        url: str | None,
+        status_code: int | None,
+        current_token: str | None,
+        expiry_date: datetime | None,
+        retry_count: int | None,
+    ) -> RefreshTokenResult:
+        return RefreshTokenResult(access_token=f"token_{retry_count}", expiry_date=None, abort_request=False)
+
+    async with RetryableAioHttpClient(
+        refresh_token_func=mock_refresh_token,
+        retries=1,
+        throw_exception_on_error=False,
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        tracer_request_func=None,
+    ) as client:
+        with aioresponses() as m:
+            m.get("http://test.com", status=401, headers={"X-Request-ID": request_id})
+            m.get("http://test.com", status=401, headers={"X-Request-ID": request_id})
+
+            response = await client.get(url="http://test.com", headers=None)
+
+            assert not response.ok
+            assert response.status == 500
+            assert response.response_headers.get("X-Request-ID") == request_id
+
+
+@pytest.mark.asyncio
+async def test_token_refresh_raising_keeps_response_headers() -> None:
+    """When the refresh function raises after a 401 and errors are not raised, the server's headers are kept."""
+    request_id = "/8FF8FDBF04C44383D71A07CDACED9FD5+ref1_tOkq"
+
+    # noinspection PyUnusedLocal
+    async def failing_refresh_token(
+        url: str | None,
+        status_code: int | None,
+        current_token: str | None,
+        expiry_date: datetime | None,
+        retry_count: int | None,
+    ) -> RefreshTokenResult:
+        raise ValueError("token service unavailable")
+
+    async with RetryableAioHttpClient(
+        refresh_token_func=failing_refresh_token,
+        retries=2,
+        throw_exception_on_error=False,
+        use_data_streaming=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        tracer_request_func=None,
+    ) as client:
+        with aioresponses() as m:
+            m.get("http://test.com", status=401, headers={"X-Request-ID": request_id})
+
+            response = await client.get(url="http://test.com", headers=None)
+
+            assert not response.ok
+            assert response.status == 500
+            assert response.response_headers.get("X-Request-ID") == request_id
+            assert await response.get_text_async() == "token service unavailable"
+
+
+@pytest.mark.parametrize(
+    "headers, expected",
+    [
+        (None, {}),
+        ({}, {}),
+        ({"X-Request-ID": "abc"}, {"X-Request-ID": "abc"}),
+        (CIMultiDict([("X-Request-ID", "abc")]), {"X-Request-ID": "abc"}),
+        (CIMultiDictProxy(CIMultiDict([("Set-Cookie", "a"), ("Set-Cookie", "b")])), {"Set-Cookie": "a,b"}),
+    ],
+)
+def test_get_headers_as_dict(headers: Mapping[str, str] | None, expected: dict[str, str]) -> None:
+    assert RetryableAioHttpClient.get_headers_as_dict(headers=headers) == expected
+
+
+@pytest.mark.parametrize(
+    "timeout_retries,error,expected_attempts",
+    [
+        (None, TimeoutError(), 3),
+        (0, TimeoutError(), 1),
+        (1, TimeoutError(), 2),
+        (5, TimeoutError(), 3),
+        (0, SocketTimeoutError(), 1),
+        (0, ClientConnectionError(), 3),
+    ],
+    ids=[
+        "timeouts-retried-like-other-errors-by-default",
+        "no-timeout-retries",
+        "one-timeout-retry",
+        "timeout-retries-capped-by-retries",
+        "aiohttp-read-timeout-counts-as-timeout",
+        "non-timeout-errors-keep-all-retries",
+    ],
+)
+@pytest.mark.asyncio
+async def test_timeout_retries_limit_attempts_for_timeouts(
+    timeout_retries: int | None, error: Exception, expected_attempts: int
+) -> None:
+    # Arrange
+    async with RetryableAioHttpClient(
+        retries=2,
+        timeout_retries=timeout_retries,
+        backoff_factor=0,
+        use_data_streaming=False,
+        throw_exception_on_error=False,
+        access_token=None,
+        access_token_expiry_date=None,
+        refresh_token_func=None,
+        tracer_request_func=None,
+    ) as client:
+        with aioresponses() as m:
+            m.get("http://test.com", exception=error, repeat=True)
+
+            # Act
+            response = await client.get(url="http://test.com", headers=None)
+
+            # Assert
+            attempts = sum(len(calls) for calls in m.requests.values())
+            assert attempts == expected_attempts
+            assert not response.ok
+            assert response.status == 500
+
+
+def test_negative_timeout_retries_is_rejected() -> None:
+    with pytest.raises(ValueError, match="timeout_retries"):
+        RetryableAioHttpClient(
+            timeout_retries=-1,
+            use_data_streaming=False,
+            access_token=None,
+            access_token_expiry_date=None,
+            refresh_token_func=None,
+            tracer_request_func=None,
+        )
+
+
+@pytest.mark.parametrize(
+    "read_timeout_in_seconds,expected_sock_read",
+    [(None, 240), (30, 30)],
+    ids=["session-timeout-kept-by-default", "read-timeout-applied-per-request"],
+)
+@pytest.mark.asyncio
+async def test_read_timeout_is_sent_with_each_request(
+    read_timeout_in_seconds: float | None, expected_sock_read: float
+) -> None:
+    # Arrange
+    session = ClientSession(timeout=ClientTimeout(total=3600, sock_read=240))
+    try:
+        async with RetryableAioHttpClient(
+            read_timeout_in_seconds=read_timeout_in_seconds,
+            fn_get_session=lambda: session,
+            caller_managed_session=True,
+            use_data_streaming=False,
+            access_token=None,
+            access_token_expiry_date=None,
+            refresh_token_func=None,
+            tracer_request_func=None,
+        ) as client:
+            with aioresponses() as m:
+                m.get("http://test.com", status=200, body="{}")
+
+                # Act
+                await client.get(url="http://test.com")
+
+                # Assert
+                call = next(iter(m.requests.values()))[0]
+                timeout: ClientTimeout = call.kwargs.get("timeout") or session.timeout
+                assert timeout.sock_read == expected_sock_read
+                assert timeout.total == 3600
+                assert session.timeout.sock_read == 240
+    finally:
+        await session.close()
+
+
+@pytest.mark.parametrize(
+    "stall,timeout_retries,expected_attempts",
+    [
+        ("before-headers", 0, 1),
+        ("before-headers", None, 3),
+        ("mid-body", 0, 1),
+        ("mid-body", 1, 2),
+        ("mid-body", None, 3),
+    ],
+    ids=[
+        "stall-before-headers-not-retried",
+        "stall-before-headers-retried-by-default",
+        "body-stall-not-retried",
+        "body-stall-retried-once",
+        "body-stall-retried-by-default",
+    ],
+)
+@pytest.mark.asyncio
+async def test_read_timeout_ends_a_stalled_request_on_a_shared_session(
+    stall: str, timeout_retries: int | None, expected_attempts: int
+) -> None:
+    # Arrange: the session is shared and keeps a long read timeout; only the client's is short
+    attempts = 0
+
+    async def stalling_handler(request: web.Request) -> web.StreamResponse:
+        nonlocal attempts
+        attempts += 1
+        if stall == "before-headers":
+            await asyncio.sleep(5)
+        response = web.StreamResponse(status=200, headers={"Content-Length": "100"})
+        await response.prepare(request)
+        await response.write(b'{"resourceType": ')
+        await asyncio.sleep(5)
+        return response
+
+    app = web.Application()
+    app.router.add_get("/Patient", stalling_handler)
+    server = TestServer(app)
+    await server.start_server()
+    session = ClientSession(timeout=ClientTimeout(total=3600, sock_read=240))
+    try:
+        async with RetryableAioHttpClient(
+            retries=2,
+            timeout_retries=timeout_retries,
+            read_timeout_in_seconds=0.2,
+            backoff_factor=0,
+            fn_get_session=lambda: session,
+            caller_managed_session=True,
+            use_data_streaming=False,
+            throw_exception_on_error=False,
+            access_token=None,
+            access_token_expiry_date=None,
+            refresh_token_func=None,
+            tracer_request_func=None,
+        ) as client:
+            # Act
+            response = await client.get(url=str(server.make_url("/Patient")))
+
+        # Assert
+        assert attempts == expected_attempts
+        assert not response.ok
+        assert response.status == 500
+    finally:
+        await session.close()
+        await server.close()
+
+
+def test_non_positive_read_timeout_is_rejected() -> None:
+    with pytest.raises(ValueError, match="read_timeout_in_seconds"):
+        RetryableAioHttpClient(
+            read_timeout_in_seconds=0,
+            use_data_streaming=False,
+            access_token=None,
+            access_token_expiry_date=None,
+            refresh_token_func=None,
+            tracer_request_func=None,
+        )

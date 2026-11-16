@@ -1,6 +1,9 @@
 from helix_fhir_client_sdk.graph.resource_type_completion_event import (
     ResourceTypeCompletionEvent,
 )
+from helix_fhir_client_sdk.graph.resource_type_target_outcome import (
+    ResourceTypeTargetOutcome,
+)
 
 
 def test_resource_type_completion_event_construction() -> None:
@@ -102,3 +105,55 @@ def test_resource_type_completion_event_scope_denied_outcome() -> None:
         error_message=None,
     )
     assert event.outcome == "scope_denied"
+
+
+def test_resource_type_completion_event_target_outcomes_default_to_empty() -> None:
+    event = ResourceTypeCompletionEvent(
+        resource_types=["Condition"],
+        resource_count=0,
+        graph_depth=0,
+        urls=[],
+        link_index=-1,
+        client_person_id="",
+        connection_name="",
+        outcome="empty",
+        error_type=None,
+        error_message=None,
+    )
+    assert event.target_outcomes == []
+
+
+def test_resource_type_completion_event_with_target_outcomes() -> None:
+    allergy = ResourceTypeTargetOutcome(
+        resource_type="AllergyIntolerance",
+        resource_count=3,
+        outcome="success",
+        error_type=None,
+        error_message=None,
+    )
+    care_plan = ResourceTypeTargetOutcome(
+        resource_type="CarePlan",
+        resource_count=0,
+        outcome="error",
+        error_type="HttpStatus403",
+        error_message="Fetch failed with HTTP status 403",
+    )
+    event = ResourceTypeCompletionEvent(
+        resource_types=["AllergyIntolerance"],
+        resource_count=3,
+        graph_depth=0,
+        urls=["https://example.com/fhir/AllergyIntolerance?patient=123"],
+        link_index=0,
+        client_person_id="client-1",
+        connection_name="Aetna Sandbox",
+        outcome="success",
+        error_type=None,
+        error_message=None,
+        target_outcomes=[allergy, care_plan],
+    )
+    assert event.target_outcomes == [allergy, care_plan]
+    assert event.target_outcomes[1].resource_type == "CarePlan"
+    assert event.target_outcomes[1].resource_count == 0
+    assert event.target_outcomes[1].outcome == "error"
+    assert event.target_outcomes[1].error_type == "HttpStatus403"
+    assert event.target_outcomes[1].error_message == "Fetch failed with HTTP status 403"
