@@ -9,6 +9,8 @@ aioresponses mocks the FHIR server (the HTTP boundary); SpanRecorder (tests/span
 names of the span and of its attributes are literals here, because dashboards and queries use them.
 """
 
+import asyncio
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -32,6 +34,10 @@ DEPTH = "fhir.client_sdk.graph.depth"
 GROUP_INDEX = "fhir.client_sdk.graph.link_group.index"
 LINK_COUNT = "fhir.client_sdk.graph.link.count"
 CHILD_GET_COUNT = "fhir.client_sdk.graph.child_get.count"
+CALLER_SECONDS = "fhir.client_sdk.graph.link_group.caller_seconds"
+
+# the seconds that a slow caller takes with each response that the traversal yields
+CALLER_PAUSE_SECONDS = 0.05
 
 PATIENT: dict[str, Any] = {"resourceType": "Patient", "id": PATIENT_ID}
 
@@ -338,6 +344,10 @@ TRAVERSALS = [
     Traversal("simulate_graph_streaming_async", _simulate_graph_streaming),
     Traversal("simulate_graph_by_resource_type_async", _simulate_graph_by_resource_type),
 ]
+# the traversals that yield to their caller only between link groups, never inside one
+TRAVERSALS_THAT_YIELD_NOTHING_INSIDE_A_GROUP = [
+    traversal for traversal in TRAVERSALS if traversal.name != "simulate_graph_by_resource_type_async"
+]
 
 
 def _resource_keys(responses: list[FhirGetResponse]) -> list[str]:
@@ -471,8 +481,9 @@ async def test_link_group_span_has_no_identifier_and_no_url(
     spans = span_recorder.spans_named(LINK_GROUP_SPAN)
     assert spans
     for span in spans:
-        assert set(span.attributes) == {DEPTH, GROUP_INDEX, LINK_COUNT, CHILD_GET_COUNT}
-        assert all(type(value) is int for value in span.attributes.values())
+        assert set(span.attributes) == {DEPTH, GROUP_INDEX, LINK_COUNT, CHILD_GET_COUNT, CALLER_SECONDS}
+        assert all(type(span.attributes[name]) is int for name in (DEPTH, GROUP_INDEX, LINK_COUNT, CHILD_GET_COUNT))
+        assert type(span.attributes[CALLER_SECONDS]) is float
         for text in span.recorded_texts():
             assert not [value for value in identifiers + url_parts if value in text]
 
@@ -621,3 +632,89 @@ async def test_child_get_count_counts_a_retried_request_one_time(
     # the retry is a second attempt of the same request: the mock server gets it, but the count does not
     assert fhir_server.requests.count(retried_child_get) == 2
     assert _link_groups(span_recorder.spans_named(LINK_GROUP_SPAN)) == ONE_GROUP.link_groups
+
+
+@pytest.mark.parametrize("shape", SHAPES, ids=[shape.name for shape in SHAPES])
+@pytest.mark.parametrize(
+    "traversal",
+    TRAVERSALS_THAT_YIELD_NOTHING_INSIDE_A_GROUP,
+    ids=[traversal.name for traversal in TRAVERSALS_THAT_YIELD_NOTHING_INSIDE_A_GROUP],
+)
+async def test_caller_seconds_is_zero_for_a_traversal_that_yields_nothing_inside_a_group(
+    traversal: Traversal, shape: GraphShape, span_recorder: SpanRecorder
+) -> None:
+    # Arrange
+    fhir_server = MockFhirServer(answers=shape.answers)
+
+    # Act
+    with aioresponses() as mocked_fhir_server:
+        fhir_server.install(mocked_fhir_server)
+        await traversal.run(FhirClient().url(BASE_URL), shape.graph, 1, False)
+
+    # Assert
+    spans = span_recorder.spans_named(LINK_GROUP_SPAN)
+    assert [span.attributes[CALLER_SECONDS] for span in spans] == [0.0] * len(shape.link_groups)
+
+
+async def _pause_awaiting() -> None:
+    await asyncio.sleep(CALLER_PAUSE_SECONDS)
+
+
+async def _pause_blocking() -> None:
+    # CPU work of the caller blocks the event loop in the same way
+    time.sleep(CALLER_PAUSE_SECONDS)
+
+
+@pytest.mark.parametrize(
+    "pause", [_pause_awaiting, _pause_blocking], ids=["caller-awaits", "caller-blocks-the-event-loop"]
+)
+@pytest.mark.parametrize("shape", SHAPES, ids=[shape.name for shape in SHAPES])
+async def test_caller_seconds_counts_the_time_that_the_caller_takes_with_each_response_of_the_group(
+    shape: GraphShape, pause: Callable[[], Awaitable[None]], span_recorder: SpanRecorder
+) -> None:
+    # Arrange
+    fhir_server = MockFhirServer(answers=shape.answers)
+    fhir_client = FhirClient().url(BASE_URL)
+    responses: list[FhirGetResponse] = []
+
+    # Act
+    with aioresponses() as mocked_fhir_server:
+        fhir_server.install(mocked_fhir_server)
+        async for response in fhir_client.simulate_graph_by_resource_type_async(
+            id_=PATIENT_ID, graph_json=shape.graph, contained=False, max_concurrent_tasks=1
+        ):
+            responses.append(response)
+            await pause()
+
+    # Assert
+    spans = span_recorder.spans_named(LINK_GROUP_SPAN)
+    caller_seconds = [span.attributes[CALLER_SECONDS] for span in spans]
+    # the start resource is yielded before the first group; every other response is yielded inside a group
+    assert sum(caller_seconds) >= CALLER_PAUSE_SECONDS * (len(responses) - 1)
+    assert all(seconds > 0 for seconds in caller_seconds)
+    assert _link_groups(spans) == shape.link_groups
+
+
+async def test_caller_seconds_counts_the_time_until_the_caller_closes_the_traversal_inside_a_group(
+    span_recorder: SpanRecorder,
+) -> None:
+    # Arrange
+    fhir_server = MockFhirServer(answers=THREE_GROUPS.answers)
+    fhir_client = FhirClient().url(BASE_URL)
+
+    # Act
+    with aioresponses() as mocked_fhir_server:
+        fhir_server.install(mocked_fhir_server)
+        stream = fhir_client.simulate_graph_by_resource_type_async(
+            id_=PATIENT_ID, graph_json=THREE_GROUPS.graph, contained=False, max_concurrent_tasks=1
+        )
+        # the start resource, then the response of the first link of the depth 0 group
+        await anext(stream)
+        await anext(stream)
+        await asyncio.sleep(CALLER_PAUSE_SECONDS)
+        await stream.aclose()
+
+    # Assert
+    [open_group] = span_recorder.spans_named(LINK_GROUP_SPAN)
+    assert open_group.ended
+    assert open_group.attributes[CALLER_SECONDS] >= CALLER_PAUSE_SECONDS

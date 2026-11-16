@@ -16,3 +16,6 @@ class FhirClientSdkOpenTelemetryAttributeNames:
     # Exact only when the client runs one traversal at a time and its caller sends no requests on the same client
     # during the group
     GRAPH_CHILD_GET_COUNT: str = "fhir.client_sdk.graph.child_get.count"
+    # the seconds of the group that the traversal waited for its caller: from each response that it yields inside
+    # the group until the caller asks for the next one. 0 for a traversal that yields nothing inside a group
+    GRAPH_LINK_GROUP_CALLER_SECONDS: str = "fhir.client_sdk.graph.link_group.caller_seconds"

@@ -130,6 +130,40 @@ class _GraphTraversalRollup:
     total_rejected_count: int = 0
 
 
+@dataclass(slots=True)
+class _LinkGroupSpan:
+    """
+    The span of one link group (see SimulatedGraphProcessorMixin._link_group_span), and the seconds of the group
+    that the traversal waited for its caller. Not part of this SDK's public API.
+    """
+
+    span: Span
+    caller_seconds: float = 0.0
+
+    def set_link_error(self, *, exception: BaseException) -> None:
+        """
+        Sets the ERROR status for a link error that the traversal continues past (see SpanErrorStatus).
+
+        :param exception: the exception of the link
+        """
+        SpanErrorStatus.set(span=self.span, exception=exception)
+
+    @contextmanager
+    def waiting_for_caller(self) -> Iterator[None]:
+        """
+        Adds the time of the block to caller_seconds. The traversal runs each yield inside the group in this block,
+        so the time is from the yield until the caller asks for the next response, or closes the traversal.
+
+        While the traversal waits, the fetch tasks that it already started keep running only when the caller
+        awaits: CPU work of the caller runs on the same event loop and stops them.
+        """
+        started: float = time.perf_counter()
+        try:
+            yield
+        finally:
+            self.caller_seconds += time.perf_counter() - started
+
+
 class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
     """
     A mixin class for advanced FHIR graph query processing.
@@ -538,7 +572,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             ):
                                 if link_fetch_result.error is not None:
                                     # continue_on_resource_type_error: the traversal continues past this link
-                                    SpanErrorStatus.set(span=link_group_span, exception=link_fetch_result.error)
+                                    link_group_span.set_link_error(exception=link_fetch_result.error)
                                 link_responses = link_fetch_result.responses
                                 link_queried_urls = [r.url for r in link_responses if r.url]
                                 child_responses.extend(link_responses)
@@ -2306,7 +2340,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             await inner_generator.aclose()
 
     @contextmanager
-    def _link_group_span(self, *, graph_depth: int, group_index: int, link_count: int) -> Iterator[Span]:
+    def _link_group_span(self, *, graph_depth: int, group_index: int, link_count: int) -> Iterator[_LinkGroupSpan]:
         """
         Starts the span of one link group of the traversal, and ends it when the block ends. Shared by
         process_simulate_graph_async() and _process_simulate_graph_by_resource_type_async(), which run the
@@ -2319,8 +2353,10 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         on_resource_type_started and on_resource_type_completed callbacks of the links of the group. In
         _process_simulate_graph_by_resource_type_async() the traversal also yields each response to its caller
         inside the group, so the duration includes the time that the caller takes with each yielded response.
-        Because of that yield, the span is not made the current span: the spans of the caller must not become
-        children of this span.
+        That time is the caller_seconds attribute (see _LinkGroupSpan.waiting_for_caller), so the time of the group
+        without its caller is the duration minus caller_seconds. The other traversal methods yield nothing inside
+        a group, and their caller_seconds is 0. Because of that yield, the span is not made the current span: the
+        spans of the caller must not become children of this span.
 
         An exception that ends the group (a failed fetch, or an exception from a callback that runs in the
         group) sets the ERROR status with the type of the exception only (see SpanErrorStatus), and so does a
@@ -2332,7 +2368,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
         :param graph_depth: the depth of the links of the group: 0 for the links of the start resource
         :param group_index: the position of the group in the groups of its depth: 0 for the first
         :param link_count: the number of links in the group
-        :return: the span, so that the traversal can set the ERROR status for a link error that it continues past
+        :return: the span of the group, so that the traversal can set the ERROR status for a link error that it
+            continues past, and add the time that it waits for its caller
         """
         # the groups of a traversal run one after the other, so the requests that this client starts during the
         # group are the GET requests of its links. getattr, and before start_span: a class that mixes in the
@@ -2343,16 +2380,21 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
             record_exception=False,
             set_status_on_exception=False,
         )
+        link_group_span: _LinkGroupSpan = _LinkGroupSpan(span=span)
         try:
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.GRAPH_DEPTH, graph_depth)
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.GRAPH_LINK_GROUP_INDEX, group_index)
             span.set_attribute(FhirClientSdkOpenTelemetryAttributeNames.GRAPH_LINK_COUNT, link_count)
             with SpanErrorStatus.on_exception(span=span):
-                yield span
+                yield link_group_span
         finally:
             span.set_attribute(
                 FhirClientSdkOpenTelemetryAttributeNames.GRAPH_CHILD_GET_COUNT,
                 getattr(self, "_sent_request_count", 0) - sent_request_count_at_start,
+            )
+            span.set_attribute(
+                FhirClientSdkOpenTelemetryAttributeNames.GRAPH_LINK_GROUP_CALLER_SECONDS,
+                link_group_span.caller_seconds,
             )
             span.end()
 
@@ -2931,7 +2973,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             ):
                                 if link_fetch_result.error is not None:
                                     # continue_on_resource_type_error: the traversal continues past this link
-                                    SpanErrorStatus.set(span=link_group_span, exception=link_fetch_result.error)
+                                    link_group_span.set_link_error(exception=link_fetch_result.error)
                                 link_responses = link_fetch_result.responses
 
                                 # Capture each response's actual queried URL before the
@@ -2943,7 +2985,8 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                                 # Yield each link's responses individually instead of accumulating
                                 for link_response in link_responses:
                                     link_response.url = url or link_response.url
-                                    yield link_response
+                                    with link_group_span.waiting_for_caller():
+                                        yield link_response
 
                                 await self._record_link_batch_outcome(
                                     rollup=rollup,
