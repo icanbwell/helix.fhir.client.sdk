@@ -19,6 +19,7 @@ from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from yarl import URL
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
+from helix_fhir_client_sdk.test.ndjson_test_helpers import ndjson_lines
 
 _PATIENT_1 = {"resourceType": "Patient", "id": "1"}
 _PATIENT_2 = {"resourceType": "Patient", "id": "2"}
@@ -31,7 +32,7 @@ def _sent_body(m: aioresponses, method: str, url: str) -> str:
 
 
 def _assert_is_ndjson(body: str, expected_resources: list[dict[str, str]]) -> None:
-    lines = [line for line in body.split("\n") if line]
+    lines = ndjson_lines(body)
     assert len(lines) == len(expected_resources)
     assert [json.loads(line) for line in lines] == expected_resources
 
@@ -188,7 +189,7 @@ async def test_merge_async_ndjson_body_escapes_embedded_newlines_in_resource_fie
         _ = [response async for response in fhir_client.merge_async(json_data_list=json_data_list)]
 
         body = _sent_body(m, "POST", url)
-        lines = [line for line in body.split("\n") if line]
+        lines = ndjson_lines(body)
         assert len(lines) == 2
         assert json.loads(lines[0]) == patient_with_newline
         assert json.loads(lines[1]) == _PATIENT_2
