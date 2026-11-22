@@ -109,4 +109,4 @@ async def test_fhir_client_patient_list_async_streaming() -> None:
         response: FhirGetResponse = await fhir_client.get_async(data_chunk_handler=on_chunk)
 
     logger.info(response.get_response_text())
-    assert response.get_response_text() == response_text
+    assert json.loads(response.get_response_text()) == json.loads(response_text)

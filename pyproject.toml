@@ -24,7 +24,7 @@ dependencies = [
     "aiohttp>=3.14.3",
     "async-timeout>=4.0.3",
     "python-dateutil",
-    "compressedfhir>=3.0.5",
+    "compressedfhir>=5.0.0",
     "certifi>=2025.1.31",
     "opentelemetry-api>=1.39",
     "multidict>=6",
@@ -69,11 +69,12 @@ dev = [
 exclude-newer = "2 days"
 constraint-dependencies = ["msgpack>=1.2.1"]
 
-# fhirschemapy is an internal, first-party package (published by this org, not a
-# third-party dependency), so the blanket 2-day cutoff doesn't apply to it - always
-# trust the latest release.
+# fhirschemapy and compressedfhir are internal, first-party packages (published by this
+# org, not third-party dependencies), so the blanket 2-day cutoff doesn't apply to them -
+# always trust the latest release.
 [tool.uv.exclude-newer-package]
 fhirschemapy = "0 days"
+compressedfhir = "0 days"
 
 [tool.ruff]
 line-length = 120

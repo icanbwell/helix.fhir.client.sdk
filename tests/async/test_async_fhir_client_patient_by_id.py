@@ -38,4 +38,4 @@ async def test_fhir_client_patient_by_id_async() -> None:
     response: FhirGetResponse = await fhir_client.get_async()
 
     logger.info(response.get_response_text())
-    assert response.get_response_text() == response_text
+    assert json.loads(response.get_response_text()) == json.loads(response_text)
