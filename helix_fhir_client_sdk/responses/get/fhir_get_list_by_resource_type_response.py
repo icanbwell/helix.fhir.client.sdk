@@ -168,7 +168,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         )
 
     @classmethod
-    def _parse_resources(cls, *, responses: str, byte_identical_json: bool = False) -> list[dict[str, Any]]:
+    def _parse_resources(cls, *, responses: str) -> list[dict[str, Any]]:
         """
         Gets the resources from the response
 
@@ -177,9 +177,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         """
         try:
             # THis is either a list of resources or a Bundle resource containing a list of resources
-            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(
-                responses, byte_identical_json=byte_identical_json
-            )
+            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(responses)
             assert isinstance(child_response_resources, list)
             return child_response_resources
         except Exception as e:

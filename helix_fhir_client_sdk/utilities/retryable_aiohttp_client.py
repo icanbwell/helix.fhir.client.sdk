@@ -80,6 +80,7 @@ class RetryableAioHttpClient:
                                        If False (default), the SDK will close the session on exit.
         :param exclude_status_codes_from_retry: Status codes to exclude from retry logic
         :param use_data_streaming: Whether to stream response data
+        :param byte_identical_json: Parse response JSON with the standard library instead of orjson
         :param compress: Whether to compress request data
         :param send_data_as_chunked: Whether to use chunked transfer encoding
         :param throw_exception_on_error: Whether to raise exceptions on HTTP errors

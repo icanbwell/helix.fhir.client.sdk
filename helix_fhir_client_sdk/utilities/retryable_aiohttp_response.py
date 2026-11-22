@@ -66,8 +66,10 @@ class RetryableAioHttpResponse:
         """ Content of the response as a stream """
 
         self.use_data_streaming: bool | None = use_data_streaming
-        self.byte_identical_json: bool = byte_identical_json
         """ If the response should be read as a stream """
+
+        self.byte_identical_json: bool = byte_identical_json
+        """ If json() should parse with the standard library instead of orjson """
 
         self.text_read: str | None = None
         """ Text of the response if the response is read as a stream """
