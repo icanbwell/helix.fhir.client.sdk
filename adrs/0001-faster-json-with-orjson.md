@@ -163,7 +163,9 @@ handling and big-integer parse behavior are visible to callers. The target versi
   hit it. Both libraries already lose
   precision on fractional decimals (the FHIR R4 JSON page notes `2.00` becomes `2`). The SDK's
   `$merge` path parses and re-dumps resources (`fhir_merge_mixin.py:152`), so such a value would be
-  rewritten as a float before being sent. This is an accepted, documented difference;
+  rewritten as a float before being sent. This is an accepted, documented difference, and it applies to
+  the merge and patch re-send paths too: the rule-walk review suggested keeping stdlib parsing there,
+  and the owner decided to keep orjson at every parse site (2026-11-21);
   `byte_identical_json(True)` parses with stdlib and keeps the exact value. Message text of
   `JSONDecodeError` also differs where `str(e)` is surfaced (`fhir_merge_mixin.py:234`,
   `fhir_patch_mixin.py:123`). `orjson.JSONDecodeError` subclasses both `ValueError` and
