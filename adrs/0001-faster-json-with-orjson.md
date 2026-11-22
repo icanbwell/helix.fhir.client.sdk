@@ -60,8 +60,16 @@ Compact output was 7.8% smaller on the 1,000-entry Bundle (1,028,045 → 948,039
 
 These are the gains from swapping the library only. `compressedfhir`'s 7 to 10x came from also
 removing double decodes and repeated pruning, so do not carry those multiples over. Serialization
-is where the gain is (about 6x); parsing is about 2x, and only without a guard (see Further
-decisions). The end-to-end effect on a real request is **unproven**: the savings are milliseconds
+is where the gain is; parsing is smaller, and only without a guard (see Further decisions). The ratio
+depends on the payload, not on the Python version: on one machine with 10,000 entries, `dumps` was
+4.4x for object-heavy bundles (short keys and values, such as the Observations above), 6.0x with long
+UUID references, 7.6x with float-heavy arrays and 9.2x with 500-character narrative text, and `loads`
+1.5 to 2.1x. Python 3.12.15 and 3.13.12 gave the same ratios on one 11 MB bundle. In the Alpine
+dev container on Python 3.12 the object-heavy bundle gave 3.9x (`dumps`) and 1.6x (`loads`), against 4.6x on
+macOS, because stdlib ran about 1.5x slower there and orjson about 1.8x slower. So "about 6x" fits string- and
+number-heavy bundles; expect 4 to 5x on object-heavy FHIR and more on narrative-heavy resources
+(`DocumentReference`, `Composition`). The `cls=FhirJSONEncoder` hook costs nothing in stdlib `dumps` (12.0 ms
+against 12.4 ms plain, 10,000 entries). The implementation's benchmark is `tests/test_benchmark_fast_json.py`. The end-to-end effect on a real request is **unproven**: the savings are milliseconds
 per large page against network time in the hundreds of milliseconds. The realistic benefit is less
 event-loop blocking during parallel graph fan-out.
 
@@ -236,10 +244,15 @@ handling and big-integer parse behavior are visible to callers. The target versi
   cache, and the hash sites are not hot on the default path. The three
   sites (`simulated_graph_processor_mixin.py:1521,1812`, `fhir_get_bundle_response.py:364`) keep
   stdlib `json` and call `resource.json(byte_identical=True)` with the flag **fixed**, exempt from
-  forwarding, so the hash is the same in both client modes. This matters because a resource holding
-  NaN produces different `compressedfhir` text in default and exact modes (PR #31 default drops the
-  NaN key; the independent review reproduced differing hashes). One helper (for example `stable_resource_hash_input(resource) -> str`) owns this expression so the three sites cannot drift apart, and the regression test pins its output. A regression test pins a fixed
-  resource's hash, including a NaN fixture.
+  forwarding, so the hash is the same in both client modes. This keeps the hash independent of the client
+  option. **Correction from the implementation (2026-11-22):** the expectation here, that a resource
+  holding NaN writes different text in default and exact modes, does not hold for `compressedfhir`
+  5.0.0. Both `json()` modes drop a NaN-valued key, where 3.0.5 wrote a `NaN` literal. So a resource
+  holding NaN gets a different `raw_hash` after the `compressedfhir` 5.0.0 upgrade (PR #298) whatever
+  the SDK's flag is, and the helper cannot restore the 3.0.5 value. Only resources holding NaN are
+  affected (FHIR JSON cannot carry NaN), and `raw_hash` is compared only for caller-supplied caches that
+  are kept. Accepted unless the owner decides otherwise (open item). One helper (for example `stable_resource_hash_input(resource) -> str`) owns this expression so the three sites cannot drift apart, and the regression test pins its output. A regression test pins a fixed
+  resource's hash captured on `compressedfhir` 3.0.5, and a NaN fixture pinned to the 5.0.0 value.
 * **The NDJSON `splitlines()` fix is standalone, not an orjson prerequisite (BAI-1965).**
   `parse_json_or_ndjson` (`json_helpers.py:19`) parses only server responses, and fhir-server writes
   NDJSON with `JSON.stringify`, which leaves U+2028 and U+0085 unescaped, so `text.splitlines()`
@@ -383,7 +396,17 @@ handling and big-integer parse behavior are visible to callers. The target versi
   `fhir-notes-vector-store`, `helix-core`, `helix-event-listener-service`, `helix.pipelines`,
   `iop_databricks`, `mcp-fhir-agent`, `SparkPipelineFramework`. Before release, for each: does it
   assert on or persist exact response or request text, or persisted `raw_hash` values? Record the
-  result here as a table (repo, outputs consumed, exact-text dependency, action).
+  result here as a table (repo, outputs consumed, exact-text dependency, action). Partial result
+  (2026-11-22, local checkouts under `~/git`, grep for `get_response_text`, `raw_hash` and `.responses`
+  only; not a full audit):
+
+  | Repo | Outputs consumed | Exact-text dependency | Status |
+  |---|---|---|---|
+  | `ai-health-optimization` | `get_response_text()` | none found: it calls `json.loads` on it | checked |
+  | `helix.pipelines` | `.responses` | none found: it calls `json.loads` on it | checked |
+  | `helix-core`, `SparkPipelineFramework` | merge, delete and update response objects, `.responses` | not traced | open |
+  | `fhir-notes-vector-store`, `mcp-fhir-agent` | `get_response_text()` and responses | not traced | open |
+  | `ai-visit-summary`, `helix-event-listener-service`, `iop_databricks` | not known | not cloned under `~/git` | open |
 * Risk: gain smaller than expected end to end (see Context). Do not advertise an end-to-end speedup
   until profiled.
 * Public contract: return types stay `str`. The behavior table for `byte_identical_json` is documented in the docstrings of
@@ -459,6 +482,9 @@ every GitHub release; releases 5.0.22 to 5.0.27 shipped between 2026-11-10 and 2
 | End-to-end share of wall-clock spent in JSON on a real graph or merge workload | Imran | unproven |
 | `compressedfhir` 5.0.0 contract (`raw_dict()` type, `FhirJSONEncoder` removable, NaN in `dict()`) | upgrade PR | unproven |
 | Prior-art search in Confluence (Approved); compressed-fhir PR #31 was supplied, not found by search | Imran | partial |
+| `raw_hash` for a resource holding NaN changes with the `compressedfhir` 5.0.0 upgrade in both modes (3.0.5 wrote a `NaN` literal, 5.0.0 drops the key); accept or add a mitigation | Imran | decision needed |
+| Pre-existing: `fhir_response_processor.py` decodes each streamed chunk with `chunk_bytes.decode("utf-8")`, so a multi-byte character split across chunks corrupts or raises; raw UTF-8 makes it reachable | Imran | separate ticket to file |
+| Implementation: `IQ-BAI-1960-orjson-impl`, see `docs/superpowers/plans/2026-11-21-bai-1960-orjson-implementation.md` | Imran | built, PR to open |
 | Separate ticket for PHI in error strings and logs (Further decisions) | Imran | filed as BAI-1964 |
 | What fhir-server does with `null` where stdlib wrote an invalid `NaN` literal in a `$merge` body | Imran | unproven |
 | Confluence prior-art search for orjson adoption elsewhere (the PROA page above was found; no other hits recorded) | Imran | partial |

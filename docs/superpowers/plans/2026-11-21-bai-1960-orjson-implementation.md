@@ -1,6 +1,6 @@
 # Implementation plan: orjson for the SDK's own JSON handling (BAI-1960)
 
-Jira: BAI-1960. Implements `adrs/0001-faster-json-with-orjson.md` (PR #297). This document is the plan only; no code changes are in this PR. The ADR is the authority for every decision below; where this plan and the ADR disagree, the ADR wins and this plan is fixed. Line numbers come from the ADR (`f6e8e34`) and must be rechecked before editing.
+Jira: BAI-1960. Implements `adrs/0001-faster-json-with-orjson.md` (PR #297). This document is the plan only; no code changes are in this PR. The implementation is on branch `IQ-BAI-1960-orjson-impl`; see Status. The ADR is the authority for every decision below; where this plan and the ADR disagree, the ADR wins and this plan is fixed. Line numbers come from the ADR (`f6e8e34`) and must be rechecked before editing.
 
 ## Constraints that apply
 
@@ -115,3 +115,15 @@ Replace `json.dumps` at the build-body and build-response-text sites in the ADR 
 - A hash site accidentally forwarded the client flag (continuity test catches it).
 - The streaming parser change altering which errors consumers see; read consumers before choosing raise versus report.
 - Rebase conflicts with #299 and #300 on `json_helpers.py`, `fhir_get_response_factory.py`, `fhir_merge_resources_mixin.py` and shared test files.
+
+## Status (2026-11-22)
+
+Built on `IQ-BAI-1960-orjson-impl` (stacked on #298): phases 1 to 6, the README section, flag and
+streaming-parser tests, and the benchmark. Unit suite, `tests` and `tests_integration` pass in the dev container.
+
+Deviations and findings:
+- Phase 0 oracle: the byte-identical test compares against `json.dumps(..., cls=FhirJSONEncoder)` directly instead of a copied module, since the old code was exactly that call.
+- The NaN hash fixture is pinned to the `compressedfhir` 5.0.0 value: 5.0.0 drops NaN keys in both modes, so `raw_hash` for a NaN-bearing resource changes with the upgrade (recorded in the ADR).
+- The mock-server merge tests now expect compact request bodies.
+
+Not done: event-loop stall and GIL re-check on 3.12, cProfile on the Provider New workload, the fhir-server contract test (needs `fhir-server#2775` deployed), the full consumer audit, and the version numbers.
