@@ -1,5 +1,8 @@
+import json
 from logging import Logger
 from typing import Any
+
+import pytest
 
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
@@ -86,15 +89,16 @@ def test_add_chunk_multiple_complete_objects() -> None:
 
 def test_add_chunk_incomplete_object() -> None:
     parser = NdJsonChunkStreamingParser()
-    chunk = '{"name": "John", "age": 30\n'
+    chunk = '{"name": "John", "age": 30'
     result: list[dict[str, Any]] = parser.add_chunk(chunk, logger=None)
     expected_result: list[dict[str, Any]] = []
     assert result == expected_result
+    assert parser.buffer == chunk
 
 
 def test_add_chunk_complete_and_incomplete_objects() -> None:
     parser = NdJsonChunkStreamingParser()
-    chunk = '{"name": "John", "age": 30}\n{"name": "Jane", "age": 25\n'
+    chunk = '{"name": "John", "age": 30}\n{"name": "Jane", "age": 25'
     result = parser.add_chunk(chunk, logger=None)
     expected_result: list[dict[str, Any]] = [{"name": "John", "age": 30}]
     assert result == expected_result
@@ -144,3 +148,45 @@ def test_add_chunk_no_newline_at_the_end() -> None:
         {"name": "Jane", "age": 25},
     ]
     assert result == expected_result
+
+
+# Synthetic lines only (no PHI).  Each is rejected by orjson but accepted by the standard library,
+# except the truncated line, which both reject.
+_VALID_FIRST = '{"id": "first"}'
+_VALID_LAST = '{"id": "last"}'
+
+
+@pytest.mark.parametrize(
+    "bad_line",
+    [
+        '{"id": NaN}',
+        '{"id": "\\ud800"}',
+        "[" * 1100 + "]" * 1100,
+        '{"id": "truncated"',
+    ],
+)
+def test_invalid_line_in_the_middle_of_a_stream_raises_and_is_never_dropped(bad_line: str) -> None:
+    parser = NdJsonChunkStreamingParser()
+    chunk = f"{_VALID_FIRST}\n{bad_line}\n{_VALID_LAST}\n"
+
+    with pytest.raises(json.JSONDecodeError):
+        parser.add_chunk(chunk, logger=None)
+
+
+@pytest.mark.parametrize("bad_line", ['{"id": NaN}', '{"id": "\\ud800"}', "[" * 1100 + "]" * 1100])
+def test_byte_identical_json_accepts_what_the_standard_library_accepts(bad_line: str) -> None:
+    parser = NdJsonChunkStreamingParser(byte_identical_json=True)
+
+    result = parser.add_chunk(f"{_VALID_FIRST}\n{bad_line}\n{_VALID_LAST}\n", logger=None)
+
+    assert len(result) == 3
+
+
+def test_partial_final_line_is_held_until_the_next_chunk() -> None:
+    parser = NdJsonChunkStreamingParser()
+
+    first = parser.add_chunk(f'{_VALID_FIRST}\n{{"id": "la', logger=None)
+    second = parser.add_chunk('st"}\n', logger=None)
+
+    assert first == [{"id": "first"}]
+    assert second == [{"id": "last"}]

@@ -2,49 +2,44 @@ import json
 from logging import Logger
 from typing import Any
 
+from helix_fhir_client_sdk.utilities.fast_json import loads
+
 
 class NdJsonChunkStreamingParser:
-    def __init__(self) -> None:
-        # Initialize an empty buffer to store incomplete JSON objects
+    def __init__(self, *, byte_identical_json: bool = False) -> None:
+        # Holds the text after the last newline, which may be the start of a line that has not fully arrived
         self.buffer = ""
+        self._byte_identical_json: bool = byte_identical_json
 
     def add_chunk(self, chunk: str, logger: Logger | None) -> list[dict[str, Any]]:
         """
         Add a new chunk of NDJSON data and return a list of complete JSON objects.
 
+        Only the text after the last newline can be a partial line.  A line that ends in a newline is
+        complete, so one that does not parse is an error and is raised, never held back or dropped.
+
         :param chunk: A string containing a chunk of NDJSON data.
         :param logger: A logger to log errors.
         :return: A list of complete JSON objects extracted from the chunk.
+        :raises json.JSONDecodeError: when a newline-terminated line is not valid JSON
         """
-        # if logger:
-        #     logger.debug(f"NdJsonChunkStreamingParser: chunk:\n{chunk}")
+        lines = (self.buffer + chunk).split("\n")
+        # the text after the last newline: empty when the chunk ended on a newline
+        pending = lines.pop()
 
-        # Add the new chunk to the buffer
-        self.buffer += chunk
-        # Split the buffer into lines based on newline characters
-        lines = self.buffer.split("\n")
+        complete_json_objects: list[dict[str, Any]] = [
+            loads(line, byte_identical=self._byte_identical_json) for line in lines if line.strip()
+        ]
 
-        complete_json_objects: list[dict[str, Any]] = []
+        if pending.strip():
+            try:
+                complete_json_objects.append(loads(pending, byte_identical=self._byte_identical_json))
+                pending = ""
+            except json.JSONDecodeError:
+                # the rest of this line may arrive in the next chunk
+                pass
+        else:
+            pending = ""
 
-        incomplete_lines: list[str] = []
-
-        # Process all complete lines
-        for line in lines:
-            if line.strip():  # Ensure line is not empty
-                try:
-                    json_object = json.loads(line)  # Load the JSON object
-                    complete_json_objects.append(json_object)
-                except json.JSONDecodeError:
-                    incomplete_lines.append(line)
-                    # if logger:
-                    #     logger.debug(
-                    #         f"NdJsonChunkStreamingParser Error parsing line: {line}\nError: {e}."
-                    #         "  Will wait for next chunk to see if it fixes the issue."
-                    #         f"\nline: {line}"
-                    #         f"\nincomplete_lines: {incomplete_lines}"
-                    #     )
-
-        # Update the buffer with incomplete lines
-        self.buffer = "\n".join(incomplete_lines)
-        # Return the list of complete JSON objects
+        self.buffer = pending
         return complete_json_objects

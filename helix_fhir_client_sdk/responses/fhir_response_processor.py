@@ -333,7 +333,9 @@ class FhirResponseProcessor:
         next_url: str | None = None
         if use_data_streaming:
             # used to parse the ndjson response for streaming
-            nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser = NdJsonChunkStreamingParser()
+            nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser = NdJsonChunkStreamingParser(
+                byte_identical_json=byte_identical_json
+            )
             async for r in FhirResponseProcessor._handle_response_200_streaming(
                 access_token=access_token,
                 fn_handle_streaming_chunk=fn_handle_streaming_chunk,

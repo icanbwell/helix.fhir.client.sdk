@@ -1,4 +1,3 @@
-import json
 from collections.abc import AsyncGenerator, Generator
 from datetime import datetime
 from logging import Logger
@@ -21,7 +20,7 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
-from helix_fhir_client_sdk.utilities.hash_util import ResourceHash
+from helix_fhir_client_sdk.utilities.hash_util import ResourceHash, stable_resource_hash_input
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -367,7 +366,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             if resource_hash is None:
                 return False
             try:
-                entry_hash = resource_hash.hash_value(json.dumps(json.loads(resource.json()), sort_keys=True))
+                entry_hash = resource_hash.hash_value(stable_resource_hash_input(resource))
                 return entry_hash == cache_map[key]
             except Exception:
                 return False
