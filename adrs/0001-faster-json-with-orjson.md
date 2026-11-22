@@ -65,6 +65,14 @@ decisions). The end-to-end effect on a real request is **unproven**: the savings
 per large page against network time in the hundreds of milliseconds. The realistic benefit is less
 event-loop blocking during parallel graph fan-out.
 
+orjson shortens each stall by being faster, not by letting other work run meanwhile. Measured on a
+synthetic 6.2 MB Bundle (Python 3.13.12, 4 threads against 4 sequential calls, 2026-11-22):
+`orjson.dumps` 31.9 ms in threads against 28.7 ms sequential (ratio 0.90), so it holds the GIL, as
+does stdlib `json` (ratios 1.02 and 1.06). `orjson.loads` showed a ratio of 1.42 in one run, which
+is not evidence of GIL release (garbage-collection noise on the large result is likely); treat it as
+holding the GIL too and re-measure in the implementation. Moving work off the loop is a separate
+decision (option 8).
+
 ### Production evidence (Confluence 6888751116, "PROA Provider New latency improvements")
 
 The page records profiling and latency work on the main production user of this SDK (1-vCPU
@@ -401,6 +409,9 @@ Parameterized over both modes where behavior differs:
    representative graph traversal to settle the end-to-end claim, using the Provider New workload
    from the Confluence page above as the target. `bronze.proa.metrics` alone cannot isolate the
    SDK's JSON share, so profile or trace the SDK directly.
+   Also record the maximum event-loop stall per call (for example by running the call on the
+   loop beside a ticking coroutine) before and after on Python 3.12, since shorter stalls are the
+   stated goal, and re-check the GIL result above on 3.12 with repeated runs.
 9. Contract test against fhir-server `$merge` with a non-ASCII resource split across chunks, once
    `fhir-server#2775` is deployed.
 
