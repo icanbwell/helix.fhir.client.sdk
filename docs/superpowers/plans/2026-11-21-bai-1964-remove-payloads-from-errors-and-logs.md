@@ -61,4 +61,4 @@ Use synthetic resources only (no real patient data). For each site, build a reso
 
 ## Not in scope
 
-Other logging in the SDK (a wider audit should get its own ticket, to be filed before this plan is implemented), and anything in the orjson ADR work (BAI-1960).
+Other logging in the SDK (the wider audit is tracked in BAI-1970 and must be done alongside or after this plan), and anything in the orjson ADR work (BAI-1960).
