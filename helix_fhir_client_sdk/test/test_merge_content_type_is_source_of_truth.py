@@ -20,6 +20,7 @@ from compressedfhir.fhir.fhir_resource_list import FhirResourceList
 from yarl import URL
 
 from helix_fhir_client_sdk.fhir_client import FhirClient
+from helix_fhir_client_sdk.test.ndjson_test_helpers import ndjson_lines
 
 _PATIENT_1 = {"resourceType": "Patient", "id": "1"}
 _PATIENT_2 = {"resourceType": "Patient", "id": "2"}
@@ -87,7 +88,7 @@ async def test_merge_async_sends_ndjson_body_from_content_type_alone_without_str
         _ = [response async for response in fhir_client.merge_async(json_data_list=json_data_list)]
 
         body = _sent_body(m, "POST", url)
-        lines = body.splitlines()
+        lines = ndjson_lines(body)
         assert [json.loads(line) for line in lines] == [_PATIENT_1, _PATIENT_2]
         assert (
             _sent_compress(

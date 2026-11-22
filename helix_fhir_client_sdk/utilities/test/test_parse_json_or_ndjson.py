@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from helix_fhir_client_sdk.utilities.json_helpers import parse_json_or_ndjson
@@ -41,3 +43,24 @@ def test_parse_json_or_ndjson_big_integer_follows_the_flag() -> None:
 
     assert isinstance(parse_json_or_ndjson(f'{{"n": {big}}}')["n"], float)
     assert parse_json_or_ndjson(f'{{"n": {big}}}', byte_identical=True)["n"] == int(big)
+
+
+@pytest.mark.parametrize(
+    "separator",
+    ["\u2028", "\u2029", "\u0085"],
+    ids=["line-separator", "paragraph-separator", "next-line"],
+)
+def test_parse_json_or_ndjson_keeps_unicode_line_separator_inside_record(separator: str) -> None:
+    records = [
+        {"id": "1", "text": f"first{separator}half"},
+        {"id": "2", "text": f"second{separator}half"},
+    ]
+    text = "\n".join(json.dumps(record, ensure_ascii=False) for record in records)
+
+    assert parse_json_or_ndjson(text) == records
+
+
+def test_parse_json_or_ndjson_crlf_line_endings() -> None:
+    text = '{"id": "1"}\r\n{"id": "2"}\r\n'
+
+    assert parse_json_or_ndjson(text) == [{"id": "1"}, {"id": "2"}]
