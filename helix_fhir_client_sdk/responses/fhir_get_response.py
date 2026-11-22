@@ -18,6 +18,7 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
 from dateutil import parser
 
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
+from helix_fhir_client_sdk.utilities.fast_json import loads
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -50,6 +51,7 @@ class FhirGetResponse:
         "cache_hits",
         "results_by_url",
         "storage_mode",
+        "byte_identical_json",
         # (response_headers snapshot, value) for lastModified and etag, so they are not parsed on every call
         "_last_modified_cache",
         "_etag_cache",
@@ -73,6 +75,7 @@ class FhirGetResponse:
         cache_hits: int | None = None,
         results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool = False,
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -124,6 +127,8 @@ class FhirGetResponse:
         """ Count of errors in the response by status """
         self.storage_mode: CompressedDictStorageMode = storage_mode
         """ Storage mode for the response """
+        self.byte_identical_json: bool = byte_identical_json
+        """ True writes response text exactly as the standard library did, see FhirClient.byte_identical_json """
 
     @abstractmethod
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse": ...
@@ -281,12 +286,13 @@ class FhirGetResponse:
         ...
 
     @staticmethod
-    def parse_json(responses: str) -> dict[str, Any] | list[dict[str, Any]]:
+    def parse_json(responses: str, *, byte_identical_json: bool = False) -> dict[str, Any] | list[dict[str, Any]]:
         """
         Parses the json response from the fhir server
 
 
         :param responses: response from the fhir server
+        :param byte_identical_json: parse with the standard library instead of orjson
         :return: one of:
         1. response_resources is a list of resources
         2. response_resources is a bundle with a list of resources
@@ -305,7 +311,7 @@ class FhirGetResponse:
             }
 
         try:
-            return cast(dict[str, Any] | list[dict[str, Any]], json.loads(responses))
+            return cast(dict[str, Any] | list[dict[str, Any]], loads(responses, byte_identical=byte_identical_json))
         except json.decoder.JSONDecodeError as e:
             return {
                 "resourceType": "OperationOutcome",

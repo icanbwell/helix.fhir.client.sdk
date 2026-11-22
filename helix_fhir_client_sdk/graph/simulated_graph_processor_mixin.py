@@ -1,5 +1,4 @@
 import asyncio
-import json
 import time
 from abc import ABC
 from collections.abc import AsyncGenerator, Awaitable, Callable
@@ -60,7 +59,7 @@ from helix_fhir_client_sdk.utilities.async_parallel_processor.v1.async_parallel_
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
 from helix_fhir_client_sdk.utilities.cache.request_cache_entry import RequestCacheEntry
 from helix_fhir_client_sdk.utilities.fhir_scope_parser import FhirScopeParser
-from helix_fhir_client_sdk.utilities.hash_util import ResourceHash
+from helix_fhir_client_sdk.utilities.hash_util import ResourceHash, stable_resource_hash_input
 
 
 def _validate_max_query_chars(max_query_chars: int | None) -> None:
@@ -1518,7 +1517,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 last_modified=result2.lastModified,
                 etag=result2.etag,
                 from_input_cache=False,
-                raw_hash=ResourceHash().hash_value(json.dumps(json.loads(entry._resource.json()), sort_keys=True))
+                raw_hash=ResourceHash().hash_value(stable_resource_hash_input(entry._resource))
                 if compare_hash and _cache_keeps_entries(cache) and entry._resource
                 else "",
             )
@@ -1650,6 +1649,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     error=None,
                     results_by_url=[],
                     storage_mode=self._storage_mode,
+                    byte_identical_json=self._byte_identical_json,
                     create_operation_outcome_for_error=self._create_operation_outcome_for_error,
                 ),
                 0,
@@ -1809,7 +1809,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                             etag=(non_cached_bundle_entry.response.etag if non_cached_bundle_entry.response else None),
                             from_input_cache=False,
                             raw_hash=ResourceHash().hash_value(
-                                json.dumps(json.loads(non_cached_bundle_entry.resource.json()), sort_keys=True)
+                                stable_resource_hash_input(non_cached_bundle_entry.resource)
                             )
                             if compare_hash and _cache_keeps_entries(cache)
                             else "",
@@ -1865,6 +1865,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     error=None,
                     results_by_url=[],
                     storage_mode=self._storage_mode,
+                    byte_identical_json=self._byte_identical_json,
                     create_operation_outcome_for_error=self._create_operation_outcome_for_error,
                 )
             )
@@ -1884,6 +1885,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 error=None,
                 results_by_url=[],
                 storage_mode=self._storage_mode,
+                byte_identical_json=self._byte_identical_json,
             )
         )
         return bundle_response, cache.cache_hits

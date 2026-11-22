@@ -1,4 +1,4 @@
-import json
+import codecs
 import time
 from collections.abc import AsyncGenerator
 from datetime import datetime
@@ -33,8 +33,10 @@ from helix_fhir_client_sdk.responses.resource_separator import (
     ResourceSeparator,
     ResourceSeparatorResult,
 )
+from helix_fhir_client_sdk.utilities.fast_json import dumps_str, loads
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
+    NdJsonInvalidLineError,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
@@ -70,6 +72,7 @@ class FhirResponseProcessor:
         separate_bundle_resources: bool,
         use_data_streaming: bool,
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool,
         create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -94,6 +97,7 @@ class FhirResponseProcessor:
         :param separate_bundle_resources: Whether to separate the bundle resources.
         :param use_data_streaming: Whether to use data streaming.
         :param storage_mode: The storage mode.
+        :param byte_identical_json: True writes response text exactly as the standard library did.
         :param create_operation_outcome_for_error: Whether to create an operation outcome for error.
 
         :return: An async generator of FhirGetResponse objects.
@@ -120,6 +124,7 @@ class FhirResponseProcessor:
                     url=url,
                     separate_bundle_resources=separate_bundle_resources,
                     storage_mode=storage_mode,
+                    byte_identical_json=byte_identical_json,
                     create_operation_outcome_for_error=create_operation_outcome_for_error,
                 ):
                     yield r
@@ -135,6 +140,7 @@ class FhirResponseProcessor:
                     id_=id_,
                     access_token=access_token,
                     storage_mode=storage_mode,
+                    byte_identical_json=byte_identical_json,
                     create_operation_outcome_for_error=create_operation_outcome_for_error,
                 ):
                     yield r
@@ -151,6 +157,7 @@ class FhirResponseProcessor:
                     id_=id_,
                     internal_logger=internal_logger,
                     storage_mode=storage_mode,
+                    byte_identical_json=byte_identical_json,
                     create_operation_outcome_for_error=create_operation_outcome_for_error,
                 ):
                     yield r
@@ -181,6 +188,7 @@ class FhirResponseProcessor:
         resource: str | None,
         id_: list[str] | str | None,
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool,
         create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -222,6 +230,7 @@ class FhirResponseProcessor:
             response_headers=response_headers,
             results_by_url=response.results_by_url,
             storage_mode=storage_mode,
+            byte_identical_json=byte_identical_json,
             create_operation_outcome_for_error=create_operation_outcome_for_error,
         )
 
@@ -238,6 +247,7 @@ class FhirResponseProcessor:
         id_: list[str] | str | None,
         logger: Logger | None,
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool,
         create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -272,6 +282,7 @@ class FhirResponseProcessor:
             response_headers=response_headers,
             results_by_url=response.results_by_url,
             storage_mode=storage_mode,
+            byte_identical_json=byte_identical_json,
             create_operation_outcome_for_error=create_operation_outcome_for_error,
         )
 
@@ -295,6 +306,7 @@ class FhirResponseProcessor:
         separate_bundle_resources: bool,
         url: str | None,
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool,
         create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -323,7 +335,9 @@ class FhirResponseProcessor:
         next_url: str | None = None
         if use_data_streaming:
             # used to parse the ndjson response for streaming
-            nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser = NdJsonChunkStreamingParser()
+            nd_json_chunk_streaming_parser: NdJsonChunkStreamingParser = NdJsonChunkStreamingParser(
+                byte_identical_json=byte_identical_json
+            )
             async for r in FhirResponseProcessor._handle_response_200_streaming(
                 access_token=access_token,
                 fn_handle_streaming_chunk=fn_handle_streaming_chunk,
@@ -343,6 +357,7 @@ class FhirResponseProcessor:
                 expand_fhir_bundle=expand_fhir_bundle,
                 url=url,
                 storage_mode=storage_mode,
+                byte_identical_json=byte_identical_json,
                 create_operation_outcome_for_error=create_operation_outcome_for_error,
             ):
                 yield r
@@ -364,6 +379,7 @@ class FhirResponseProcessor:
                 expand_fhir_bundle=expand_fhir_bundle,
                 url=url,
                 storage_mode=storage_mode,
+                byte_identical_json=byte_identical_json,
                 create_operation_outcome_for_error=create_operation_outcome_for_error,
             ):
                 yield r
@@ -387,6 +403,7 @@ class FhirResponseProcessor:
         id_: list[str] | str | None,
         url: str | None,
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool,
         create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -418,7 +435,7 @@ class FhirResponseProcessor:
         try:
             text = await response.get_text_async()
             if len(text) > 0:
-                response_json: dict[str, Any] = json.loads(text)
+                response_json: dict[str, Any] = loads(text, byte_identical=byte_identical_json)
                 if "resourceType" in response_json and response_json["resourceType"] == "Bundle":
                     # get next url if present
                     if "link" in response_json:
@@ -439,6 +456,7 @@ class FhirResponseProcessor:
                     separate_bundle_resources=separate_bundle_resources,
                     total_count=total_count,
                     url=url,
+                    byte_identical_json=byte_identical_json,
                 )
             yield FhirGetResponseFactory.create(
                 request_id=request_id,
@@ -455,6 +473,7 @@ class FhirResponseProcessor:
                 response_headers=response_headers,
                 results_by_url=response.results_by_url,
                 storage_mode=storage_mode,
+                byte_identical_json=byte_identical_json,
                 create_operation_outcome_for_error=create_operation_outcome_for_error,
             )
         except Exception as e:
@@ -475,6 +494,7 @@ class FhirResponseProcessor:
                 response_headers=response_headers,
                 results_by_url=response.results_by_url,
                 storage_mode=storage_mode,
+                byte_identical_json=byte_identical_json,
                 create_operation_outcome_for_error=create_operation_outcome_for_error,
             )
 
@@ -488,6 +508,7 @@ class FhirResponseProcessor:
         separate_bundle_resources: bool,
         total_count: int,
         url: str | None,
+        byte_identical_json: bool = False,
     ) -> tuple[str, int]:
         # see if this is a Resource Bundle and un-bundle it
         if (
@@ -514,16 +535,16 @@ class FhirResponseProcessor:
                     extra_context_to_return=extra_context_to_return,
                 )
             )
-            resources_json = json.dumps(resource_separator_result.resources_dicts)
+            resources_json = dumps_str(resource_separator_result.resources_dicts, byte_identical=byte_identical_json)
             total_count = resource_separator_result.total_count
         elif len(resources) > 0:
             total_count = len(resources)
             if len(resources) == 1:
-                resources_json = json.dumps(resources[0])
+                resources_json = dumps_str(resources[0], byte_identical=byte_identical_json)
             else:
-                resources_json = json.dumps(resources)
+                resources_json = dumps_str(resources, byte_identical=byte_identical_json)
         else:
-            resources_json = json.dumps(resources)
+            resources_json = dumps_str(resources, byte_identical=byte_identical_json)
 
         return resources_json, total_count
 
@@ -548,6 +569,7 @@ class FhirResponseProcessor:
         separate_bundle_resources: bool,
         url: str | None,
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool,
         create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -621,9 +643,12 @@ class FhirResponseProcessor:
                     response_headers=response_headers,
                     results_by_url=response.results_by_url,
                     storage_mode=storage_mode,
+                    byte_identical_json=byte_identical_json,
                     create_operation_outcome_for_error=False,
                 )
             else:
+                # a chunk boundary can fall inside a multi-byte UTF-8 character, so decode incrementally
+                utf8_decoder = codecs.getincrementaldecoder("utf-8")()
                 # iterate over the chunks and return the completed resources as we get them
                 async for chunk_bytes in get_chunk_iterator():
                     # # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
@@ -631,13 +656,19 @@ class FhirResponseProcessor:
                     chunk_number += 1
                     if fn_handle_streaming_chunk:
                         await fn_handle_streaming_chunk(chunk_bytes, chunk_number)
-                    chunk = chunk_bytes.decode("utf-8")
+                    chunk = utf8_decoder.decode(chunk_bytes)
                     chunk_length = len(chunk_bytes)
                     total_kilobytes += chunk_length // 1024
-                    completed_resources: list[dict[str, Any]] = nd_json_chunk_streaming_parser.add_chunk(
-                        chunk=chunk,
-                        logger=logger,
-                    )
+                    invalid_line_error: NdJsonInvalidLineError | None = None
+                    try:
+                        completed_resources: list[dict[str, Any]] = nd_json_chunk_streaming_parser.add_chunk(
+                            chunk=chunk,
+                            logger=logger,
+                        )
+                    except NdJsonInvalidLineError as e:
+                        # yield the lines that parsed before the bad one, then stop the stream below
+                        invalid_line_error = e
+                        completed_resources = e.parsed
                     if completed_resources:
                         total_time: float = time.time() - start_time
                         if total_time == 0:
@@ -670,9 +701,10 @@ class FhirResponseProcessor:
                                     separate_bundle_resources=separate_bundle_resources,
                                     total_count=total_count,
                                     url=url,
+                                    byte_identical_json=byte_identical_json,
                                 )
                             else:
-                                resources_json = json.dumps(completed_resource)
+                                resources_json = dumps_str(completed_resource, byte_identical=byte_identical_json)
 
                             yield FhirGetResponseFactory.create(
                                 request_id=request_id,
@@ -695,8 +727,16 @@ class FhirResponseProcessor:
                                 chunk_number=chunk_number,
                                 results_by_url=response.results_by_url,
                                 storage_mode=storage_mode,
+                                byte_identical_json=byte_identical_json,
                                 create_operation_outcome_for_error=create_operation_outcome_for_error,
                             )
+
+                    if invalid_line_error is not None:
+                        raise invalid_line_error
+                # raises if the stream ended inside a multi-byte character
+                utf8_decoder.decode(b"", final=True)
+                if nd_json_chunk_streaming_parser.buffer.strip():
+                    raise ValueError("The response ended inside an NDJSON record")
         except Exception as e:
             if logger:
                 logger.error(f"Error processing response from {full_url} with error: {str(e)}")
@@ -715,6 +755,7 @@ class FhirResponseProcessor:
                 response_headers=response_headers,
                 results_by_url=response.results_by_url,
                 storage_mode=storage_mode,
+                byte_identical_json=byte_identical_json,
                 create_operation_outcome_for_error=create_operation_outcome_for_error,
             )
 

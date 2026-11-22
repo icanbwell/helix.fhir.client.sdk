@@ -44,6 +44,7 @@ class RetryableAioHttpClient:
         caller_managed_session: bool = False,
         exclude_status_codes_from_retry: list[int] | None = None,
         use_data_streaming: bool | None,
+        byte_identical_json: bool = False,
         compress: bool | None = False,
         send_data_as_chunked: bool | None = None,
         throw_exception_on_error: bool = True,
@@ -79,6 +80,7 @@ class RetryableAioHttpClient:
                                        If False (default), the SDK will close the session on exit.
         :param exclude_status_codes_from_retry: Status codes to exclude from retry logic
         :param use_data_streaming: Whether to stream response data
+        :param byte_identical_json: Parse response JSON with the standard library instead of orjson
         :param compress: Whether to compress request data
         :param send_data_as_chunked: Whether to use chunked transfer encoding
         :param throw_exception_on_error: Whether to raise exceptions on HTTP errors
@@ -107,6 +109,7 @@ class RetryableAioHttpClient:
         )
         self.exclude_status_codes_from_retry: list[int] | None = exclude_status_codes_from_retry
         self.use_data_streaming: bool | None = use_data_streaming
+        self.byte_identical_json: bool = byte_identical_json
         self.send_data_as_chunked: bool | None = send_data_as_chunked
         self.compress: bool | None = compress
         self.session: ClientSession | None = None
@@ -277,6 +280,7 @@ class RetryableAioHttpClient:
                                 ),
                                 content=response.content,
                                 use_data_streaming=self.use_data_streaming,
+                                byte_identical_json=self.byte_identical_json,
                                 results_by_url=results_by_url,
                                 access_token=access_token,
                                 access_token_expiry_date=expiry_date,
@@ -293,6 +297,7 @@ class RetryableAioHttpClient:
                                 response_text=await self.get_safe_response_text_async(response=response),
                                 content=response.content,
                                 use_data_streaming=self.use_data_streaming,
+                                byte_identical_json=self.byte_identical_json,
                                 results_by_url=results_by_url,
                                 access_token=access_token,
                                 access_token_expiry_date=expiry_date,
@@ -306,6 +311,7 @@ class RetryableAioHttpClient:
                                 response_text=await self.get_safe_response_text_async(response=response),
                                 content=response.content,
                                 use_data_streaming=self.use_data_streaming,
+                                byte_identical_json=self.byte_identical_json,
                                 results_by_url=results_by_url,
                                 access_token=access_token,
                                 access_token_expiry_date=expiry_date,
@@ -319,6 +325,7 @@ class RetryableAioHttpClient:
                                 response_text=await self.get_safe_response_text_async(response=response),
                                 content=response.content,
                                 use_data_streaming=self.use_data_streaming,
+                                byte_identical_json=self.byte_identical_json,
                                 results_by_url=results_by_url,
                                 access_token=access_token,
                                 access_token_expiry_date=expiry_date,
@@ -358,6 +365,7 @@ class RetryableAioHttpClient:
                                     ),
                                     content=response.content,
                                     use_data_streaming=self.use_data_streaming,
+                                    byte_identical_json=self.byte_identical_json,
                                     results_by_url=results_by_url,
                                     access_token=access_token,
                                     access_token_expiry_date=expiry_date,
@@ -403,6 +411,7 @@ class RetryableAioHttpClient:
                                     response_text=await self.get_safe_response_text_async(response=response),
                                     content=response.content,
                                     use_data_streaming=self.use_data_streaming,
+                                    byte_identical_json=self.byte_identical_json,
                                     results_by_url=results_by_url,
                                     access_token=access_token,
                                     access_token_expiry_date=expiry_date,
@@ -430,6 +439,7 @@ class RetryableAioHttpClient:
                             response_text=str(e),
                             content=None,
                             use_data_streaming=self.use_data_streaming,
+                            byte_identical_json=self.byte_identical_json,
                             results_by_url=results_by_url,
                             access_token=access_token,
                             access_token_expiry_date=expiry_date,
@@ -448,6 +458,7 @@ class RetryableAioHttpClient:
                         response_text=str(e),
                         content=None,
                         use_data_streaming=self.use_data_streaming,
+                        byte_identical_json=self.byte_identical_json,
                         results_by_url=results_by_url,
                         access_token=access_token,
                         access_token_expiry_date=expiry_date,

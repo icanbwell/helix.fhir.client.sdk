@@ -33,7 +33,7 @@ def test_fhir_client_patient_merge() -> None:
         request=mock_request(
             path=f"/{relative_url}/Patient/1/$merge",
             method="POST",
-            body=json.dumps(resource),
+            body=json.dumps(resource, separators=(",", ":")),
         ),
         response=mock_response(body=json.dumps(response_text_1)),
         timing=times(1),
@@ -74,7 +74,7 @@ def test_bulk_replace_with_smart_merge_false() -> None:
         request=mock_request(
             path=f"/{relative_url}/Person/1/$merge",
             method="POST",
-            body=json.dumps(person1),
+            body=json.dumps(person1, separators=(",", ":")),
         ),
         response=mock_response(body=json.dumps(resp1)),
         timing=times(1),
@@ -84,7 +84,7 @@ def test_bulk_replace_with_smart_merge_false() -> None:
         request=mock_request(
             path=f"/{relative_url}/Person/1/$merge",
             method="POST",
-            body=json.dumps(person1_updated),
+            body=json.dumps(person1_updated, separators=(",", ":")),
         ),
         response=mock_response(body=json.dumps(resp2)),
         timing=times(1),
@@ -95,7 +95,7 @@ def test_bulk_replace_with_smart_merge_false() -> None:
             path=f"/{relative_url}/Person/1/$merge",
             method="POST",
             querystring={"smartMerge": ["false"]},
-            body=json.dumps(person1_updated),
+            body=json.dumps(person1_updated, separators=(",", ":")),
         ),
         response=mock_response(body=json.dumps(resp3)),
         timing=times(1),

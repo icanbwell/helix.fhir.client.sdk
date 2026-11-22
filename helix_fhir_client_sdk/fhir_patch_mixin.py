@@ -14,6 +14,7 @@ from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
 )
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
+from helix_fhir_client_sdk.utilities.fast_json import loads
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
@@ -68,7 +69,7 @@ class FhirPatchMixin(FhirClientProtocol):
                 response_status: int | None = None
 
                 try:
-                    deserialized_data = json.loads(data)
+                    deserialized_data = loads(data, byte_identical=self._byte_identical_json)
                     # actually make the request
                     async with RetryableAioHttpClient(
                         fn_get_session=self._fn_create_http_session or self.create_http_session,
@@ -78,6 +79,7 @@ class FhirPatchMixin(FhirClientProtocol):
                         retries=self._retry_count,
                         exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                         use_data_streaming=self._use_data_streaming,
+                        byte_identical_json=self._byte_identical_json,
                         send_data_as_chunked=self._send_data_as_chunked,
                         compress=self._compress,
                         throw_exception_on_error=self._throw_exception_on_error,
@@ -118,7 +120,7 @@ class FhirPatchMixin(FhirClientProtocol):
                 # check if response is json
                 if response_text:
                     try:
-                        responses = json.loads(response_text)
+                        responses = loads(response_text, byte_identical=self._byte_identical_json)
                     except ValueError as e:
                         responses = {"issue": str(e)}
                 else:

@@ -1,4 +1,3 @@
-import json
 from collections.abc import AsyncGenerator, Generator
 from logging import Logger
 from typing import (
@@ -18,11 +17,11 @@ from compressedfhir.fhir.fhir_resource_map import FhirResourceMap
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
-from compressedfhir.utilities.fhir_json_encoder import FhirJSONEncoder
 
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
+from helix_fhir_client_sdk.utilities.fast_json import dumps_str
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -60,6 +59,7 @@ class FhirGetListResponse(FhirGetResponse):
         cache_hits: int | None = None,
         results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool = False,
     ) -> None:
         super().__init__(
             request_id=request_id,
@@ -77,9 +77,10 @@ class FhirGetListResponse(FhirGetResponse):
             cache_hits=cache_hits,
             results_by_url=results_by_url,
             storage_mode=storage_mode,
+            byte_identical_json=byte_identical_json,
         )
         self._resources: FhirResourceList | None = self._parse_resources(
-            response_text=response_text, storage_mode=storage_mode
+            response_text=response_text, storage_mode=storage_mode, byte_identical_json=byte_identical_json
         )
 
     @override
@@ -132,7 +133,9 @@ class FhirGetListResponse(FhirGetResponse):
         )
 
     @classmethod
-    def _parse_resources(cls, *, response_text: str, storage_mode: CompressedDictStorageMode) -> FhirResourceList:
+    def _parse_resources(
+        cls, *, response_text: str, storage_mode: CompressedDictStorageMode, byte_identical_json: bool = False
+    ) -> FhirResourceList:
         """
         Gets the resources from the response
 
@@ -143,7 +146,9 @@ class FhirGetListResponse(FhirGetResponse):
             return FhirResourceList()
         try:
             # THis is either a list of resources or a Bundle resource containing a list of resources
-            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(response_text)
+            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(
+                response_text, byte_identical_json=byte_identical_json
+            )
             assert isinstance(child_response_resources, list)
             result: FhirResourceList = FhirResourceList()
             for r in child_response_resources:
@@ -243,7 +248,7 @@ class FhirGetListResponse(FhirGetResponse):
         response: FhirGetListResponse = FhirGetListResponse(
             request_id=other_response.request_id,
             url=other_response.url,
-            response_text=resources.json(),
+            response_text=resources.json(byte_identical=other_response.byte_identical_json),
             error=other_response.error,
             access_token=other_response.access_token,
             total_count=other_response.total_count,
@@ -257,6 +262,7 @@ class FhirGetListResponse(FhirGetResponse):
             cache_hits=other_response.cache_hits,
             results_by_url=other_response.results_by_url,
             storage_mode=other_response.storage_mode,
+            byte_identical_json=other_response.byte_identical_json,
         )
         return response
 
@@ -267,7 +273,11 @@ class FhirGetListResponse(FhirGetResponse):
 
         :return: response text
         """
-        return json.dumps([r.dict() for r in self._resources], cls=FhirJSONEncoder) if self._resources else "[]"
+        return (
+            dumps_str([r.dict() for r in self._resources], byte_identical=self.byte_identical_json)
+            if self._resources
+            else "[]"
+        )
 
     @override
     def sort_resources(self) -> "FhirGetListResponse":

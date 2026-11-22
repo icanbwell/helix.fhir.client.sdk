@@ -48,6 +48,7 @@ def _other(
             response_headers=headers,
             results_by_url=[],
             storage_mode=storage_mode,
+            byte_identical_json=False,
             create_operation_outcome_for_error=True,
         )
 

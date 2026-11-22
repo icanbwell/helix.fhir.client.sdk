@@ -31,6 +31,20 @@ def test_parse_json_or_ndjson_invalid_raises() -> None:
         parse_json_or_ndjson("not json\nstill not json")
 
 
+@pytest.mark.parametrize("byte_identical", [False, True])
+def test_parse_json_or_ndjson_ndjson_body_parses_in_both_modes(byte_identical: bool) -> None:
+    body = '{"id": "1"}\n{"id": "2"}'
+
+    assert parse_json_or_ndjson(body, byte_identical=byte_identical) == [{"id": "1"}, {"id": "2"}]
+
+
+def test_parse_json_or_ndjson_big_integer_follows_the_flag() -> None:
+    big = "1" + "0" * 29
+
+    assert isinstance(parse_json_or_ndjson(f'{{"n": {big}}}')["n"], float)
+    assert parse_json_or_ndjson(f'{{"n": {big}}}', byte_identical=True)["n"] == int(big)
+
+
 @pytest.mark.parametrize(
     "separator",
     ["\u2028", "\u2029", "\u0085"],

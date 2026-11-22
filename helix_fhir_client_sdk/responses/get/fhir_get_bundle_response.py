@@ -1,4 +1,3 @@
-import json
 from collections.abc import AsyncGenerator, Generator
 from datetime import datetime
 from logging import Logger
@@ -21,7 +20,7 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
-from helix_fhir_client_sdk.utilities.hash_util import ResourceHash
+from helix_fhir_client_sdk.utilities.hash_util import ResourceHash, stable_resource_hash_input
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -60,6 +59,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         cache_hits: int | None = None,
         results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool = False,
     ) -> None:
         super().__init__(
             request_id=request_id,
@@ -77,6 +77,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             cache_hits=cache_hits,
             results_by_url=results_by_url,
             storage_mode=storage_mode,
+            byte_identical_json=byte_identical_json,
         )
         bundle_entries: FhirBundleEntryList
         bundle: FhirBundle
@@ -87,6 +88,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             last_modified=self.lastModified,
             etag=self.etag,
             storage_mode=self.storage_mode,
+            byte_identical_json=byte_identical_json,
         )
         bundle_entries = FhirBundleAppender.add_operation_outcomes_to_bundle_entries(
             bundle_entries=bundle_entries,
@@ -198,6 +200,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         last_modified: datetime | None,
         etag: str | None,
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool = False,
     ) -> tuple[FhirBundleEntryList, FhirBundle]:
         """
         Gets the Bundle entries from the response
@@ -217,7 +220,9 @@ class FhirGetBundleResponse(FhirGetResponse):
             )
         try:
             # This is either a list of resources or a Bundle resource containing a list of resources
-            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(responses)
+            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(
+                responses, byte_identical_json=byte_identical_json
+            )
             assert isinstance(child_response_resources, dict)
 
             timestamp: str | None = cast(str | None, child_response_resources.get("timestamp"))
@@ -361,7 +366,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             if resource_hash is None:
                 return False
             try:
-                entry_hash = resource_hash.hash_value(json.dumps(json.loads(resource.json()), sort_keys=True))
+                entry_hash = resource_hash.hash_value(stable_resource_hash_input(resource))
                 return entry_hash == cache_map[key]
             except Exception:
                 return False
@@ -409,6 +414,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             cache_hits=other_response.cache_hits,
             results_by_url=other_response.results_by_url,
             storage_mode=other_response.storage_mode,
+            byte_identical_json=other_response.byte_identical_json,
         )
         response._bundle_entries = other_response.get_bundle_entries()
         return response
@@ -421,7 +427,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         :return: response text
         """
         bundle: FhirBundle = self.create_bundle()
-        return bundle.json()
+        return bundle.json(byte_identical=self.byte_identical_json)
 
     @override
     def sort_resources(self) -> "FhirGetBundleResponse":

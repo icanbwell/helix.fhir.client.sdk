@@ -89,7 +89,7 @@ class BaseFhirMergeResourceResponseEntry(ABC):
     @classmethod
     @abstractmethod
     def from_json(
-        cls, data: str, *, storage_mode: CompressedDictStorageMode
+        cls, data: str, *, storage_mode: CompressedDictStorageMode, byte_identical_json: bool = False
     ) -> "list[BaseFhirMergeResourceResponseEntry]":
         """Create instances from a JSON string."""
 

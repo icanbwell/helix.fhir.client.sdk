@@ -72,6 +72,7 @@ async def test_handle_response_200_non_streaming_separate_bundle() -> None:
             id_=id_,
             url=url,
             storage_mode=CompressedDictStorageMode(),
+            byte_identical_json=False,
             create_operation_outcome_for_error=False,
         )
     ]

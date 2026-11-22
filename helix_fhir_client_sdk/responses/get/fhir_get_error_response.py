@@ -1,4 +1,3 @@
-import json
 from collections.abc import AsyncGenerator, Generator
 from logging import Logger
 from typing import (
@@ -19,7 +18,6 @@ from compressedfhir.fhir.fhir_resource_map import FhirResourceMap
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
-from compressedfhir.utilities.fhir_json_encoder import FhirJSONEncoder
 
 from helix_fhir_client_sdk.fhir_bundle_appender import FhirBundleAppender
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
@@ -27,6 +25,7 @@ from helix_fhir_client_sdk.responses.get.fhir_get_bundle_response import (
     FhirGetBundleResponse,
 )
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
+from helix_fhir_client_sdk.utilities.fast_json import dumps_str, loads
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -65,6 +64,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         cache_hits: int | None = None,
         results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool = False,
         create_operation_outcome_for_error: bool | None,
     ) -> None:
         super().__init__(
@@ -83,6 +83,7 @@ class FhirGetErrorResponse(FhirGetResponse):
             cache_hits=cache_hits,
             results_by_url=results_by_url,
             storage_mode=storage_mode,
+            byte_identical_json=byte_identical_json,
         )
         self._error_text: str | None = response_text
         self._resource: FhirResource | None = self._parse_response_text(
@@ -97,6 +98,7 @@ class FhirGetErrorResponse(FhirGetResponse):
             request_id=request_id,
             storage_mode=storage_mode,
             create_operation_outcome_for_error=create_operation_outcome_for_error,
+            byte_identical_json=byte_identical_json,
         )
 
     @override
@@ -203,7 +205,7 @@ class FhirGetErrorResponse(FhirGetResponse):
 
         :return: response text
         """
-        return json.dumps(self._resource.dict(), cls=FhirJSONEncoder) if self._resource else ""
+        return dumps_str(self._resource.dict(), byte_identical=self.byte_identical_json) if self._resource else ""
 
     @classmethod
     def _parse_response_text(
@@ -220,6 +222,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         request_id: str | None,
         storage_mode: CompressedDictStorageMode,
         create_operation_outcome_for_error: bool | None,
+        byte_identical_json: bool = False,
     ) -> FhirResource | None:
         """
         Parses the response text to extract any useful information. This can be overridden by subclasses.
@@ -245,12 +248,14 @@ class FhirGetErrorResponse(FhirGetResponse):
             try:
                 # check if the response is a valid json
                 # if it is not then we will just return the response text as it is
-                json.loads(response_text)
+                loads(response_text, byte_identical=byte_identical_json)
             except Exception:
                 # No resource was found in the response
                 return None
 
-            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(response_text)
+            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(
+                response_text, byte_identical_json=byte_identical_json
+            )
             assert isinstance(child_response_resources, dict)
             response_json: dict[str, Any] | None = child_response_resources
             return FhirBundle.add_diagnostics_to_operation_outcomes(

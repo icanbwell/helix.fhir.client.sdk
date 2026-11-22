@@ -16,11 +16,11 @@ from compressedfhir.fhir.fhir_resource_map import FhirResourceMap
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
     CompressedDictStorageMode,
 )
-from compressedfhir.utilities.fhir_json_encoder import FhirJSONEncoder
 
 from helix_fhir_client_sdk.exceptions.fhir_get_exception import FhirGetException
 from helix_fhir_client_sdk.responses.fhir_get_response import FhirGetResponse
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
+from helix_fhir_client_sdk.utilities.fast_json import dumps_str
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -58,6 +58,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         cache_hits: int | None = None,
         results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool = False,
     ) -> None:
         super().__init__(
             request_id=request_id,
@@ -75,6 +76,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
             cache_hits=cache_hits,
             results_by_url=results_by_url,
             storage_mode=storage_mode,
+            byte_identical_json=byte_identical_json,
         )
         count: int
         resource_map: FhirResourceMap
@@ -261,6 +263,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
             cache_hits=other_response.cache_hits,
             results_by_url=other_response.results_by_url,
             storage_mode=other_response.storage_mode,
+            byte_identical_json=other_response.byte_identical_json,
         )
         return response
 
@@ -271,7 +274,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
 
         :return: response text
         """
-        return json.dumps(self._resource_map.dict(), cls=FhirJSONEncoder)
+        return dumps_str(self._resource_map.dict(), byte_identical=self.byte_identical_json)
 
     @classmethod
     def _parse_into_resource_map(cls, resources: FhirResourceList) -> tuple[int, FhirResourceMap]:

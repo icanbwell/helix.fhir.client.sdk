@@ -139,6 +139,30 @@ finally:
 - **No custom factory** (default): SDK creates and closes the session automatically
 - **Custom factory provided**: User is responsible for closing the session
 
+# JSON Handling
+
+The SDK reads and writes JSON with [orjson](https://github.com/ijl/orjson). Compared with earlier
+versions, by default:
+
+* request bodies and `get_response_text()` are compact (`{"a":1}`), not `{"a": 1}`;
+* non-ASCII characters are written as raw UTF-8, not `\uXXXX` escapes;
+* `NaN` and `Infinity` are written as `null`;
+* an integer outside -2^63..2^64-1 is parsed as a float. `NaN`, `Infinity`, a lone surrogate escape
+  and nesting deeper than 1024 levels still parse: when orjson rejects the text, the standard library
+  parses it instead.
+
+Raw UTF-8 `$merge` bodies need a FHIR server that decodes multi-byte characters split across request
+chunks (icanbwell/fhir-server#2775). Deploy that first.
+
+If you assert on, hash or persist the exact text, keep the previous behavior with:
+
+```python
+fhir_client = FhirClient().byte_identical_json()
+```
+
+See `FhirClient.byte_identical_json` in the API reference for the full table. Cache hashes
+(`raw_hash`) are the same in both modes.
+
 # Storage Compression
 The FHIR client SDK supports two types of compression:
 

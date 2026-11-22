@@ -1,5 +1,4 @@
 import dataclasses
-import json
 from typing import Any, override
 
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
@@ -9,6 +8,7 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
 from helix_fhir_client_sdk.responses.merge.base_fhir_merge_resource_response_entry import (
     BaseFhirMergeResourceResponseEntry,
 )
+from helix_fhir_client_sdk.utilities.fast_json import loads
 
 
 @dataclasses.dataclass(kw_only=True, slots=True)
@@ -48,11 +48,11 @@ class FhirMergeResponseEntryError(BaseFhirMergeResourceResponseEntry):
     @classmethod
     @override
     def from_json(
-        cls, data: str, *, storage_mode: CompressedDictStorageMode
+        cls, data: str, *, storage_mode: CompressedDictStorageMode, byte_identical_json: bool = False
     ) -> list[BaseFhirMergeResourceResponseEntry]:
         if not data:
             return []
-        loaded_data: dict[str, Any] | list[dict[str, Any]] = json.loads(data)
+        loaded_data: dict[str, Any] | list[dict[str, Any]] = loads(data, byte_identical=byte_identical_json)
         if isinstance(loaded_data, list):
             return [FhirMergeResponseEntryError.from_dict(d, storage_mode=storage_mode) for d in loaded_data]
         else:
