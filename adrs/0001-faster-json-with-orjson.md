@@ -413,7 +413,7 @@ every GitHub release; releases 5.0.22 to 5.0.27 shipped between 2026-11-10 and 2
 | Prior-art search in Confluence (Approved); compressed-fhir PR #31 was supplied, not found by search | Imran | partial |
 | Tell the PR #31 author its consumer survey lists this repo at `>=1.0.13,<3` locked 1.0.13, but `main` is `>=3.0.5` locked 3.0.5 | Imran | message sent 2026-11-21 to the current compressed-fhir session; no reply yet |
 | Tell the `compressedfhir` upgrade PR owner about the raw-UTF-8 prerequisite (`fhir-server#2775`) | Imran | message sent 2026-11-21 (same message); no reply yet |
-| Separate ticket for PHI in error strings and logs (Further decisions) | Imran | open |
+| Separate ticket for PHI in error strings and logs (Further decisions) | Imran | filed as BAI-1964 |
 | What fhir-server does with `null` where stdlib wrote an invalid `NaN` literal in a `$merge` body | Imran | unproven |
 | Confluence prior-art search for orjson adoption elsewhere (the PROA page above was found; no other hits recorded) | Imran | partial |
 
