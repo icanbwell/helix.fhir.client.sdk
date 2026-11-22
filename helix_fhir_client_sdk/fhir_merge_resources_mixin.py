@@ -51,16 +51,21 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
         since the FHIR server's streaming $merge only understands ndjson request bodies - a
         wrapped Bundle resource is not a valid streaming payload even though it is valid for
         the non-streaming (buffered) $merge path.
+
+        byte_identical=True keeps the body ASCII-escaped, as in compressedfhir 4.x. The default
+        json() of compressedfhir 5.x writes raw UTF-8, and fhir-server's streaming $merge parser
+        corrupts a multi-byte character that is split across two request chunks
+        (icanbwell/fhir-server#2775). Drop byte_identical once that fix is deployed.
         """
         if len(bundle.entry) == 1:
-            return first_resource.json()
+            return first_resource.json(byte_identical=True)
         if self._content_type == "application/fhir+ndjson":
             entry_resources: list[FhirResource] = []
             for entry in bundle.entry:
                 assert entry.resource is not None
                 entry_resources.append(entry.resource)
-            return "\n".join(resource.json() for resource in entry_resources)
-        return bundle.json()
+            return "\n".join(resource.json(byte_identical=True) for resource in entry_resources)
+        return bundle.json(byte_identical=True)
 
     async def merge_bundle_uncompressed(
         self,
@@ -542,14 +547,15 @@ class FhirMergeResourcesMixin(FhirClientProtocol):
                     resource_uri: furl = full_uri.copy()
                     # if there is only item in the list then send it instead of having it in a list
                     json_payload: str
+                    # byte_identical keeps the body ASCII-escaped: see _build_merge_bundle_payload
                     if len(resource_batch) == 1:
-                        json_payload = resource_batch[0].json()
+                        json_payload = resource_batch[0].json(byte_identical=True)
                     elif self._content_type == "application/fhir+ndjson":
                         # the FHIR server's streaming $merge only understands ndjson
                         # (one resource per line), not a JSON array
-                        json_payload = "\n".join(resource.json() for resource in resource_batch)
+                        json_payload = "\n".join(resource.json(byte_identical=True) for resource in resource_batch)
                     else:
-                        json_payload = resource_batch.json()
+                        json_payload = resource_batch.json(byte_identical=True)
                     # json_payload_bytes: str = json_payload
                     obj_id: str = id_ or "1"  # TODO: remove this once the node fhir accepts merge without a parameter
                     assert obj_id
