@@ -336,7 +336,7 @@ handling and big-integer parse behavior are visible to callers. The target versi
     independent of the `json()` text, and reports `pytest helix_fhir_client_sdk` (452), `tests` (266) and
     `tests_integration` passing locally; it does not mention `raw_dict()`, which this SDK calls at
     `simulated_graph_processor_mixin.py:1199`, so that call stays unproven until #298's CI is green.
-    #298 adds a test that non-ASCII `\$merge` bodies round-trip, and its release notes already tell
+    #298 adds a test that non-ASCII `$merge` bodies round-trip, and its release notes already tell
     consumers to confirm `fhir-server#2775` is deployed first.
   * If the upgrade PR slips, the flag cannot be forwarded (3.0.5 has no `byte_identical`). Do not
     merge this work ahead of it.
