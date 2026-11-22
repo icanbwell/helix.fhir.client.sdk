@@ -440,7 +440,7 @@ every GitHub release; releases 5.0.22 to 5.0.27 shipped between 2026-11-10 and 2
 
 | Item | Owner | Status |
 |---|---|---|
-| Link the `compressedfhir` 5.0.0 upgrade PR; it must merge first (5.0.0 is published on PyPI as of 2026-11-22) | Imran | open |
+| `compressedfhir` 5.0.0 upgrade PR is #298 (open, no labels yet); it must merge and release first (5.0.0 is published on PyPI as of 2026-11-22) | Imran | PR open |
 | Consumer survey in compressed-fhir PR #31 and the raw-UTF-8 prerequisite were passed to the compressed-fhir owners; reply tracking is on BAI-1960, not here | Imran | tracked on BAI-1960 |
 | Cap `compressedfhir` below 5 in `pyproject.toml` until the upgrade PR and `fhir-server#2775` are ready, since the unbounded `>=3.0.5` now resolves to 5.0.0 on a fresh install | Imran | open (separate PR) |
 | Version numbers for the two majors | Imran | open |
