@@ -257,7 +257,13 @@ handling and big-integer parse behavior are visible to callers. The target versi
   (`responses/fhir_client_protocol.py:88` shows the existing pattern), a parameter on
   `FhirResponseProcessor.handle_response` (`responses/fhir_response_processor.py:71`), and a
   keyword-only `byte_identical_json: bool = False` on each response constructor
-  (`fhir_get_list_response.py:44-62` and its siblings). Parse sites each get a stated path, because
+  (`fhir_get_list_response.py:44-62` and its siblings), the way `storage_mode` is already carried
+  (`fhir_get_response.py:75,125`). `from_response` (on the base class and on each subclass:
+  `fhir_get_response.py:486`, `fhir_get_single_response.py:210`, `fhir_get_list_response.py:237`,
+  `fhir_get_list_by_resource_type_response.py:243`, `fhir_get_error_response.py:196`,
+  `fhir_get_bundle_response.py:382`) rebuilds text from the other response's fields, so it copies the
+  flag too, as must every append path that creates a response. Without this an opted-in caller that
+  persists `get_response_text()` would still get compact text. Parse sites each get a stated path, because
   the flag table promises stdlib parsing in `byte_identical_json(True)` mode:
   * `RetryableAioHttpResponse.json()` (`utilities/retryable_aiohttp_response.py:100-102`, built at 8
     sites in `retryable_aiohttp_client.py`, used by `validators/async_fhir_validator.py:61`):
