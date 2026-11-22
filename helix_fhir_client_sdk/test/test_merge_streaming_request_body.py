@@ -31,7 +31,7 @@ def _sent_body(m: aioresponses, method: str, url: str) -> str:
 
 
 def _assert_is_ndjson(body: str, expected_resources: list[dict[str, str]]) -> None:
-    lines = body.splitlines()
+    lines = [line for line in body.split("\n") if line]
     assert len(lines) == len(expected_resources)
     assert [json.loads(line) for line in lines] == expected_resources
 
@@ -188,7 +188,38 @@ async def test_merge_async_ndjson_body_escapes_embedded_newlines_in_resource_fie
         _ = [response async for response in fhir_client.merge_async(json_data_list=json_data_list)]
 
         body = _sent_body(m, "POST", url)
-        lines = body.splitlines()
+        lines = [line for line in body.split("\n") if line]
         assert len(lines) == 2
         assert json.loads(lines[0]) == patient_with_newline
         assert json.loads(lines[1]) == _PATIENT_2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "separator",
+    ["\u2028", "\u2029", "\u0085"],
+    ids=["line-separator", "paragraph-separator", "next-line"],
+)
+async def test_merge_async_parses_ndjson_response_with_unicode_separator_inside_record(separator: str) -> None:
+    """fhir-server writes ndjson with JSON.stringify, which leaves U+2028, U+2029 and U+0085
+    unescaped inside string values; the response must be split on "\n" only.
+    """
+    url = "http://example.com/Patient/1/$merge"
+    fhir_client = FhirClient().url("http://example.com").resource("Patient").use_data_streaming(True)
+    results = [
+        {"resourceType": "Patient", "id": "1", "created": True, "issue": f"first{separator}half"},
+        {"resourceType": "Patient", "id": "2", "created": True, "issue": f"second{separator}half"},
+    ]
+    response_body = "\n".join(json.dumps(result, ensure_ascii=False) for result in results)
+
+    with aioresponses() as m:
+        m.post(url, status=200, body=response_body, content_type="application/x-ndjson")
+
+        responses = [
+            response
+            async for response in fhir_client.merge_async(
+                json_data_list=[json.dumps(_PATIENT_1), json.dumps(_PATIENT_2)]
+            )
+        ]
+
+    assert [item for response in responses for item in response.responses] == results
