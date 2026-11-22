@@ -1,6 +1,6 @@
 # Split NDJSON on "\n" instead of `splitlines()` (BAI-1965)
 
-Jira: BAI-1965. Found during the independent review of the orjson ADR (BAI-1960, PR #297). This is a standalone bug fix, not an orjson prerequisite. This document is the plan only; no code changes are in this PR.
+Jira: BAI-1965. Found during the independent review of the orjson ADR (BAI-1960, PR #297). This is a standalone bug fix, not an orjson prerequisite. This document is the plan; the fix it describes is implemented in the same PR.
 
 ## Problem
 
