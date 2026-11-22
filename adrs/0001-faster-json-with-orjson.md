@@ -140,7 +140,7 @@ handling and big-integer parse behavior are visible to callers. The target versi
 ### Further decisions
 
 * **One internal module.** `helix_fhir_client_sdk/utilities/fast_json.py` exposes
-  `dumps_str(obj, *, byte_identical=False) -> str` and `loads(text: str | bytes, *, byte_identical=False)`
+  `dumps_str(obj: object, *, byte_identical: bool = False) -> str` and `loads(text: str | bytes, *, byte_identical: bool = False) -> Any`
   plus one `default` hook equivalent to `FhirJSONEncoder`. Call sites depend on this module, not on
   orjson, so a later vendor change touches one file. Functions only, no module state; the flag is an
   argument. Return type stays `str` (orjson returns `bytes`).
@@ -189,7 +189,7 @@ handling and big-integer parse behavior are visible to callers. The target versi
   `to_dict` or `__dict__`. `OPT_PASSTHROUGH_SUBCLASS` is decided in the implementation against the
   same fixtures. `UUID` and `Enum` are native. Every fallback is logged at debug level, never with
   payload content, and increments a counter and a span attribute on the active OpenTelemetry span
-  (the SDK already uses `TRACER.start_as_current_span`). The same instrumentation covers the
+  (the SDK already uses module-level `TRACER.start_as_current_span`, for example `fhir_merge_mixin.py:38,117`; `fast_json` follows that existing pattern rather than injecting an observer, an accepted exception since the library has no metrics instruments yet). The same instrumentation covers the
   parse side: a counter for big-integer-to-float conversions would need a scan, so instead count
   parse failures that raise (NaN, depth, surrogates) and rejected streaming lines. NaN is written
   as `null` by orjson by default; what fhir-server does with `null` in a `$merge` body, where
@@ -216,7 +216,7 @@ handling and big-integer parse behavior are visible to callers. The target versi
   stdlib `json` and call `resource.json(byte_identical=True)` with the flag **fixed**, exempt from
   forwarding, so the hash is the same in both client modes. This matters because a resource holding
   NaN produces different `compressedfhir` text in default and exact modes (PR #31 default drops the
-  NaN key; the independent review reproduced differing hashes). A regression test pins a fixed
+  NaN key; the independent review reproduced differing hashes). One helper (for example `stable_resource_hash_input(resource) -> str`) owns this expression so the three sites cannot drift apart, and the regression test pins its output. A regression test pins a fixed
   resource's hash, including a NaN fixture.
 * **The NDJSON `splitlines()` fix is standalone, not an orjson prerequisite.**
   `parse_json_or_ndjson` (`json_helpers.py:19`) parses only server responses, and fhir-server writes
