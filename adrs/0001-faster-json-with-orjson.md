@@ -3,7 +3,7 @@
 * Status: proposed
 * Deciders: Imran Qureshi
 * Date: 2026-11-21
-* Jira: TBD (ticket and `XX-PROJ-123` branch name required before commit)
+* Jira: BAI-1960
 
 ## Context and Problem Statement
 
@@ -21,28 +21,32 @@ separate PR that upgrades `compressedfhir` to 5.0.0 (see Sequencing).
 
 ### Where the SDK uses `json`
 
-`grep -rnE "json\.(load|loads|dump|dumps)\b"` over `*.py`: library code has 48 call lines in 21
-files (21 `loads`, 29 `dumps`). There is no `json.dump`. The 21 `json.load` calls are all tests
-reading fixture files. Tests add 82 `loads` and 196 `dumps` (all scopes, repo-wide).
+`grep -rnE "json\.(load|loads|dump|dumps)\b"` over `*.py`: library code has 49 call lines in 21
+files (47 once two commented-out lines in `fhir_response_processor.py` are excluded). There is no
+`json.dump`. The 21 `json.load` calls are all tests reading fixture files. Tests alone add 61
+`loads` and 165 `dumps` (per the independent review of this ADR; the earlier 82 and 196 were
+repo-wide totals including library code).
 
 | Role | Sites | Hot? |
 |---|---|---|
-| Parse response text | `fhir_response_processor.py:421` (every GET page, only to read the `next` link), `fhir_get_response.py:308`, `fhir_get_response_factory.py:58`, `retryable_aiohttp_response.py:102`, `fhir_get_error_response.py:248`, `request_queue_mixin.py:371`, `fhir_delete_mixin.py:157` | yes |
+| Parse response text | `fhir_response_processor.py:421` (every GET page, only to read the `next` link), `fhir_get_response.py:308`, `fhir_get_response_factory.py:58`, `retryable_aiohttp_response.py:102`, `fhir_get_error_response.py:248`, `request_queue_mixin.py:371`, `fhir_delete_mixin.py:157`, `responses/merge/fhir_merge_response_entry_issue.py:55` | yes |
 | Streaming NDJSON parse | `ndjson_chunk_streaming_parser.py:35` (one `loads` per line), `json_helpers.py:17-19` (`parse_json_or_ndjson`) | yes |
 | Build `$merge` / patch bodies | `fhir_merge_mixin.py:59,81,152,174,178,180,297`, `fhir_patch_mixin.py:71,129` | yes |
-| Build response text | `fhir_response_processor.py:517-526,675`, `fhir_get_list_response.py:270`, `fhir_get_list_by_resource_type_response.py:274`, `fhir_get_error_response.py:206` (the last three pass `cls=FhirJSONEncoder`) | yes |
+| Build response text | `fhir_response_processor.py:517-526,675`, `fhir_get_list_response.py:270`, `fhir_get_list_by_resource_type_response.py:274,287`, `fhir_get_error_response.py:206` (three pass `cls=FhirJSONEncoder`) | yes |
 | Cache-hash normalization: `json.dumps(json.loads(resource.json()), sort_keys=True)` then SHA-256 | `simulated_graph_processor_mixin.py:1521,1812`, `fhir_get_bundle_response.py:364` | yes, but see Further decisions |
 | Error and diagnostic text | `fhir_merge_mixin.py:241,266,302`, `fhir_merge_resources_mixin.py:394,621`, `fhir_patch_mixin.py:121,130`, `fhir_bundle_appender.py:180`, `fhir_get_response.py:316` | no |
 | Auth | `fhir_auth_mixin.py:200,238,294` | no (tiny payloads) |
 | Debug and CLI | `dictionary_writer.py:40` (`default=json_serial`), `fix_fhir_bundle.py:597,655` (`indent=2`) | no |
 
 orjson 3.11.9 is already in `uv.lock` (line 1565) because `compressedfhir` 3.0.5 depends on it
-(`uv.lock:580`). This SDK does not declare it.
+(`uv.lock:580`). This SDK does not declare it. `uv.lock` also lists musllinux wheels for it
+(`cp312`, x86_64 and aarch64), matching the `python:3.12-alpine3.20` base image.
 
 ### Measured speed
 
 Synthetic Observation Bundles (no PHI), `timeit` best of 5, Python 3.13.12, orjson 3.11.9, arm64
-macOS laptop. Ratios are the useful signal; production numbers will differ.
+macOS laptop. CI and the floor are Python 3.12, so the benchmark must be re-run there (see Tests).
+Ratios are the useful signal; production numbers will differ.
 
 | Operation | 100 entries (~100 KB) | 1,000 (~1 MB) | 10,000 (~10 MB) | Speed-up |
 |---|---|---|---|---|
@@ -56,14 +60,18 @@ Compact output was 7.8% smaller on the 1,000-entry Bundle (1,028,045 → 948,039
 
 These are the gains from swapping the library only. compressed-fhir's 7 to 10x came from also
 removing double decodes and repeated pruning, so do not carry those multiples over. Serialization
-is where the gain is (about 6x); parsing is about 2x. The end-to-end effect on a real request is
-**unproven**: the savings are milliseconds per large page against network time in the hundreds of
-milliseconds. The realistic benefit is less event-loop blocking during parallel graph fan-out.
+is where the gain is (about 6x); parsing is about 2x, and only without a guard (see Further
+decisions). The end-to-end effect on a real request is **unproven**: the savings are milliseconds
+per large page against network time in the hundreds of milliseconds. The realistic benefit is less
+event-loop blocking during parallel graph fan-out.
 
 ## Decision Drivers
 
-* Large speedup on the SDK's own parse and dump paths without changing what FHIR servers see.
-* orjson is already installed for every consumer, so there is no new package in practice.
+* Large speedup on the SDK's own parse and dump paths without changing the meaning of what FHIR
+  servers receive. The bytes do change (compact, raw UTF-8); see Further decisions for the
+  fhir-server prerequisite this creates.
+* orjson is already installed for every consumer and already declared by other icanbwell repos, so
+  there is no new package in practice.
 * Callers that depend on the exact old text need a simple way to keep it (the pattern PR #31 chose).
 * A change to default output is breaking and must be versioned as such.
 * Cache hashes that callers may have persisted must not silently change.
@@ -76,17 +84,34 @@ milliseconds. The realistic benefit is less event-loop blocking during parallel 
    previous text available through an opt-in client option; stdlib kept on the paths listed below.
 4. Use `compressedfhir`'s `FhirClientJsonHelpers.orjson_dumps/orjson_loads` instead of our own module.
 5. Add another fast JSON library (ujson, msgspec, simdjson).
+6. As option 3, but stdlib text stays the default and orjson text is opt-in (no default change, so
+   no major release and no raw-UTF-8 exposure for clients that do not opt in).
+7. orjson on write paths only; stdlib on all parse paths.
+8. Leave the libraries alone and move large parses off the event loop (`asyncio.to_thread`).
 
 ## Decision Outcome
 
-Chosen option: **3**, released as a **major** version because the default serialized text,
-NaN handling and big-int parse behavior are visible to callers. The target version number is open.
+Chosen option: **3**, released as a **major** version because the default serialized text, NaN
+handling and big-integer parse behavior are visible to callers. The target version number is open.
 
 * Option 1 leaves about 6x serialization headroom unused.
 * Option 2 touches 21 files, changes every cache hash and has no way back for callers that need the
   old text.
-* Option 4 couples a core concern to a transitive package's helper API. We depend on orjson directly.
+* Option 4: `compressedfhir` is a direct dependency (`pyproject.toml:27`), so "transitive" is not the
+  reason. The reasons are that `FhirClientJsonHelpers.orjson_loads` prints the error and returns
+  `None` on failure (PR #31 `json_helpers.py:195-207`, so parse errors would no longer raise), and
+  `orjson_dumps` has no `default` hook. Neither fits the SDK's error handling.
 * Option 5 adds a dependency when orjson is already installed. Not evaluated further.
+* Option 6 avoids a breaking release. It was not chosen because the default here is deliberately kept
+  consistent with `compressedfhir` 5.0.0 and PR #31, which made compact orjson text the default with
+  an opt-out, so one flag means the same thing across both packages and clients get the speedup
+  without editing code. The cost is a major release and the prerequisites below. This is a
+  maintainer decision, not a technical necessity: an opt-in design would work and would remove F1's
+  exposure for clients that stay on the default.
+* Option 7 was rejected as the whole answer: parsing is the same unguarded swap the maintainers
+  chose to accept (see Further decisions), and the gain on parse (about 1.6-2x) is real.
+* Option 8 does not reduce CPU, only moves it off the loop; it is compatible with this ADR and can
+  be done separately.
 * orjson is the default and `FhirClient.byte_identical_json()` restores the previous text,
   following `json(byte_identical=True)` in compressed-fhir PR #31.
 
@@ -97,83 +122,143 @@ NaN handling and big-int parse behavior are visible to callers. The target versi
   plus one `default` hook equivalent to `FhirJSONEncoder`. Call sites depend on this module, not on
   orjson, so a later vendor change touches one file. Functions only, no module state; the flag is an
   argument. Return type stays `str` (orjson returns `bytes`).
-* **Guarded parse.** `loads` calls orjson and falls back to the standard library for anything orjson
-  handles differently. Verified here: `orjson.loads` turns `123456789012345678901234567890` into the
-  float `1.2345678901234568e+29` with no error, and rejects `NaN` that stdlib accepts. PR #31 uses
-  the same guard (`parse_json_natively`) for NaN/Infinity, integers beyond 64 bits and lone surrogates.
-  `orjson.JSONDecodeError` subclasses both `ValueError` and `json.JSONDecodeError` (verified), so the
-  existing `except json.JSONDecodeError` handlers keep working.
+* **Parse with orjson, no guard (decided).** PR #31 adds a digit-run guard (`parse_json_natively`)
+  that falls back to stdlib for big integers. Measured here on a 7.2 MB synthetic Bundle, the guard
+  scan costs about 14-15 ms against a saving of about 15 ms (stdlib 39.3 ms, orjson 24.8 ms), and the
+  independent review measured it at 54.7 ms on another bundle, so a guarded parse is no faster than
+  stdlib. We therefore parse with orjson unguarded and document the differences:
+
+  | Input | stdlib | orjson (default) | Loud or silent |
+  |---|---|---|---|
+  | Integer below -2^63 or above 2^64-1 | exact `int` | **float** | **silent** |
+  | `NaN`, `Infinity`, `1e400` | accepted | `JSONDecodeError` | loud |
+  | Nesting deeper than 1024 | accepted | rejected | loud (review, not re-run) |
+  | Ordinary floats and integers | same | same (199,951 random literals compared, 0 differences) | n/a |
+
+  The silent case is narrow: FHIR `integer` is 32-bit (R4 datatypes), so only a `decimal` written as
+  an integer-valued JSON number of 20 or more digits can hit it. Both libraries already lose
+  precision on fractional decimals (the FHIR R4 JSON page notes `2.00` becomes `2`). The SDK's
+  `$merge` path parses and re-dumps resources (`fhir_merge_mixin.py:152`), so such a value would be
+  rewritten as a float before being sent. This is an accepted, documented difference;
+  `byte_identical_json(True)` parses with stdlib and keeps the exact value. Message text of
+  `JSONDecodeError` also differs where `str(e)` is surfaced (`fhir_merge_mixin.py:234`,
+  `fhir_patch_mixin.py:123`). `orjson.JSONDecodeError` subclasses both `ValueError` and
+  `json.JSONDecodeError` (verified), so existing `except json.JSONDecodeError` handlers still catch it.
 * **Guarded write.** `dumps_str` falls back to stdlib where orjson raises `TypeError` (verified:
-  integers beyond 64 bits, int keys, `set`, lone surrogates). `datetime`, `UUID`, `Enum` and
-  dataclasses are handled natively; `Decimal`, `bytes`, `Path` and objects with `to_dict` or
-  `__dict__` go through the `default` hook. Every fallback is logged at debug level, never with
-  payload content.
-* **Cache hashing stays on the standard library.** The hash input is the serialized text, and
-  orjson text differs from stdlib text (verified: hashes differ). `raw_hash` is compared against
-  `cache_map` values that callers may have persisted from earlier versions, so switching would make
-  every cached entry compare unequal (cache churn, not data loss). Sites:
-  `simulated_graph_processor_mixin.py:1521,1812`, `fhir_get_bundle_response.py:364`. This holds in
-  both default and `byte_identical_json(True)` modes, so one resource never hashes differently per
-  client. A regression test pins a fixed resource's hash.
-* **NDJSON framing fix is a prerequisite.** orjson does not escape U+2028 or U+0085, and
-  `parse_json_or_ndjson` uses `text.splitlines()` (`json_helpers.py:19`). Verified: a record containing
-  U+2028 splits into 2 lines with orjson output and 1 with stdlib output. The `$merge` NDJSON path
-  joins records with `"\n"` (`fhir_merge_mixin.py:178`), so a resource containing U+2028 would be cut
-  mid-record. Change `splitlines()` to `split("\n")` before any NDJSON dump moves to orjson.
-  `ndjson_chunk_streaming_parser.py` already splits on `"\n"`.
+  integers beyond 64 bits, int keys, `set`, lone surrogates). This guard is exception-based and costs
+  nothing on the normal path. `datetime`, `UUID`, `Enum` and dataclasses are handled natively;
+  `Decimal`, `bytes`, `Path` and objects with `to_dict` or `__dict__` go through the `default` hook.
+  Every fallback is logged at debug level, never with payload content, and increments a counter
+  (and sets a span attribute on the active OpenTelemetry span; the SDK already uses
+  `TRACER.start_as_current_span`), so fallback rates can be seen in production. NaN is written as
+  `null` by orjson by default.
+* **fhir-server must decode NDJSON chunks correctly first (prerequisite, cross-repo).** orjson and
+  `compressedfhir` 5.0.0 write raw UTF-8, where stdlib wrote ASCII-escaped text. fhir-server's
+  `NdjsonParser` did `this._buffer += chunk.toString();` per chunk
+  (`src/operations/merge/ndJsonParser.js`), so a multi-byte character split across two chunks decodes
+  to U+FFFD, `JSON.parse` still succeeds, and corrupted text is persisted. Fix: PR
+  `icanbwell/fhir-server#2775` (Jira DCON-6862) decodes with `StringDecoder('utf8')` and has tests
+  for 2-, 3- and 4-byte characters split at every interior byte. It must be **merged and deployed**
+  before any release that sends raw-UTF-8 NDJSON `$merge` bodies, which includes the `compressedfhir`
+  5.0.0 upgrade release as well as this one. Whether real traffic splits mid-character depends on
+  network and decompressor chunking and is not measured; the defect is in the code either way.
+* **Cache hashing stays on the standard library and pins its input.** The hash input is serialized
+  text, and orjson text differs from stdlib text (verified: hashes differ). `raw_hash` is compared
+  against `cache_map` values that callers may have persisted (`simulated_graph_processor_mixin.py:76`),
+  so switching would make every cached entry compare unequal (cache churn, not data loss). The three
+  sites (`simulated_graph_processor_mixin.py:1521,1812`, `fhir_get_bundle_response.py:364`) keep
+  stdlib `json` and call `resource.json(byte_identical=True)` with the flag **fixed**, exempt from
+  forwarding, so the hash is the same in both client modes. This matters because a resource holding
+  NaN produces different `compressedfhir` text in default and exact modes (PR #31 default drops the
+  NaN key; the independent review reproduced differing hashes). A regression test pins a fixed
+  resource's hash, including a NaN fixture.
+* **The NDJSON `splitlines()` fix is standalone, not an orjson prerequisite.**
+  `parse_json_or_ndjson` (`json_helpers.py:19`) parses only server responses, and fhir-server writes
+  NDJSON with `JSON.stringify`, which leaves U+2028 and U+0085 unescaped, so `text.splitlines()`
+  can already mis-split a server response today. The SDK writing raw U+2028 in a request is harmless
+  because fhir-server splits on `'\n'`. Ship `splitlines()` → `split("\n")` as its own change, and fix
+  `test_merge_streaming_request_body.py:34`, which also uses `body.splitlines()`. Test against
+  server-shaped responses containing U+2028. `ndjson_chunk_streaming_parser.py` already splits on `"\n"`.
 * **Paths that stay on stdlib:** the cache-hash paths above; `dictionary_writer.py` and
   `fix_fhir_bundle.py` (debug and CLI, rely on `default=str` and `indent`); `fhir_auth_mixin.py`
   (tiny payloads, no benefit).
 * **Client option for the old text.** `FhirClient.byte_identical_json(use: bool = True) -> FhirClient`
   following the fluent setters `use_data_streaming` (`fhir_client.py:386`), `content_type` (`:435`)
   and `compress` (`:496`). Field `self._byte_identical_json: bool = False` beside `_content_type`
-  (`:124`). It must also be copied in the clone code (`fhir_client.py:988-1016`), or clones silently
-  revert to orjson. The name states the contract ("same bytes as before"), not the library; a
-  `json_backend` enum was rejected so the name survives a vendor change. Kept indefinitely, as in PR #31.
+  (`:124`). The name states the contract ("same bytes as before"), not the library; a `json_backend`
+  enum was rejected so the name survives a vendor change. A boolean matches the repo's convention;
+  use an enum only if a third mode becomes plausible. Kept indefinitely, as in PR #31.
 
   | Behavior | Default | `byte_identical_json(True)` |
   |---|---|---|
   | Separators | compact `,` `:` | `, ` `: ` |
   | Non-ASCII | raw UTF-8 | `\uXXXX` escapes |
   | NaN / Infinity on dump | `null` | stdlib literals |
-  | NaN / Infinity on parse | stdlib fallback, same either way | stdlib |
-  | U+2028 in an NDJSON body | raw (hence the framing fix) | escaped |
+  | NaN / Infinity / big ints on parse | orjson behavior (table above) | stdlib |
+  | U+2028 in an NDJSON body | raw | escaped |
 
-* **Sequencing: this PR comes after the `compressedfhir` 5.0.0 upgrade PR.** The upgrade is a
-  separate PR that merges first; this ADR does not cover it. This PR assumes `compressedfhir` 5.0.0 is
-  already the locked version (today the repo is `>=3.0.5`, locked 3.0.5, and 5.0.0 is not on PyPI;
-  PyPI's latest is 4.0.0, checked 2026-11-21). Consequences:
-  * `byte_identical_json` is forwarded to every `compressedfhir` text call as `.json(byte_identical=...)`,
-    which 5.0.0 provides: `fhir_merge_resources_mixin.py:56-63,546-552,726,752`,
-    `fhir_update_mixin.py:36,54`, `fhir_get_single_response.py:220`, `fhir_get_list_response.py:246`,
-    `fhir_get_bundle_response.py:424`. With the default, SDK-built and `compressedfhir`-built text are
-    both compact orjson text, so merge bodies are consistent.
-  * **Two major releases (decided).** The `compressedfhir` 5.0.0 upgrade ships as its own major; this
-    work ships as a second major. `byte_identical_json` is introduced only in the second major.
-    Accepted consequence: clients on the first major get compact `compressedfhir` text with no
-    SDK option to restore the old text; they must wait for the second major or pin the earlier
-    release. The upgrade PR's description and release notes should say so.
-  * "The previous text" in the table above means **stdlib text for everything the SDK emits**
-    (decided), including what `compressedfhir` writes via `byte_identical=True`. It is the SDK's
-    output before either major, not the text of the first major with defaults. That definition does
-    not depend on release history, and matches `byte_identical` in PR #31.
-  * The upgrade PR owns these checks, which this PR relies on being done: `raw_dict()` returning
-    `Dict` rather than `OrderedDict` (`simulated_graph_processor_mixin.py:1199`; unproven), whether the
-    `cls=FhirJSONEncoder` sites can go (unproven), NaN becoming `null` in `dict()`, and that the hash
-    path is unchanged (stdlib normalization hides text differences; only NaN→`null` could change a
-    hash).
-  * If the upgrade PR slips, this PR cannot forward the flag (3.0.5 has no `byte_identical`). Do not
-    merge this PR ahead of it.
+* **How the flag reaches every site.** The response-text builders are methods on response objects
+  built without the client, so the flag is threaded the way `use_data_streaming` is (about 44
+  library lines in 14 files): a field on `FhirClientProtocol`
+  (`responses/fhir_client_protocol.py:88` shows the existing pattern), a parameter on
+  `FhirResponseProcessor.handle_response` (`responses/fhir_response_processor.py:71`), and a
+  keyword-only `byte_identical_json: bool = False` on each response constructor
+  (`fhir_get_list_response.py:44-62` and its siblings). The clone code copies each field explicitly
+  (`fhir_client.py:974-1038`), so the new field must be added there or clones revert to orjson.
+* **Sequencing: this work comes after the `compressedfhir` 5.0.0 upgrade PR, which merges and
+  releases first.** That upgrade is a separate PR and is not covered here. This work assumes
+  `compressedfhir` 5.0.0 is the locked version (today the repo is `>=3.0.5`, locked 3.0.5; PyPI's
+  latest is 4.0.0, checked 2026-11-21). Consequences:
+  * **Two major releases (decided).** The upgrade ships as its own major; this work ships as a
+    second major, and `byte_identical_json` exists only from the second. Accepted: clients on the
+    first major get compact `compressedfhir` text with no SDK option to restore the old text until
+    the second major. The upgrade PR's release notes should say so, and should list the fhir-server
+    prerequisite above.
+  * `byte_identical_json` is forwarded to every `compressedfhir` text call as
+    `.json(byte_identical=...)`, which 5.0.0 provides (PR #31 `fhir_bundle.py:220`):
+    `fhir_merge_resources_mixin.py:56-63,546-552,726,752`, `fhir_update_mixin.py:36,54`,
+    `fhir_get_single_response.py:220`, `fhir_get_list_response.py:246`,
+    `fhir_get_bundle_response.py:424`. The hash sites are the exception (fixed flag, above).
+  * "The previous text" means **stdlib text for everything the SDK emits** (decided), including what
+    `compressedfhir` writes via `byte_identical=True`: the SDK's output before either major.
+  * The upgrade PR owns these checks, which this work relies on: `raw_dict()` returning `Dict` rather
+    than `OrderedDict` (`simulated_graph_processor_mixin.py:1199`; unproven), whether the
+    `cls=FhirJSONEncoder` sites can go (unproven), and NaN handling in `dict()`.
+  * If the upgrade PR slips, the flag cannot be forwarded (3.0.5 has no `byte_identical`). Do not
+    merge this work ahead of it.
+* **Governance (decided).** orjson is not listed in `icanbwell/.github/policies/approved-tech.yaml`
+  (checked 2026-11-21). It is already a locked dependency here through `compressedfhir` and is
+  already declared by other icanbwell repos (`helix.pipelines`, `helix.personmatching`,
+  `mcp-fhir-agent`, `complaint-parser`, `helix-core`, `helix.orchestration`, among others; per the
+  independent review's code search). No approval or registry proposal is requested. Recorded for
+  reviewers: this repo's `CLAUDE.md` and `AGENTS.md` say an unlisted significant library requires a
+  Tech Design Review, while the org registry's catalog tier says unlisted is not a blocker; the
+  decision here relies on orjson already being installed and in use.
+* **Out of scope but flagged (pre-existing, found in the review).**
+  `fhir_get_response_factory.py:60` (`f"Error parsing response: {response_text}: {e}"`) and
+  `fhir_get_list_by_resource_type_response.py:287` (`f"No resourceType in {json.dumps(resource)}"`)
+  put whole payloads into error strings, which can carry PHI. This ADR touches both files; fix in a
+  separate ticket. Also: `fhir_response_processor.py:421` parses the whole response only to read the
+  `next` link (a substring check measured about 4 ms against a 39 ms parse); a separate optimization.
+  `types-orjson` (dev dependency, `pyproject.toml:63`) should be checked once orjson is a direct
+  dependency, since orjson ships its own type stubs.
 
 ### Consequences
 
-* Good: about 6x faster `dumps` and about 2x faster `loads` on the hot paths in isolation; about 8%
-  smaller request bodies; shorter event-loop stalls on large pages; an explicit way back to the old
-  text.
+* Good: about 6x faster `dumps` and about 1.6-2x faster `loads` on the hot paths in isolation; about
+  8% smaller request bodies; shorter event-loop stalls on large pages; an explicit way back to the
+  old text.
 * Bad: default request and response text changes; callers that assert on or persist exact text must
-  call `byte_identical_json()`; NaN is written as `null` by default; a plain `Enum` or `UUID` is
-  accepted where stdlib's `default` hook would previously have been consulted; tests that assert
-  exact body strings must compare parsed JSON instead.
+  call `byte_identical_json()`; NaN is written as `null` by default; very large integer-valued
+  decimals are silently parsed as floats by default; raw UTF-8 bodies need the fhir-server fix;
+  tests that assert exact body strings must compare parsed JSON instead.
+* Consumer impact (to verify before the major release; not yet checked). The independent review's
+  `gh search code` found repos declaring `helix.fhir.client.sdk` (22 by one count, 13 by another)
+  and nine that call `get_response_text`: `ai-health-optimization`, `ai-visit-summary`,
+  `fhir-notes-vector-store`, `helix-core`, `helix-event-listener-service`, `helix.pipelines`,
+  `iop_databricks`, `mcp-fhir-agent`, `SparkPipelineFramework`. Before release, for each: does it
+  assert on or persist exact response or request text, or persisted `raw_hash` values? Record the
+  result here as a table (repo, outputs consumed, exact-text dependency, action).
 * Risk: gain smaller than expected end to end (see Context). Do not advertise an end-to-end speedup
   until profiled.
 * Public contract: return types stay `str`. Released as a major version with a README upgrade
@@ -181,55 +266,65 @@ NaN handling and big-int parse behavior are visible to callers. The target versi
   follow-up release.
 * Dependency: declare `orjson>=3.11.9` in `pyproject.toml` (a direct dependency now, not transitive).
   The `exclude-newer = "2 days"` setting applies.
-* Not applicable: tenancy (no persistence or query changes), PHI (benchmarks use synthetic data and
-  no payloads are logged), event schemas, and AWS, IAM, FHIR scope or public endpoint changes.
+* Not applicable: tenancy (no persistence or query changes), PHI in new logging (benchmarks use
+  synthetic data and no payloads are logged), event schemas, and AWS, IAM, FHIR scope or public
+  endpoint changes.
 
 ### Tests
 
 Parameterized over both modes where behavior differs:
 
-1. `byte_identical_json(True)` output equals the previous major's output byte for byte over
-   fixtures (ASCII, non-ASCII, U+2028, floats, `Decimal`, `datetime`), using a verbatim copy of the
-   old logic as the oracle (the approach PR #31 used).
-2. Default output parses to a value equal to the `byte_identical_json(True)` output.
-3. `fast_json.loads`: big ints stay ints; NaN follows stdlib; invalid JSON raises a
-   `json.JSONDecodeError`.
-4. NDJSON round trip with U+2028 and U+0085 through merge dump and `parse_json_or_ndjson`.
-5. Cloning a client preserves the flag, and the flag reaches the `compressedfhir`
-   `.json(byte_identical=...)` call at every site listed under Sequencing (assert on the sent body).
-6. A fixed resource hashes identically in both modes.
+1. `byte_identical_json(True)` output equals the previous text byte for byte over fixtures (ASCII,
+   non-ASCII, U+2028, floats, `Decimal`, `datetime`), using a verbatim copy of the old logic as the
+   oracle (the approach PR #31 used).
+2. Default output parses to a value equal to the `byte_identical_json(True)` output, except for the
+   documented differences.
+3. Parse differences are pinned: a 30-digit integer is a float by default and an exact `int` with the
+   flag; `NaN` / `Infinity` / `1e400` raise `json.JSONDecodeError` by default; ordinary numbers are
+   equal in both modes.
+4. The `split("\n")` NDJSON fix is tested with server-shaped responses containing U+2028 and U+0085.
+5. Cloning a client preserves the flag, and the flag reaches every `compressedfhir`
+   `.json(byte_identical=...)` call and every response constructor; assert `get_response_text()` in
+   both modes and the sent request body.
+6. A fixed resource hashes identically in both modes, including a resource containing NaN.
 7. Existing suite passes; exact-text assertions are rewritten to compare parsed JSON, as
    `test_merge_streaming_request_body.py` already does.
-8. Extend `tests/async/test_benchmark_merge.py` (pytest-benchmark is a dev dependency) for
-   before/after numbers, and run cProfile on a representative graph traversal to settle the
-   end-to-end claim.
+8. Commit the benchmark (extend `tests/async/test_benchmark_merge.py`; pytest-benchmark is a dev
+   dependency) for before/after numbers on Python 3.12 (CI and the floor), and run cProfile on a
+   representative graph traversal to settle the end-to-end claim.
+9. Contract test against fhir-server `$merge` with a non-ASCII resource split across chunks, once
+   `fhir-server#2775` is deployed.
 
 ### Rollout
 
-One PR per role group (parse, NDJSON, request build, response build), each independently revertable
-and labelled with risk, type and semver. The phases can sit on `main` unreleased and ship together as
-one major version (the second major, after the `compressedfhir` upgrade) so consumers see a single
-breaking upgrade from this work.
+Order: (1) `fhir-server#2775` merged and deployed; (2) the `compressedfhir` 5.0.0 upgrade PR merged
+and released as its own major; (3) this work as **one PR covering all phases** (parse, NDJSON,
+request build, response build), released as the second major. A single PR keeps `main` from carrying
+a breaking phase that an ordinary weekly release would publish (`python-publish.yml` publishes on
+every GitHub release; releases 5.0.22 to 5.0.27 shipped between 2026-11-10 and 2026-11-17). The
+`split("\n")` fix and the error-string fixes are separate, non-breaking PRs.
 
 ### Open items
 
 | Item | Owner | Status |
 |---|---|---|
-| Jira ticket and branch name | Imran | open |
-| Target major version number and release date (`VERSION` is the placeholder `0.0.1`) | Imran | open |
-| Upgrade PR for `compressedfhir` 5.0.0: link it here; it must merge first (5.0.0 not yet released) | Imran | open |
-| Version numbers for the two majors (the upgrade major, then this one) | Imran | open |
+| Link the `compressedfhir` 5.0.0 upgrade PR; it must merge first (5.0.0 not yet released) | Imran | open |
+| Version numbers for the two majors | Imran | open |
+| `fhir-server#2775` reviewed, merged and deployed | fhir-server owners | open (PR open, CI not checked) |
+| Consumer-impact table (Consequences) | Imran | open |
 | End-to-end share of wall-clock spent in JSON on a real graph or merge workload | Imran | unproven |
-| orjson listed in `icanbwell/.github/policies/approved-tech.yaml` | Imran | checked 2026-11-21: **not listed**. Libraries are catalog-only, so this does not block; chosen because it is already installed through `compressedfhir` and measured about 6x faster `dumps` |
-| Wheel availability for the Docker base image (musl) | Imran | unproven |
-| Prior-art search in Confluence (Approved) and `gh search code --owner icanbwell orjson`; compressed-fhir PR #31 was supplied, not found by search | Imran | partial |
-| Independent `ea-tech-design-review` of this ADR | Imran | not run |
+| `compressedfhir` 5.0.0 contract (`raw_dict()` type, `FhirJSONEncoder` removable, NaN in `dict()`) | upgrade PR | unproven |
+| Prior-art search in Confluence (Approved); compressed-fhir PR #31 was supplied, not found by search | Imran | partial |
 | Tell the PR #31 author its consumer survey lists this repo at `>=1.0.13,<3` locked 1.0.13, but `main` is `>=3.0.5` locked 3.0.5 | Imran | open |
+| Tell the `compressedfhir` upgrade PR owner about the raw-UTF-8 prerequisite (`fhir-server#2775`) | Imran | open |
+| Separate ticket for PHI in error strings (Further decisions) | Imran | open |
 
 ## References
 
 * compressed-fhir PR #31 and its `adrs/0002-faster-json-with-orjson.md` (branch `IQ-BAI-1955`, open
-  at the time of writing): the `byte_identical` option, the guarded parse, the NDJSON and hash
-  lessons.
+  at the time of writing): the `byte_identical` option, the guard, the NDJSON and hash lessons.
+* `icanbwell/fhir-server#2775` (DCON-6862): NDJSON chunk-boundary UTF-8 fix.
+* FHIR R4 `datatypes.html` (`integer` is 32-bit; `decimal`) and `json.html` (number precision).
 * `uv.lock:580,1565`: orjson 3.11.9 via `compressedfhir` 3.0.5.
-* Benchmark: synthetic Bundles, `scratchpad/bench.py` (not committed).
+* Independent `ea-tech-design-review` of this ADR at `4f7b4e9`: verdict Needs-revision, 10 required
+  changes (all addressed or recorded above), 8 suggestions.
