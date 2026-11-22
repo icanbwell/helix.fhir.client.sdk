@@ -398,7 +398,7 @@ class FhirClient(
         Separators                             compact ``,`` ``:``         ``, `` ``: ``
         Non-ASCII                              raw UTF-8                   ``\\uXXXX`` escapes
         NaN / Infinity on write                ``null``                    standard library literals
-        NaN / Infinity / big int on parse      orjson behavior             standard library behavior
+        Big integer (beyond 64 bits) on parse  float                       exact integer
         U+2028 in an NDJSON body               raw                         escaped
         =====================================  ==========================  ===========================
 

@@ -1,9 +1,10 @@
 """
 The one place the SDK chooses how JSON text is read and written.
 
-Call sites depend on this module, not on orjson, so a later vendor change touches one file.
+Call sites depend on this module, not on orjson, so a later change to the JSON library is made here.
 ``byte_identical=True`` gives exactly what the standard library wrote before orjson was adopted
-(see adrs/0001-faster-json-with-orjson.md).  Functions only, no module state.
+(see adrs/0001-faster-json-with-orjson.md).  Functions only; the module-level objects are a logger
+and a stateless encoder.
 """
 
 import json

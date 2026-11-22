@@ -161,9 +161,10 @@ def test_loads_deeply_nested_input_never_leaks_a_recursion_error() -> None:
 
     # orjson rejects this; the stdlib accepts it on some Python versions and hits its recursion limit on others
     try:
-        loads(nested)
+        result = loads(nested)
     except JsonDecodeError:
-        pass
+        return
+    assert isinstance(result, list)
 
 
 @pytest.mark.parametrize(

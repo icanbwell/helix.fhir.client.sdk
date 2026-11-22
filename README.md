@@ -147,8 +147,9 @@ versions, by default:
 * request bodies and `get_response_text()` are compact (`{"a":1}`), not `{"a": 1}`;
 * non-ASCII characters are written as raw UTF-8, not `\uXXXX` escapes;
 * `NaN` and `Infinity` are written as `null`;
-* an integer outside -2^63..2^64-1 is parsed as a float, and `NaN`, `Infinity` and nesting deeper
-  than 1024 levels are rejected when parsing a response.
+* an integer outside -2^63..2^64-1 is parsed as a float. `NaN`, `Infinity`, a lone surrogate escape
+  and nesting deeper than 1024 levels still parse: when orjson rejects the text, the standard library
+  parses it instead.
 
 Raw UTF-8 `$merge` bodies need a FHIR server that decodes multi-byte characters split across request
 chunks (icanbwell/fhir-server#2775). Deploy that first.

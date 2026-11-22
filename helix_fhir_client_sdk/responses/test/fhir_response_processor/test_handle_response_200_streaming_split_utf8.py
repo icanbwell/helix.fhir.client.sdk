@@ -70,7 +70,7 @@ def _line_bytes() -> bytes:
 
 
 # every split offset inside a multi-byte character of the record
-_SPLIT_OFFSETS = [i for i, b in enumerate(_line_bytes()) if i > 0 and (b & 0xC0) == 0x80]
+_SPLIT_OFFSETS = tuple(i for i, b in enumerate(_line_bytes()) if i > 0 and (b & 0xC0) == 0x80)
 
 
 @pytest.mark.parametrize("byte_identical_json", [False, True])

@@ -23,7 +23,9 @@ def stable_resource_hash_input(resource: FhirResource) -> str:
     The text that ``raw_hash`` values are computed from.
 
     Callers may have persisted these hashes, so the text must not change when the client's
-    ``byte_identical_json`` option does.  The resource is therefore always written with
+    ``byte_identical_json`` option does.  It is also the text compressedfhir 3.0.5 produced,
+    except for a NaN-valued key: compressedfhir 5 drops that key, so the hash of a resource
+    holding NaN differs from the 3.0.5 hash.  The resource is therefore always written with
     ``byte_identical=True`` (the text compressedfhir 3.0.5 wrote) and normalized with the
     standard library, whatever the client mode.
     """

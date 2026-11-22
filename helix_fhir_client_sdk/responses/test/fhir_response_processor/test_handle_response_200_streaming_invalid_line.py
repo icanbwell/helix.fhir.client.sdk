@@ -85,3 +85,24 @@ async def test_line_only_the_standard_library_accepts_is_still_delivered(byte_id
 
     assert len(results) == 3
     assert all(r.error is None for r in results)
+
+
+@pytest.mark.parametrize("byte_identical_json", [False, True])
+@pytest.mark.parametrize("unfinished_record", ['{"id": "la', '{"id": "last"'])
+async def test_body_ending_inside_a_record_yields_the_complete_lines_then_an_error_response(
+    unfinished_record: str, byte_identical_json: bool
+) -> None:
+    chunk_text = f"{json.dumps(FIRST)}\n{unfinished_record}"
+
+    results = await _stream(chunk_text, byte_identical_json=byte_identical_json)
+
+    assert [r.error is None for r in results] == [True, False]
+    assert json.loads(results[0].get_response_text()) == FIRST
+
+
+async def test_body_whose_last_line_has_no_newline_delivers_that_line() -> None:
+    chunk_text = f"{json.dumps(FIRST)}\n{json.dumps(LAST)}"
+
+    results = await _stream(chunk_text, byte_identical_json=False)
+
+    assert [r.error for r in results] == [None, None]

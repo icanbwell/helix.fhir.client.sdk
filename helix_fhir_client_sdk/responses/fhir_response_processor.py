@@ -735,6 +735,8 @@ class FhirResponseProcessor:
                         raise invalid_line_error
                 # raises if the stream ended inside a multi-byte character
                 utf8_decoder.decode(b"", final=True)
+                if nd_json_chunk_streaming_parser.buffer.strip():
+                    raise ValueError("The response ended inside an NDJSON record")
         except Exception as e:
             if logger:
                 logger.error(f"Error processing response from {full_url} with error: {str(e)}")
