@@ -29,7 +29,7 @@ the earlier 82 and 196 were repo-wide totals including library code).
 
 | Role | Sites | Hot? |
 |---|---|---|
-| Parse response text | `fhir_response_processor.py:421` (every GET page, only to read the `next` link), `fhir_get_response.py:308`, `fhir_get_response_factory.py:58`, `retryable_aiohttp_response.py:102`, `fhir_get_error_response.py:248`, `request_queue_mixin.py:371`, `fhir_delete_mixin.py:157`, `responses/merge/fhir_merge_response_entry_issue.py:55`, `responses/merge/fhir_merge_resource_response_entry.py:115` (`parse_json_or_ndjson`, an `@override` classmethod `from_json`) | yes |
+| Parse response text | `fhir_response_processor.py:421` (every GET page; the parsed result feeds `expand_or_separate_bundle_async` and the `next` link), `fhir_get_response.py:308`, `fhir_get_response_factory.py:58`, `retryable_aiohttp_response.py:102`, `fhir_get_error_response.py:248`, `request_queue_mixin.py:371`, `fhir_delete_mixin.py:157`, `responses/merge/fhir_merge_response_entry_issue.py:55`, `responses/merge/fhir_merge_resource_response_entry.py:115` (`parse_json_or_ndjson`, an `@override` classmethod `from_json`) | yes |
 | Streaming NDJSON parse | `ndjson_chunk_streaming_parser.py:35` (one `loads` per line), `json_helpers.py:17-19` (`parse_json_or_ndjson`) | yes |
 | Build `$merge` / patch bodies | `fhir_merge_mixin.py:59,81,152,174,178,180,297`, `fhir_patch_mixin.py:71,129` | yes |
 | Build response text | `fhir_response_processor.py:517-526,675`, `fhir_get_list_response.py:270`, `fhir_get_list_by_resource_type_response.py:274,287`, `fhir_get_error_response.py:206` (three pass `cls=FhirJSONEncoder`) | yes |
@@ -351,8 +351,10 @@ handling and big-integer parse behavior are visible to callers. The target versi
   (`bundle.json()` and `resources_to_merge.json()` in `logger.error`), and
   `responses/fhir_get_response.py:420` (exception text with `resources.json()`) and `:316`
   (`__repr__` → `json.dumps(self.to_dict())`). This ADR touches these files; fix all of them in a
-  separate ticket. Also: `fhir_response_processor.py:421` parses the whole response only to read the
-  `next` link (a substring check measured about 4 ms against a 39 ms parse); a separate optimization (BAI-1966).
+  separate ticket.
+  Correction: an earlier draft of this ADR said the parse at `fhir_response_processor.py:421` was only to
+  read the `next` link and could be skipped. That was wrong: the parsed result is passed on to
+  `expand_or_separate_bundle_async` (`:438`), so the parse is needed, and no such optimization exists.
   `types-orjson` (dev dependency, `pyproject.toml:63`) should be checked once orjson is a direct
   dependency, since orjson ships its own type stubs.
 
