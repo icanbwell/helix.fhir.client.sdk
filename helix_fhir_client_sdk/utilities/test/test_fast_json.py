@@ -148,3 +148,44 @@ def test_loads_error_type_exposed_to_callers_is_not_an_orjson_type() -> None:
         loads("{bad")
 
     assert type(exc_info.value) is JsonDecodeError
+
+
+@pytest.mark.parametrize("byte_identical", [False, True])
+def test_loads_raises_the_sdk_error_in_both_modes(byte_identical: bool) -> None:
+    with pytest.raises(JsonDecodeError):
+        loads("{bad", byte_identical=byte_identical)
+
+
+class _FakeSpan:
+    def __init__(self) -> None:
+        self.attributes: dict[str, Any] = {}
+
+    def is_recording(self) -> bool:
+        return True
+
+    def set_attribute(self, key: str, value: Any) -> None:
+        self.attributes[key] = value
+
+
+def test_span_attributes_do_not_let_a_later_success_hide_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    span = _FakeSpan()
+    monkeypatch.setattr("helix_fhir_client_sdk.utilities.fast_json.trace.get_current_span", lambda: span)
+
+    with pytest.raises(JsonDecodeError):
+        loads("{bad")
+    loads('{"ok": true}')
+
+    assert span.attributes["json.error"] is True
+    assert span.attributes["json.chars"] == len('{"ok": true}')
+    assert "json.bytes" not in span.attributes
+    assert all(not isinstance(v, str) or v in {"loads"} for v in span.attributes.values())
+
+
+def test_expected_failure_is_not_recorded_as_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    span = _FakeSpan()
+    monkeypatch.setattr("helix_fhir_client_sdk.utilities.fast_json.trace.get_current_span", lambda: span)
+
+    with pytest.raises(JsonDecodeError):
+        loads("{bad", record_errors=False)
+
+    assert "json.error" not in span.attributes

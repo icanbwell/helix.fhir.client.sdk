@@ -6,6 +6,7 @@ import pytest
 
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
+    NdJsonInvalidLineError,
 )
 from tests.logger_for_test import LoggerForTest
 
@@ -190,3 +191,14 @@ def test_partial_final_line_is_held_until_the_next_chunk() -> None:
 
     assert first == [{"id": "first"}]
     assert second == [{"id": "last"}]
+
+
+def test_invalid_line_carries_the_objects_parsed_before_it() -> None:
+    parser = NdJsonChunkStreamingParser()
+
+    with pytest.raises(NdJsonInvalidLineError) as exc_info:
+        parser.add_chunk(f"{_VALID_FIRST}\n{{bad\n{_VALID_LAST}\n", logger=None)
+
+    assert exc_info.value.parsed == [{"id": "first"}]
+    assert isinstance(exc_info.value, json.JSONDecodeError)
+    assert isinstance(exc_info.value.__cause__, json.JSONDecodeError)

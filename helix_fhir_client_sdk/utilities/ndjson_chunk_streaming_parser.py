@@ -2,7 +2,20 @@ import json
 from logging import Logger
 from typing import Any
 
-from helix_fhir_client_sdk.utilities.fast_json import loads
+from helix_fhir_client_sdk.utilities.fast_json import JsonDecodeError, loads
+
+
+class NdJsonInvalidLineError(JsonDecodeError):
+    """
+    A newline-terminated NDJSON line is not valid JSON.
+
+    ``parsed`` holds the objects from the lines before it in the same chunk, so a caller can use
+    them before it stops the stream.
+    """
+
+    def __init__(self, cause: json.JSONDecodeError, parsed: list[dict[str, Any]]) -> None:
+        super().__init__(cause.msg, cause.doc if isinstance(cause.doc, str) else "", cause.pos)
+        self.parsed: list[dict[str, Any]] = parsed
 
 
 class NdJsonChunkStreamingParser:
@@ -21,15 +34,23 @@ class NdJsonChunkStreamingParser:
         :param chunk: A string containing a chunk of NDJSON data.
         :param logger: A logger to log errors.
         :return: A list of complete JSON objects extracted from the chunk.
-        :raises json.JSONDecodeError: when a newline-terminated line is not valid JSON
+        :raises NdJsonInvalidLineError: when a newline-terminated line is not valid JSON; the objects parsed
+            from the lines before it are on the exception's ``parsed``
         """
         lines = (self.buffer + chunk).split("\n")
         # the text after the last newline: empty when the chunk ended on a newline
         pending = lines.pop()
 
-        complete_json_objects: list[dict[str, Any]] = [
-            loads(line, byte_identical=self._byte_identical_json) for line in lines if line.strip()
-        ]
+        complete_json_objects: list[dict[str, Any]] = []
+        for line in lines:
+            if not line.strip():
+                continue
+            try:
+                complete_json_objects.append(loads(line, byte_identical=self._byte_identical_json))
+            except json.JSONDecodeError as e:
+                # the stream is invalid from here on; the caller decides what to do with the good lines before it
+                self.buffer = ""
+                raise NdJsonInvalidLineError(e, complete_json_objects) from e
 
         if pending.strip():
             try:

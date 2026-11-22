@@ -35,6 +35,7 @@ from helix_fhir_client_sdk.responses.resource_separator import (
 from helix_fhir_client_sdk.utilities.fast_json import dumps_str, loads
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
+    NdJsonInvalidLineError,
 )
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_response import (
     RetryableAioHttpResponse,
@@ -655,10 +656,16 @@ class FhirResponseProcessor:
                     chunk = chunk_bytes.decode("utf-8")
                     chunk_length = len(chunk_bytes)
                     total_kilobytes += chunk_length // 1024
-                    completed_resources: list[dict[str, Any]] = nd_json_chunk_streaming_parser.add_chunk(
-                        chunk=chunk,
-                        logger=logger,
-                    )
+                    invalid_line_error: NdJsonInvalidLineError | None = None
+                    try:
+                        completed_resources: list[dict[str, Any]] = nd_json_chunk_streaming_parser.add_chunk(
+                            chunk=chunk,
+                            logger=logger,
+                        )
+                    except NdJsonInvalidLineError as e:
+                        # yield the lines that parsed before the bad one, then stop the stream below
+                        invalid_line_error = e
+                        completed_resources = e.parsed
                     if completed_resources:
                         total_time: float = time.time() - start_time
                         if total_time == 0:
@@ -720,6 +727,9 @@ class FhirResponseProcessor:
                                 byte_identical_json=byte_identical_json,
                                 create_operation_outcome_for_error=create_operation_outcome_for_error,
                             )
+
+                    if invalid_line_error is not None:
+                        raise invalid_line_error
         except Exception as e:
             if logger:
                 logger.error(f"Error processing response from {full_url} with error: {str(e)}")

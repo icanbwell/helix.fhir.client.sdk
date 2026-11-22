@@ -35,15 +35,22 @@ class JsonDecodeError(json.JSONDecodeError):
 
 
 def _record(operation: str, size: int, started: float | None, *, fallback: bool = False, error: bool = False) -> None:
+    """
+    Sets attributes on the current span (no span is created).  A span can see many calls, for example one per
+    NDJSON line: operation, size and duration describe the last call, while ``json.fallback`` and ``json.error``
+    are only ever set to True so a later success cannot hide an earlier failure.  Size is in characters.
+    """
     span = trace.get_current_span()
     if not span.is_recording():
         return
     span.set_attribute("json.operation", operation)
-    span.set_attribute("json.bytes", size)
+    span.set_attribute("json.chars", size)
     if started is not None:
         span.set_attribute("json.duration_ms", (time.perf_counter() - started) * 1000)
-    span.set_attribute("json.fallback", fallback)
-    span.set_attribute("json.error", error)
+    if fallback:
+        span.set_attribute("json.fallback", True)
+    if error:
+        span.set_attribute("json.error", True)
 
 
 def dumps_str(obj: object, *, byte_identical: bool = False) -> str:
@@ -73,7 +80,7 @@ def dumps_str(obj: object, *, byte_identical: bool = False) -> str:
     return text
 
 
-def loads(text: str | bytes, *, byte_identical: bool = False) -> Any:
+def loads(text: str | bytes, *, byte_identical: bool = False, record_errors: bool = True) -> Any:
     """
     Parse JSON text.
 
@@ -81,6 +88,8 @@ def loads(text: str | bytes, *, byte_identical: bool = False) -> Any:
     :param byte_identical: True parses with the standard library (exact big integers, accepts
         NaN / Infinity).  False (default) parses with orjson: an integer outside -2^63..2^64-1
         becomes a float, and NaN / Infinity / ``1e400`` / nesting deeper than 1024 are rejected.
+    :param record_errors: False when a failure is expected control flow (the caller falls back), so the span
+        is not marked ``json.error``
     :return: the parsed value
     :raises JsonDecodeError: when the text cannot be parsed (a ``json.JSONDecodeError``)
     """
@@ -88,15 +97,15 @@ def loads(text: str | bytes, *, byte_identical: bool = False) -> Any:
     if byte_identical:
         try:
             value = json.loads(text)
-        except json.JSONDecodeError:
-            _record("loads", len(text), started, error=True)
-            raise
+        except json.JSONDecodeError as e:
+            _record("loads", len(text), started, error=record_errors)
+            raise JsonDecodeError(e.msg, e.doc, e.pos) from e
         _record("loads", len(text), started)
         return value
     try:
         value = orjson.loads(text)
     except orjson.JSONDecodeError as e:
-        _record("loads", len(text), started, error=True)
+        _record("loads", len(text), started, error=record_errors)
         # orjson's error subclasses json.JSONDecodeError at runtime; its stubs do not say so
         cause = cast(json.JSONDecodeError, e)
         raise JsonDecodeError(cause.msg, cause.doc if isinstance(cause.doc, str) else "", cause.pos) from e

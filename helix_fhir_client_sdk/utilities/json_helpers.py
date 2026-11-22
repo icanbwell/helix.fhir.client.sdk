@@ -17,6 +17,7 @@ def parse_json_or_ndjson(text: str, *, byte_identical: bool = False) -> Any:
     :return: parsed JSON, or a list of parsed JSON objects for a multi-line ndjson body
     """
     try:
-        return loads(text, byte_identical=byte_identical)
+        # a multi-line NDJSON body is expected to fail as one document, so do not mark the span as an error
+        return loads(text, byte_identical=byte_identical, record_errors=False)
     except json.JSONDecodeError:
         return [loads(line, byte_identical=byte_identical) for line in text.splitlines() if line.strip()]
