@@ -274,8 +274,17 @@ handling and big-integer parse behavior are visible to callers. The target versi
   (`fhir_client.py:974-1038`), so the new field must be added there or clones revert to orjson.
 * **Sequencing: this work comes after the `compressedfhir` 5.0.0 upgrade PR, which merges and
   releases first.** That upgrade is a separate PR and is not covered here. This work assumes
-  `compressedfhir` 5.0.0 is the locked version (today the repo is `>=3.0.5`, locked 3.0.5; PyPI's
-  latest is 4.0.0, checked 2026-11-21). Consequences:
+  `compressedfhir` 5.0.0 is the locked version. Today the repo requires `compressedfhir>=3.0.5`
+  (`pyproject.toml:27`, no upper bound) and locks 3.0.5. `compressedfhir` 5.0.0 and 5.0.0rc1 are
+  published on PyPI (tags built from PR #31 head `225d4be`, per the compressed-fhir session;
+  PyPI's `/simple/` index and the per-version JSON endpoint list both, checked 2026-11-22; the
+  package summary endpoint still showed 4.0.0 as latest at that time). The GitHub release is flagged
+  pre-release, but the PyPI version `5.0.0` is a final version and cannot be re-uploaded. **Exposure
+  today:** because this SDK's requirement is unbounded, any install that resolves fresh (a consumer
+  with no lockfile, or a lockfile refresh) now gets 5.0.0 with its raw-UTF-8 text, compact output
+  and NaN changes, before this SDK has any `byte_identical_json` option and before
+  `fhir-server#2775` is deployed. Capping the requirement (for example `compressedfhir>=3.0.5,<5`)
+  until the upgrade PR is ready is a separate, small change (open item). Consequences:
   * **Two major releases (decided).** The upgrade ships as its own major; this work ships as a
     second major, and `byte_identical_json` exists only from the second. Accepted: clients on the
     first major get compact `compressedfhir` text with no SDK option to restore the old text until
@@ -394,7 +403,8 @@ every GitHub release; releases 5.0.22 to 5.0.27 shipped between 2026-11-10 and 2
 
 | Item | Owner | Status |
 |---|---|---|
-| Link the `compressedfhir` 5.0.0 upgrade PR; it must merge first (5.0.0 not yet released) | Imran | open |
+| Link the `compressedfhir` 5.0.0 upgrade PR; it must merge first (5.0.0 is published on PyPI as of 2026-11-22) | Imran | open |
+| Cap `compressedfhir` below 5 in `pyproject.toml` until the upgrade PR and `fhir-server#2775` are ready, since the unbounded `>=3.0.5` now resolves to 5.0.0 on a fresh install | Imran | open (separate PR) |
 | Version numbers for the two majors | Imran | open |
 | `fhir-server#2775` reviewed, merged and deployed | fhir-server owners | open (PR open, CI not checked) |
 | Consumer-impact table (Consequences) | Imran | open |
@@ -409,8 +419,8 @@ every GitHub release; releases 5.0.22 to 5.0.27 shipped between 2026-11-10 and 2
 
 ## References
 
-* compressed-fhir PR #31 and its `adrs/0002-faster-json-with-orjson.md` (branch `IQ-BAI-1955`, open
-  at the time of writing): the `byte_identical` option, the guard, the NDJSON and hash lessons.
+* compressed-fhir PR #31 and its `adrs/0002-faster-json-with-orjson.md` (branch `IQ-BAI-1955`; the PR
+  was still open when read, and 5.0.0 was published from its head afterwards): the `byte_identical` option, the guard, the NDJSON and hash lessons.
 * `icanbwell/fhir-server#2775` (DCON-6862): NDJSON chunk-boundary UTF-8 fix.
 * FHIR R4 `datatypes.html` (`integer` is 32-bit; `decimal`) and `json.html` (number precision).
 * `uv.lock:580,1565`: orjson 3.11.9 via `compressedfhir` 3.0.5.
