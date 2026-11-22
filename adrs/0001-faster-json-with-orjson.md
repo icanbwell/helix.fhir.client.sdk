@@ -148,12 +148,15 @@ NaN handling and big-int parse behavior are visible to callers. The target versi
     `fhir_update_mixin.py:36,54`, `fhir_get_single_response.py:220`, `fhir_get_list_response.py:246`,
     `fhir_get_bundle_response.py:424`. With the default, SDK-built and `compressedfhir`-built text are
     both compact orjson text, so merge bodies are consistent.
-  * "The previous text" in the table above means stdlib text for everything the SDK emits, including
-    what `compressedfhir` writes, via `byte_identical=True`. It is **not** the text of an SDK built on
-    `compressedfhir` 5.0.0 with defaults: by then the upgrade PR has already changed the default
-    `.json()` text. If the two PRs ship in different releases, the first major changes the text and
-    this one adds the flag; releasing them together avoids two breaking upgrades. Release grouping is
-    an open item.
+  * **Two major releases (decided).** The `compressedfhir` 5.0.0 upgrade ships as its own major; this
+    work ships as a second major. `byte_identical_json` is introduced only in the second major.
+    Accepted consequence: clients on the first major get compact `compressedfhir` text with no
+    SDK option to restore the old text; they must wait for the second major or pin the earlier
+    release. The upgrade PR's description and release notes should say so.
+  * "The previous text" in the table above means **stdlib text for everything the SDK emits**
+    (decided), including what `compressedfhir` writes via `byte_identical=True`. It is the SDK's
+    output before either major, not the text of the first major with defaults. That definition does
+    not depend on release history, and matches `byte_identical` in PR #31.
   * The upgrade PR owns these checks, which this PR relies on being done: `raw_dict()` returning
     `Dict` rather than `OrderedDict` (`simulated_graph_processor_mixin.py:1199`; unproven), whether the
     `cls=FhirJSONEncoder` sites can go (unproven), NaN becoming `null` in `dict()`, and that the hash
@@ -205,7 +208,8 @@ Parameterized over both modes where behavior differs:
 
 One PR per role group (parse, NDJSON, request build, response build), each independently revertable
 and labelled with risk, type and semver. The phases can sit on `main` unreleased and ship together as
-one major version so consumers see a single breaking upgrade.
+one major version (the second major, after the `compressedfhir` upgrade) so consumers see a single
+breaking upgrade from this work.
 
 ### Open items
 
@@ -213,11 +217,10 @@ one major version so consumers see a single breaking upgrade.
 |---|---|---|
 | Jira ticket and branch name | Imran | open |
 | Target major version number and release date (`VERSION` is the placeholder `0.0.1`) | Imran | open |
-| Confirm option name `byte_identical_json` with API reviewers | Imran | open |
 | Upgrade PR for `compressedfhir` 5.0.0: link it here; it must merge first (5.0.0 not yet released) | Imran | open |
-| Release grouping: ship the upgrade PR and this PR in one major, or two | Imran | open |
+| Version numbers for the two majors (the upgrade major, then this one) | Imran | open |
 | End-to-end share of wall-clock spent in JSON on a real graph or merge workload | Imran | unproven |
-| orjson listed in `icanbwell/.github/policies/approved-tech.yaml` | Imran | unproven |
+| orjson listed in `icanbwell/.github/policies/approved-tech.yaml` | Imran | checked 2026-11-21: **not listed**. Libraries are catalog-only, so this does not block; chosen because it is already installed through `compressedfhir` and measured about 6x faster `dumps` |
 | Wheel availability for the Docker base image (musl) | Imran | unproven |
 | Prior-art search in Confluence (Approved) and `gh search code --owner icanbwell orjson`; compressed-fhir PR #31 was supplied, not found by search | Imran | partial |
 | Independent `ea-tech-design-review` of this ADR | Imran | not run |
