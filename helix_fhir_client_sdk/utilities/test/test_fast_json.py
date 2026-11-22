@@ -209,3 +209,10 @@ def test_expected_failure_is_not_recorded_as_an_error(monkeypatch: pytest.Monkey
         loads("{bad", record_errors=False)
 
     assert "json.error" not in span.attributes
+
+
+@pytest.mark.parametrize("byte_identical", [False, True])
+@pytest.mark.parametrize("payload", [b'{"a": "\xff"}', b"\xff\xfe", b'{"a": "\xc3"}'])
+def test_loads_invalid_utf8_bytes_raise_the_sdk_error(payload: bytes, byte_identical: bool) -> None:
+    with pytest.raises(JsonDecodeError):
+        loads(payload, byte_identical=byte_identical)

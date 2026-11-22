@@ -102,6 +102,9 @@ def loads(text: str | bytes, *, byte_identical: bool = False, record_errors: boo
         except json.JSONDecodeError as e:
             _record("loads", len(text), started, error=record_errors)
             raise JsonDecodeError(e.msg, e.doc, e.pos) from e
+        except UnicodeDecodeError as e:  # bytes that are not UTF-8
+            _record("loads", len(text), started, error=record_errors)
+            raise JsonDecodeError(f"Invalid UTF-8: {e.reason}", "", e.start) from e
         _record("loads", len(text), started)
         return value
     try:
@@ -111,7 +114,7 @@ def loads(text: str | bytes, *, byte_identical: bool = False, record_errors: boo
         cause = cast(json.JSONDecodeError, e)
         try:
             value = json.loads(text)
-        except (json.JSONDecodeError, RecursionError):
+        except (json.JSONDecodeError, RecursionError, UnicodeDecodeError):
             _record("loads", len(text), started, error=record_errors)
             raise JsonDecodeError(cause.msg, cause.doc if isinstance(cause.doc, str) else "", cause.pos) from e
         logger.debug("fast_json.loads fell back to the standard library: %s", cause.msg)

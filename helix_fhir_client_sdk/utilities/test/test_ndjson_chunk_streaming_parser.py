@@ -199,3 +199,25 @@ def test_invalid_line_carries_the_objects_parsed_before_it() -> None:
     assert exc_info.value.parsed == [{"id": "first"}]
     assert isinstance(exc_info.value, json.JSONDecodeError)
     assert isinstance(exc_info.value.__cause__, json.JSONDecodeError)
+
+
+@pytest.mark.parametrize("byte_identical_json", [False, True])
+def test_chunk_boundary_inside_a_record_does_not_mark_the_span_as_an_error(
+    monkeypatch: pytest.MonkeyPatch, byte_identical_json: bool
+) -> None:
+    attributes: dict[str, Any] = {}
+
+    class _Span:
+        def is_recording(self) -> bool:
+            return True
+
+        def set_attribute(self, key: str, value: Any) -> None:
+            attributes[key] = value
+
+    monkeypatch.setattr("helix_fhir_client_sdk.utilities.fast_json.trace.get_current_span", lambda: _Span())
+    parser = NdJsonChunkStreamingParser(byte_identical_json=byte_identical_json)
+
+    parser.add_chunk(f'{_VALID_FIRST}\n{{"id": "la', logger=None)
+    parser.add_chunk('st"}\n', logger=None)
+
+    assert "json.error" not in attributes

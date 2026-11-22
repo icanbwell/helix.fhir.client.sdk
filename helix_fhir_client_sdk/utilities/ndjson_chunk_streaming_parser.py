@@ -54,7 +54,10 @@ class NdJsonChunkStreamingParser:
 
         if pending.strip():
             try:
-                complete_json_objects.append(loads(pending, byte_identical=self._byte_identical_json))
+                # a failure here is expected at a chunk boundary, so it is not recorded as a span error
+                complete_json_objects.append(
+                    loads(pending, byte_identical=self._byte_identical_json, record_errors=False)
+                )
                 pending = ""
             except json.JSONDecodeError:
                 # the rest of this line may arrive in the next chunk
