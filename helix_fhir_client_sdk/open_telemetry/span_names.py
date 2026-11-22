@@ -10,3 +10,5 @@ class FhirClientSdkOpenTelemetrySpanNames:
     UPDATE: str = "fhir.client_sdk.update"
     PATCH: str = "fhir.client_sdk.patch"
     MERGE: str = "fhir.client_sdk.merge"
+    # one link group of the graph traversal: the links that run for one set of parent resources
+    GRAPH_LINK_GROUP: str = "fhir.client_sdk.graph.link_group"
