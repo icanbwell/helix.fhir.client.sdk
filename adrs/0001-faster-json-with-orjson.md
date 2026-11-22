@@ -169,10 +169,17 @@ handling and big-integer parse behavior are visible to callers. The target versi
   | Input | stdlib | orjson (default) | Loud or silent |
   |---|---|---|---|
   | Integer below -2^63 or above 2^64-1 | exact `int` | **float** | **silent** |
-  | `NaN`, `Infinity`, `1e400` | accepted | `JSONDecodeError` | loud |
-  | Nesting deeper than 1024 | accepted | rejected | loud (reproduced by the review: 1100 levels) |
-  | Lone-surrogate escape, UTF-8 BOM, UTF-16 input | accepted | rejected | loud on a one-shot parse; **silent in the streaming parser unless it is fixed (next bullet)** |
+  | `NaN`, `Infinity`, `1e400` | accepted | rejected by orjson, then **retried with stdlib: accepted** | n/a |
+  | Nesting deeper than 1024 | accepted (up to Python's recursion limit) | rejected by orjson, then retried with stdlib | loud only if stdlib also fails |
+  | Lone-surrogate escape, UTF-8 BOM, UTF-16 input | accepted | rejected by orjson, then retried with stdlib | n/a |
   | Ordinary floats and integers | same | same (199,951 random literals compared, 0 differences) | n/a |
+
+  **Fallback on rejection (decided 2026-11-22, from review of the implementation PR #301):** when orjson
+  rejects the text, `fast_json.loads` retries with the standard library in default mode, so anything the
+  old code parsed still parses (no regression for NaN, lone surrogates, a BOM or deep nesting). Only text
+  neither library accepts raises. The success path costs nothing, the retry is recorded as `json.fallback`
+  on the span, and the big-integer row above is unchanged. The earlier "rejected loudly" rows were replaced
+  by this.
 
   The silent case is narrow: FHIR `integer` is 32-bit (R4 datatypes), so only a `decimal` written as
   an integer-valued JSON number outside that range (19 digits for a negative, 20 for a positive) can
@@ -182,7 +189,7 @@ handling and big-integer parse behavior are visible to callers. The target versi
   rewritten as a float before being sent. This is an accepted, documented difference, and it applies to
   the merge and patch re-send paths too: the rule-walk review suggested keeping stdlib parsing there,
   and the owner decided to keep orjson at every parse site (2026-11-21);
-  `byte_identical_json(True)` parses with stdlib and keeps the exact value. Message text of
+  `byte_identical_json(True)` parses with stdlib only and keeps the exact value. Message text of
   `JSONDecodeError` also differs where `str(e)` is surfaced (`fhir_merge_mixin.py:234`,
   `fhir_patch_mixin.py:123`). `orjson.JSONDecodeError` subclasses both `ValueError` and
   `json.JSONDecodeError` (verified), so existing `except json.JSONDecodeError` handlers still catch it.
@@ -197,8 +204,11 @@ handling and big-integer parse behavior are visible to callers. The target versi
   drops an invalid middle line today, but accepts NaN, lone surrogates, BOM and deep nesting, so the
   loss would become reachable by valid-for-stdlib input). Because the buffer is split on `"\n"`
   (`:25`), only the final segment can be a partial line. The fix: a decode failure on any earlier
-  segment raises (or is reported to the caller); only the last segment is held for the next chunk.
-  Test: NaN, a lone surrogate and a deep-nesting line in the middle of a stream are never dropped.
+  segment raises `NdJsonInvalidLineError` (a `json.JSONDecodeError`) carrying the objects parsed before
+  it in the same chunk, which the streaming consumer yields before it stops the stream; only the last
+  segment is held for the next chunk. With the stdlib retry above, only text that is not valid JSON at all
+  reaches this error. Test: a good line, a bad line and a good line in one chunk, through the parser and
+  `_handle_response_200_streaming`.
   Keep orjson at this site.
 * **Guarded write with passthrough options.** `dumps_str` falls back to stdlib where orjson raises
   `TypeError` (verified: integers beyond 64 bits, int keys, `set`, lone surrogates). This guard is
@@ -212,9 +222,10 @@ handling and big-integer parse behavior are visible to callers. The target versi
   same fixtures. `UUID` and `Enum` are native. Every fallback is logged at debug level, never with
   payload content. **Production telemetry (decided): span attributes only, no new metrics
   instruments.** `fast_json` sets these attributes on the active OpenTelemetry span: `json.operation`
-  (`dumps` or `loads`), `json.bytes` (payload size), `json.duration_ms`, `json.fallback` (bool, true
+  (`dumps` or `loads`), `json.chars` (payload size in characters), `json.duration_ms`, `json.fallback` (bool, true
   when a write fell back to stdlib) and `json.error` (bool, true when a parse raised, including a
-  rejected streaming line). They carry no tenant and no payload content, and the existing spans
+  rejected streaming line). `json.fallback` and `json.error` are only ever set to true on a span, and the
+  other attributes describe the last call. They carry no tenant and no payload content, and the existing spans
   already identify resource type and URL (for example `fhir_merge_mixin.py:117`), so JSON time per
   call and payload size can be read from the traces the Provider New workload already emits. The SDK
   already uses module-level `TRACER.start_as_current_span` (`fhir_merge_mixin.py:38,117`);
