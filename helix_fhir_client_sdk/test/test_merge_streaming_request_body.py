@@ -195,7 +195,11 @@ async def test_merge_async_ndjson_body_escapes_embedded_newlines_in_resource_fie
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("separator", [" ", " ", "\u0085"])
+@pytest.mark.parametrize(
+    "separator",
+    ["\u2028", "\u2029", "\u0085"],
+    ids=["line-separator", "paragraph-separator", "next-line"],
+)
 async def test_merge_async_parses_ndjson_response_with_unicode_separator_inside_record(separator: str) -> None:
     """fhir-server writes ndjson with JSON.stringify, which leaves U+2028, U+2029 and U+0085
     unescaped inside string values; the response must be split on "\n" only.
