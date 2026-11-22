@@ -1,9 +1,10 @@
-"""Regression tests ensuring $merge request bodies stay ASCII-escaped.
+"""Regression tests ensuring non-ASCII values survive in $merge request bodies.
 
-compressedfhir 5.x writes raw UTF-8 from json() by default, and fhir-server's streaming $merge
-parser corrupts a multi-byte character that is split across two request chunks
-(icanbwell/fhir-server#2775). The SDK therefore asks for json(byte_identical=True) when it builds
-a $merge body, so no multi-byte character ever reaches the wire.
+compressedfhir 5.x json() writes raw UTF-8 (4.x wrote \\uXXXX escapes), so a $merge body now carries
+multi-byte characters on the wire. These tests check that every $merge body shape (single resource,
+ndjson, JSON array, Bundle) is valid UTF-8 JSON that round-trips the values unchanged. Deploy this
+SDK only after fhir-server's streaming $merge parser decodes multi-byte characters split across
+request chunks (icanbwell/fhir-server#2775).
 """
 
 import json
@@ -51,9 +52,9 @@ def _resources_in_body(body: str) -> list[dict[str, Any]]:
     return resources
 
 
-def _assert_ascii_and_lossless(body: str, expected_count: int) -> None:
+def _assert_lossless(body: str, expected_count: int) -> None:
     resources = _resources_in_body(body)
-    assert body.isascii()
+    assert NON_ASCII_FAMILY in body
     assert len(resources) == expected_count
     assert all(r["name"][0]["family"] == NON_ASCII_FAMILY for r in resources)
 
@@ -61,7 +62,7 @@ def _assert_ascii_and_lossless(body: str, expected_count: int) -> None:
 @pytest.mark.parametrize("streaming", [True, False])
 @pytest.mark.parametrize("count", [1, 3])
 @pytest.mark.asyncio
-async def test_merge_resources_async_sends_ascii_escaped_body(streaming: bool, count: int) -> None:
+async def test_merge_resources_async_sends_lossless_non_ascii_body(streaming: bool, count: int) -> None:
     fhir_client = FhirClient().url("http://example.com").resource("Patient").use_data_streaming(streaming)
 
     with aioresponses() as m:
@@ -76,13 +77,13 @@ async def test_merge_resources_async_sends_ascii_escaped_body(streaming: bool, c
             )
         ]
 
-        _assert_ascii_and_lossless(_sent_body(m), count)
+        _assert_lossless(_sent_body(m), count)
 
 
 @pytest.mark.parametrize("streaming", [True, False])
 @pytest.mark.parametrize("count", [1, 3])
 @pytest.mark.asyncio
-async def test_merge_bundle_async_sends_ascii_escaped_body(streaming: bool, count: int) -> None:
+async def test_merge_bundle_async_sends_lossless_non_ascii_body(streaming: bool, count: int) -> None:
     fhir_client = FhirClient().url("http://example.com").resource("Patient").use_data_streaming(streaming)
     bundle = FhirBundle(
         type_="batch",
@@ -94,4 +95,4 @@ async def test_merge_bundle_async_sends_ascii_escaped_body(streaming: bool, coun
 
         _ = [response async for response in fhir_client.merge_bundle_async(id_="1", bundle=bundle)]
 
-        _assert_ascii_and_lossless(_sent_body(m), count)
+        _assert_lossless(_sent_body(m), count)
