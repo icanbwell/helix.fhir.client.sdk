@@ -202,10 +202,18 @@ handling and big-integer parse behavior are visible to callers. The target versi
   `FhirJSONEncoder`-equivalent `default` hook along with `Decimal`, `bytes`, `Path` and objects with
   `to_dict` or `__dict__`. `OPT_PASSTHROUGH_SUBCLASS` is decided in the implementation against the
   same fixtures. `UUID` and `Enum` are native. Every fallback is logged at debug level, never with
-  payload content, and increments a counter and a span attribute on the active OpenTelemetry span
-  (the SDK already uses module-level `TRACER.start_as_current_span`, for example `fhir_merge_mixin.py:38,117`; `fast_json` follows that existing pattern rather than injecting an observer, an accepted exception since the library has no metrics instruments yet). The same instrumentation covers the
-  parse side: a counter for big-integer-to-float conversions would need a scan, so instead count
-  parse failures that raise (NaN, depth, surrogates) and rejected streaming lines. NaN is written
+  payload content. **Production telemetry (decided): span attributes only, no new metrics
+  instruments.** `fast_json` sets these attributes on the active OpenTelemetry span: `json.operation`
+  (`dumps` or `loads`), `json.bytes` (payload size), `json.duration_ms`, `json.fallback` (bool, true
+  when a write fell back to stdlib) and `json.error` (bool, true when a parse raised, including a
+  rejected streaming line). They carry no tenant and no payload content, and the existing spans
+  already identify resource type and URL (for example `fhir_merge_mixin.py:117`), so JSON time per
+  call and payload size can be read from the traces the Provider New workload already emits. The SDK
+  already uses module-level `TRACER.start_as_current_span` (`fhir_merge_mixin.py:38,117`);
+  `fast_json` follows that pattern rather than injecting an observer, an accepted exception since
+  the library has no metrics instruments. A big-integer-to-float conversion is not observable without
+  a scan, so it is not counted. Real metrics instruments (histograms and a counter) are left to a
+  later change if traces prove insufficient. NaN is written
   as `null` by orjson by default; what fhir-server does with `null` in a `$merge` body, where
   stdlib wrote an invalid `NaN` literal, is unproven (open item).
 * **fhir-server must decode NDJSON chunks correctly first (prerequisite, cross-repo).** orjson and
