@@ -170,6 +170,10 @@ handling and big-integer parse behavior are visible to callers. The target versi
   `JSONDecodeError` also differs where `str(e)` is surfaced (`fhir_merge_mixin.py:234`,
   `fhir_patch_mixin.py:123`). `orjson.JSONDecodeError` subclasses both `ValueError` and
   `json.JSONDecodeError` (verified), so existing `except json.JSONDecodeError` handlers still catch it.
+  To keep the vendor type off the public error surface (decided), `fast_json.loads` catches
+  `orjson.JSONDecodeError` and raises an SDK-owned `JsonDecodeError` that subclasses
+  `json.JSONDecodeError`, with the original chained (`raise ... from e`), so callers and
+  `str(e)` in merge and patch error messages never see an `orjson` type.
 * **The streaming NDJSON parser must tell a partial line from an invalid one (decided).**
   `ndjson_chunk_streaming_parser.py:35-38` treats any `JSONDecodeError` as "incomplete, wait for the
   next chunk" and never reports the leftover. With orjson, the review reproduced input `1,2(NaN),3`
@@ -380,6 +384,8 @@ Parameterized over both modes where behavior differs:
    are raised or reported, never dropped; a genuinely partial final line is held for the next chunk.
 3b. orjson passthrough fixtures: a dataclass with an underscore field and a datetime with a
    seconds-level UTC offset serialize the same as the `FhirJSONEncoder` path.
+3c. `fast_json.loads` on invalid input raises the SDK-owned `JsonDecodeError`, which is a
+   `json.JSONDecodeError` and has the original error as `__cause__`; no `orjson` type escapes.
 4. The `split("\n")` NDJSON fix is tested with server-shaped responses containing U+2028 and U+0085.
 5. Cloning a client preserves the flag, and the flag reaches every `compressedfhir`
    `.json(byte_identical=...)` call and every response constructor; assert `get_response_text()` in
