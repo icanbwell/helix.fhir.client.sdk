@@ -70,6 +70,7 @@ class FhirResponseProcessor:
         separate_bundle_resources: bool,
         use_data_streaming: bool,
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool,
         create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -94,6 +95,7 @@ class FhirResponseProcessor:
         :param separate_bundle_resources: Whether to separate the bundle resources.
         :param use_data_streaming: Whether to use data streaming.
         :param storage_mode: The storage mode.
+        :param byte_identical_json: True writes response text exactly as the standard library did.
         :param create_operation_outcome_for_error: Whether to create an operation outcome for error.
 
         :return: An async generator of FhirGetResponse objects.
@@ -120,6 +122,7 @@ class FhirResponseProcessor:
                     url=url,
                     separate_bundle_resources=separate_bundle_resources,
                     storage_mode=storage_mode,
+                    byte_identical_json=byte_identical_json,
                     create_operation_outcome_for_error=create_operation_outcome_for_error,
                 ):
                     yield r
@@ -135,6 +138,7 @@ class FhirResponseProcessor:
                     id_=id_,
                     access_token=access_token,
                     storage_mode=storage_mode,
+                    byte_identical_json=byte_identical_json,
                     create_operation_outcome_for_error=create_operation_outcome_for_error,
                 ):
                     yield r
@@ -151,6 +155,7 @@ class FhirResponseProcessor:
                     id_=id_,
                     internal_logger=internal_logger,
                     storage_mode=storage_mode,
+                    byte_identical_json=byte_identical_json,
                     create_operation_outcome_for_error=create_operation_outcome_for_error,
                 ):
                     yield r
@@ -181,6 +186,7 @@ class FhirResponseProcessor:
         resource: str | None,
         id_: list[str] | str | None,
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool,
         create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -222,6 +228,7 @@ class FhirResponseProcessor:
             response_headers=response_headers,
             results_by_url=response.results_by_url,
             storage_mode=storage_mode,
+            byte_identical_json=byte_identical_json,
             create_operation_outcome_for_error=create_operation_outcome_for_error,
         )
 
@@ -238,6 +245,7 @@ class FhirResponseProcessor:
         id_: list[str] | str | None,
         logger: Logger | None,
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool,
         create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -272,6 +280,7 @@ class FhirResponseProcessor:
             response_headers=response_headers,
             results_by_url=response.results_by_url,
             storage_mode=storage_mode,
+            byte_identical_json=byte_identical_json,
             create_operation_outcome_for_error=create_operation_outcome_for_error,
         )
 
@@ -295,6 +304,7 @@ class FhirResponseProcessor:
         separate_bundle_resources: bool,
         url: str | None,
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool,
         create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -343,6 +353,7 @@ class FhirResponseProcessor:
                 expand_fhir_bundle=expand_fhir_bundle,
                 url=url,
                 storage_mode=storage_mode,
+                byte_identical_json=byte_identical_json,
                 create_operation_outcome_for_error=create_operation_outcome_for_error,
             ):
                 yield r
@@ -364,6 +375,7 @@ class FhirResponseProcessor:
                 expand_fhir_bundle=expand_fhir_bundle,
                 url=url,
                 storage_mode=storage_mode,
+                byte_identical_json=byte_identical_json,
                 create_operation_outcome_for_error=create_operation_outcome_for_error,
             ):
                 yield r
@@ -387,6 +399,7 @@ class FhirResponseProcessor:
         id_: list[str] | str | None,
         url: str | None,
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool,
         create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -455,6 +468,7 @@ class FhirResponseProcessor:
                 response_headers=response_headers,
                 results_by_url=response.results_by_url,
                 storage_mode=storage_mode,
+                byte_identical_json=byte_identical_json,
                 create_operation_outcome_for_error=create_operation_outcome_for_error,
             )
         except Exception as e:
@@ -475,6 +489,7 @@ class FhirResponseProcessor:
                 response_headers=response_headers,
                 results_by_url=response.results_by_url,
                 storage_mode=storage_mode,
+                byte_identical_json=byte_identical_json,
                 create_operation_outcome_for_error=create_operation_outcome_for_error,
             )
 
@@ -548,6 +563,7 @@ class FhirResponseProcessor:
         separate_bundle_resources: bool,
         url: str | None,
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool,
         create_operation_outcome_for_error: bool | None,
     ) -> AsyncGenerator[FhirGetResponse, None]:
         """
@@ -621,6 +637,7 @@ class FhirResponseProcessor:
                     response_headers=response_headers,
                     results_by_url=response.results_by_url,
                     storage_mode=storage_mode,
+                    byte_identical_json=byte_identical_json,
                     create_operation_outcome_for_error=False,
                 )
             else:
@@ -695,6 +712,7 @@ class FhirResponseProcessor:
                                 chunk_number=chunk_number,
                                 results_by_url=response.results_by_url,
                                 storage_mode=storage_mode,
+                                byte_identical_json=byte_identical_json,
                                 create_operation_outcome_for_error=create_operation_outcome_for_error,
                             )
         except Exception as e:
@@ -715,6 +733,7 @@ class FhirResponseProcessor:
                 response_headers=response_headers,
                 results_by_url=response.results_by_url,
                 storage_mode=storage_mode,
+                byte_identical_json=byte_identical_json,
                 create_operation_outcome_for_error=create_operation_outcome_for_error,
             )
 

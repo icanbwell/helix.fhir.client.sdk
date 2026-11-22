@@ -65,6 +65,7 @@ class FhirGetErrorResponse(FhirGetResponse):
         cache_hits: int | None = None,
         results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool = False,
         create_operation_outcome_for_error: bool | None,
     ) -> None:
         super().__init__(
@@ -83,6 +84,7 @@ class FhirGetErrorResponse(FhirGetResponse):
             cache_hits=cache_hits,
             results_by_url=results_by_url,
             storage_mode=storage_mode,
+            byte_identical_json=byte_identical_json,
         )
         self._error_text: str | None = response_text
         self._resource: FhirResource | None = self._parse_response_text(

@@ -50,6 +50,7 @@ class FhirGetResponse:
         "cache_hits",
         "results_by_url",
         "storage_mode",
+        "byte_identical_json",
         # (response_headers snapshot, value) for lastModified and etag, so they are not parsed on every call
         "_last_modified_cache",
         "_etag_cache",
@@ -73,6 +74,7 @@ class FhirGetResponse:
         cache_hits: int | None = None,
         results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool = False,
     ) -> None:
         """
         Class that encapsulates the response from FHIR server
@@ -124,6 +126,8 @@ class FhirGetResponse:
         """ Count of errors in the response by status """
         self.storage_mode: CompressedDictStorageMode = storage_mode
         """ Storage mode for the response """
+        self.byte_identical_json: bool = byte_identical_json
+        """ True writes response text exactly as the standard library did, see FhirClient.byte_identical_json """
 
     @abstractmethod
     def _append(self, other_response: "FhirGetResponse") -> "FhirGetResponse": ...

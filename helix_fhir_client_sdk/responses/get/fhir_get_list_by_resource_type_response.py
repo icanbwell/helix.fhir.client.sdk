@@ -58,6 +58,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
         cache_hits: int | None = None,
         results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool = False,
     ) -> None:
         super().__init__(
             request_id=request_id,
@@ -75,6 +76,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
             cache_hits=cache_hits,
             results_by_url=results_by_url,
             storage_mode=storage_mode,
+            byte_identical_json=byte_identical_json,
         )
         count: int
         resource_map: FhirResourceMap
@@ -261,6 +263,7 @@ class FhirGetListByResourceTypeResponse(FhirGetResponse):
             cache_hits=other_response.cache_hits,
             results_by_url=other_response.results_by_url,
             storage_mode=other_response.storage_mode,
+            byte_identical_json=other_response.byte_identical_json,
         )
         return response
 

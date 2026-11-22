@@ -115,6 +115,7 @@ class FhirClient(
         self._last_page: int | None = None
 
         self._use_data_streaming: bool = False
+        self._byte_identical_json: bool = False
         self._send_data_as_chunked: bool = False
         self._last_page_lock: Lock = Lock()
 
@@ -381,6 +382,31 @@ class FhirClient(
         :param limit: Limit results to this count
         """
         self._limit = limit
+        return self
+
+    def byte_identical_json(self, use: bool = True) -> FhirClient:
+        """
+        Write and read JSON exactly as the SDK did before it adopted orjson.
+
+        By default the SDK writes compact JSON text with non-ASCII characters as raw UTF-8, writes
+        NaN and Infinity as ``null``, and parses with orjson.  Call this if you assert on, hash or
+        persist the exact text from ``get_response_text()`` or from request bodies.
+
+        =====================================  ==========================  ===========================
+        Behavior                               Default                     ``byte_identical_json(True)``
+        =====================================  ==========================  ===========================
+        Separators                             compact ``,`` ``:``         ``, `` ``: ``
+        Non-ASCII                              raw UTF-8                   ``\\uXXXX`` escapes
+        NaN / Infinity on write                ``null``                    standard library literals
+        NaN / Infinity / big int on parse      orjson behavior             standard library behavior
+        U+2028 in an NDJSON body               raw                         escaped
+        =====================================  ==========================  ===========================
+
+        Hashes of cached resources (``raw_hash``) are the same in both modes.
+
+        :param use: True to keep the previous text, False for the default (faster) text
+        """
+        self._byte_identical_json = use
         return self
 
     def use_data_streaming(self, use: bool) -> FhirClient:
@@ -1014,6 +1040,7 @@ class FhirClient(
         fhir_client._expand_fhir_bundle = self._expand_fhir_bundle
         fhir_client._separate_bundle_resources = self._separate_bundle_resources
         fhir_client._use_data_streaming = self._use_data_streaming
+        fhir_client._byte_identical_json = self._byte_identical_json
         fhir_client._extra_context_to_return = self._extra_context_to_return
         fhir_client._well_known_configuration_cache = self._well_known_configuration_cache
         fhir_client._auth_wellknown_url = self._auth_wellknown_url

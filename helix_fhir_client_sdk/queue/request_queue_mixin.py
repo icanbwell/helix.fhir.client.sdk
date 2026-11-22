@@ -205,6 +205,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         use_data_streaming=self._use_data_streaming,
                         fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                         storage_mode=self._storage_mode,
+                        byte_identical_json=self._byte_identical_json,
                         create_operation_outcome_for_error=self._create_operation_outcome_for_error,
                     ):
                         yield r

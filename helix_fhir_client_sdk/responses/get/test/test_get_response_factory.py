@@ -43,6 +43,7 @@ class TestFhirGetResponseFactory:
             "results_by_url": [],
             "error": None,
             "storage_mode": CompressedDictStorageMode.default(),
+            "byte_identical_json": False,
             "create_operation_outcome_for_error": False,
         }
 

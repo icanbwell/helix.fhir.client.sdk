@@ -86,6 +86,7 @@ class FhirClientProtocol(Protocol):
     _last_page: int | None
 
     _use_data_streaming: bool = False
+    _byte_identical_json: bool = False
     _send_data_as_chunked: bool = False
     _last_page_lock: Lock
 

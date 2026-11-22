@@ -60,6 +60,7 @@ class FhirGetSingleResponse(FhirGetResponse):
         cache_hits: int | None = None,
         results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool = False,
     ) -> None:
         super().__init__(
             request_id=request_id,
@@ -77,6 +78,7 @@ class FhirGetSingleResponse(FhirGetResponse):
             cache_hits=cache_hits,
             results_by_url=results_by_url,
             storage_mode=storage_mode,
+            byte_identical_json=byte_identical_json,
         )
         self._resource: FhirResource | None = self._parse_single_resource(
             responses=response_text, storage_mode=storage_mode

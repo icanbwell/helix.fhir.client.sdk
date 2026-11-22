@@ -48,6 +48,7 @@ class FhirGetResponseFactory:
         cache_hits: int | None = None,
         results_by_url: list[RetryableAioHttpUrlResult],
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool,
         create_operation_outcome_for_error: bool | None,
     ) -> FhirGetResponse:
         try:
@@ -78,6 +79,7 @@ class FhirGetResponseFactory:
                     cache_hits=cache_hits,
                     results_by_url=results_by_url,
                     storage_mode=storage_mode,
+                    byte_identical_json=byte_identical_json,
                     create_operation_outcome_for_error=create_operation_outcome_for_error,
                 )
 
@@ -102,6 +104,7 @@ class FhirGetResponseFactory:
                     cache_hits=cache_hits,
                     results_by_url=results_by_url,
                     storage_mode=storage_mode,
+                    byte_identical_json=byte_identical_json,
                 )
 
             # then check if it is a bundle
@@ -126,6 +129,7 @@ class FhirGetResponseFactory:
                     cache_hits=cache_hits,
                     results_by_url=results_by_url,
                     storage_mode=storage_mode,
+                    byte_identical_json=byte_identical_json,
                 )
 
             # now assume it is a single resource
@@ -146,6 +150,7 @@ class FhirGetResponseFactory:
                 cache_hits=cache_hits,
                 results_by_url=results_by_url,
                 storage_mode=storage_mode,
+                byte_identical_json=byte_identical_json,
             )
         except Exception as e:
             raise FhirGetException(

@@ -1650,6 +1650,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     error=None,
                     results_by_url=[],
                     storage_mode=self._storage_mode,
+                    byte_identical_json=self._byte_identical_json,
                     create_operation_outcome_for_error=self._create_operation_outcome_for_error,
                 ),
                 0,
@@ -1865,6 +1866,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                     error=None,
                     results_by_url=[],
                     storage_mode=self._storage_mode,
+                    byte_identical_json=self._byte_identical_json,
                     create_operation_outcome_for_error=self._create_operation_outcome_for_error,
                 )
             )
@@ -1884,6 +1886,7 @@ class SimulatedGraphProcessorMixin(ABC, FhirClientProtocol):
                 error=None,
                 results_by_url=[],
                 storage_mode=self._storage_mode,
+                byte_identical_json=self._byte_identical_json,
             )
         )
         return bundle_response, cache.cache_hits
