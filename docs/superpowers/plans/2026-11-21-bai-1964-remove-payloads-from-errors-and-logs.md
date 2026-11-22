@@ -4,7 +4,7 @@ Jira: BAI-1964. Found during the independent review of the orjson ADR (BAI-1960,
 
 ## Problem
 
-Org policy: no PHI or PII in logs, exception messages or other diagnostics. Six places put a whole FHIR payload or response body into an error string, a log line or an exception message. A FHIR resource or Bundle can carry PHI, and these strings end up in logs, traces and error reports.
+Org policy: no PHI or PII in logs, exception messages or other diagnostics. Eight places put a whole FHIR payload or response body into an error string, a log line or an exception message. A FHIR resource or Bundle can carry PHI, and these strings end up in logs, traces and error reports.
 
 ## Sites (line numbers from `origin/main`, recheck before editing)
 
@@ -16,14 +16,26 @@ Org policy: no PHI or PII in logs, exception messages or other diagnostics. Six 
 | 4 | `helix_fhir_client_sdk/fhir_merge_resources_mixin.py` | 696 | the same message with `{resources_to_merge.json()}`. |
 | 5 | `helix_fhir_client_sdk/responses/fhir_get_response.py` | 420 | `raise Exception(f"Could not get resourceType and id from resources: {resources.json()}")` puts all resources in the exception text. |
 | 6 | `helix_fhir_client_sdk/responses/fhir_get_response.py` | 316 | `__repr__` returns `json.dumps(self.to_dict())`, so any `repr(response)`, f-string, log or debugger display dumps the response. |
+| 7 | `helix_fhir_client_sdk/fhir_merge_mixin.py` | 311 | `f"Assertion: FHIR send failed: {str(e)} for resource: {json_data_list}. "` logs the whole input list through `self._logger.error(Exception(...))`. |
+| 8 | `helix_fhir_client_sdk/responses/get/fhir_get_list_by_resource_type_response.py` | 184 | `message="Error parsing response: " + responses + ...` puts the response text in a `FhirGetException`, and the same call also sets `json_data=responses` and `response_text=responses`. |
+
+## Related, to audit (not confirmed leaks)
+
+`fhir_merge_resources_mixin.py:394` and `:621` pass `json.dumps([r.to_dict() for r in responses] + [e.to_dict() for e in errors])` as the `error=` value. `FhirMergeResourceResponseEntry.to_dict()` carries ids, `message`, `issue` and `error` (server text), not the resource body, so this is not obviously a payload leak. Check whether the server text in `message`/`issue` can echo submitted data; if it can, treat these like the sites above.
+
+## Side effects an implementer must decide on
+
+- **The payload is still on the response object.** Removing the body from the `error` string (site 1) does not remove it from the response: `FhirGetErrorResponse` stores `response_text` in `_error_text` (`fhir_get_error_response.py:87`) and `get_response_text()` returns it. Decide whether that is accepted (the caller asked for the response) or in scope. The plan assumes it is accepted and out of scope, because the caller owns what it does with the object it requested; record that decision in the PR.
+- **OperationOutcome diagnostics carry the same text.** When `create_operation_outcome_for_error` is true, `error` flows into `FhirBundleAppender.create_operation_outcome_resource(error=...)` (see `fhir_get_error_response.py` around line 231), so the OperationOutcome currently includes the payload too. Fixing site 1 changes that output; callers that display or store it will see the shorter text.
+- **Sites 3, 4 and 7 log `str(e)`.** Fixing site 2 makes the `AssertionError` text safe for that source, but other assertions that reach those `except` blocks are not audited here.
 
 ## What to do
 
-1. Before editing, search for callers and tests that read the current text: `git grep -n "Error parsing response"`, `"No resourceType in"`, `"Could not get resourceType"`, `"FHIR send failed"`. Site 1 changes text that is part of the public `error` field, so note the change in the PR and decide the semver label.
+1. Before editing, search for callers and tests that read the current text: `git grep -n "Error parsing response"`, `"No resourceType in"`, `"Could not get resourceType"`, `"FHIR send failed"`. On `main` no test asserts any of these strings (checked), but recheck. Site 1 changes text that is part of the public `error` field, so note the change in the PR and decide the semver label.
 2. Replace each payload with metadata that is safe to log:
-   - site 1: status, URL path without query values that identify a person, `len(response_text)`, and the parse error `str(e)` (check that `json.JSONDecodeError` text does not echo the input; it reports position only for stdlib `json`, but verify for the parser actually used);
-   - sites 2 and 5: resource type, resource `id` where present, and counts;
-   - sites 3 and 4: number of resources, resource types, the exception, and the request id; keep `str(e)` only if the server error text is known not to echo the payload;
+   - sites 1 and 8: status, URL path without query values that identify a person, `len(response_text)`, and the parse error `str(e)` (check that `json.JSONDecodeError` text does not echo the input; it reports position only for stdlib `json`, but verify for the parser actually used);
+   - sites 2, 5 and 8: resource type, resource `id` where present, and counts;
+   - sites 3, 4 and 7: number of resources, resource types, the exception, and the request id; keep `str(e)` only if the server error text is known not to echo the payload;
    - site 6: a short repr such as `FhirGetResponse(status=..., url=..., resource_type=..., total_count=...)` with no `response_text`.
 3. Keep exception chaining (`raise ... from e`) so the original cause is still available to a debugger.
 4. If a developer needs the payload while debugging, do not add a flag that logs it in production. Point to local debugging only.
@@ -34,10 +46,10 @@ Use synthetic resources only (no real patient data). For each site, build a reso
 
 ## Acceptance
 
-- None of the six messages contains payload text; tests above pass.
+- None of the eight messages contains payload text; tests above pass, and a `git grep` of `helix_fhir_client_sdk/` (excluding tests) for f-strings or concatenations that put `.json()`, `json.dumps(` of a resource, `response_text`, `responses` or `json_data_list` into error, log or exception text finds nothing left.
 - `uv run pytest helix_fhir_client_sdk/ -v` and `uv run mypy helix_fhir_client_sdk/` pass.
 - The PR states which public strings changed (site 1) and the semver label chosen.
 
 ## Not in scope
 
-Other logging in the SDK (a wider audit can be a separate ticket), and anything in the orjson ADR work (BAI-1960).
+Other logging in the SDK (a wider audit should get its own ticket, to be filed before this plan is implemented), and anything in the orjson ADR work (BAI-1960).
