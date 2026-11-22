@@ -1,4 +1,3 @@
-import json
 from typing import Any
 
 from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode import (
@@ -19,6 +18,7 @@ from helix_fhir_client_sdk.responses.get.fhir_get_list_response import (
 from helix_fhir_client_sdk.responses.get.fhir_get_single_response import (
     FhirGetSingleResponse,
 )
+from helix_fhir_client_sdk.utilities.fast_json import loads
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -56,7 +56,7 @@ class FhirGetResponseFactory:
                 # test if responses is valid json
                 try:
                     # Attempt to parse the JSON response
-                    json.loads(response_text)
+                    loads(response_text, byte_identical=byte_identical_json)
                 except ValueError as e:
                     error = f"Error parsing response: {response_text}: {e}"
 
@@ -83,7 +83,9 @@ class FhirGetResponseFactory:
                     create_operation_outcome_for_error=create_operation_outcome_for_error,
                 )
 
-            child_response_resources: dict[str, Any] | list[dict[str, Any]] = FhirGetResponse.parse_json(response_text)
+            child_response_resources: dict[str, Any] | list[dict[str, Any]] = FhirGetResponse.parse_json(
+                response_text, byte_identical_json=byte_identical_json
+            )
 
             # first see if it is just a list of resources
             if isinstance(child_response_resources, list):

@@ -81,7 +81,7 @@ class FhirGetSingleResponse(FhirGetResponse):
             byte_identical_json=byte_identical_json,
         )
         self._resource: FhirResource | None = self._parse_single_resource(
-            responses=response_text, storage_mode=storage_mode
+            responses=response_text, storage_mode=storage_mode, byte_identical_json=byte_identical_json
         )
 
     @override
@@ -192,7 +192,9 @@ class FhirGetSingleResponse(FhirGetResponse):
         return self
 
     @classmethod
-    def _parse_single_resource(cls, *, responses: str, storage_mode: CompressedDictStorageMode) -> FhirResource | None:
+    def _parse_single_resource(
+        cls, *, responses: str, storage_mode: CompressedDictStorageMode, byte_identical_json: bool = False
+    ) -> FhirResource | None:
         """
         Gets the single resource from the response
 
@@ -201,7 +203,9 @@ class FhirGetSingleResponse(FhirGetResponse):
         if not responses:
             return None
         try:
-            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(responses)
+            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(
+                responses, byte_identical_json=byte_identical_json
+            )
             assert isinstance(child_response_resources, dict)
             return FhirResource(initial_dict=child_response_resources, storage_mode=storage_mode)
         except Exception as e:
@@ -219,7 +223,7 @@ class FhirGetSingleResponse(FhirGetResponse):
 
         :return: response text
         """
-        return self._resource.json() if self._resource else ""
+        return self._resource.json(byte_identical=self.byte_identical_json) if self._resource else ""
 
     @override
     def sort_resources(self) -> "FhirGetSingleResponse":

@@ -18,6 +18,7 @@ from compressedfhir.utilities.compressed_dict.v1.compressed_dict_storage_mode im
 from dateutil import parser
 
 from helix_fhir_client_sdk.utilities.cache.request_cache import RequestCache
+from helix_fhir_client_sdk.utilities.fast_json import loads
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -285,12 +286,13 @@ class FhirGetResponse:
         ...
 
     @staticmethod
-    def parse_json(responses: str) -> dict[str, Any] | list[dict[str, Any]]:
+    def parse_json(responses: str, *, byte_identical_json: bool = False) -> dict[str, Any] | list[dict[str, Any]]:
         """
         Parses the json response from the fhir server
 
 
         :param responses: response from the fhir server
+        :param byte_identical_json: parse with the standard library instead of orjson
         :return: one of:
         1. response_resources is a list of resources
         2. response_resources is a bundle with a list of resources
@@ -309,7 +311,7 @@ class FhirGetResponse:
             }
 
         try:
-            return cast(dict[str, Any] | list[dict[str, Any]], json.loads(responses))
+            return cast(dict[str, Any] | list[dict[str, Any]], loads(responses, byte_identical=byte_identical_json))
         except json.decoder.JSONDecodeError as e:
             return {
                 "resourceType": "OperationOutcome",

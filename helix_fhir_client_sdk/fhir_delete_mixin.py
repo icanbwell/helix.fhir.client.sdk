@@ -1,5 +1,3 @@
-import json
-
 from furl import furl
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
@@ -12,6 +10,7 @@ from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
 )
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
+from helix_fhir_client_sdk.utilities.fast_json import loads
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
 )
@@ -62,6 +61,7 @@ class FhirDeleteMixin(FhirClientProtocol):
                     retries=self._retry_count,
                     exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                     use_data_streaming=self._use_data_streaming,
+                    byte_identical_json=self._byte_identical_json,
                     compress=False,
                     throw_exception_on_error=self._throw_exception_on_error,
                     log_all_url_results=self._log_all_response_urls,
@@ -136,6 +136,7 @@ class FhirDeleteMixin(FhirClientProtocol):
             retries=self._retry_count,
             exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
             use_data_streaming=self._use_data_streaming,
+            byte_identical_json=self._byte_identical_json,
             compress=False,
             throw_exception_on_error=self._throw_exception_on_error,
             log_all_url_results=self._log_all_response_urls,
@@ -154,7 +155,7 @@ class FhirDeleteMixin(FhirClientProtocol):
             response_text = await response.get_text_async()
             if response_text and response_text.startswith("{"):
                 # '{"deleted":0}'
-                deleted_info = json.loads(response_text)
+                deleted_info = loads(response_text, byte_identical=self._byte_identical_json)
                 deleted_count = deleted_info.get("deleted", None)
 
             return FhirDeleteResponse(

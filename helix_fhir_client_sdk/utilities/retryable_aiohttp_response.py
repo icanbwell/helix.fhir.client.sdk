@@ -1,10 +1,10 @@
-import json
 from datetime import datetime
 from typing import Any, cast
 
 from aiohttp import StreamReader
 from multidict import CIMultiDict
 
+from helix_fhir_client_sdk.utilities.fast_json import loads
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_url_result import (
     RetryableAioHttpUrlResult,
 )
@@ -27,6 +27,7 @@ class RetryableAioHttpResponse:
         "access_token",
         "access_token_expiry_date",
         "retry_count",
+        "byte_identical_json",
     ]
 
     def __init__(
@@ -42,6 +43,7 @@ class RetryableAioHttpResponse:
         access_token: str | None,
         access_token_expiry_date: datetime | None,
         retry_count: int | None,
+        byte_identical_json: bool = False,
     ) -> None:
         """
         Response object for retryable aiohttp requests
@@ -64,6 +66,7 @@ class RetryableAioHttpResponse:
         """ Content of the response as a stream """
 
         self.use_data_streaming: bool | None = use_data_streaming
+        self.byte_identical_json: bool = byte_identical_json
         """ If the response should be read as a stream """
 
         self.text_read: str | None = None
@@ -99,7 +102,7 @@ class RetryableAioHttpResponse:
 
     async def json(self) -> dict[str, str] | list[dict[str, str]]:
         text = await self.get_text_async()
-        return cast(dict[str, str] | list[dict[str, str]], json.loads(text))
+        return cast(dict[str, str] | list[dict[str, str]], loads(text, byte_identical=self.byte_identical_json))
 
     def to_dict(self) -> dict[str, Any]:
         """

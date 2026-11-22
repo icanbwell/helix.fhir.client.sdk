@@ -24,6 +24,7 @@ class AsyncFhirValidator:
         validation_server_url: str,
         access_token: str | None,
         caller_managed_session: bool = False,
+        byte_identical_json: bool = False,
     ) -> None:
         """
         Calls the validation server url to validate the given resource
@@ -34,6 +35,7 @@ class AsyncFhirValidator:
         :param validation_server_url: url to validation server
         :param access_token: access token to use
         :param caller_managed_session: if True, the caller is responsible for closing the session
+        :param byte_identical_json: parse the validation response with the standard library
         """
         # check each resource against the validation server
         headers = {"Content-Type": "application/fhir+json"}
@@ -46,6 +48,7 @@ class AsyncFhirValidator:
             fn_get_session=fn_get_session,
             caller_managed_session=caller_managed_session,
             use_data_streaming=False,
+            byte_identical_json=byte_identical_json,
             access_token=access_token,
             access_token_expiry_date=None,
             refresh_token_func=None,

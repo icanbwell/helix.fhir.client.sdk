@@ -1,9 +1,18 @@
+import pytest
+
 from helix_fhir_client_sdk.responses.fhir_response_processor import (
     FhirResponseProcessor,
 )
 
 
-async def test_expand_or_separate_bundle_async() -> None:
+@pytest.mark.parametrize(
+    "byte_identical_json, expected_resources_json",
+    [
+        (False, '[{"resourceType":"Patient","id":"1"},{"resourceType":"Patient","id":"2"}]'),
+        (True, '[{"resourceType": "Patient", "id": "1"}, {"resourceType": "Patient", "id": "2"}]'),
+    ],
+)
+async def test_expand_or_separate_bundle_async(byte_identical_json: bool, expected_resources_json: str) -> None:
     response_json = {
         "resourceType": "Bundle",
         "total": 2,
@@ -30,9 +39,9 @@ async def test_expand_or_separate_bundle_async() -> None:
         separate_bundle_resources=separate_bundle_resources,
         total_count=total_count,
         url=url,
+        byte_identical_json=byte_identical_json,
     )
 
-    expected_resources_json = '[{"resourceType": "Patient", "id": "1"}, {"resourceType": "Patient", "id": "2"}]'
     expected_total_count = 2
 
     assert result_resources_json == expected_resources_json

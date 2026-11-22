@@ -1,4 +1,3 @@
-import json
 import time
 from collections.abc import AsyncGenerator
 from datetime import datetime
@@ -33,6 +32,7 @@ from helix_fhir_client_sdk.responses.resource_separator import (
     ResourceSeparator,
     ResourceSeparatorResult,
 )
+from helix_fhir_client_sdk.utilities.fast_json import dumps_str, loads
 from helix_fhir_client_sdk.utilities.ndjson_chunk_streaming_parser import (
     NdJsonChunkStreamingParser,
 )
@@ -431,7 +431,7 @@ class FhirResponseProcessor:
         try:
             text = await response.get_text_async()
             if len(text) > 0:
-                response_json: dict[str, Any] = json.loads(text)
+                response_json: dict[str, Any] = loads(text, byte_identical=byte_identical_json)
                 if "resourceType" in response_json and response_json["resourceType"] == "Bundle":
                     # get next url if present
                     if "link" in response_json:
@@ -452,6 +452,7 @@ class FhirResponseProcessor:
                     separate_bundle_resources=separate_bundle_resources,
                     total_count=total_count,
                     url=url,
+                    byte_identical_json=byte_identical_json,
                 )
             yield FhirGetResponseFactory.create(
                 request_id=request_id,
@@ -503,6 +504,7 @@ class FhirResponseProcessor:
         separate_bundle_resources: bool,
         total_count: int,
         url: str | None,
+        byte_identical_json: bool = False,
     ) -> tuple[str, int]:
         # see if this is a Resource Bundle and un-bundle it
         if (
@@ -529,16 +531,16 @@ class FhirResponseProcessor:
                     extra_context_to_return=extra_context_to_return,
                 )
             )
-            resources_json = json.dumps(resource_separator_result.resources_dicts)
+            resources_json = dumps_str(resource_separator_result.resources_dicts, byte_identical=byte_identical_json)
             total_count = resource_separator_result.total_count
         elif len(resources) > 0:
             total_count = len(resources)
             if len(resources) == 1:
-                resources_json = json.dumps(resources[0])
+                resources_json = dumps_str(resources[0], byte_identical=byte_identical_json)
             else:
-                resources_json = json.dumps(resources)
+                resources_json = dumps_str(resources, byte_identical=byte_identical_json)
         else:
-            resources_json = json.dumps(resources)
+            resources_json = dumps_str(resources, byte_identical=byte_identical_json)
 
         return resources_json, total_count
 
@@ -687,9 +689,10 @@ class FhirResponseProcessor:
                                     separate_bundle_resources=separate_bundle_resources,
                                     total_count=total_count,
                                     url=url,
+                                    byte_identical_json=byte_identical_json,
                                 )
                             else:
-                                resources_json = json.dumps(completed_resource)
+                                resources_json = dumps_str(completed_resource, byte_identical=byte_identical_json)
 
                             yield FhirGetResponseFactory.create(
                                 request_id=request_id,

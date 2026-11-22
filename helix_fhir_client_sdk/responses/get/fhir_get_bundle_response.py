@@ -89,6 +89,7 @@ class FhirGetBundleResponse(FhirGetResponse):
             last_modified=self.lastModified,
             etag=self.etag,
             storage_mode=self.storage_mode,
+            byte_identical_json=byte_identical_json,
         )
         bundle_entries = FhirBundleAppender.add_operation_outcomes_to_bundle_entries(
             bundle_entries=bundle_entries,
@@ -200,6 +201,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         last_modified: datetime | None,
         etag: str | None,
         storage_mode: CompressedDictStorageMode,
+        byte_identical_json: bool = False,
     ) -> tuple[FhirBundleEntryList, FhirBundle]:
         """
         Gets the Bundle entries from the response
@@ -219,7 +221,9 @@ class FhirGetBundleResponse(FhirGetResponse):
             )
         try:
             # This is either a list of resources or a Bundle resource containing a list of resources
-            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(responses)
+            child_response_resources: dict[str, Any] | list[dict[str, Any]] = cls.parse_json(
+                responses, byte_identical_json=byte_identical_json
+            )
             assert isinstance(child_response_resources, dict)
 
             timestamp: str | None = cast(str | None, child_response_resources.get("timestamp"))
@@ -424,7 +428,7 @@ class FhirGetBundleResponse(FhirGetResponse):
         :return: response text
         """
         bundle: FhirBundle = self.create_bundle()
-        return bundle.json()
+        return bundle.json(byte_identical=self.byte_identical_json)
 
     @override
     def sort_resources(self) -> "FhirGetBundleResponse":

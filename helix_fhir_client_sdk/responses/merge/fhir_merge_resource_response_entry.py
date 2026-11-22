@@ -108,11 +108,13 @@ class FhirMergeResourceResponseEntry(BaseFhirMergeResourceResponseEntry):
     @classmethod
     @override
     def from_json(
-        cls, data: str, *, storage_mode: CompressedDictStorageMode
+        cls, data: str, *, storage_mode: CompressedDictStorageMode, byte_identical_json: bool = False
     ) -> list[BaseFhirMergeResourceResponseEntry]:
         if not data:
             return []
-        loaded_data: dict[str, Any] | list[dict[str, Any]] = parse_json_or_ndjson(data)
+        loaded_data: dict[str, Any] | list[dict[str, Any]] = parse_json_or_ndjson(
+            data, byte_identical=byte_identical_json
+        )
         if isinstance(loaded_data, list):
             return [FhirMergeResourceResponseEntry.from_dict(d, storage_mode=storage_mode) for d in loaded_data]
         else:

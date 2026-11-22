@@ -33,7 +33,7 @@ class FhirUpdateMixin(FhirClientProtocol):
         """
         if not resource.id:
             raise ValueError("Resource ID is required for update")
-        json_data = resource.json()
+        json_data = resource.json(byte_identical=self._byte_identical_json)
         response = await self.update_async(json_data=json_data, id_=resource.id)
         if response.error:
             raise ValueError(f"Failed to update resource: {response.error}")
@@ -51,7 +51,7 @@ class FhirUpdateMixin(FhirClientProtocol):
         for resource in resources:
             if not resource.id:
                 raise ValueError("Resource ID is required for update")
-            json_data = resource.json()
+            json_data = resource.json(byte_identical=self._byte_identical_json)
             response = await self.update_async(json_data=json_data, id_=resource.id)
             if response.error:
                 raise ValueError(f"Failed to update resource: {response.error}")
@@ -102,6 +102,7 @@ class FhirUpdateMixin(FhirClientProtocol):
                         validation_server_url=self._validation_server_url,
                         access_token=access_token,
                         caller_managed_session=self._fn_create_http_session is not None,
+                        byte_identical_json=self._byte_identical_json,
                     )
 
                 # actually make the request
@@ -113,6 +114,7 @@ class FhirUpdateMixin(FhirClientProtocol):
                     retries=self._retry_count,
                     exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                     use_data_streaming=self._use_data_streaming,
+                    byte_identical_json=self._byte_identical_json,
                     send_data_as_chunked=self._send_data_as_chunked,
                     compress=self._compress,
                     throw_exception_on_error=self._throw_exception_on_error,

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 import time
 from abc import ABC
@@ -22,6 +21,7 @@ from helix_fhir_client_sdk.responses.fhir_response_processor import (
 from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
 )
+from helix_fhir_client_sdk.utilities.fast_json import loads
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 from helix_fhir_client_sdk.utilities.retryable_aiohttp_client import (
     RetryableAioHttpClient,
@@ -133,6 +133,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 read_timeout_in_seconds=self._read_timeout_seconds,
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                 use_data_streaming=self._use_data_streaming,
+                byte_identical_json=self._byte_identical_json,
                 compress=self._compress,
                 throw_exception_on_error=self._throw_exception_on_error,
                 log_all_url_results=self._log_all_response_urls,
@@ -203,9 +204,9 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         url=self._url,
                         extra_context_to_return=self._extra_context_to_return,
                         use_data_streaming=self._use_data_streaming,
+                        byte_identical_json=self._byte_identical_json,
                         fn_handle_streaming_chunk=fn_handle_streaming_chunk,
                         storage_mode=self._storage_mode,
-                        byte_identical_json=self._byte_identical_json,
                         create_operation_outcome_for_error=self._create_operation_outcome_for_error,
                     ):
                         yield r
@@ -312,6 +313,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                 read_timeout_in_seconds=self._read_timeout_seconds,
                 exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                 use_data_streaming=self._use_data_streaming,
+                byte_identical_json=self._byte_identical_json,
                 compress=self._compress,
                 throw_exception_on_error=self._throw_exception_on_error,
                 log_all_url_results=self._log_all_response_urls,
@@ -369,7 +371,7 @@ class RequestQueueMixin(ABC, FhirClientProtocol):
                         response_next_url = None
 
                         response_text = await response.get_text_async()
-                        response_json = json.loads(response_text)
+                        response_json = loads(response_text, byte_identical=self._byte_identical_json)
 
                         if response_json.get("resourceType") == "Bundle":
                             if not request_id:

@@ -24,6 +24,7 @@ from helix_fhir_client_sdk.structures.get_access_token_result import (
     GetAccessTokenResult,
 )
 from helix_fhir_client_sdk.utilities.async_runner import AsyncRunner
+from helix_fhir_client_sdk.utilities.fast_json import dumps_str, loads
 from helix_fhir_client_sdk.utilities.fhir_client_logger import FhirClientLogger
 from helix_fhir_client_sdk.utilities.json_helpers import parse_json_or_ndjson
 from helix_fhir_client_sdk.utilities.list_chunker import ListChunker
@@ -56,11 +57,12 @@ class FhirMergeMixin(FhirClientProtocol):
 
                 await AsyncFhirValidator.validate_fhir_resource(
                     fn_get_session=self._fn_create_http_session or self.create_http_session,
-                    json_data=json.dumps(resource_json),
+                    json_data=dumps_str(resource_json, byte_identical=self._byte_identical_json),
                     resource_name=cast(str | None, resource_json.get("resourceType")) or self._resource or "",
                     validation_server_url=self._validation_server_url,
                     access_token=access_token,
                     caller_managed_session=self._fn_create_http_session is not None,
+                    byte_identical_json=self._byte_identical_json,
                 )
                 resource_json_list_clean.append(resource_json)
             except FhirValidationException as e:
@@ -78,11 +80,12 @@ class FhirMergeMixin(FhirClientProtocol):
                     access_token1: str | None = access_token_result1.access_token
                     await AsyncFhirValidator.validate_fhir_resource(
                         fn_get_session=self._fn_create_http_session or self.create_http_session,
-                        json_data=json.dumps(resource_json),
+                        json_data=dumps_str(resource_json, byte_identical=self._byte_identical_json),
                         resource_name=resource_json.get("resourceType") or self._resource or "",
                         validation_server_url=self._validation_server_url,
                         access_token=access_token1,
                         caller_managed_session=self._fn_create_http_session is not None,
+                        byte_identical_json=self._byte_identical_json,
                     )
                     resource_json_list_clean.append(resource_json)
                 except FhirValidationException as e:
@@ -149,7 +152,7 @@ class FhirMergeMixin(FhirClientProtocol):
 
                 try:
                     resource_json_list_incoming: list[dict[str, Any]] = [
-                        json.loads(json_data) for json_data in json_data_list
+                        loads(json_data, byte_identical=self._byte_identical_json) for json_data in json_data_list
                     ]
                     resource_json_list_clean: list[dict[str, Any]]
                     errors: list[dict[str, Any]] = []
@@ -171,13 +174,15 @@ class FhirMergeMixin(FhirClientProtocol):
                             # if there is only item in the list then send it instead of having it in a list
                             json_payload: str
                             if len(chunk) == 1:
-                                json_payload = json.dumps(chunk[0])
+                                json_payload = dumps_str(chunk[0], byte_identical=self._byte_identical_json)
                             elif self._content_type == "application/fhir+ndjson":
                                 # the FHIR server's streaming $merge only understands ndjson
                                 # (one resource per line), not a JSON array
-                                json_payload = "\n".join(json.dumps(item) for item in chunk)
+                                json_payload = "\n".join(
+                                    dumps_str(item, byte_identical=self._byte_identical_json) for item in chunk
+                                )
                             else:
-                                json_payload = json.dumps(chunk)
+                                json_payload = dumps_str(chunk, byte_identical=self._byte_identical_json)
                             # json_payload_bytes: str = json_payload
                             obj_id = id_ or 1  # TODO: remove this once the node fhir accepts merge without a parameter
                             assert obj_id
@@ -201,6 +206,7 @@ class FhirMergeMixin(FhirClientProtocol):
                                     retries=self._retry_count,
                                     exclude_status_codes_from_retry=self._exclude_status_codes_from_retry,
                                     use_data_streaming=self._use_data_streaming,
+                                    byte_identical_json=self._byte_identical_json,
                                     send_data_as_chunked=self._send_data_as_chunked,
                                     # a gzip-compressed request body forces chunked transfer encoding, which the
                                     # FHIR server's streaming ndjson $merge parser cannot handle correctly
@@ -224,7 +230,9 @@ class FhirMergeMixin(FhirClientProtocol):
                                         if response_text:
                                             try:
                                                 raw_response: list[dict[str, Any]] | dict[str, Any] = (
-                                                    parse_json_or_ndjson(response_text)
+                                                    parse_json_or_ndjson(
+                                                        response_text, byte_identical=self._byte_identical_json
+                                                    )
                                                 )
                                                 if isinstance(raw_response, list):
                                                     responses = raw_response
@@ -294,7 +302,7 @@ class FhirMergeMixin(FhirClientProtocol):
                                     elapsed_time=time.time() - start_time,
                                 ) from e
                     else:
-                        json_payload = json.dumps(json_data_list)
+                        json_payload = dumps_str(json_data_list, byte_identical=self._byte_identical_json)
                         yield FhirMergeResponse(
                             request_id=request_id,
                             url=full_uri.url,
