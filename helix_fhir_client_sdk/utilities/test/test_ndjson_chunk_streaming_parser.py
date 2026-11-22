@@ -151,22 +151,13 @@ def test_add_chunk_no_newline_at_the_end() -> None:
     assert result == expected_result
 
 
-# Synthetic lines only (no PHI).  Each is rejected by orjson but accepted by the standard library,
-# except the truncated line, which both reject.
+# Synthetic lines only (no PHI).
 _VALID_FIRST = '{"id": "first"}'
 _VALID_LAST = '{"id": "last"}'
 
 
-@pytest.mark.parametrize(
-    "bad_line",
-    [
-        '{"id": NaN}',
-        '{"id": "\\ud800"}',
-        "[" * 1100 + "]" * 1100,
-        '{"id": "truncated"',
-    ],
-)
-def test_invalid_line_in_the_middle_of_a_stream_raises_and_is_never_dropped(bad_line: str) -> None:
+@pytest.mark.parametrize("bad_line", ["{bad", '{"id": "truncated"', "[1, 2,]"])
+def test_invalid_line_in_the_middle_of_a_stream_raises(bad_line: str) -> None:
     parser = NdJsonChunkStreamingParser()
     chunk = f"{_VALID_FIRST}\n{bad_line}\n{_VALID_LAST}\n"
 
@@ -174,13 +165,19 @@ def test_invalid_line_in_the_middle_of_a_stream_raises_and_is_never_dropped(bad_
         parser.add_chunk(chunk, logger=None)
 
 
-@pytest.mark.parametrize("bad_line", ['{"id": NaN}', '{"id": "\\ud800"}', "[" * 1100 + "]" * 1100])
-def test_byte_identical_json_accepts_what_the_standard_library_accepts(bad_line: str) -> None:
-    parser = NdJsonChunkStreamingParser(byte_identical_json=True)
+# orjson rejects these; the standard library accepts them, so a line holding one is still delivered
+@pytest.mark.parametrize("line", ['{"id": NaN}', '{"id": "\\ud800"}', '{"id": 1e400}'])
+@pytest.mark.parametrize("byte_identical_json", [False, True])
+def test_line_only_the_standard_library_accepts_is_delivered_in_both_modes(
+    line: str, byte_identical_json: bool
+) -> None:
+    parser = NdJsonChunkStreamingParser(byte_identical_json=byte_identical_json)
 
-    result = parser.add_chunk(f"{_VALID_FIRST}\n{bad_line}\n{_VALID_LAST}\n", logger=None)
+    result = parser.add_chunk(f"{_VALID_FIRST}\n{line}\n{_VALID_LAST}\n", logger=None)
 
     assert len(result) == 3
+    assert result[0] == {"id": "first"}
+    assert result[2] == {"id": "last"}
 
 
 def test_partial_final_line_is_held_until_the_next_chunk() -> None:

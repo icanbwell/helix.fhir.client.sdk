@@ -85,9 +85,11 @@ def loads(text: str | bytes, *, byte_identical: bool = False, record_errors: boo
     Parse JSON text.
 
     :param text: JSON text
-    :param byte_identical: True parses with the standard library (exact big integers, accepts
-        NaN / Infinity).  False (default) parses with orjson: an integer outside -2^63..2^64-1
-        becomes a float, and NaN / Infinity / ``1e400`` / nesting deeper than 1024 are rejected.
+    :param byte_identical: True parses with the standard library only (exact big integers, accepts
+        NaN / Infinity).  False (default) parses with orjson, where an integer outside -2^63..2^64-1
+        becomes a float.  When orjson rejects the text (NaN, Infinity, ``1e400``, a lone surrogate escape,
+        nesting deeper than 1024, a BOM), the standard library parses it instead, so anything that parsed
+        before still parses.  Only text neither library accepts raises.
     :param record_errors: False when a failure is expected control flow (the caller falls back), so the span
         is not marked ``json.error``
     :return: the parsed value
@@ -105,9 +107,15 @@ def loads(text: str | bytes, *, byte_identical: bool = False, record_errors: boo
     try:
         value = orjson.loads(text)
     except orjson.JSONDecodeError as e:
-        _record("loads", len(text), started, error=record_errors)
         # orjson's error subclasses json.JSONDecodeError at runtime; its stubs do not say so
         cause = cast(json.JSONDecodeError, e)
-        raise JsonDecodeError(cause.msg, cause.doc if isinstance(cause.doc, str) else "", cause.pos) from e
+        try:
+            value = json.loads(text)
+        except (json.JSONDecodeError, RecursionError):
+            _record("loads", len(text), started, error=record_errors)
+            raise JsonDecodeError(cause.msg, cause.doc if isinstance(cause.doc, str) else "", cause.pos) from e
+        logger.debug("fast_json.loads fell back to the standard library: %s", cause.msg)
+        _record("loads", len(text), started, fallback=True)
+        return value
     _record("loads", len(text), started)
     return value

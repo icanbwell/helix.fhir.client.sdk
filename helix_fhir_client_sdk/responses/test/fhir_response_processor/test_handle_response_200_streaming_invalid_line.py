@@ -65,7 +65,7 @@ async def _stream(chunk_text: str, byte_identical_json: bool) -> list[FhirGetRes
     ]
 
 
-@pytest.mark.parametrize("bad_line", ["{bad", '{"id": NaN}', "[" * 1100 + "]" * 1100])
+@pytest.mark.parametrize("bad_line", ["{bad", '{"id": "truncated"'])
 async def test_invalid_line_yields_the_lines_before_it_then_an_error_response(bad_line: str) -> None:
     chunk_text = f"{json.dumps(FIRST)}\n{bad_line}\n{json.dumps(LAST)}\n"
 
@@ -77,10 +77,11 @@ async def test_invalid_line_yields_the_lines_before_it_then_an_error_response(ba
     assert results[1].error is not None
 
 
-async def test_byte_identical_json_keeps_lines_the_standard_library_accepts() -> None:
+@pytest.mark.parametrize("byte_identical_json", [False, True])
+async def test_line_only_the_standard_library_accepts_is_still_delivered(byte_identical_json: bool) -> None:
     chunk_text = f'{json.dumps(FIRST)}\n{{"id": NaN}}\n{json.dumps(LAST)}\n'
 
-    results = await _stream(chunk_text, byte_identical_json=True)
+    results = await _stream(chunk_text, byte_identical_json=byte_identical_json)
 
     assert len(results) == 3
     assert all(r.error is None for r in results)

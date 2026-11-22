@@ -15,6 +15,17 @@ from helix_fhir_client_sdk.utilities.fast_json import JsonDecodeError, dumps_str
 BIG_INT_TEXT = "1" + "0" * 29
 
 
+class _FakeSpan:
+    def __init__(self) -> None:
+        self.attributes: dict[str, Any] = {}
+
+    def is_recording(self) -> bool:
+        return True
+
+    def set_attribute(self, key: str, value: Any) -> None:
+        self.attributes[key] = value
+
+
 @dataclass
 class _WithUnderscoreField:
     _h: int
@@ -118,8 +129,8 @@ def test_loads_byte_identical_keeps_a_huge_integer_exact() -> None:
     assert loads(BIG_INT_TEXT, byte_identical=True) == int(BIG_INT_TEXT)
 
 
-@pytest.mark.parametrize("payload", ["NaN", "Infinity", "1e400", "[1, 2,]", ""])
-def test_loads_default_rejects_with_sdk_error_that_is_a_json_decode_error(payload: str) -> None:
+@pytest.mark.parametrize("payload", ["[1, 2,]", "", "{bad", '{"a": 1'])
+def test_loads_default_rejects_invalid_json_with_sdk_error_that_is_a_json_decode_error(payload: str) -> None:
     with pytest.raises(JsonDecodeError) as exc_info:
         loads(payload)
 
@@ -127,12 +138,32 @@ def test_loads_default_rejects_with_sdk_error_that_is_a_json_decode_error(payloa
     assert isinstance(exc_info.value.__cause__, orjson.JSONDecodeError)
 
 
-def test_loads_deeply_nested_input_is_rejected_by_default_and_accepted_by_stdlib() -> None:
+@pytest.mark.parametrize("payload", ["NaN", "Infinity", "-Infinity", "1e400", '"\\ud800"', '{"a": [NaN, 1e400]}'])
+def test_loads_default_falls_back_to_stdlib_for_text_only_stdlib_accepts(payload: str) -> None:
+    with pytest.raises(orjson.JSONDecodeError):
+        orjson.loads(payload)
+
+    assert repr(loads(payload)) == repr(json.loads(payload))
+
+
+def test_loads_default_fallback_is_recorded_on_the_span(monkeypatch: pytest.MonkeyPatch) -> None:
+    span = _FakeSpan()
+    monkeypatch.setattr("helix_fhir_client_sdk.utilities.fast_json.trace.get_current_span", lambda: span)
+
+    loads("[NaN]")
+
+    assert span.attributes["json.fallback"] is True
+    assert "json.error" not in span.attributes
+
+
+def test_loads_deeply_nested_input_never_leaks_a_recursion_error() -> None:
     nested = "[" * 1100 + "]" * 1100
 
-    with pytest.raises(JsonDecodeError):
+    # orjson rejects this; the stdlib accepts it on some Python versions and hits its recursion limit on others
+    try:
         loads(nested)
-    assert loads(nested, byte_identical=True) is not None
+    except JsonDecodeError:
+        pass
 
 
 @pytest.mark.parametrize(
@@ -154,17 +185,6 @@ def test_loads_error_type_exposed_to_callers_is_not_an_orjson_type() -> None:
 def test_loads_raises_the_sdk_error_in_both_modes(byte_identical: bool) -> None:
     with pytest.raises(JsonDecodeError):
         loads("{bad", byte_identical=byte_identical)
-
-
-class _FakeSpan:
-    def __init__(self) -> None:
-        self.attributes: dict[str, Any] = {}
-
-    def is_recording(self) -> bool:
-        return True
-
-    def set_attribute(self, key: str, value: Any) -> None:
-        self.attributes[key] = value
 
 
 def test_span_attributes_do_not_let_a_later_success_hide_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
