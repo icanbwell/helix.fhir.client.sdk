@@ -1,3 +1,4 @@
+import codecs
 import time
 from collections.abc import AsyncGenerator
 from datetime import datetime
@@ -646,6 +647,8 @@ class FhirResponseProcessor:
                     create_operation_outcome_for_error=False,
                 )
             else:
+                # a chunk boundary can fall inside a multi-byte UTF-8 character, so decode incrementally
+                utf8_decoder = codecs.getincrementaldecoder("utf-8")()
                 # iterate over the chunks and return the completed resources as we get them
                 async for chunk_bytes in get_chunk_iterator():
                     # # https://stackoverflow.com/questions/56346811/response-payload-is-not-completed-using-asyncio-aiohttp
@@ -653,7 +656,7 @@ class FhirResponseProcessor:
                     chunk_number += 1
                     if fn_handle_streaming_chunk:
                         await fn_handle_streaming_chunk(chunk_bytes, chunk_number)
-                    chunk = chunk_bytes.decode("utf-8")
+                    chunk = utf8_decoder.decode(chunk_bytes)
                     chunk_length = len(chunk_bytes)
                     total_kilobytes += chunk_length // 1024
                     invalid_line_error: NdJsonInvalidLineError | None = None
@@ -730,6 +733,8 @@ class FhirResponseProcessor:
 
                     if invalid_line_error is not None:
                         raise invalid_line_error
+                # raises if the stream ended inside a multi-byte character
+                utf8_decoder.decode(b"", final=True)
         except Exception as e:
             if logger:
                 logger.error(f"Error processing response from {full_url} with error: {str(e)}")
