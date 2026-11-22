@@ -13,7 +13,7 @@ re-serializes entries to compute cache hashes. `json` holds the GIL, so for a la
 other coroutine on the event loop waits. On a synthetic Bundle of 10,000 Observations (about 10 MB)
 `json.dumps` blocks for 53 ms and `json.loads` for 54 ms (measured, below).
 
-The related package `compressed-fhir` made the same move in PR #31 (ADR 0002 there). This ADR
+The related package `compressedfhir` (GitHub repo `compressed-fhir`) made the same move in PR #31 (ADR 0002 there). This ADR
 covers only this repository's own `json` calls.
 
 Repo state analysed: `helix.fhir.client.sdk@f6e8e34` (`main`), 2026-11-21. This work follows the
@@ -58,7 +58,7 @@ Ratios are the useful signal; production numbers will differ.
 
 Compact output was 7.8% smaller on the 1,000-entry Bundle (1,028,045 → 948,039 bytes; mostly ASCII).
 
-These are the gains from swapping the library only. compressed-fhir's 7 to 10x came from also
+These are the gains from swapping the library only. `compressedfhir`'s 7 to 10x came from also
 removing double decodes and repeated pruning, so do not carry those multiples over. Serialization
 is where the gain is (about 6x); parsing is about 2x, and only without a guard (see Further
 decisions). The end-to-end effect on a real request is **unproven**: the savings are milliseconds
@@ -261,7 +261,7 @@ handling and big-integer parse behavior are visible to callers. The target versi
   public surface and has no exemption for convention. A vendor-neutral enum (for example
   `JsonTextMode.COMPACT | LEGACY_EXACT`) would also survive a vendor change, so the vendor-name
   argument above is not the reason. The boolean is kept because it matches the three existing
-  setters (`use_data_streaming`, `compress`, `content_type`) and compressed-fhir's
+  setters (`use_data_streaming`, `compress`, `content_type`) and `compressedfhir`'s
   `byte_identical: bool`, and a second mode is unlikely; use an enum if one becomes plausible. No EA
   sign-off was sought (see Governance).
 
@@ -374,8 +374,10 @@ handling and big-integer parse behavior are visible to callers. The target versi
   result here as a table (repo, outputs consumed, exact-text dependency, action).
 * Risk: gain smaller than expected end to end (see Context). Do not advertise an end-to-end speedup
   until profiled.
-* Public contract: return types stay `str`. Released as a major version with a README upgrade
-  section listing the differences. A published major cannot be unpublished, so undoing this needs a
+* Public contract: return types stay `str`. The behavior table for `byte_identical_json` is documented in the docstrings of
+  `FhirClient.byte_identical_json` and the `fast_json` functions, which feed the generated API reference
+  (`docs/autoapi`); the README keeps only a short upgrade section that names the breaking changes and links there,
+  not a second copy of the table. Released as a major version. A published major cannot be unpublished, so undoing this needs a
   follow-up release.
 * Dependency: declare `orjson>=3.11.9` in `pyproject.toml` (a direct dependency now, not transitive).
   The `exclude-newer = "2 days"` setting applies.
