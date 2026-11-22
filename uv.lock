@@ -799,6 +799,7 @@ dependencies = [
     { name = "furl" },
     { name = "multidict" },
     { name = "opentelemetry-api" },
+    { name = "orjson" },
     { name = "python-dateutil" },
     { name = "requests" },
 ]
@@ -838,6 +839,7 @@ requires-dist = [
     { name = "furl" },
     { name = "multidict", specifier = ">=6" },
     { name = "opentelemetry-api", specifier = ">=1.39" },
+    { name = "orjson", specifier = ">=3.11.9" },
     { name = "python-dateutil" },
     { name = "requests" },
 ]
