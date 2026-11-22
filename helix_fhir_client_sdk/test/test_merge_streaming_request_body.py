@@ -31,7 +31,7 @@ def _sent_body(m: aioresponses, method: str, url: str) -> str:
 
 
 def _assert_is_ndjson(body: str, expected_resources: list[dict[str, str]]) -> None:
-    lines = body.splitlines()
+    lines = [line for line in body.split("\n") if line]
     assert len(lines) == len(expected_resources)
     assert [json.loads(line) for line in lines] == expected_resources
 
@@ -188,7 +188,7 @@ async def test_merge_async_ndjson_body_escapes_embedded_newlines_in_resource_fie
         _ = [response async for response in fhir_client.merge_async(json_data_list=json_data_list)]
 
         body = _sent_body(m, "POST", url)
-        lines = body.splitlines()
+        lines = [line for line in body.split("\n") if line]
         assert len(lines) == 2
         assert json.loads(lines[0]) == patient_with_newline
         assert json.loads(lines[1]) == _PATIENT_2

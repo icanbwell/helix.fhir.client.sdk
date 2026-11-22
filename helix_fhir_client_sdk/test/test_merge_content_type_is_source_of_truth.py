@@ -87,7 +87,7 @@ async def test_merge_async_sends_ndjson_body_from_content_type_alone_without_str
         _ = [response async for response in fhir_client.merge_async(json_data_list=json_data_list)]
 
         body = _sent_body(m, "POST", url)
-        lines = body.splitlines()
+        lines = [line for line in body.split("\n") if line]
         assert [json.loads(line) for line in lines] == [_PATIENT_1, _PATIENT_2]
         assert (
             _sent_compress(

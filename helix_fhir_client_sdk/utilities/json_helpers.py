@@ -16,4 +16,4 @@ def parse_json_or_ndjson(text: str) -> Any:
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        return [json.loads(line) for line in text.splitlines() if line.strip()]
+        return [json.loads(line) for line in text.split("\n") if line.strip()]
