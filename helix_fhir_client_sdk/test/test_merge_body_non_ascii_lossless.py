@@ -23,7 +23,8 @@ from helix_fhir_client_sdk.fhir_client import FhirClient
 
 # synthetic, non-PHI value containing 2-byte and 3-byte UTF-8 characters
 NON_ASCII_FAMILY = "Müller 山"
-URL_MERGE = "http://example.com/Patient/1/$merge"
+BASE_URL = "http://example.com"
+URL_MERGE = f"{BASE_URL}/Patient/1/$merge"
 
 
 def _patients(count: int) -> list[dict[str, Any]]:
@@ -63,7 +64,7 @@ def _assert_lossless(body: str, expected_count: int) -> None:
 @pytest.mark.parametrize("count", [1, 3])
 @pytest.mark.asyncio
 async def test_merge_resources_async_sends_lossless_non_ascii_body(streaming: bool, count: int) -> None:
-    fhir_client = FhirClient().url("http://example.com").resource("Patient").use_data_streaming(streaming)
+    fhir_client = FhirClient().url(BASE_URL).resource("Patient").use_data_streaming(streaming)
 
     with aioresponses() as m:
         m.post(URL_MERGE, status=200, payload={"resourceType": "Patient", "id": "1"})
@@ -84,7 +85,7 @@ async def test_merge_resources_async_sends_lossless_non_ascii_body(streaming: bo
 @pytest.mark.parametrize("count", [1, 3])
 @pytest.mark.asyncio
 async def test_merge_bundle_async_sends_lossless_non_ascii_body(streaming: bool, count: int) -> None:
-    fhir_client = FhirClient().url("http://example.com").resource("Patient").use_data_streaming(streaming)
+    fhir_client = FhirClient().url(BASE_URL).resource("Patient").use_data_streaming(streaming)
     bundle = FhirBundle(
         type_="batch",
         entry=FhirBundleEntryList([FhirBundleEntry(resource=FhirResource(o)) for o in _patients(count)]),
