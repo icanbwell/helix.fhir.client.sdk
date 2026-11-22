@@ -50,7 +50,7 @@ async def test_async_fhir_client_patient_by_identifier_missing_false() -> None:
 
     # Assert
     logger.info(response.get_response_text())
-    assert response.get_response_text() == response_text
+    assert json.loads(response.get_response_text()) == json.loads(response_text)
 
 
 async def test_async_fhir_client_patient_by_identifier_missing_true() -> None:
@@ -89,4 +89,4 @@ async def test_async_fhir_client_patient_by_identifier_missing_true() -> None:
 
     # Assert
     logger.info(response.get_response_text())
-    assert response.get_response_text() == response_text
+    assert json.loads(response.get_response_text()) == json.loads(response_text)

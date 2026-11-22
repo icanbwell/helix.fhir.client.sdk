@@ -64,7 +64,7 @@ async def test_async_fhir_client_patient_list_auth_fail_retry_custom_refresh_fun
         retry_count=0,
     )
     logger.info(response.get_response_text())
-    assert response.get_response_text() == response_text
+    assert json.loads(response.get_response_text()) == json.loads(response_text)
 
 
 @pytest.mark.parametrize("request_id_header_name", ["X-Request-ID", "x-request-id"])

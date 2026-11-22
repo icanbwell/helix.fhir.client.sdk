@@ -57,4 +57,4 @@ def test_fhir_client_patient_list_auth_fail_retry() -> None:
     response: FhirGetResponse = fhir_client.get()
 
     logger.info(response.get_response_text())
-    assert response.get_response_text() == response_text
+    assert json.loads(response.get_response_text()) == json.loads(response_text)

@@ -13,6 +13,7 @@ exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for 
 exclude-newer-span = "P2D"
 
 [options.exclude-newer-package]
+compressedfhir = { timestamp = "0001-01-01T00:00:00Z", span = "PT0S" }
 fhirschemapy = { timestamp = "0001-01-01T00:00:00Z", span = "PT0S" }
 
 [manifest]
@@ -573,15 +574,15 @@ wheels = [
 
 [[package]]
 name = "compressedfhir"
-version = "3.0.5"
+version = "5.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "msgpack" },
     { name = "orjson" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e0/c4/15c022b5f15c2f7596e0862eaab76fffc00c9dabd64178b3ad5a5322a60b/compressedfhir-3.0.5.tar.gz", hash = "sha256:e55aea45d1e039b2da0817a2a9ea6bd404449406b8f505ea9e9d29fe82229ce0", size = 45412, upload-time = "2026-09-10T11:41:45.082Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8f/d1/ece4884f9f1a8a41ab558119768dd8eee2a202b98120b53c7644f5bd84ab/compressedfhir-5.0.0.tar.gz", hash = "sha256:6ade81ca1d9347421127434fee841fb2d6ee120c9ef6b199925c40b6b36f87c8", size = 66399, upload-time = "2026-11-22T04:54:18.935Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e4/29/90e7a47fbf49cd6adbfd1c774f6bc93a6d4df923e0f664bf6726bfe09cbb/compressedfhir-3.0.5-py3-none-any.whl", hash = "sha256:088d6a69435fc547ea530f1bddb883031bc941b0f092718b6cab5a5ff6182b10", size = 62166, upload-time = "2026-09-10T11:41:44.103Z" },
+    { url = "https://files.pythonhosted.org/packages/f9/b5/b43d3c3dc67e5e81fbf3273910438ed48ada73c1f953dff6fc5d9ec592f7/compressedfhir-5.0.0-py3-none-any.whl", hash = "sha256:9a067132f79ce07683cd3703a7d20fb306dcdccfe56f38a18daf115f7aa745b9", size = 85036, upload-time = "2026-11-22T04:54:17.887Z" },
 ]
 
 [[package]]
@@ -832,7 +833,7 @@ requires-dist = [
     { name = "aiohttp", specifier = ">=3.14.3" },
     { name = "async-timeout", specifier = ">=4.0.3" },
     { name = "certifi", specifier = ">=2025.1.31" },
-    { name = "compressedfhir", specifier = ">=3.0.5" },
+    { name = "compressedfhir", specifier = ">=5.0.0" },
     { name = "fhirschemapy", specifier = ">=0.0.11" },
     { name = "furl" },
     { name = "multidict", specifier = ">=6" },
