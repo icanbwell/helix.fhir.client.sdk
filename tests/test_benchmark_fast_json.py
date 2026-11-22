@@ -15,6 +15,8 @@ from helix_fhir_client_sdk.utilities.fast_json import dumps_str, loads
 
 
 def _bundle(entries: int) -> dict[str, Any]:
+    # Object-heavy (short keys and values), which is the low end of the speed-up: dumps about 4x, loads about 1.5x.
+    # String- and number-heavy bundles (narrative text, float arrays) reach 6 to 9x for dumps.
     return {
         "resourceType": "Bundle",
         "type": "searchset",
