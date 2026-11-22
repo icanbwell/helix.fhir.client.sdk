@@ -240,7 +240,7 @@ handling and big-integer parse behavior are visible to callers. The target versi
   NaN produces different `compressedfhir` text in default and exact modes (PR #31 default drops the
   NaN key; the independent review reproduced differing hashes). One helper (for example `stable_resource_hash_input(resource) -> str`) owns this expression so the three sites cannot drift apart, and the regression test pins its output. A regression test pins a fixed
   resource's hash, including a NaN fixture.
-* **The NDJSON `splitlines()` fix is standalone, not an orjson prerequisite.**
+* **The NDJSON `splitlines()` fix is standalone, not an orjson prerequisite (BAI-1965).**
   `parse_json_or_ndjson` (`json_helpers.py:19`) parses only server responses, and fhir-server writes
   NDJSON with `JSON.stringify`, which leaves U+2028 and U+0085 unescaped, so `text.splitlines()`
   can already mis-split a server response today. The SDK writing raw U+2028 in a request is harmless
@@ -352,7 +352,7 @@ handling and big-integer parse behavior are visible to callers. The target versi
   `responses/fhir_get_response.py:420` (exception text with `resources.json()`) and `:316`
   (`__repr__` → `json.dumps(self.to_dict())`). This ADR touches these files; fix all of them in a
   separate ticket. Also: `fhir_response_processor.py:421` parses the whole response only to read the
-  `next` link (a substring check measured about 4 ms against a 39 ms parse); a separate optimization.
+  `next` link (a substring check measured about 4 ms against a 39 ms parse); a separate optimization (BAI-1966).
   `types-orjson` (dev dependency, `pyproject.toml:63`) should be checked once orjson is a direct
   dependency, since orjson ships its own type stubs.
 
@@ -437,6 +437,7 @@ every GitHub release; releases 5.0.22 to 5.0.27 shipped between 2026-11-10 and 2
 | Item | Owner | Status |
 |---|---|---|
 | Link the `compressedfhir` 5.0.0 upgrade PR; it must merge first (5.0.0 is published on PyPI as of 2026-11-22) | Imran | open |
+| Consumer survey in compressed-fhir PR #31 and the raw-UTF-8 prerequisite were passed to the compressed-fhir owners; reply tracking is on BAI-1960, not here | Imran | tracked on BAI-1960 |
 | Cap `compressedfhir` below 5 in `pyproject.toml` until the upgrade PR and `fhir-server#2775` are ready, since the unbounded `>=3.0.5` now resolves to 5.0.0 on a fresh install | Imran | open (separate PR) |
 | Version numbers for the two majors | Imran | open |
 | `fhir-server#2775` reviewed, merged and deployed | fhir-server owners | open (PR open, CI not checked) |
@@ -444,8 +445,6 @@ every GitHub release; releases 5.0.22 to 5.0.27 shipped between 2026-11-10 and 2
 | End-to-end share of wall-clock spent in JSON on a real graph or merge workload | Imran | unproven |
 | `compressedfhir` 5.0.0 contract (`raw_dict()` type, `FhirJSONEncoder` removable, NaN in `dict()`) | upgrade PR | unproven |
 | Prior-art search in Confluence (Approved); compressed-fhir PR #31 was supplied, not found by search | Imran | partial |
-| Tell the PR #31 author its consumer survey lists this repo at `>=1.0.13,<3` locked 1.0.13, but `main` is `>=3.0.5` locked 3.0.5 | Imran | message sent 2026-11-21 to the current compressed-fhir session; no reply yet |
-| Tell the `compressedfhir` upgrade PR owner about the raw-UTF-8 prerequisite (`fhir-server#2775`) | Imran | message sent 2026-11-21 (same message); no reply yet |
 | Separate ticket for PHI in error strings and logs (Further decisions) | Imran | filed as BAI-1964 |
 | What fhir-server does with `null` where stdlib wrote an invalid `NaN` literal in a `$merge` body | Imran | unproven |
 | Confluence prior-art search for orjson adoption elsewhere (the PROA page above was found; no other hits recorded) | Imran | partial |
