@@ -1,5 +1,6 @@
 import json
 
+import pytest
 from mockserver_client.mockserver_client import (
     MockServerFriendlyClient,
     mock_request,
@@ -47,3 +48,42 @@ async def test_fhir_client_patient_update_async() -> None:
     response: FhirUpdateResponse = await fhir_client.update_async(json_data=json.dumps(resource))
 
     assert not response.error
+
+
+@pytest.mark.parametrize(
+    "status_code, expected_error",
+    [
+        (200, None),  # existing resource replaced
+        (201, None),  # FHIR update-as-create: resource did not exist, server created it
+        (400, "400"),  # server rejected the request
+    ],
+)
+async def test_fhir_client_patient_update_async_status_handling(status_code: int, expected_error: str | None) -> None:
+    # Arrange
+    test_name = f"test_fhir_client_patient_update_async_status_{status_code}"
+    mock_server_url = "http://mock-server:1080"
+    mock_client: MockServerFriendlyClient = MockServerFriendlyClient(base_url=mock_server_url)
+    absolute_url: str = mock_server_url + "/" + test_name
+
+    mock_client.clear(f"/{test_name}/*.*")
+    mock_client.reset()
+
+    resource = {"resourceType": "Patient", "id": "12355"}
+    mock_client.expect(
+        request=mock_request(
+            path=f"/{test_name}/Patient/12355",
+            method="PUT",
+            body=json.dumps(resource),
+        ),
+        response=mock_response(code=status_code, body=json.dumps(resource)),
+        timing=times(1),
+    )
+
+    fhir_client = FhirClient().url(absolute_url).resource("Patient").id_(resource["id"])
+
+    # Act
+    response: FhirUpdateResponse = await fhir_client.update_async(json_data=json.dumps(resource))
+
+    # Assert
+    assert response.status == status_code
+    assert response.error == expected_error
