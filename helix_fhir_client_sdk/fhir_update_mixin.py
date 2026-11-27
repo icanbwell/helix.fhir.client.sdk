@@ -125,7 +125,10 @@ class FhirUpdateMixin(FhirClientProtocol):
                     response = await client.put(url=full_uri.url, data=json_data, headers=headers)
                     request_id = response.response_headers.get("X-Request-ID", None)
                     self._internal_logger.debug(f"X-Request-ID={request_id}")
-                    if response.status == 200:
+                    # FHIR PUT returns 200 when an existing resource is updated and
+                    # 201 when the server creates it (update-as-create); both are success.
+                    is_success: bool = response.status in (200, 201)
+                    if is_success:
                         if self._logger:
                             self._logger.info(f"Successfully updated: {full_uri}")
 
@@ -133,7 +136,7 @@ class FhirUpdateMixin(FhirClientProtocol):
                         request_id=request_id,
                         url=full_uri.tostr(),
                         responses=await response.get_text_async(),
-                        error=f"{response.status}" if not response.status == 200 else None,
+                        error=None if is_success else f"{response.status}",
                         access_token=access_token,
                         status=response.status,
                         resource_type=self._resource,
